@@ -50,6 +50,32 @@ const DAY_COLORS: Record<string, string> = {
   Sat: "oklch(0.55 0.16 85)",
 };
 
+interface SeasonStats {
+  // Common
+  gp: number;          // games played
+  // Passing
+  passYds?: number;
+  passTd?: number;
+  passInt?: number;
+  // Rushing
+  rushYds?: number;
+  rushTd?: number;
+  rushAtt?: number;
+  // Receiving
+  rec?: number;
+  recYds?: number;
+  recTd?: number;
+  // Kicker
+  fgm?: number;
+  fga?: number;
+  xpm?: number;
+  // DST
+  sacks?: number;
+  defInt?: number;
+  defTd?: number;
+  pa?: number;         // points allowed avg
+}
+
 interface Player {
   id: string;
   name: string;
@@ -60,31 +86,35 @@ interface Player {
   status: string;
   slot?: string;
   isBench?: boolean;
+  // Season stats
+  seasonFpts?: number;   // total season fantasy points
+  byeWeek?: number;      // NFL bye week number
+  seasonStats?: SeasonStats;
 }
 
 const MOCK_STARTERS: Player[] = [
-  { id: "s1",  slot: "QB",    name: "Josh Allen",           nflTeam: "BUF", pos: "QB",  pts: 34.2, proj: 38.0, status: "Active" },
-  { id: "s2",  slot: "RB1",   name: "Derrick Henry",        nflTeam: "BAL", pos: "RB",  pts: 18.6, proj: 22.0, status: "Active" },
-  { id: "s3",  slot: "RB2",   name: "Saquon Barkley",       nflTeam: "PHI", pos: "RB",  pts: 22.4, proj: 24.5, status: "Active" },
-  { id: "s4",  slot: "WR1",   name: "Tyreek Hill",          nflTeam: "MIA", pos: "WR",  pts: 14.8, proj: 18.0, status: "Active" },
-  { id: "s5",  slot: "WR2",   name: "CeeDee Lamb",          nflTeam: "DAL", pos: "WR",  pts: 28.6, proj: 26.0, status: "Active" },
-  { id: "s6",  slot: "TE",    name: "Sam LaPorta",          nflTeam: "DET", pos: "TE",  pts: 16.5, proj: 14.0, status: "Active" },
-  { id: "s7",  slot: "SFLEX", name: "Lamar Jackson",        nflTeam: "BAL", pos: "QB",  pts: 42.1, proj: 40.0, status: "Active" },
-  { id: "s8",  slot: "FLEX",  name: "Jahmyr Gibbs",         nflTeam: "DET", pos: "RB",  pts: 19.8, proj: 21.0, status: "Active" },
-  { id: "s9",  slot: "K",     name: "Harrison Butker",      nflTeam: "KC",  pos: "K",   pts: 8.0,  proj: 9.0,  status: "Active" },
-  { id: "s10", slot: "DST",   name: "San Francisco 49ers",  nflTeam: "SF",  pos: "DST", pts: 12.0, proj: 11.0, status: "Active" },
+  { id: "s1",  slot: "QB",    name: "Josh Allen",           nflTeam: "BUF", pos: "QB",  pts: 34.2, proj: 38.0, status: "Active", byeWeek: 12, seasonFpts: 412.8, seasonStats: { gp: 13, passYds: 3842, passTd: 32, passInt: 6, rushYds: 524, rushTd: 7 } },
+  { id: "s2",  slot: "RB1",   name: "Derrick Henry",        nflTeam: "BAL", pos: "RB",  pts: 18.6, proj: 22.0, status: "Active", byeWeek: 14, seasonFpts: 298.4, seasonStats: { gp: 13, rushYds: 1512, rushTd: 14, rushAtt: 248, rec: 18, recYds: 112 } },
+  { id: "s3",  slot: "RB2",   name: "Saquon Barkley",       nflTeam: "PHI", pos: "RB",  pts: 22.4, proj: 24.5, status: "Active", byeWeek: 5,  seasonFpts: 276.2, seasonStats: { gp: 13, rushYds: 1284, rushTd: 11, rushAtt: 218, rec: 34, recYds: 248, recTd: 2 } },
+  { id: "s4",  slot: "WR1",   name: "Tyreek Hill",          nflTeam: "MIA", pos: "WR",  pts: 14.8, proj: 18.0, status: "Active", byeWeek: 6,  seasonFpts: 218.6, seasonStats: { gp: 13, rec: 72, recYds: 1024, recTd: 6 } },
+  { id: "s5",  slot: "WR2",   name: "CeeDee Lamb",          nflTeam: "DAL", pos: "WR",  pts: 28.6, proj: 26.0, status: "Active", byeWeek: 7,  seasonFpts: 312.4, seasonStats: { gp: 13, rec: 94, recYds: 1348, recTd: 11 } },
+  { id: "s6",  slot: "TE",    name: "Sam LaPorta",          nflTeam: "DET", pos: "TE",  pts: 16.5, proj: 14.0, status: "Active", byeWeek: 5,  seasonFpts: 184.8, seasonStats: { gp: 13, rec: 58, recYds: 624, recTd: 7 } },
+  { id: "s7",  slot: "SFLEX", name: "Lamar Jackson",        nflTeam: "BAL", pos: "QB",  pts: 42.1, proj: 40.0, status: "Active", byeWeek: 14, seasonFpts: 448.2, seasonStats: { gp: 13, passYds: 3124, passTd: 28, passInt: 4, rushYds: 812, rushTd: 11 } },
+  { id: "s8",  slot: "FLEX",  name: "Jahmyr Gibbs",         nflTeam: "DET", pos: "RB",  pts: 19.8, proj: 21.0, status: "Active", byeWeek: 5,  seasonFpts: 242.6, seasonStats: { gp: 13, rushYds: 924, rushTd: 9, rushAtt: 164, rec: 42, recYds: 348, recTd: 3 } },
+  { id: "s9",  slot: "K",     name: "Harrison Butker",      nflTeam: "KC",  pos: "K",   pts: 8.0,  proj: 9.0,  status: "Active", byeWeek: 6,  seasonFpts: 142.0, seasonStats: { gp: 13, fgm: 28, fga: 31, xpm: 42 } },
+  { id: "s10", slot: "DST",   name: "San Francisco 49ers",  nflTeam: "SF",  pos: "DST", pts: 12.0, proj: 11.0, status: "Active", byeWeek: 9,  seasonFpts: 168.4, seasonStats: { gp: 13, sacks: 42, defInt: 14, defTd: 4, pa: 18 } },
 ];
 
 const MOCK_BENCH: Player[] = [
-  { id: "b1", name: "Jaylen Waddle",       nflTeam: "MIA", pos: "WR",  pts: 11.2, proj: 13.0, status: "Active", isBench: true },
-  { id: "b2", name: "Tony Pollard",        nflTeam: "TEN", pos: "RB",  pts: 8.4,  proj: 10.0, status: "Active", isBench: true },
-  { id: "b3", name: "Kyle Pitts",          nflTeam: "ATL", pos: "TE",  pts: 7.6,  proj: 9.5,  status: "Q",      isBench: true },
-  { id: "b4", name: "Gus Edwards",         nflTeam: "LAC", pos: "RB",  pts: 4.2,  proj: 6.0,  status: "Active", isBench: true },
-  { id: "b5", name: "Elijah Moore",        nflTeam: "CLE", pos: "WR",  pts: 6.8,  proj: 8.0,  status: "Active", isBench: true },
-  { id: "b6", name: "Evan McPherson",      nflTeam: "CIN", pos: "K",   pts: 5.0,  proj: 7.0,  status: "Active", isBench: true },
-  { id: "b7", name: "Pittsburgh Steelers", nflTeam: "PIT", pos: "DST", pts: 9.0,  proj: 8.5,  status: "Active", isBench: true },
-  { id: "b8", name: "Tyjae Spears",        nflTeam: "TEN", pos: "RB",  pts: 3.6,  proj: 5.0,  status: "Active", isBench: true },
-  { id: "b9", name: "Christian McCaffrey", nflTeam: "SF",  pos: "RB",  pts: 0.0,  proj: 0.0,  status: "BYE",    isBench: true },
+  { id: "b1", name: "Jaylen Waddle",       nflTeam: "MIA", pos: "WR",  pts: 11.2, proj: 13.0, status: "Active", isBench: true, byeWeek: 6,  seasonFpts: 162.4, seasonStats: { gp: 12, rec: 54, recYds: 724, recTd: 4 } },
+  { id: "b2", name: "Tony Pollard",        nflTeam: "TEN", pos: "RB",  pts: 8.4,  proj: 10.0, status: "Active", isBench: true, byeWeek: 5,  seasonFpts: 138.6, seasonStats: { gp: 13, rushYds: 624, rushTd: 5, rushAtt: 148, rec: 22, recYds: 148 } },
+  { id: "b3", name: "Kyle Pitts",          nflTeam: "ATL", pos: "TE",  pts: 7.6,  proj: 9.5,  status: "Q",      isBench: true, byeWeek: 12, seasonFpts: 124.8, seasonStats: { gp: 11, rec: 42, recYds: 548, recTd: 3 } },
+  { id: "b4", name: "Gus Edwards",         nflTeam: "LAC", pos: "RB",  pts: 4.2,  proj: 6.0,  status: "Active", isBench: true, byeWeek: 5,  seasonFpts: 88.4,  seasonStats: { gp: 12, rushYds: 448, rushTd: 4, rushAtt: 112 } },
+  { id: "b5", name: "Elijah Moore",        nflTeam: "CLE", pos: "WR",  pts: 6.8,  proj: 8.0,  status: "Active", isBench: true, byeWeek: 5,  seasonFpts: 96.2,  seasonStats: { gp: 13, rec: 38, recYds: 512, recTd: 3 } },
+  { id: "b6", name: "Evan McPherson",      nflTeam: "CIN", pos: "K",   pts: 5.0,  proj: 7.0,  status: "Active", isBench: true, byeWeek: 7,  seasonFpts: 112.0, seasonStats: { gp: 13, fgm: 22, fga: 26, xpm: 34 } },
+  { id: "b7", name: "Pittsburgh Steelers", nflTeam: "PIT", pos: "DST", pts: 9.0,  proj: 8.5,  status: "Active", isBench: true, byeWeek: 9,  seasonFpts: 134.6, seasonStats: { gp: 13, sacks: 34, defInt: 10, defTd: 2, pa: 22 } },
+  { id: "b8", name: "Tyjae Spears",        nflTeam: "TEN", pos: "RB",  pts: 3.6,  proj: 5.0,  status: "Active", isBench: true, byeWeek: 5,  seasonFpts: 82.4,  seasonStats: { gp: 12, rushYds: 348, rushTd: 3, rushAtt: 88, rec: 18, recYds: 112 } },
+  { id: "b9", name: "Christian McCaffrey", nflTeam: "SF",  pos: "RB",  pts: 0.0,  proj: 0.0,  status: "BYE",    isBench: true, byeWeek: 9,  seasonFpts: 188.2, seasonStats: { gp: 10, rushYds: 748, rushTd: 8, rushAtt: 148, rec: 52, recYds: 384, recTd: 4 } },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
@@ -113,6 +143,98 @@ const POS_COLORS: Record<string, string> = {
   K:   "oklch(0.50 0.04 150)",
   DST: "oklch(0.45 0.18 25)",
 };
+
+// ── Season stats helper ─────────────────────────────────────────────────────
+function buildSeasonStatChips(player: Player): { label: string; value: string }[] {
+  const s = player.seasonStats;
+  if (!s) return [];
+  const chips: { label: string; value: string }[] = [];
+  if (player.pos === "QB") {
+    if (s.passYds)  chips.push({ label: "PYDS", value: s.passYds.toLocaleString() });
+    if (s.passTd)   chips.push({ label: "PTD",  value: String(s.passTd) });
+    if (s.passInt)  chips.push({ label: "INT",  value: String(s.passInt) });
+    if (s.rushYds)  chips.push({ label: "RYDS", value: String(s.rushYds) });
+    if (s.rushTd)   chips.push({ label: "RTD",  value: String(s.rushTd) });
+  } else if (player.pos === "RB") {
+    if (s.rushYds)  chips.push({ label: "RYDS", value: s.rushYds.toLocaleString() });
+    if (s.rushTd)   chips.push({ label: "RTD",  value: String(s.rushTd) });
+    if (s.rec)      chips.push({ label: "REC",  value: String(s.rec) });
+    if (s.recYds)   chips.push({ label: "RCYDS",value: String(s.recYds) });
+    if (s.recTd)    chips.push({ label: "RCTD", value: String(s.recTd) });
+  } else if (player.pos === "WR" || player.pos === "TE") {
+    if (s.rec)      chips.push({ label: "REC",  value: String(s.rec) });
+    if (s.recYds)   chips.push({ label: "YDS",  value: s.recYds.toLocaleString() });
+    if (s.recTd)    chips.push({ label: "TD",   value: String(s.recTd) });
+  } else if (player.pos === "K") {
+    if (s.fgm !== undefined && s.fga !== undefined)
+      chips.push({ label: "FG", value: `${s.fgm}/${s.fga}` });
+    if (s.xpm)      chips.push({ label: "XP",   value: String(s.xpm) });
+  } else if (player.pos === "DST") {
+    if (s.sacks)    chips.push({ label: "SACK", value: String(s.sacks) });
+    if (s.defInt)   chips.push({ label: "INT",  value: String(s.defInt) });
+    if (s.defTd)    chips.push({ label: "TD",   value: String(s.defTd) });
+    if (s.pa)       chips.push({ label: "PA/G", value: String(s.pa) });
+  }
+  return chips;
+}
+
+function SeasonStatsRow({ player }: { player: Player }) {
+  if (!player.seasonFpts && !player.byeWeek && !player.seasonStats) return null;
+  const gp   = player.seasonStats?.gp ?? 0;
+  const fpg  = gp > 0 && player.seasonFpts ? (player.seasonFpts / gp).toFixed(1) : null;
+  const chips = buildSeasonStatChips(player);
+  return (
+    <div style={{
+      display: "flex", flexWrap: "wrap" as const, alignItems: "center",
+      gap: "0.3rem", marginTop: "0.3rem",
+    }}>
+      {/* Season FPTS */}
+      {player.seasonFpts !== undefined && (
+        <span style={{
+          fontSize: "0.6rem", fontFamily: "Oswald, sans-serif", fontWeight: 700,
+          padding: "1px 5px", borderRadius: 3,
+          background: "oklch(0.92 0.06 150)", color: "oklch(0.28 0.09 150)",
+          border: "1px solid oklch(0.84 0.08 150)", whiteSpace: "nowrap" as const,
+        }}>
+          {player.seasonFpts.toFixed(1)} FPTS
+        </span>
+      )}
+      {/* FP/G */}
+      {fpg && (
+        <span style={{
+          fontSize: "0.6rem", fontFamily: "Oswald, sans-serif", fontWeight: 700,
+          padding: "1px 5px", borderRadius: 3,
+          background: "oklch(0.94 0.04 85)", color: "oklch(0.38 0.14 85)",
+          border: "1px solid oklch(0.86 0.07 85)", whiteSpace: "nowrap" as const,
+        }}>
+          {fpg}/G
+        </span>
+      )}
+      {/* Bye week */}
+      {player.byeWeek !== undefined && (
+        <span style={{
+          fontSize: "0.6rem", fontFamily: "Oswald, sans-serif", fontWeight: 700,
+          padding: "1px 5px", borderRadius: 3,
+          background: "oklch(0.93 0.005 150)", color: "oklch(0.52 0.02 150)",
+          border: "1px solid oklch(0.85 0.01 150)", whiteSpace: "nowrap" as const,
+        }}>
+          BYE {player.byeWeek}
+        </span>
+      )}
+      {/* Season stat chips */}
+      {chips.map((c, i) => (
+        <span key={i} style={{
+          fontSize: "0.58rem", fontFamily: "Oswald, sans-serif", fontWeight: 600,
+          padding: "1px 4px", borderRadius: 3,
+          background: "oklch(0.95 0.005 150)", color: "oklch(0.42 0.04 150)",
+          border: "1px solid oklch(0.88 0.01 150)", whiteSpace: "nowrap" as const,
+        }}>
+          {c.label} {c.value}
+        </span>
+      ))}
+    </div>
+  );
+}
 
 function GameInfo({ nflTeam }: { nflTeam: string }) {
   const game = NFL_GAMES[nflTeam];
@@ -342,6 +464,8 @@ export default function Lineup() {
                           <span style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)" }}>{player.pos} · {player.nflTeam}</span>
                           <GameInfo nflTeam={player.nflTeam} />
                         </div>
+                        {/* Season stats row */}
+                        <SeasonStatsRow player={player} />
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
                         <span style={{
@@ -439,6 +563,8 @@ export default function Lineup() {
                       <span style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)" }}>{player.pos} · {player.nflTeam}</span>
                       <GameInfo nflTeam={player.nflTeam} />
                     </div>
+                    {/* Season stats row */}
+                    <SeasonStatsRow player={player} />
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
                     <span style={{ fontSize: "0.62rem", fontWeight: 700, fontFamily: "Oswald, sans-serif", padding: "1px 5px", borderRadius: 3, background: STATUS_BG[player.status] || "oklch(0.94 0.02 150)", color: STATUS_COLORS[player.status] || "oklch(0.5 0.04 150)" }}>{player.status}</span>

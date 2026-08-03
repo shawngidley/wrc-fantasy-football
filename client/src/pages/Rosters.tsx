@@ -498,7 +498,7 @@ export default function Rosters() {
                             borderRadius: 4,
                             padding: "1px 6px",
                           }}>
-                            FAAB: ${`${team.faabRemaining}`}
+                            FAAB: ${"\$"}{team.faabRemaining}
                           </div>
                         )}
                       </div>
