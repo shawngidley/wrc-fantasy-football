@@ -426,7 +426,7 @@ export default function Trades() {
         {/* Trade History */}
         <div className="wrc-card">
           <div className="wrc-card-gold-stripe" />
-          <div className="wrc-card-header">Trade History — 2025 Season</div>
+          <div className="wrc-card-header">Trade History — 2026 Season</div>
           <div>
             {TRADE_HISTORY.map((t, i) => (
               <div key={i} style={{ padding: "1rem 1.25rem", borderBottom: "1px solid oklch(0.92 0.005 150)" }}>

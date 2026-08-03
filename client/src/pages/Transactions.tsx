@@ -28,7 +28,7 @@ export default function Transactions() {
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "1.5rem 1rem 3rem" }}>
         <div className="wrc-page-title" style={{ padding: "1rem 0 1.25rem" }}>
           <h1>Transactions</h1>
-          <p>All adds, drops, and trades — 2025 Season</p>
+          <p>All adds, drops, and trades — 2026 Season</p>
         </div>
         <div className="wrc-card">
           <div className="wrc-card-gold-stripe" />

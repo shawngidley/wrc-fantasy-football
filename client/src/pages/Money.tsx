@@ -248,7 +248,7 @@ export default function Money() {
         {/* Page Title */}
         <div className="wrc-page-title" style={{ padding: "1rem 0 1.5rem" }}>
           <h1>Money</h1>
-          <p>2025 Season — Entry Fees, Prize Structure &amp; Earnings</p>
+          <p>2026 Season — Entry Fees, Prize Structure &amp; Earnings</p>
         </div>
 
         {/* ── SECTION 1: Money Owed ─────────────────────────────────────────── */}

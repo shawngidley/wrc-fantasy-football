@@ -1,5 +1,5 @@
 /**
- * WRC Fantasy Football — Real League Data (2025 Season)
+ * WRC Fantasy Football — Real League Data (2026 Season)
  * Source: WRCFootballFolder(2025).xlsx
  *
  * 12 Teams across 3 divisions (East / Central / West)
@@ -46,7 +46,7 @@ export const TEAMS: TeamRecord[] = [
     division: "East",
     wins: 27, losses: 15, ptsFor: 1874.26, ptsAgainst: 1812.14,
     clinched: "division",
-    faabRemaining: 300,
+    faabRemaining: 1000,
     players: [
       p("Jared Goff",           "QB",  "DET", 7,    "Draft"),
       p("Bryce Young",          "QB",  "CAR", null, "FA"),
@@ -75,7 +75,7 @@ export const TEAMS: TeamRecord[] = [
     division: "East",
     wins: 17, losses: 25, ptsFor: 1749.64, ptsAgainst: 1799.58,
     clinched: null,
-    faabRemaining: 155,
+    faabRemaining: 1000,
     players: [
       p("Bo Nix",               "QB",  "DEN", 6,    "Draft"),
       p("Jaxson Dart",          "QB",  "NYG", null, "FA"),
@@ -104,7 +104,7 @@ export const TEAMS: TeamRecord[] = [
     division: "East",
     wins: 22, losses: 20, ptsFor: 1769.8, ptsAgainst: 1706.58,
     clinched: null,
-    faabRemaining: 99,
+    faabRemaining: 1000,
     players: [
       p("Justin Herbert",       "QB",  "LAC", 6,    "Draft"),
       p("Kyler Murray",         "QB",  "ARZ", 6,    "Draft"),
@@ -134,7 +134,7 @@ export const TEAMS: TeamRecord[] = [
     division: "Central",
     wins: 20, losses: 22, ptsFor: 1812.6, ptsAgainst: 1788.44,
     clinched: null,
-    faabRemaining: 3,
+    faabRemaining: 1000,
     players: [
       p("Jordan Love",          "QB",  "GB",  9,    "Draft"),
       p("Tyler Shough",         "QB",  "NO",  null, "FA"),
@@ -163,7 +163,7 @@ export const TEAMS: TeamRecord[] = [
     division: "Central",
     wins: 26, losses: 16, ptsFor: 1929.64, ptsAgainst: 1814.96,
     clinched: "playoff",
-    faabRemaining: 5,
+    faabRemaining: 1000,
     players: [
       p("Dak Prescott",         "QB",  "DAL", 5,    "Draft"),
       p("Brock Purdy",          "QB",  "SF",  9,    "Draft"),
@@ -192,7 +192,7 @@ export const TEAMS: TeamRecord[] = [
     division: "Central",
     wins: 22, losses: 20, ptsFor: 1906.2, ptsAgainst: 1861.32,
     clinched: null,
-    faabRemaining: 0,
+    faabRemaining: 1000,
     players: [
       p("Lamar Jackson",        "QB",  "BAL", 2,    "Draft"),
       p("Daniel Jones",         "QB",  "IND", null, "FA"),
@@ -221,7 +221,7 @@ export const TEAMS: TeamRecord[] = [
     division: "Central",
     wins: 14, losses: 28, ptsFor: 1650.22, ptsAgainst: 1877.1,
     clinched: null,
-    faabRemaining: 769,
+    faabRemaining: 1000,
     players: [
       p("Jayden Daniels",       "QB",  "WAS", 3,    "Draft"),
       p("Drake Maye",           "QB",  "NE",  8,    "Draft"),
@@ -251,7 +251,7 @@ export const TEAMS: TeamRecord[] = [
     division: "West",
     wins: 26, losses: 16, ptsFor: 1774.48, ptsAgainst: 1761.14,
     clinched: "division",
-    faabRemaining: 133,
+    faabRemaining: 1000,
     players: [
       p("Jalen Hurts",          "QB",  "PHI", 2,    "Draft"),
       p("Tua Tagovailoa",       "QB",  "MIA", null, "FA"),
@@ -280,7 +280,7 @@ export const TEAMS: TeamRecord[] = [
     division: "West",
     wins: 27, losses: 15, ptsFor: 1904.4, ptsAgainst: 1748.9,
     clinched: "division",
-    faabRemaining: 250,
+    faabRemaining: 1000,
     players: [
       p("Caleb Williams",       "QB",  "CHI", 9,    "Draft"),
       p("Sam Darnold",          "QB",  "SEA", 15,   "Draft"),
@@ -309,7 +309,7 @@ export const TEAMS: TeamRecord[] = [
     division: "West",
     wins: 25, losses: 17, ptsFor: 1999.02, ptsAgainst: 1959.82,
     clinched: "playoff",
-    faabRemaining: 17,
+    faabRemaining: 1000,
     players: [
       p("Josh Allen",           "QB",  "BUF", 1,    "Draft"),
       p("Patrick Mahomes",      "QB",  "KAN", 4,    "Draft"),
@@ -338,7 +338,7 @@ export const TEAMS: TeamRecord[] = [
     division: "West",
     wins: 12, losses: 30, ptsFor: 1739.7, ptsAgainst: 1898.16,
     clinched: null,
-    faabRemaining: 6,
+    faabRemaining: 1000,
     players: [
       p("Baker Mayfield",           "QB",  "TAM", 6,    "Draft"),
       p("Jacoby Brissett",          "QB",  "ARZ", null, "FA"),

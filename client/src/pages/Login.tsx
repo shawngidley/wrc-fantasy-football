@@ -73,7 +73,7 @@ export default function Login() {
           WRC Fantasy Football
         </h1>
         <p style={{ color: "rgba(255,255,255,0.65)", fontSize: "0.9rem", margin: "0.4rem 0 0", letterSpacing: "0.04em" }}>
-          2025 Season
+          2026 Season
         </p>
       </div>
 

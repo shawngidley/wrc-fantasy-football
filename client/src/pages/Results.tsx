@@ -16,7 +16,7 @@ export default function Results() {
     <div className="bg-turf bg-overlay" style={{ minHeight: "100vh" }}>
       <Navigation showTicker={false} teamName={franchise?.team_name} />
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "1.5rem 1rem 3rem" }}>
-        <div className="wrc-page-title" style={{ padding: "1rem 0 1.25rem" }}><h1>Results</h1><p>Weekly matchup results and box scores — 2025 Season</p></div>
+        <div className="wrc-page-title" style={{ padding: "1rem 0 1.25rem" }}><h1>Results</h1><p>Weekly matchup results and box scores — 2026 Season</p></div>
         {[14, 13].map(week => (
           <div key={week} className="wrc-card" style={{ marginBottom: "1.25rem" }}>
             <div className="wrc-card-gold-stripe" />

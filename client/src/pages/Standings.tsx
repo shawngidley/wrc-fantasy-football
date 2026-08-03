@@ -116,7 +116,7 @@ export default function Standings() {
       <div style={{ maxWidth: 1200, margin: "0 auto", padding: "1.5rem 1rem 3rem" }}>
         {/* Page Title */}
         <div className="wrc-page-title" style={{ padding: "1rem 0 1.25rem" }}>
-          <h1>WRC Fantasy Football 2025</h1>
+          <h1>WRC Fantasy Football 2026</h1>
           <p>Regular Season Standings — Through Week 14</p>
         </div>
 

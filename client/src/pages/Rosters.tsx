@@ -106,7 +106,7 @@ export default function Rosters() {
         {/* Page Title */}
         <div className="wrc-page-title" style={{ padding: "1rem 0 1.25rem" }}>
           <h1>WRC Rosters</h1>
-          <p>2025 Season — All 12 Franchises</p>
+          <p>2026 Season — All 12 Franchises</p>
         </div>
 
         {/* Division Filter */}
