@@ -30,10 +30,10 @@ export default function Results() {
                     return (
                       <tr key={i}>
                         <td style={{ fontWeight: homeWon ? 700 : 400 }}>{r.home}</td>
-                        <td style={{ textAlign: "center", fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "1rem", color: homeWon ? "oklch(0.22 0.08 150)" : "oklch(0.55 0.04 150)" }}>{r.hScore.toFixed(1)}</td>
-                        <td style={{ textAlign: "center", fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "1rem", color: !homeWon ? "oklch(0.22 0.08 150)" : "oklch(0.55 0.04 150)" }}>{r.aScore.toFixed(1)}</td>
+                        <td style={{ textAlign: "center", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1rem", color: homeWon ? "oklch(0.22 0.08 150)" : "oklch(0.55 0.04 150)" }}>{r.hScore.toFixed(1)}</td>
+                        <td style={{ textAlign: "center", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1rem", color: !homeWon ? "oklch(0.22 0.08 150)" : "oklch(0.55 0.04 150)" }}>{r.aScore.toFixed(1)}</td>
                         <td style={{ fontWeight: !homeWon ? 700 : 400 }}>{r.away}</td>
-                        <td><span style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.75rem", fontWeight: 700, color: homeWon ? "oklch(0.42 0.15 150)" : "oklch(0.55 0.22 25)" }}>{homeWon ? r.home : r.away} W</span></td>
+                        <td><span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem", fontWeight: 700, color: homeWon ? "oklch(0.42 0.15 150)" : "oklch(0.55 0.22 25)" }}>{homeWon ? r.home : r.away} W</span></td>
                       </tr>
                     );
                   })}

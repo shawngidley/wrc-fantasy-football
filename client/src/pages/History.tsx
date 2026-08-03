@@ -30,7 +30,7 @@ export default function History() {
         <div className="wrc-card" style={{ marginBottom: "1.5rem" }}>
           <div style={{ background: "linear-gradient(90deg, oklch(0.65 0.14 85), oklch(0.72 0.15 85))", padding: "0.75rem 1.25rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
             <Trophy size={16} color="oklch(0.15 0.02 150)" />
-            <span style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.9rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "oklch(0.15 0.02 150)" }}>WRC Champions</span>
+            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.9rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "oklch(0.15 0.02 150)" }}>WRC Champions</span>
           </div>
           <div style={{ overflowX: "auto" }}>
             <table className="wrc-table" style={{ minWidth: 400 }}>
@@ -38,7 +38,7 @@ export default function History() {
               <tbody>
                 {CHAMPIONS.map(c => (
                   <tr key={c.year}>
-                    <td style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, color: "oklch(0.28 0.09 150)" }}>{c.year}</td>
+                    <td style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: "oklch(0.28 0.09 150)" }}>{c.year}</td>
                     <td style={{ fontWeight: 700 }}><Trophy size={12} color="oklch(0.65 0.14 85)" style={{ marginRight: 4, verticalAlign: "middle" }} />{c.team}</td>
                     <td>{c.owner}</td>
                     <td style={{ fontWeight: 600 }}>{c.record}</td>

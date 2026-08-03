@@ -3,11 +3,13 @@
  * Background: Field turf
  * Supports trading players, FAAB budget, and future draft picks (current + next year)
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { ArrowLeftRight, Plus, X, DollarSign, CalendarDays, Inbox, Check, XCircle } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { ArrowLeftRight, Plus, X, DollarSign, CalendarDays, Inbox, Check, XCircle, RefreshCw } from "lucide-react";
 import { TEAMS as WRC_TEAMS } from "@/lib/wrcData";
+import { toast } from "sonner";
 
 const TEAMS = WRC_TEAMS.map(t => t.teamName);
 
@@ -140,14 +142,14 @@ function TradeSideBuilder({
     background: active ? "oklch(0.28 0.09 150)" : "white",
     color: active ? "white" : "oklch(0.4 0.04 150)",
     borderRadius: 6, fontSize: "0.75rem", fontWeight: 600,
-    fontFamily: "Oswald, sans-serif", letterSpacing: "0.06em",
+    fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.06em",
     textTransform: "uppercase" as const, cursor: "pointer",
   });
 
   return (
     <div style={{ flex: 1, minWidth: 0 }}>
       {/* Team selector */}
-      <label style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "oklch(0.35 0.06 150)", display: "block", marginBottom: "0.4rem" }}>
+      <label style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "oklch(0.35 0.06 150)", display: "block", marginBottom: "0.4rem" }}>
         {label}
       </label>
       <select
@@ -258,7 +260,35 @@ export default function Trades() {
   const [mySide, setMySide] = useState<TradeSide>({ team: franchise?.team_name ?? "", assets: [] });
   const [theirSide, setTheirSide] = useState<TradeSide>({ team: "", assets: [] });
   const [note, setNote] = useState("");
-  const [inbox, setInbox] = useState<IncomingProposal[]>(SAMPLE_INCOMING);
+  const [inbox, setInbox] = useState<IncomingProposal[]>([]);
+  const [inboxLoading, setInboxLoading] = useState(false);
+
+  // Load incoming proposals from Supabase
+  const loadInbox = async () => {
+    if (!franchise?.id) return;
+    setInboxLoading(true);
+    const { data, error } = await supabase
+      .from("trade_proposals")
+      .select("id, from_team_id, give_player_ids, receive_player_ids, faab_amount, note, status, created_at")
+      .eq("to_team_id", franchise.id)
+      .order("created_at", { ascending: false });
+    setInboxLoading(false);
+    if (error || !data) return;
+    setInbox(data.map((r: { id: string; from_team_id: string; give_player_ids: string[]; receive_player_ids: string[]; faab_amount: number; note: string; status: string; created_at: string }) => ({
+      id: r.id,
+      from: r.from_team_id,
+      date: new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+      theySend: [
+        ...r.give_player_ids,
+        ...(r.faab_amount > 0 ? [`FAAB $${r.faab_amount}`] : []),
+      ],
+      youSend: r.receive_player_ids,
+      note: r.note || undefined,
+      status: r.status as "pending" | "accepted" | "declined",
+    })));
+  };
+
+  useEffect(() => { loadInbox(); }, [franchise?.id]);
 
   const resetForm = () => {
     setMySide({ team: franchise?.team_name ?? "", assets: [] });
@@ -267,8 +297,32 @@ export default function Trades() {
     setShowForm(false);
   };
 
-  const respondToProposal = (id: string, action: "accepted" | "declined") => {
+  const sendProposal = async () => {
+    if (!franchise?.id || !theirSide.team) { toast.error("Select a team to trade with"); return; }
+    const toTeam = WRC_TEAMS.find(t => t.teamName === theirSide.team);
+    if (!toTeam) { toast.error("Team not found"); return; }
+    const givePlayers = mySide.assets.filter(a => a.type === "player").map(a => (a as { type: "player"; name: string }).name);
+    const receivePlayers = theirSide.assets.filter(a => a.type === "player").map(a => (a as { type: "player"; name: string }).name);
+    const faabGiven = mySide.assets.filter(a => a.type === "faab").reduce((s, a) => s + (a as { type: "faab"; amount: number }).amount, 0);
+    const { error } = await supabase.from("trade_proposals").insert({
+      from_team_id: franchise.id,
+      to_team_id: toTeam.id,
+      give_player_ids: givePlayers,
+      receive_player_ids: receivePlayers,
+      faab_amount: faabGiven,
+      note: note.trim(),
+      status: "pending",
+    });
+    if (error) { toast.error("Failed to send proposal"); return; }
+    toast.success(`Trade proposal sent to ${theirSide.team}!`);
+    resetForm();
+  };
+
+  const respondToProposal = async (id: string, action: "accepted" | "declined") => {
+    const { error } = await supabase.from("trade_proposals").update({ status: action }).eq("id", id);
+    if (error) { toast.error("Failed to update proposal"); return; }
     setInbox(prev => prev.map(p => p.id === id ? { ...p, status: action } : p));
+    toast.success(action === "accepted" ? "Trade accepted!" : "Trade declined");
   };
 
   return (
@@ -284,7 +338,7 @@ export default function Trades() {
           </div>
           <button
             onClick={() => setShowForm(true)}
-            style={{ background: "oklch(0.78 0.15 85)", color: "oklch(0.15 0.02 150)", border: "none", borderRadius: 8, padding: "0.5rem 1.25rem", fontFamily: "Oswald, sans-serif", fontSize: "0.85rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem" }}
+            style={{ background: "oklch(0.78 0.15 85)", color: "oklch(0.15 0.02 150)", border: "none", borderRadius: 8, padding: "0.5rem 1.25rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem" }}
           >
             <Plus size={14} /> Propose Trade
           </button>
@@ -312,7 +366,7 @@ export default function Trades() {
 
               {/* Optional note */}
               <div style={{ marginTop: "1rem" }}>
-                <label style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "oklch(0.35 0.06 150)", display: "block", marginBottom: "0.4rem" }}>
+                <label style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "oklch(0.35 0.06 150)", display: "block", marginBottom: "0.4rem" }}>
                   Note (optional)
                 </label>
                 <textarea
@@ -326,13 +380,14 @@ export default function Trades() {
               {/* Actions */}
               <div style={{ display: "flex", gap: "0.75rem", marginTop: "1rem", flexWrap: "wrap" }}>
                 <button
-                  style={{ background: "oklch(0.28 0.09 150)", color: "white", border: "none", borderRadius: 8, padding: "0.5rem 1.5rem", fontFamily: "Oswald, sans-serif", fontSize: "0.82rem", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}
+                  onClick={sendProposal}
+                  style={{ background: "oklch(0.28 0.09 150)", color: "white", border: "none", borderRadius: 8, padding: "0.5rem 1.5rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}
                 >
                   Send Proposal
                 </button>
                 <button
                   onClick={resetForm}
-                  style={{ background: "oklch(0.94 0.01 150)", color: "oklch(0.4 0.04 150)", border: "1px solid oklch(0.88 0.01 150)", borderRadius: 8, padding: "0.5rem 1.25rem", fontFamily: "Oswald, sans-serif", fontSize: "0.82rem", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}
+                  style={{ background: "oklch(0.94 0.01 150)", color: "oklch(0.4 0.04 150)", border: "1px solid oklch(0.88 0.01 150)", borderRadius: 8, padding: "0.5rem 1.25rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}
                 >
                   Cancel
                 </button>
@@ -342,16 +397,31 @@ export default function Trades() {
         )}
 
         {/* Trade Inbox */}
-        {inbox.length > 0 && (
-          <div className="wrc-card" style={{ marginBottom: "1.25rem" }}>
-            <div className="wrc-card-gold-stripe" />
-            <div className="wrc-card-header" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <Inbox size={14} />
-              Incoming Proposals
-              <span style={{ marginLeft: "auto", fontSize: "0.7rem", fontWeight: 700, background: "oklch(0.78 0.15 85)", color: "oklch(0.15 0.02 150)", borderRadius: 10, padding: "1px 8px" }}>
+        <div className="wrc-card" style={{ marginBottom: "1.25rem" }}>
+          <div className="wrc-card-gold-stripe" />
+          <div className="wrc-card-header" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <Inbox size={14} />
+            Incoming Proposals
+            {inbox.length > 0 && (
+              <span style={{ fontSize: "0.7rem", fontWeight: 700, background: "oklch(0.78 0.15 85)", color: "oklch(0.15 0.02 150)", borderRadius: 10, padding: "1px 8px" }}>
                 {inbox.filter(p => p.status === "pending").length} pending
               </span>
+            )}
+            <button
+              onClick={loadInbox}
+              title="Refresh inbox"
+              style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "oklch(0.55 0.04 150)", display: "flex", alignItems: "center", padding: "2px" }}
+            >
+              <RefreshCw size={13} style={{ animation: inboxLoading ? "spin 1s linear infinite" : "none" }} />
+            </button>
+          </div>
+          {inbox.length === 0 ? (
+            <div style={{ padding: "2rem 1.25rem", textAlign: "center", color: "oklch(0.6 0.03 150)", fontSize: "0.85rem" }}>
+              <Inbox size={28} style={{ margin: "0 auto 0.5rem", opacity: 0.35 }} />
+              <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600, letterSpacing: "0.04em" }}>No incoming proposals</div>
+              <div style={{ fontSize: "0.78rem", marginTop: "0.25rem", opacity: 0.7 }}>When another owner sends you a trade, it will appear here.</div>
             </div>
+          ) : (
             <div>
               {inbox.map(proposal => (
                 <div key={proposal.id} style={{
@@ -362,20 +432,20 @@ export default function Trades() {
                 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem", flexWrap: "wrap", gap: "0.5rem" }}>
                     <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                      <span style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.22 0.08 150)" }}>{proposal.from}</span>
+                      <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.22 0.08 150)" }}>{proposal.from}</span>
                       <span style={{ fontSize: "0.7rem", color: "oklch(0.55 0.03 150)" }}>{proposal.date}</span>
                     </div>
                     {proposal.status === "pending" ? (
                       <div style={{ display: "flex", gap: "0.5rem" }}>
                         <button
                           onClick={() => respondToProposal(proposal.id, "accepted")}
-                          style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "0.3rem 0.85rem", background: "oklch(0.38 0.15 150)", color: "white", border: "none", borderRadius: 6, fontFamily: "Oswald, sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.06em", cursor: "pointer" }}
+                          style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "0.3rem 0.85rem", background: "oklch(0.38 0.15 150)", color: "white", border: "none", borderRadius: 6, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.06em", cursor: "pointer" }}
                         >
                           <Check size={12} /> Accept
                         </button>
                         <button
                           onClick={() => respondToProposal(proposal.id, "declined")}
-                          style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "0.3rem 0.85rem", background: "oklch(0.95 0.03 25)", color: "oklch(0.45 0.18 25)", border: "1px solid oklch(0.85 0.08 25)", borderRadius: 6, fontFamily: "Oswald, sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.06em", cursor: "pointer" }}
+                          style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "0.3rem 0.85rem", background: "oklch(0.95 0.03 25)", color: "oklch(0.45 0.18 25)", border: "1px solid oklch(0.85 0.08 25)", borderRadius: 6, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.06em", cursor: "pointer" }}
                         >
                           <XCircle size={12} /> Decline
                         </button>
@@ -390,7 +460,7 @@ export default function Trades() {
 
                   <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: "0.75rem", alignItems: "center" }}>
                     <div>
-                      <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "oklch(0.5 0.04 150)", marginBottom: "0.3rem", fontFamily: "Oswald, sans-serif", letterSpacing: "0.06em", textTransform: "uppercase" }}>They send</div>
+                      <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "oklch(0.5 0.04 150)", marginBottom: "0.3rem", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.06em", textTransform: "uppercase" }}>They send</div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
                         {proposal.theySend.map((s, j) => {
                           const isFaab = s.startsWith("FAAB");
@@ -401,7 +471,7 @@ export default function Trades() {
                     </div>
                     <ArrowLeftRight size={16} color="oklch(0.6 0.04 150)" style={{ flexShrink: 0 }} />
                     <div>
-                      <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "oklch(0.5 0.04 150)", marginBottom: "0.3rem", fontFamily: "Oswald, sans-serif", letterSpacing: "0.06em", textTransform: "uppercase" }}>You send</div>
+                      <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "oklch(0.5 0.04 150)", marginBottom: "0.3rem", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.06em", textTransform: "uppercase" }}>You send</div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
                         {proposal.youSend.map((s, j) => {
                           const isFaab = s.startsWith("FAAB");
@@ -420,8 +490,8 @@ export default function Trades() {
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Trade History */}
         <div className="wrc-card">
@@ -431,7 +501,7 @@ export default function Trades() {
             {TRADE_HISTORY.map((t, i) => (
               <div key={i} style={{ padding: "1rem 1.25rem", borderBottom: "1px solid oklch(0.92 0.005 150)" }}>
                 <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: "0.6rem", flexWrap: "wrap" }}>
-                  <span style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.72rem", fontWeight: 600, letterSpacing: "0.06em", color: "oklch(0.5 0.04 150)" }}>{t.date}</span>
+                  <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 600, letterSpacing: "0.06em", color: "oklch(0.5 0.04 150)" }}>{t.date}</span>
                   <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "oklch(0.42 0.15 150)", background: "oklch(0.94 0.03 150)", borderRadius: 4, padding: "1px 6px" }}>{t.status}</span>
                 </div>
                 <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: "0.75rem", alignItems: "center" }}>

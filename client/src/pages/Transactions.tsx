@@ -38,7 +38,7 @@ export default function Transactions() {
               <tbody>
                 {TRANSACTIONS.map((t, i) => (
                   <tr key={i}>
-                    <td><div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>{TYPE_ICONS[t.type]}<span style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.75rem", fontWeight: 700, color: TYPE_COLORS[t.type], letterSpacing: "0.04em" }}>{t.type}</span></div></td>
+                    <td><div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>{TYPE_ICONS[t.type]}<span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem", fontWeight: 700, color: TYPE_COLORS[t.type], letterSpacing: "0.04em" }}>{t.type}</span></div></td>
                     <td style={{ fontWeight: 600 }}>{t.team}</td>
                     <td>{t.player}</td>
                     <td><span style={{ fontSize: "0.72rem", fontWeight: 700, color: "oklch(0.35 0.06 150)", background: "oklch(0.92 0.01 150)", borderRadius: 4, padding: "1px 6px" }}>{t.pos}</span></td>

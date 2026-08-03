@@ -93,7 +93,7 @@ export default function Login() {
           <Trophy size={36} color="oklch(0.78 0.15 85)" />
         </div>
         <h1 style={{
-          fontFamily: "Oswald, sans-serif",
+          fontFamily: "Barlow Condensed, sans-serif",
           fontWeight: 700,
           fontSize: "clamp(1.6rem, 5vw, 2.4rem)",
           color: "white",
@@ -118,7 +118,7 @@ export default function Login() {
             <div style={{ marginBottom: "1.25rem" }}>
               <label style={{
                 display: "block",
-                fontFamily: "Oswald, sans-serif",
+                fontFamily: "Barlow Condensed, sans-serif",
                 fontSize: "0.78rem",
                 fontWeight: 600,
                 letterSpacing: "0.08em",
@@ -144,7 +144,7 @@ export default function Login() {
                     appearance: "none",
                     cursor: "pointer",
                     outline: "none",
-                    fontFamily: "Inter, sans-serif",
+                    fontFamily: "DM Sans, sans-serif",
                   }}
                 >
                   <option value="">{loadingTeams ? "Loading teams…" : "Select Your Team"}</option>
@@ -163,7 +163,7 @@ export default function Login() {
             <div style={{ marginBottom: "1.5rem" }}>
               <label style={{
                 display: "block",
-                fontFamily: "Oswald, sans-serif",
+                fontFamily: "Barlow Condensed, sans-serif",
                 fontSize: "0.78rem",
                 fontWeight: 600,
                 letterSpacing: "0.08em",
@@ -189,7 +189,7 @@ export default function Login() {
                     color: "oklch(0.2 0.03 150)",
                     background: "white",
                     outline: "none",
-                    fontFamily: "Inter, sans-serif",
+                    fontFamily: "DM Sans, sans-serif",
                     letterSpacing: "0.2em",
                     boxSizing: "border-box",
                   }}
@@ -211,7 +211,7 @@ export default function Login() {
                 color: "oklch(0.45 0.18 25)",
                 fontSize: "0.85rem",
                 marginBottom: "1rem",
-                fontFamily: "Inter, sans-serif",
+                fontFamily: "DM Sans, sans-serif",
               }}>
                 {error}
               </div>

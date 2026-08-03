@@ -5,7 +5,7 @@
 
 /* WRC Fantasy Football Design System
  * Theme: Dark Green + White + Gold
- * Fonts: Oswald (headings) + Inter (body/data)
+ * Fonts: Barlow Condensed (headings/labels) + DM Sans (body/data)
  * Backgrounds: Stadium Night, Field Turf, Stadium Crowd
  */
 
@@ -106,13 +106,13 @@
   }
   body {
     @apply bg-background text-foreground;
-    font-family: 'Inter', sans-serif;
+    font-family: 'DM Sans', sans-serif;
     -webkit-font-smoothing: antialiased;
   }
   h1, h2, h3, .heading {
-    font-family: 'Oswald', sans-serif;
-    font-weight: 600;
-    letter-spacing: 0.02em;
+    font-family: 'Barlow Condensed', sans-serif;
+    font-weight: 700;
+    letter-spacing: 0.03em;
     text-transform: uppercase;
   }
   button:not(:disabled),
@@ -173,10 +173,10 @@
   background: oklch(0.22 0.08 150);
   color: white;
   padding: 0.75rem 1.25rem;
-  font-family: 'Oswald', sans-serif;
+  font-family: 'Barlow Condensed', sans-serif;
   font-size: 0.95rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-weight: 700;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
   display: flex;
   align-items: center;
@@ -203,7 +203,7 @@
 }
 .wrc-nav-link {
   color: rgba(255,255,255,0.82);
-  font-family: 'Inter', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 0.78rem;
   font-weight: 500;
   letter-spacing: 0.04em;
@@ -227,10 +227,10 @@
 .wrc-ticker {
   background: linear-gradient(90deg, oklch(0.65 0.14 85), oklch(0.72 0.15 85), oklch(0.65 0.14 85));
   color: oklch(0.15 0.02 150);
-  font-family: 'Oswald', sans-serif;
+  font-family: 'Barlow Condensed', sans-serif;
   font-size: 0.82rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   padding: 0.45rem 0;
   overflow: hidden;
@@ -249,9 +249,9 @@
 .wrc-btn-primary {
   background: oklch(0.28 0.09 150);
   color: white;
-  font-family: 'Oswald', sans-serif;
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   border: none;
   border-radius: 8px;
@@ -277,13 +277,13 @@
 .wrc-table thead th {
   background: oklch(0.22 0.08 150);
   color: white;
-  font-family: 'Oswald', sans-serif;
-  font-weight: 600;
-  letter-spacing: 0.06em;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.07em;
   text-transform: uppercase;
   padding: 0.65rem 0.85rem;
   text-align: left;
-  font-size: 0.78rem;
+  font-size: 0.82rem;
 }
 .wrc-table tbody tr:nth-child(even) {
   background: oklch(0.96 0.005 150);
@@ -301,12 +301,12 @@
 .wrc-division-header {
   background: oklch(0.28 0.09 150);
   color: white;
-  font-family: 'Oswald', sans-serif;
+  font-family: 'Barlow Condensed', sans-serif;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   padding: 0.55rem 0.85rem;
-  font-size: 0.85rem;
+  font-size: 0.88rem;
 }
 
 /* Page title area */
@@ -314,13 +314,14 @@
   padding: 1.5rem 1.5rem 1rem;
 }
 .wrc-page-title h1 {
-  font-family: 'Oswald', sans-serif;
-  font-size: 2rem;
-  font-weight: 700;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 2.2rem;
+  font-weight: 800;
   color: white;
   text-shadow: 0 2px 8px rgba(0,0,0,0.5);
   margin: 0;
   line-height: 1.1;
+  letter-spacing: 0.04em;
 }
 .wrc-page-title p {
   color: rgba(255,255,255,0.72);
@@ -366,9 +367,9 @@
 }
 .wrc-mobile-nav-link {
   color: rgba(255,255,255,0.85);
-  font-family: 'Oswald', sans-serif;
-  font-size: 1.3rem;
-  font-weight: 600;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-size: 1.4rem;
+  font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   padding: 0.85rem 0;
@@ -392,6 +393,103 @@
   .bg-crowd {
     background-attachment: scroll;
   }
+}
+
+/* ===== UX ELEVATION — GLOBAL ===== */
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
+}
+.wrc-skeleton {
+  background: linear-gradient(90deg, oklch(0.92 0.005 150) 25%, oklch(0.88 0.01 150) 50%, oklch(0.92 0.005 150) 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+  border-radius: 6px;
+}
+
+/* Spin animation for refresh icons */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Fade-in for loaded content */
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.wrc-fade-in {
+  animation: fadeInUp 0.22s cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+/* Row hover lift — for table rows and player rows */
+.wrc-row-hover {
+  transition: background 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
+}
+.wrc-row-hover:hover {
+  background: oklch(0.93 0.015 150) !important;
+  transform: translateX(2px);
+}
+
+/* Card hover elevation */
+.wrc-card-hover {
+  transition: box-shadow 0.18s ease, transform 0.18s ease;
+}
+.wrc-card-hover:hover {
+  box-shadow: 0 8px 32px rgba(0,0,0,0.22), 0 2px 8px rgba(0,0,0,0.14);
+  transform: translateY(-2px);
+}
+
+/* Inline button micro-press */
+.wrc-btn-press {
+  transition: transform 0.1s ease, background 0.12s ease;
+}
+.wrc-btn-press:active {
+  transform: scale(0.96);
+}
+
+/* Gold pulse for live indicator */
+@keyframes gold-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.wrc-live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: oklch(0.78 0.15 85);
+  animation: gold-pulse 1.4s ease-in-out infinite;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+/* Stagger children fade-in */
+.wrc-stagger > *:nth-child(1) { animation-delay: 0ms; }
+.wrc-stagger > *:nth-child(2) { animation-delay: 40ms; }
+.wrc-stagger > *:nth-child(3) { animation-delay: 80ms; }
+.wrc-stagger > *:nth-child(4) { animation-delay: 120ms; }
+.wrc-stagger > *:nth-child(5) { animation-delay: 160ms; }
+.wrc-stagger > *:nth-child(6) { animation-delay: 200ms; }
+.wrc-stagger > *:nth-child(n+7) { animation-delay: 240ms; }
+
+/* Table row transition */
+.wrc-table tbody tr {
+  transition: background 0.1s ease;
+}
+
+/* Smooth badge transition */
+.wrc-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 4px;
+  font-family: 'Barlow Condensed', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-size: 0.72rem;
+  padding: 2px 8px;
+  transition: opacity 0.15s ease;
 }
 
 @layer components {

@@ -109,6 +109,7 @@ const STORAGE_KEY = "wrc_announcements_dismissed";
 function AnnouncementBanner({ isCommissioner }: { isCommissioner: boolean }) {
   type Ann = { id: string; text: string; date: string };
   const [announcements, setAnnouncements] = useState<Ann[]>([]);
+  const [annLoading, setAnnLoading] = useState(true);
   const [dismissed, setDismissed] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { return []; }
   });
@@ -124,6 +125,7 @@ function AnnouncementBanner({ isCommissioner }: { isCommissioner: boolean }) {
           text: r.message,
           date: new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
         })));
+        setAnnLoading(false);
       });
   }, []);
 
@@ -152,6 +154,7 @@ function AnnouncementBanner({ isCommissioner }: { isCommissioner: boolean }) {
     toast.success("Announcement removed");
   }
 
+  if (annLoading) return null; // Don't flash empty state while loading
   if (visible.length === 0 && !isCommissioner) return null;
 
   return (
@@ -161,10 +164,10 @@ function AnnouncementBanner({ isCommissioner }: { isCommissioner: boolean }) {
         <div style={{ background: "oklch(0.18 0.06 85)", border: "1.5px solid oklch(0.55 0.16 85)", borderRadius: 10, padding: "0.875rem 1.25rem", marginBottom: visible.length > 0 ? "0.75rem" : 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: editing ? "0.75rem" : 0 }}>
             <Megaphone size={14} color="oklch(0.75 0.16 85)" />
-            <span style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.06em", color: "oklch(0.75 0.16 85)", textTransform: "uppercase" as const, flex: 1 }}>Commissioner Broadcast</span>
+            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.06em", color: "oklch(0.75 0.16 85)", textTransform: "uppercase" as const, flex: 1 }}>Commissioner Broadcast</span>
             <button
               onClick={() => setEditing(e => !e)}
-              style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "0.3rem 0.75rem", borderRadius: 6, border: "1px solid oklch(0.55 0.16 85)", background: "transparent", color: "oklch(0.75 0.16 85)", cursor: "pointer", fontFamily: "Oswald, sans-serif", fontSize: "0.72rem", fontWeight: 700 }}
+              style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "0.3rem 0.75rem", borderRadius: 6, border: "1px solid oklch(0.55 0.16 85)", background: "transparent", color: "oklch(0.75 0.16 85)", cursor: "pointer", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700 }}
             >
               {editing ? <><ChevronUp size={11} /> Cancel</> : <><ChevronDown size={11} /> Post Message</>}
             </button>
@@ -181,7 +184,7 @@ function AnnouncementBanner({ isCommissioner }: { isCommissioner: boolean }) {
               />
               <button
                 onClick={post}
-                style={{ padding: "0.5rem 1.25rem", borderRadius: 6, border: "none", background: "oklch(0.55 0.16 85)", color: "oklch(0.12 0.04 85)", cursor: "pointer", fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", fontWeight: 700 }}
+                style={{ padding: "0.5rem 1.25rem", borderRadius: 6, border: "none", background: "oklch(0.55 0.16 85)", color: "oklch(0.12 0.04 85)", cursor: "pointer", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700 }}
               >Post</button>
             </div>
           )}
@@ -243,20 +246,20 @@ export default function Standings() {
                   <thead>
                     <tr>
                       <th style={{ width: 48, padding: "0.55rem 0.4rem" }}></th>
-                      <th style={{ textAlign: "left", minWidth: 160, padding: "0.55rem 0.75rem", fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", letterSpacing: "0.06em" }}>Team</th>
+                      <th style={{ textAlign: "left", minWidth: 160, padding: "0.55rem 0.75rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", letterSpacing: "0.06em" }}>Team</th>
                       <th style={TH}>W-L</th>
                       <th style={TH}>PCT</th>
                       <th style={TH}>GB</th>
                       <th style={{ ...TH, borderLeft: "2px solid oklch(0.82 0.06 150)", borderBottom: "2px solid oklch(0.82 0.06 150)" }} colSpan={2}>
-                        <div style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.06em", marginBottom: 2 }}>Head to Head</div>
+                        <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.06em", marginBottom: 2 }}>Head to Head</div>
                         <div style={{ display: "flex", justifyContent: "space-around", fontSize: "0.68rem", fontWeight: 400, color: "oklch(0.45 0.04 150)" }}><span>Win</span><span>Loss</span></div>
                       </th>
                       <th style={{ ...TH, borderLeft: "2px solid oklch(0.82 0.06 150)", borderBottom: "2px solid oklch(0.82 0.06 150)" }} colSpan={2}>
-                        <div style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.06em", marginBottom: 2 }}>League Median</div>
+                        <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.06em", marginBottom: 2 }}>League Median</div>
                         <div style={{ display: "flex", justifyContent: "space-around", fontSize: "0.68rem", fontWeight: 400, color: "oklch(0.45 0.04 150)" }}><span>Win</span><span>Loss</span></div>
                       </th>
                       <th style={{ ...TH, borderLeft: "2px solid oklch(0.82 0.06 150)", borderBottom: "2px solid oklch(0.82 0.06 150)" }} colSpan={2}>
-                        <div style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.06em", marginBottom: 2 }}>Division</div>
+                        <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.06em", marginBottom: 2 }}>Division</div>
                         <div style={{ display: "flex", justifyContent: "space-around", fontSize: "0.68rem", fontWeight: 400, color: "oklch(0.45 0.04 150)" }}><span>Win</span><span>Loss</span></div>
                       </th>
                       <th style={{ ...TH, textAlign: "right" }}>PF</th>
@@ -270,7 +273,7 @@ export default function Standings() {
                       const pct = (team.w / (team.w + team.l)).toFixed(3).replace(/^0/, "");
                       const gb = gamesBack(leader.w, leader.l, team.w, team.l);
                       return (
-                        <tr key={team.team} style={{
+                        <tr key={team.team} className="wrc-row-hover" style={{
                           background: isMyTeam
                             ? "oklch(0.93 0.04 150)"
                             : i % 2 === 0 ? "white" : "oklch(0.975 0.003 150)",
@@ -296,7 +299,7 @@ export default function Standings() {
                                 margin: "0 auto",
                                 fontSize: "0.6rem",
                                 color: "oklch(0.6 0.04 150)",
-                                fontFamily: "Oswald, sans-serif",
+                                fontFamily: "Barlow Condensed, sans-serif",
                                 letterSpacing: "0.04em",
                                 fontWeight: 600,
                               }}>LOGO</div>
@@ -346,13 +349,13 @@ export default function Standings() {
           <div className="wrc-card-body" style={{ padding: "1rem 1.25rem" }}>
             <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap" }}>
               <div style={{ flex: 1, minWidth: 200 }}>
-                <div style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "oklch(0.35 0.06 150)", marginBottom: "0.35rem" }}>Double Result System</div>
+                <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "oklch(0.35 0.06 150)", marginBottom: "0.35rem" }}>Double Result System</div>
                 <p style={{ fontSize: "0.82rem", color: "oklch(0.4 0.04 150)", margin: 0, lineHeight: 1.5 }}>
                   Each week produces 3 total results per team. The head-to-head matchup is worth 2 results — a win counts as 2W, a loss counts as 2L. The league median is worth 1 result — scoring above the median earns 1W, below earns 1L. Maximum possible: 3W (H2H win + above median) or 3L (H2H loss + below median) per week.
                 </p>
               </div>
               <div style={{ flex: 1, minWidth: 200 }}>
-                <div style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "oklch(0.35 0.06 150)", marginBottom: "0.35rem" }}>Playoff Seeding</div>
+                <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "oklch(0.35 0.06 150)", marginBottom: "0.35rem" }}>Playoff Seeding</div>
                 <p style={{ fontSize: "0.82rem", color: "oklch(0.4 0.04 150)", margin: 0, lineHeight: 1.5 }}>
                   6 teams qualify: 3 Division Winners + 3 Wild Cards. Top 2 division winners receive a bye in Wild Card Round. Playoffs run Weeks 15–17.
                 </p>

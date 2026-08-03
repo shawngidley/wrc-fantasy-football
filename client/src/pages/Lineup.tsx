@@ -195,7 +195,7 @@ function SeasonStatsRow({ player }: { player: Player }) {
       {/* Season FPTS */}
       {player.seasonFpts !== undefined && (
         <span style={{
-          fontSize: "0.6rem", fontFamily: "Oswald, sans-serif", fontWeight: 700,
+          fontSize: "0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700,
           padding: "1px 5px", borderRadius: 3,
           background: "oklch(0.92 0.06 150)", color: "oklch(0.28 0.09 150)",
           border: "1px solid oklch(0.84 0.08 150)", whiteSpace: "nowrap" as const,
@@ -206,7 +206,7 @@ function SeasonStatsRow({ player }: { player: Player }) {
       {/* FP/G */}
       {fpg && (
         <span style={{
-          fontSize: "0.6rem", fontFamily: "Oswald, sans-serif", fontWeight: 700,
+          fontSize: "0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700,
           padding: "1px 5px", borderRadius: 3,
           background: "oklch(0.94 0.04 85)", color: "oklch(0.38 0.14 85)",
           border: "1px solid oklch(0.86 0.07 85)", whiteSpace: "nowrap" as const,
@@ -219,7 +219,7 @@ function SeasonStatsRow({ player }: { player: Player }) {
         const isByeConflict = player.byeWeek === CURRENT_WEEK;
         return (
           <span style={{
-            fontSize: "0.6rem", fontFamily: "Oswald, sans-serif", fontWeight: 700,
+            fontSize: "0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700,
             padding: "1px 5px", borderRadius: 3, whiteSpace: "nowrap" as const,
             background: isByeConflict ? "oklch(0.92 0.12 25)" : "oklch(0.93 0.005 150)",
             color:      isByeConflict ? "oklch(0.45 0.20 25)" : "oklch(0.52 0.02 150)",
@@ -232,7 +232,7 @@ function SeasonStatsRow({ player }: { player: Player }) {
       {/* Season stat chips */}
       {chips.map((c, i) => (
         <span key={i} style={{
-          fontSize: "0.58rem", fontFamily: "Oswald, sans-serif", fontWeight: 600,
+          fontSize: "0.58rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600,
           padding: "1px 4px", borderRadius: 3,
           background: "oklch(0.95 0.005 150)", color: "oklch(0.42 0.04 150)",
           border: "1px solid oklch(0.88 0.01 150)", whiteSpace: "nowrap" as const,
@@ -249,7 +249,7 @@ function GameInfo({ nflTeam }: { nflTeam: string }) {
   if (!game) return (
     <span style={{
       fontSize: "0.62rem",
-      fontFamily: "Oswald, sans-serif",
+      fontFamily: "Barlow Condensed, sans-serif",
       fontWeight: 700,
       letterSpacing: "0.06em",
       padding: "1px 7px",
@@ -264,7 +264,7 @@ function GameInfo({ nflTeam }: { nflTeam: string }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", flexWrap: "wrap" as const }}>
       <span style={{
-        fontSize: "0.62rem", fontFamily: "Oswald, sans-serif", fontWeight: 700,
+        fontSize: "0.62rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700,
         padding: "1px 5px", borderRadius: 3,
         background: dayColor + "22",
         color: dayColor,
@@ -408,7 +408,7 @@ export default function Lineup() {
                   background: optimized ? "oklch(0.55 0.16 85)" : "oklch(0.55 0.18 85)",
                   color: "white", border: "none", borderRadius: 8,
                   padding: "0.5rem 1.1rem",
-                  fontFamily: "Oswald, sans-serif", fontSize: "0.82rem", fontWeight: 600,
+                  fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: 600,
                   letterSpacing: "0.06em", textTransform: "uppercase" as const,
                   cursor: "pointer", display: "flex", alignItems: "center", gap: "0.35rem",
                   transition: "background 0.2s",
@@ -423,14 +423,14 @@ export default function Lineup() {
             {lineupLocked ? (
               <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "0.4rem 0.875rem" }}>
                 <Lock size={14} color="#ef4444" />
-                <span style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.8rem", color: "#ef4444", letterSpacing: "0.04em" }}>LINEUP LOCKED</span>
+                <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.8rem", color: "#ef4444", letterSpacing: "0.04em" }}>LINEUP LOCKED</span>
               </div>
             ) : (
               <button onClick={handleSave} style={{
                 background: saved ? "oklch(0.42 0.15 150)" : "oklch(0.28 0.09 150)",
                 color: "white", border: "none", borderRadius: 8,
                 padding: "0.5rem 1.25rem",
-                fontFamily: "Oswald, sans-serif", fontSize: "0.82rem", fontWeight: 600,
+                fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: 600,
                 letterSpacing: "0.06em", textTransform: "uppercase" as const,
                 cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem",
                 transition: "background 0.2s",
@@ -448,12 +448,12 @@ export default function Lineup() {
           marginBottom: "1rem", flexWrap: "wrap" as const,
         }}>
           <div>
-            <div style={{ fontSize: "0.62rem", color: "oklch(0.75 0.06 150)", fontFamily: "Oswald, sans-serif", letterSpacing: "0.08em", textTransform: "uppercase" as const }}>Total Points</div>
-            <div style={{ fontFamily: "Oswald, sans-serif", fontSize: "1.4rem", fontWeight: 700, color: "oklch(0.88 0.15 85)", lineHeight: 1 }}>{totalPts.toFixed(1)}</div>
+            <div style={{ fontSize: "0.62rem", color: "oklch(0.75 0.06 150)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.08em", textTransform: "uppercase" as const }}>Total Points</div>
+            <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1.4rem", fontWeight: 700, color: "oklch(0.88 0.15 85)", lineHeight: 1 }}>{totalPts.toFixed(1)}</div>
           </div>
           <div>
-            <div style={{ fontSize: "0.62rem", color: "oklch(0.75 0.06 150)", fontFamily: "Oswald, sans-serif", letterSpacing: "0.08em", textTransform: "uppercase" as const }}>Projected</div>
-            <div style={{ fontFamily: "Oswald, sans-serif", fontSize: "1.4rem", fontWeight: 700, color: "white", lineHeight: 1 }}>{totalProj.toFixed(1)}</div>
+            <div style={{ fontSize: "0.62rem", color: "oklch(0.75 0.06 150)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.08em", textTransform: "uppercase" as const }}>Projected</div>
+            <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1.4rem", fontWeight: 700, color: "white", lineHeight: 1 }}>{totalProj.toFixed(1)}</div>
           </div>
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center" }}>
             <span style={{ fontSize: "0.72rem", color: "oklch(0.75 0.06 150)" }}>
@@ -479,6 +479,7 @@ export default function Lineup() {
               <div key={slot}>
                 <div
                   onClick={() => { if (lineupLocked || !player) return; setSelectedId(isSelected ? null : player.id); }}
+                  className={!lineupLocked && player ? "wrc-row-hover" : ""}
                   style={{
                     display: "flex", alignItems: "center", gap: "0.75rem",
                     padding: "0.6rem 1rem",
@@ -491,7 +492,7 @@ export default function Lineup() {
                   {/* Slot badge */}
                   <div style={{
                     width: 52, textAlign: "center",
-                    fontFamily: "Oswald, sans-serif", fontSize: "0.68rem", fontWeight: 700,
+                    fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 700,
                     letterSpacing: "0.06em", color: "white",
                     background: player ? POS_COLORS[player.pos] || "oklch(0.5 0.04 150)" : "oklch(0.75 0.02 150)",
                     borderRadius: 4, padding: "2px 0", flexShrink: 0,
@@ -516,13 +517,13 @@ export default function Lineup() {
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
                         <span style={{
-                          fontSize: "0.62rem", fontWeight: 700, fontFamily: "Oswald, sans-serif",
+                          fontSize: "0.62rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif",
                           padding: "1px 5px", borderRadius: 3,
                           background: STATUS_BG[player.status] || "oklch(0.94 0.02 150)",
                           color: STATUS_COLORS[player.status] || "oklch(0.5 0.04 150)",
                         }}>{player.status}</span>
                         <div style={{ textAlign: "right" }}>
-                          <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "1rem", color: "oklch(0.22 0.08 150)" }}>{player.pts.toFixed(1)}</div>
+                          <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1rem", color: "oklch(0.22 0.08 150)" }}>{player.pts.toFixed(1)}</div>
                           <div style={{ fontSize: "0.62rem", color: "oklch(0.6 0.04 150)" }}>Proj {player.proj.toFixed(1)}</div>
                         </div>
                         {!lineupLocked && (isSelected ? <X size={14} color="oklch(0.5 0.04 150)" /> : <ChevronDown size={14} color="oklch(0.7 0.04 150)" />)}
@@ -536,7 +537,7 @@ export default function Lineup() {
                 {/* Inline swap panel — starter selected */}
                 {isSelected && !lineupLocked && (
                   <div style={{ background: "oklch(0.96 0.02 150)", borderBottom: "1px solid oklch(0.88 0.01 150)", padding: "0.5rem 1rem 0.75rem" }}>
-                    <div style={{ fontSize: "0.65rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, letterSpacing: "0.08em", color: "oklch(0.45 0.06 150)", textTransform: "uppercase" as const, marginBottom: "0.5rem" }}>
+                    <div style={{ fontSize: "0.65rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.08em", color: "oklch(0.45 0.06 150)", textTransform: "uppercase" as const, marginBottom: "0.5rem" }}>
                       Replace with bench player:
                     </div>
                     {eligibleBench.length === 0 ? (
@@ -551,7 +552,7 @@ export default function Lineup() {
                             onMouseEnter={e => (e.currentTarget.style.background = "oklch(0.92 0.04 150)")}
                             onMouseLeave={e => (e.currentTarget.style.background = "white")}
                           >
-                            <div style={{ width: 36, textAlign: "center", fontFamily: "Oswald, sans-serif", fontSize: "0.65rem", fontWeight: 700, color: "white", background: POS_COLORS[bp.pos] || "oklch(0.5 0.04 150)", borderRadius: 3, padding: "2px 0", flexShrink: 0 }}>{bp.pos}</div>
+                            <div style={{ width: 36, textAlign: "center", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 700, color: "white", background: POS_COLORS[bp.pos] || "oklch(0.5 0.04 150)", borderRadius: 3, padding: "2px 0", flexShrink: 0 }}>{bp.pos}</div>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "oklch(0.18 0.05 150)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{bp.name}</div>
                               <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginTop: "2px", flexWrap: "wrap" as const }}>
@@ -560,9 +561,9 @@ export default function Lineup() {
                               </div>
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexShrink: 0 }}>
-                              <span style={{ fontSize: "0.6rem", fontWeight: 700, fontFamily: "Oswald, sans-serif", padding: "1px 5px", borderRadius: 3, background: STATUS_BG[bp.status] || "oklch(0.94 0.02 150)", color: STATUS_COLORS[bp.status] || "oklch(0.5 0.04 150)" }}>{bp.status}</span>
+                              <span style={{ fontSize: "0.6rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif", padding: "1px 5px", borderRadius: 3, background: STATUS_BG[bp.status] || "oklch(0.94 0.02 150)", color: STATUS_COLORS[bp.status] || "oklch(0.5 0.04 150)" }}>{bp.status}</span>
                               <div style={{ textAlign: "right" }}>
-                                <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.22 0.08 150)" }}>{bp.pts.toFixed(1)}</div>
+                                <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.22 0.08 150)" }}>{bp.pts.toFixed(1)}</div>
                                 <div style={{ fontSize: "0.6rem", color: "oklch(0.6 0.04 150)" }}>Proj {bp.proj.toFixed(1)}</div>
                               </div>
                               <ArrowLeftRight size={13} color="oklch(0.28 0.09 150)" />
@@ -594,6 +595,7 @@ export default function Lineup() {
               <div key={player.id}>
                 <div
                   onClick={() => { if (lineupLocked) return; setSelectedId(isSelected ? null : player.id); }}
+                  className={!lineupLocked ? "wrc-row-hover" : ""}
                   style={{
                     display: "flex", alignItems: "center", gap: "0.75rem",
                     padding: "0.6rem 1rem",
@@ -603,7 +605,7 @@ export default function Lineup() {
                     transition: "background 0.12s",
                   }}
                 >
-                  <div style={{ width: 52, textAlign: "center", fontFamily: "Oswald, sans-serif", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", color: "white", background: POS_COLORS[player.pos] || "oklch(0.5 0.04 150)", borderRadius: 4, padding: "2px 0", flexShrink: 0 }}>{player.pos}</div>
+                  <div style={{ width: 52, textAlign: "center", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", color: "white", background: POS_COLORS[player.pos] || "oklch(0.5 0.04 150)", borderRadius: 4, padding: "2px 0", flexShrink: 0 }}>{player.pos}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.18 0.05 150)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{player.name}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "2px", flexWrap: "wrap" as const }}>
@@ -614,9 +616,9 @@ export default function Lineup() {
                     <SeasonStatsRow player={player} />
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
-                    <span style={{ fontSize: "0.62rem", fontWeight: 700, fontFamily: "Oswald, sans-serif", padding: "1px 5px", borderRadius: 3, background: STATUS_BG[player.status] || "oklch(0.94 0.02 150)", color: STATUS_COLORS[player.status] || "oklch(0.5 0.04 150)" }}>{player.status}</span>
+                    <span style={{ fontSize: "0.62rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif", padding: "1px 5px", borderRadius: 3, background: STATUS_BG[player.status] || "oklch(0.94 0.02 150)", color: STATUS_COLORS[player.status] || "oklch(0.5 0.04 150)" }}>{player.status}</span>
                     <div style={{ textAlign: "right" }}>
-                      <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "1rem", color: "oklch(0.22 0.08 150)" }}>{player.pts.toFixed(1)}</div>
+                      <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1rem", color: "oklch(0.22 0.08 150)" }}>{player.pts.toFixed(1)}</div>
                       <div style={{ fontSize: "0.62rem", color: "oklch(0.6 0.04 150)" }}>Proj {player.proj.toFixed(1)}</div>
                     </div>
                     {!lineupLocked && (isSelected ? <X size={14} color="oklch(0.5 0.04 150)" /> : <ChevronDown size={14} color="oklch(0.7 0.04 150)" />)}
@@ -626,7 +628,7 @@ export default function Lineup() {
                 {/* Inline swap panel — bench player selected */}
                 {isSelected && !lineupLocked && (
                   <div style={{ background: "oklch(0.96 0.02 150)", borderBottom: "1px solid oklch(0.88 0.01 150)", padding: "0.5rem 1rem 0.75rem" }}>
-                    <div style={{ fontSize: "0.65rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, letterSpacing: "0.08em", color: "oklch(0.45 0.06 150)", textTransform: "uppercase" as const, marginBottom: "0.5rem" }}>
+                    <div style={{ fontSize: "0.65rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.08em", color: "oklch(0.45 0.06 150)", textTransform: "uppercase" as const, marginBottom: "0.5rem" }}>
                       Move to starting slot:
                     </div>
                     {eligibleSlots.length === 0 ? (
@@ -643,7 +645,7 @@ export default function Lineup() {
                               onMouseEnter={e => (e.currentTarget.style.background = "oklch(0.92 0.04 150)")}
                               onMouseLeave={e => (e.currentTarget.style.background = "white")}
                             >
-                              <div style={{ width: 52, textAlign: "center", fontFamily: "Oswald, sans-serif", fontSize: "0.68rem", fontWeight: 700, color: "white", background: "oklch(0.28 0.09 150)", borderRadius: 3, padding: "2px 0", flexShrink: 0 }}>{slotDef.slot}</div>
+                              <div style={{ width: 52, textAlign: "center", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 700, color: "white", background: "oklch(0.28 0.09 150)", borderRadius: 3, padding: "2px 0", flexShrink: 0 }}>{slotDef.slot}</div>
                               {currentStarter ? (
                                 <>
                                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -652,7 +654,7 @@ export default function Lineup() {
                                   </div>
                                   <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexShrink: 0 }}>
                                     <div style={{ textAlign: "right" }}>
-                                      <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.22 0.08 150)" }}>{currentStarter.pts.toFixed(1)}</div>
+                                      <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.22 0.08 150)" }}>{currentStarter.pts.toFixed(1)}</div>
                                       <div style={{ fontSize: "0.6rem", color: "oklch(0.6 0.04 150)" }}>Proj {currentStarter.proj.toFixed(1)}</div>
                                     </div>
                                     <ArrowLeftRight size={13} color="oklch(0.28 0.09 150)" />

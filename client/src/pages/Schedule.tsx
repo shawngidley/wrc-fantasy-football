@@ -22,7 +22,7 @@ export default function Schedule() {
               {week.matchups.map(([h, a], i) => (
                 <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.6rem 1.25rem", borderBottom: "1px solid oklch(0.92 0.005 150)", borderRight: i % 2 === 0 ? "1px solid oklch(0.92 0.005 150)" : "none" }}>
                   <span style={{ fontWeight: h === franchise?.team_name ? 700 : 400, fontSize: "0.875rem", color: h === franchise?.team_name ? "oklch(0.22 0.08 150)" : "oklch(0.3 0.04 150)" }}>{h}</span>
-                  <span style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.72rem", color: "oklch(0.6 0.04 150)", fontWeight: 600, padding: "0 0.5rem" }}>vs</span>
+                  <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", color: "oklch(0.6 0.04 150)", fontWeight: 600, padding: "0 0.5rem" }}>vs</span>
                   <span style={{ fontWeight: a === franchise?.team_name ? 700 : 400, fontSize: "0.875rem", color: a === franchise?.team_name ? "oklch(0.22 0.08 150)" : "oklch(0.3 0.04 150)" }}>{a}</span>
                 </div>
               ))}

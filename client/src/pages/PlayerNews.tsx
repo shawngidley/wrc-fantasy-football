@@ -422,7 +422,7 @@ function PlayerBrowser() {
             style={{
               display: "flex", alignItems: "center", gap: "0.35rem",
               padding: "0.5rem 0.875rem", borderRadius: 8, cursor: "pointer",
-              fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", fontWeight: 700,
+              fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700,
               letterSpacing: "0.05em", border: "1.5px solid",
               background: watchOnly ? "oklch(0.55 0.16 85)" : "white",
               color:      watchOnly ? "white" : "oklch(0.55 0.16 85)",
@@ -464,9 +464,9 @@ function PlayerBrowser() {
               display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.65rem 1.25rem",
               borderBottom: ci < pendingClaims.length - 1 ? "1px solid oklch(0.93 0.005 150)" : "none",
             }}>
-              <span style={{ fontSize: "0.65rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: POS_COLORS[claim.playerPos] || "oklch(0.5 0.04 150)", color: "white" }}>{claim.playerPos}</span>
+              <span style={{ fontSize: "0.65rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: POS_COLORS[claim.playerPos] || "oklch(0.5 0.04 150)", color: "white" }}>{claim.playerPos}</span>
               <span style={{ fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.18 0.05 150)", flex: 1 }}>{claim.playerName}</span>
-              <span style={{ fontSize: "0.7rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, color: "oklch(0.38 0.16 85)", background: "oklch(0.94 0.06 85)", border: "1px solid oklch(0.84 0.10 85)", borderRadius: 4, padding: "1px 7px" }}>
+              <span style={{ fontSize: "0.7rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: "oklch(0.38 0.16 85)", background: "oklch(0.94 0.06 85)", border: "1px solid oklch(0.84 0.10 85)", borderRadius: 4, padding: "1px 7px" }}>
                 ${claim.bidAmount} FAAB
               </span>
               {claim.dropPlayerName ? (
@@ -516,7 +516,7 @@ function PlayerBrowser() {
           const hasInjury   = !!p.injuryNote && p.status !== "Active";
 
           return (
-            <div key={p.id} style={{
+            <div key={p.id} className="wrc-row-hover" style={{
               borderBottom: i < filtered.length - 1 ? "1px solid oklch(0.93 0.005 150)" : "none",
               background: byeConflict ? "oklch(0.98 0.03 25)" : "white",
             }}>
@@ -540,7 +540,7 @@ function PlayerBrowser() {
                 {/* Pos badge */}
                 <div style={{
                   width: 42, textAlign: "center" as const, flexShrink: 0, marginTop: 2,
-                  fontFamily: "Oswald, sans-serif", fontSize: "0.65rem", fontWeight: 700,
+                  fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 700,
                   color: "white", background: POS_COLORS[p.pos] || "oklch(0.5 0.04 150)",
                   borderRadius: 4, padding: "2px 0",
                 }}>{p.pos}</div>
@@ -556,23 +556,23 @@ function PlayerBrowser() {
                     <span style={{ fontSize: "0.7rem", color: "oklch(0.55 0.04 150)" }}>{p.nflTeam}</span>
                     {p.status !== "Active" && (
                       <span style={{
-                        fontSize: "0.62rem", fontWeight: 700, fontFamily: "Oswald, sans-serif",
+                        fontSize: "0.62rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif",
                         padding: "1px 5px", borderRadius: 3,
                         background: `${STATUS_COLORS[p.status] || "oklch(0.5 0.04 150)"}18`,
                         color: STATUS_COLORS[p.status] || "oklch(0.5 0.04 150)",
                       }}>{p.status}</span>
                     )}
                     {p.owned ? (
-                      <span style={{ fontSize: "0.62rem", fontWeight: 700, fontFamily: "Oswald, sans-serif", padding: "1px 5px", borderRadius: 3, background: "oklch(0.92 0.04 260)", color: "oklch(0.35 0.14 260)" }}>
+                      <span style={{ fontSize: "0.62rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif", padding: "1px 5px", borderRadius: 3, background: "oklch(0.92 0.04 260)", color: "oklch(0.35 0.14 260)" }}>
                         {p.ownerTeam}
                       </span>
                     ) : (
-                      <span style={{ fontSize: "0.62rem", fontWeight: 700, fontFamily: "Oswald, sans-serif", padding: "1px 5px", borderRadius: 3, background: "oklch(0.94 0.06 150)", color: "oklch(0.32 0.12 150)" }}>
+                      <span style={{ fontSize: "0.62rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif", padding: "1px 5px", borderRadius: 3, background: "oklch(0.94 0.06 150)", color: "oklch(0.32 0.12 150)" }}>
                         FREE AGENT
                       </span>
                     )}
                     {hasBid && pendingClaim && (
-                      <span style={{ fontSize: "0.62rem", fontWeight: 700, fontFamily: "Oswald, sans-serif", padding: "1px 5px", borderRadius: 3, background: "oklch(0.92 0.08 85)", color: "oklch(0.38 0.16 85)", border: "1px solid oklch(0.82 0.10 85)" }}>
+                      <span style={{ fontSize: "0.62rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif", padding: "1px 5px", borderRadius: 3, background: "oklch(0.92 0.08 85)", color: "oklch(0.38 0.16 85)", border: "1px solid oklch(0.82 0.10 85)" }}>
                         BID ${pendingClaim.bidAmount}
                       </span>
                     )}
@@ -580,14 +580,14 @@ function PlayerBrowser() {
 
                   {/* Stats row */}
                   <div style={{ display: "flex", flexWrap: "wrap" as const, alignItems: "center", gap: "0.3rem", marginTop: "0.35rem" }}>
-                    <span style={{ fontSize: "0.6rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "oklch(0.92 0.06 150)", color: "oklch(0.28 0.09 150)", border: "1px solid oklch(0.84 0.08 150)", whiteSpace: "nowrap" as const }}>
+                    <span style={{ fontSize: "0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "oklch(0.92 0.06 150)", color: "oklch(0.28 0.09 150)", border: "1px solid oklch(0.84 0.08 150)", whiteSpace: "nowrap" as const }}>
                       {p.seasonFpts.toFixed(1)} FPTS
                     </span>
-                    <span style={{ fontSize: "0.6rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "oklch(0.94 0.04 85)", color: "oklch(0.38 0.14 85)", border: "1px solid oklch(0.86 0.07 85)", whiteSpace: "nowrap" as const }}>
+                    <span style={{ fontSize: "0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "oklch(0.94 0.04 85)", color: "oklch(0.38 0.14 85)", border: "1px solid oklch(0.86 0.07 85)", whiteSpace: "nowrap" as const }}>
                       {fpg}/G
                     </span>
                     <span style={{
-                      fontSize: "0.6rem", fontFamily: "Oswald, sans-serif", fontWeight: 700,
+                      fontSize: "0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700,
                       padding: "1px 5px", borderRadius: 3, whiteSpace: "nowrap" as const,
                       background: byeConflict ? "oklch(0.92 0.12 25)" : "oklch(0.93 0.005 150)",
                       color:      byeConflict ? "oklch(0.45 0.20 25)" : "oklch(0.52 0.02 150)",
@@ -596,7 +596,7 @@ function PlayerBrowser() {
                       {byeConflict ? `⚠ BYE ${p.byeWeek}` : `BYE ${p.byeWeek}`}
                     </span>
                     {chips.map((c, ci) => (
-                      <span key={ci} style={{ fontSize: "0.58rem", fontFamily: "Oswald, sans-serif", fontWeight: 600, padding: "1px 4px", borderRadius: 3, background: "oklch(0.95 0.005 150)", color: "oklch(0.42 0.04 150)", border: "1px solid oklch(0.88 0.01 150)", whiteSpace: "nowrap" as const }}>
+                      <span key={ci} style={{ fontSize: "0.58rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600, padding: "1px 4px", borderRadius: 3, background: "oklch(0.95 0.005 150)", color: "oklch(0.42 0.04 150)", border: "1px solid oklch(0.88 0.01 150)", whiteSpace: "nowrap" as const }}>
                         {c.label} {c.value}
                       </span>
                     ))}
@@ -637,7 +637,7 @@ function PlayerBrowser() {
                 {/* Right side: FPTS + action */}
                 <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "flex-end", gap: "0.35rem", flexShrink: 0 }}>
                   <div style={{ textAlign: "right" as const }}>
-                    <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "1.05rem", color: "oklch(0.22 0.08 150)", lineHeight: 1 }}>{p.seasonFpts.toFixed(1)}</div>
+                    <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1.05rem", color: "oklch(0.22 0.08 150)", lineHeight: 1 }}>{p.seasonFpts.toFixed(1)}</div>
                     <div style={{ fontSize: "0.6rem", color: "oklch(0.6 0.04 150)", marginTop: 2 }}>{fpg}/G</div>
                   </div>
                   {/* Bid button — only for free agents */}
@@ -647,7 +647,7 @@ function PlayerBrowser() {
                       style={{
                         display: "flex", alignItems: "center", gap: "0.3rem",
                         padding: "3px 10px", borderRadius: 5, cursor: "pointer",
-                        fontFamily: "Oswald, sans-serif", fontSize: "0.7rem", fontWeight: 700,
+                        fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", fontWeight: 700,
                         letterSpacing: "0.04em",
                         background: isBidOpen ? "oklch(0.95 0.02 150)" : "oklch(0.28 0.09 150)",
                         color: isBidOpen ? "oklch(0.45 0.04 150)" : "white",
@@ -662,7 +662,7 @@ function PlayerBrowser() {
                   {hasBid && (
                     <button
                       onClick={() => cancelClaim(p.id)}
-                      style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "3px 10px", borderRadius: 5, cursor: "pointer", fontFamily: "Oswald, sans-serif", fontSize: "0.7rem", fontWeight: 700, background: "oklch(0.95 0.02 150)", color: "oklch(0.5 0.04 150)", border: "1px solid oklch(0.82 0.02 150)" }}
+                      style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "3px 10px", borderRadius: 5, cursor: "pointer", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", fontWeight: 700, background: "oklch(0.95 0.02 150)", color: "oklch(0.5 0.04 150)", border: "1px solid oklch(0.82 0.02 150)" }}
                     >
                       <X size={11} /> Cancel
                     </button>
@@ -674,7 +674,7 @@ function PlayerBrowser() {
                       style={{
                         display: "flex", alignItems: "center", gap: "0.3rem",
                         padding: "3px 10px", borderRadius: 5, cursor: "pointer",
-                        fontFamily: "Oswald, sans-serif", fontSize: "0.7rem", fontWeight: 700,
+                        fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", fontWeight: 700,
                         letterSpacing: "0.04em",
                         background: "oklch(0.42 0.18 260)", color: "white", border: "none",
                         transition: "background 0.15s",
@@ -695,7 +695,7 @@ function PlayerBrowser() {
                   border: "1.5px solid oklch(0.88 0.04 150)",
                   borderRadius: 8,
                 }}>
-                  <div style={{ fontSize: "0.72rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, letterSpacing: "0.06em", color: "oklch(0.38 0.08 150)", textTransform: "uppercase" as const, marginBottom: "0.75rem" }}>
+                  <div style={{ fontSize: "0.72rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.06em", color: "oklch(0.38 0.08 150)", textTransform: "uppercase" as const, marginBottom: "0.75rem" }}>
                     FAAB Waiver Claim — {p.name}
                   </div>
                   {/* Row 1: FAAB amount */}
@@ -709,7 +709,7 @@ function PlayerBrowser() {
                           value={bidAmount}
                           onChange={e => setBidAmount(e.target.value)}
                           placeholder="0"
-                          style={{ width: 70, border: "none", outline: "none", fontSize: "0.9rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, color: "oklch(0.22 0.08 150)" }}
+                          style={{ width: 70, border: "none", outline: "none", fontSize: "0.9rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: "oklch(0.22 0.08 150)" }}
                           onKeyDown={e => e.key === "Enter" && submitBid(p)}
                           autoFocus
                         />
@@ -743,7 +743,7 @@ function PlayerBrowser() {
                       style={{
                         display: "flex", alignItems: "center", gap: "0.3rem",
                         padding: "0.4rem 1rem", borderRadius: 6, cursor: "pointer",
-                        fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", fontWeight: 700,
+                        fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700,
                         background: "oklch(0.38 0.15 150)", color: "white", border: "none",
                       }}
                     >
@@ -751,7 +751,7 @@ function PlayerBrowser() {
                     </button>
                     <button
                       onClick={cancelBid}
-                      style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "0.4rem 0.75rem", borderRadius: 6, cursor: "pointer", fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", fontWeight: 700, background: "white", color: "oklch(0.5 0.04 150)", border: "1px solid oklch(0.82 0.02 150)" }}
+                      style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "0.4rem 0.75rem", borderRadius: 6, cursor: "pointer", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, background: "white", color: "oklch(0.5 0.04 150)", border: "1px solid oklch(0.82 0.02 150)" }}
                     >
                       <X size={13} /> Cancel
                     </button>
@@ -769,7 +769,7 @@ function PlayerBrowser() {
       <Dialog open={!!newsPlayer} onOpenChange={open => { if (!open) { setNewsPlayer(null); setNewsArticles([]); } }}>
         <DialogContent style={{ maxWidth: 560, maxHeight: "80vh", overflowY: "auto" }}>
           <DialogHeader>
-            <DialogTitle style={{ fontFamily: "Oswald, sans-serif", letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <DialogTitle style={{ fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: "0.5rem" }}>
               <Newspaper size={18} />
               {newsPlayer?.name} — ESPN News
             </DialogTitle>
@@ -815,7 +815,7 @@ function PlayerBrowser() {
                 <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
                   {a.byline && <span style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)" }}>{a.byline}</span>}
                   <span style={{ fontSize: "0.68rem", color: "oklch(0.65 0.04 150)" }}>{timeAgo(a.published)}</span>
-                  {a.premium && <span style={{ fontSize: "0.6rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "oklch(0.88 0.10 85)", color: "oklch(0.38 0.16 85)" }}>ESPN+</span>}
+                  {a.premium && <span style={{ fontSize: "0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "oklch(0.88 0.10 85)", color: "oklch(0.38 0.16 85)" }}>ESPN+</span>}
                   <a href={a.links?.web?.href ?? "#"} target="_blank" rel="noopener noreferrer" style={{ marginLeft: "auto", fontSize: "0.68rem", color: "oklch(0.42 0.18 260)", fontWeight: 600 }}>Read on ESPN →</a>
                 </div>
               </div>
@@ -828,7 +828,7 @@ function PlayerBrowser() {
       <Dialog open={!!tradeTarget} onOpenChange={open => { if (!open) setTradeTarget(null); }}>
         <DialogContent style={{ maxWidth: 480 }}>
           <DialogHeader>
-            <DialogTitle style={{ fontFamily: "Oswald, sans-serif", letterSpacing: "0.04em" }}>
+            <DialogTitle style={{ fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.04em" }}>
               Propose Trade
             </DialogTitle>
           </DialogHeader>
@@ -836,9 +836,9 @@ function PlayerBrowser() {
             <div style={{ display: "flex", flexDirection: "column" as const, gap: "1rem" }}>
               {/* Target player */}
               <div style={{ padding: "0.75rem", background: "oklch(0.96 0.03 260)", borderRadius: 8, border: "1px solid oklch(0.88 0.06 260)" }}>
-                <div style={{ fontSize: "0.68rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, color: "oklch(0.42 0.12 260)", letterSpacing: "0.06em", marginBottom: "0.3rem" }}>YOU WANT</div>
+                <div style={{ fontSize: "0.68rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: "oklch(0.42 0.12 260)", letterSpacing: "0.06em", marginBottom: "0.3rem" }}>YOU WANT</div>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <span style={{ fontSize: "0.65rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: POS_COLORS[tradeTarget.pos], color: "white" }}>{tradeTarget.pos}</span>
+                  <span style={{ fontSize: "0.65rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: POS_COLORS[tradeTarget.pos], color: "white" }}>{tradeTarget.pos}</span>
                   <span style={{ fontWeight: 700, fontSize: "0.95rem", color: "oklch(0.18 0.05 150)" }}>{tradeTarget.name}</span>
                   <span style={{ fontSize: "0.7rem", color: "oklch(0.55 0.04 150)" }}>{tradeTarget.nflTeam}</span>
                   <span style={{ marginLeft: "auto", fontSize: "0.7rem", color: "oklch(0.42 0.12 260)", fontWeight: 600 }}>from {tradeTarget.ownerTeam}</span>
@@ -847,7 +847,7 @@ function PlayerBrowser() {
 
               {/* Give players */}
               <div>
-                <div style={{ fontSize: "0.68rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, color: "oklch(0.45 0.04 150)", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>YOU GIVE — select from your roster</div>
+                <div style={{ fontSize: "0.68rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: "oklch(0.45 0.04 150)", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>YOU GIVE — select from your roster</div>
                 <div style={{ display: "flex", flexDirection: "column" as const, gap: "0.35rem" }}>
                   {MY_ROSTER.map(r => {
                     const selected = tradeGiveIds.includes(r.id);
@@ -863,7 +863,7 @@ function PlayerBrowser() {
                           transition: "all 0.12s",
                         }}
                       >
-                        <span style={{ fontSize: "0.62rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, padding: "1px 4px", borderRadius: 3, background: POS_COLORS[r.pos], color: "white" }}>{r.pos}</span>
+                        <span style={{ fontSize: "0.62rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, padding: "1px 4px", borderRadius: 3, background: POS_COLORS[r.pos], color: "white" }}>{r.pos}</span>
                         <span style={{ fontSize: "0.85rem", fontWeight: selected ? 700 : 400, color: selected ? "oklch(0.22 0.08 150)" : "oklch(0.35 0.04 150)" }}>{r.name}</span>
                         {selected && <Check size={13} color="oklch(0.38 0.15 150)" style={{ marginLeft: "auto" }} />}
                       </button>
@@ -882,7 +882,7 @@ function PlayerBrowser() {
                     value={tradeFaab}
                     onChange={e => setTradeFaab(e.target.value)}
                     placeholder="0 (optional)"
-                    style={{ width: 100, border: "none", outline: "none", fontSize: "0.88rem", fontFamily: "Oswald, sans-serif", fontWeight: 600, color: "oklch(0.22 0.08 150)" }}
+                    style={{ width: 100, border: "none", outline: "none", fontSize: "0.88rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600, color: "oklch(0.22 0.08 150)" }}
                   />
                 </div>
                 <span style={{ fontSize: "0.68rem", color: "oklch(0.6 0.04 150)" }}>Balance: ${myFaab}</span>
@@ -890,7 +890,7 @@ function PlayerBrowser() {
 
               {/* Note */}
               <div>
-                <div style={{ fontSize: "0.68rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, color: "oklch(0.45 0.04 150)", letterSpacing: "0.06em", marginBottom: "0.35rem" }}>NOTE (optional)</div>
+                <div style={{ fontSize: "0.68rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: "oklch(0.45 0.04 150)", letterSpacing: "0.06em", marginBottom: "0.35rem" }}>NOTE (optional)</div>
                 <textarea
                   value={tradeNote}
                   onChange={e => setTradeNote(e.target.value)}
@@ -904,13 +904,13 @@ function PlayerBrowser() {
               <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" as const }}>
                 <button
                   onClick={() => setTradeTarget(null)}
-                  style={{ padding: "0.5rem 1rem", borderRadius: 6, cursor: "pointer", fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", fontWeight: 700, background: "white", color: "oklch(0.5 0.04 150)", border: "1px solid oklch(0.82 0.02 150)" }}
+                  style={{ padding: "0.5rem 1rem", borderRadius: 6, cursor: "pointer", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, background: "white", color: "oklch(0.5 0.04 150)", border: "1px solid oklch(0.82 0.02 150)" }}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={submitTrade}
-                  style={{ display: "flex", alignItems: "center", gap: "0.35rem", padding: "0.5rem 1.25rem", borderRadius: 6, cursor: "pointer", fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", fontWeight: 700, background: "oklch(0.42 0.18 260)", color: "white", border: "none" }}
+                  style={{ display: "flex", alignItems: "center", gap: "0.35rem", padding: "0.5rem 1.25rem", borderRadius: 6, cursor: "pointer", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, background: "oklch(0.42 0.18 260)", color: "white", border: "none" }}
                 >
                   <ArrowLeftRight size={13} /> Send Proposal
                 </button>
@@ -982,8 +982,18 @@ function NewsFeed() {
         <div className="wrc-card-header"><Newspaper size={14} /> NFL News — ESPN</div>
 
         {loading && (
-          <div style={{ padding: "3rem", textAlign: "center" as const, color: "oklch(0.6 0.04 150)" }}>
-            <div style={{ fontSize: "0.9rem" }}>Loading ESPN news…</div>
+          <div style={{ padding: "1rem 1.25rem" }}>
+            {[...Array(6)].map((_, i) => (
+              <div key={i} style={{ display: "flex", gap: "0.875rem", padding: "0.875rem 0", borderBottom: "1px solid oklch(0.92 0.005 150)", alignItems: "flex-start" }}>
+                <div className="wrc-skeleton" style={{ flexShrink: 0, width: 80, height: 56 }} />
+                <div style={{ flex: 1 }}>
+                  <div className="wrc-skeleton" style={{ height: 12, width: "30%", marginBottom: 8 }} />
+                  <div className="wrc-skeleton" style={{ height: 16, width: "90%", marginBottom: 6 }} />
+                  <div className="wrc-skeleton" style={{ height: 12, width: "70%", marginBottom: 6 }} />
+                  <div className="wrc-skeleton" style={{ height: 10, width: "40%" }} />
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -1019,7 +1029,7 @@ function NewsFeed() {
               )}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", flexWrap: "wrap" as const, marginBottom: "0.25rem" }}>
-                  <span style={{ fontSize: "0.68rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, letterSpacing: "0.05em", color: "oklch(0.42 0.15 150)", background: "oklch(0.92 0.04 150)", borderRadius: 4, padding: "1px 6px", textTransform: "uppercase" as const }}>{tag}</span>
+                  <span style={{ fontSize: "0.68rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.05em", color: "oklch(0.42 0.15 150)", background: "oklch(0.92 0.04 150)", borderRadius: 4, padding: "1px 6px", textTransform: "uppercase" as const }}>{tag}</span>
                   {article.premium && <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "oklch(0.55 0.16 85)", background: "oklch(0.96 0.06 85)", borderRadius: 4, padding: "1px 5px" }}>ESPN+</span>}
                 </div>
                 <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.18 0.05 150)", lineHeight: 1.35, marginBottom: "0.2rem" }}>{article.headline}</div>
@@ -1038,7 +1048,11 @@ function NewsFeed() {
         })}
 
         {!loading && !error && filtered.length === 0 && (
-          <div style={{ padding: "2rem", textAlign: "center" as const, color: "oklch(0.6 0.04 150)" }}>No articles found</div>
+          <div style={{ padding: "2.5rem 1.25rem", textAlign: "center" as const, color: "oklch(0.6 0.04 150)" }}>
+            <Newspaper size={32} style={{ margin: "0 auto 0.6rem", opacity: 0.3 }} />
+            <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.04em", fontSize: "1rem" }}>No articles found</div>
+            <div style={{ fontSize: "0.8rem", marginTop: "0.25rem", opacity: 0.7 }}>Try adjusting your search or position filter.</div>
+          </div>
         )}
 
         {!loading && !error && totalPages > 1 && (
@@ -1046,13 +1060,13 @@ function NewsFeed() {
             <button
               onClick={() => setPage(p => Math.max(0, p - 1))}
               disabled={page === 0}
-              style={{ padding: "0.4rem 1rem", borderRadius: 6, border: "1.5px solid oklch(0.88 0.01 150)", background: page === 0 ? "oklch(0.95 0.005 150)" : "white", cursor: page === 0 ? "default" : "pointer", fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", fontWeight: 700, color: page === 0 ? "oklch(0.7 0.02 150)" : "oklch(0.22 0.08 150)" }}
+              style={{ padding: "0.4rem 1rem", borderRadius: 6, border: "1.5px solid oklch(0.88 0.01 150)", background: page === 0 ? "oklch(0.95 0.005 150)" : "white", cursor: page === 0 ? "default" : "pointer", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, color: page === 0 ? "oklch(0.7 0.02 150)" : "oklch(0.22 0.08 150)" }}
             >← Prev</button>
             <span style={{ padding: "0.4rem 0.75rem", fontSize: "0.78rem", color: "oklch(0.5 0.04 150)" }}>{page + 1} / {totalPages}</span>
             <button
               onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
               disabled={page === totalPages - 1}
-              style={{ padding: "0.4rem 1rem", borderRadius: 6, border: "1.5px solid oklch(0.88 0.01 150)", background: page === totalPages - 1 ? "oklch(0.95 0.005 150)" : "white", cursor: page === totalPages - 1 ? "default" : "pointer", fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", fontWeight: 700, color: page === totalPages - 1 ? "oklch(0.7 0.02 150)" : "oklch(0.22 0.08 150)" }}
+              style={{ padding: "0.4rem 1rem", borderRadius: 6, border: "1.5px solid oklch(0.88 0.01 150)", background: page === totalPages - 1 ? "oklch(0.95 0.005 150)" : "white", cursor: page === totalPages - 1 ? "default" : "pointer", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, color: page === totalPages - 1 ? "oklch(0.7 0.02 150)" : "oklch(0.22 0.08 150)" }}
             >Next →</button>
           </div>
         )}
@@ -1068,7 +1082,7 @@ export default function PlayerNews() {
 
   const tabStyle = (active: boolean) => ({
     padding: "0.5rem 1.25rem",
-    fontFamily: "Oswald, sans-serif", fontSize: "0.82rem", fontWeight: 700,
+    fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: 700,
     letterSpacing: "0.06em", textTransform: "uppercase" as const,
     border: "none", cursor: "pointer",
     borderRadius: "6px 6px 0 0",

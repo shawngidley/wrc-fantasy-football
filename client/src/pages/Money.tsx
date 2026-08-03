@@ -109,7 +109,7 @@ const hdr: React.CSSProperties = {
   padding: "0.5rem 0.75rem",
   textAlign: "right",
   fontSize: "0.72rem",
-  fontFamily: "Oswald, sans-serif",
+  fontFamily: "Barlow Condensed, sans-serif",
   fontWeight: 700,
   letterSpacing: "0.06em",
   textTransform: "uppercase",
@@ -119,7 +119,7 @@ const hdr: React.CSSProperties = {
 };
 
 const sectionTitle: React.CSSProperties = {
-  fontFamily: "Oswald, sans-serif",
+  fontFamily: "Barlow Condensed, sans-serif",
   fontWeight: 700,
   fontSize: "1rem",
   letterSpacing: "0.08em",
@@ -265,7 +265,7 @@ export default function Money() {
                   border: "none",
                   borderRadius: 6,
                   padding: "0.35rem 0.9rem",
-                  fontFamily: "Oswald, sans-serif",
+                  fontFamily: "Barlow Condensed, sans-serif",
                   fontWeight: 600,
                   fontSize: "0.75rem",
                   letterSpacing: "0.06em",
@@ -287,7 +287,7 @@ export default function Money() {
                     border: "none",
                     borderRadius: 6,
                     padding: "0.35rem 0.9rem",
-                    fontFamily: "Oswald, sans-serif",
+                    fontFamily: "Barlow Condensed, sans-serif",
                     fontWeight: 600,
                     fontSize: "0.75rem",
                     letterSpacing: "0.06em",
@@ -306,7 +306,7 @@ export default function Money() {
                     border: "none",
                     borderRadius: 6,
                     padding: "0.35rem 0.9rem",
-                    fontFamily: "Oswald, sans-serif",
+                    fontFamily: "Barlow Condensed, sans-serif",
                     fontWeight: 600,
                     fontSize: "0.75rem",
                     letterSpacing: "0.06em",
@@ -423,7 +423,7 @@ export default function Money() {
             <div style={{
               background: "oklch(0.78 0.15 85)",
               color: "oklch(0.18 0.05 85)",
-              fontFamily: "Oswald, sans-serif",
+              fontFamily: "Barlow Condensed, sans-serif",
               fontWeight: 700,
               fontSize: "1.4rem",
               letterSpacing: "0.1em",
@@ -461,7 +461,7 @@ export default function Money() {
                     border: "none",
                     borderRadius: 6,
                     padding: "0.35rem 0.9rem",
-                    fontFamily: "Oswald, sans-serif",
+                    fontFamily: "Barlow Condensed, sans-serif",
                     fontWeight: 600,
                     fontSize: "0.75rem",
                     letterSpacing: "0.06em",
@@ -480,7 +480,7 @@ export default function Money() {
                       border: "none",
                       borderRadius: 6,
                       padding: "0.35rem 0.9rem",
-                      fontFamily: "Oswald, sans-serif",
+                      fontFamily: "Barlow Condensed, sans-serif",
                       fontWeight: 600,
                       fontSize: "0.75rem",
                       letterSpacing: "0.06em",
@@ -508,7 +508,7 @@ export default function Money() {
                   { label: "Amount ($)", key: "amount", type: "number" },
                 ].map(f => (
                   <div key={f.key}>
-                    <label style={{ fontSize: "0.7rem", fontFamily: "Oswald, sans-serif", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: "oklch(0.4 0.07 150)", display: "block", marginBottom: "0.2rem" }}>{f.label}</label>
+                    <label style={{ fontSize: "0.7rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: "oklch(0.4 0.07 150)", display: "block", marginBottom: "0.2rem" }}>{f.label}</label>
                     <input
                       type={f.type}
                       value={(editingGow as Record<string, unknown>)[f.key] as string ?? ""}
@@ -521,13 +521,13 @@ export default function Money() {
               <div style={{ display: "flex", gap: "0.5rem" }}>
                 <button
                   onClick={() => saveGowEntry(editingGow)}
-                  style={{ background: "oklch(0.32 0.1 150)", color: "white", border: "none", borderRadius: 6, padding: "0.35rem 1rem", fontFamily: "Oswald, sans-serif", fontWeight: 600, fontSize: "0.75rem", letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}
+                  style={{ background: "oklch(0.32 0.1 150)", color: "white", border: "none", borderRadius: 6, padding: "0.35rem 1rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600, fontSize: "0.75rem", letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}
                 >
                   ✓ Save Entry
                 </button>
                 <button
                   onClick={() => { setShowGowForm(false); setEditingGow(null); }}
-                  style={{ background: "oklch(0.92 0.01 150)", color: "oklch(0.35 0.06 150)", border: "none", borderRadius: 6, padding: "0.35rem 1rem", fontFamily: "Oswald, sans-serif", fontWeight: 600, fontSize: "0.75rem", letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}
+                  style={{ background: "oklch(0.92 0.01 150)", color: "oklch(0.35 0.06 150)", border: "none", borderRadius: 6, padding: "0.35rem 1rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600, fontSize: "0.75rem", letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}
                 >
                   Cancel
                 </button>

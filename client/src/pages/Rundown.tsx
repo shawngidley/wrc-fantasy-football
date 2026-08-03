@@ -27,19 +27,19 @@ export default function Rundown() {
             const homeWon = m.hScore > m.aScore;
             return (
               <div key={i} className="wrc-card">
-                {m.isChallenge && <div style={{ background: "linear-gradient(90deg, oklch(0.65 0.14 85), oklch(0.72 0.15 85))", color: "oklch(0.15 0.02 150)", fontFamily: "Oswald, sans-serif", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", padding: "0.3rem 0.75rem", textAlign: "center" }}>⚔️ Challenge Game</div>}
+                {m.isChallenge && <div style={{ background: "linear-gradient(90deg, oklch(0.65 0.14 85), oklch(0.72 0.15 85))", color: "oklch(0.15 0.02 150)", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", padding: "0.3rem 0.75rem", textAlign: "center" }}>⚔️ Challenge Game</div>}
                 <div className="wrc-card-gold-stripe" />
                 <div className="wrc-card-body" style={{ padding: "1rem 1.25rem" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: "0.9rem", color: homeWon ? "oklch(0.22 0.08 150)" : "oklch(0.5 0.04 150)" }}>{m.home}</div>
-                      <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "1.8rem", color: homeWon ? "oklch(0.22 0.08 150)" : "oklch(0.6 0.04 150)" }}>{m.hScore.toFixed(1)}</div>
+                      <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1.8rem", color: homeWon ? "oklch(0.22 0.08 150)" : "oklch(0.6 0.04 150)" }}>{m.hScore.toFixed(1)}</div>
                       <div style={{ fontSize: "0.72rem", color: m.hScore >= MEDIAN ? "oklch(0.42 0.15 150)" : "oklch(0.55 0.22 25)", fontWeight: 600 }}>{m.hScore >= MEDIAN ? "↑ Above Median" : "↓ Below Median"}</div>
                     </div>
-                    <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.6 0.04 150)" }}>FINAL</div>
+                    <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.6 0.04 150)" }}>FINAL</div>
                     <div style={{ textAlign: "right" }}>
                       <div style={{ fontWeight: 700, fontSize: "0.9rem", color: !homeWon ? "oklch(0.22 0.08 150)" : "oklch(0.5 0.04 150)" }}>{m.away}</div>
-                      <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "1.8rem", color: !homeWon ? "oklch(0.22 0.08 150)" : "oklch(0.6 0.04 150)" }}>{m.aScore.toFixed(1)}</div>
+                      <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1.8rem", color: !homeWon ? "oklch(0.22 0.08 150)" : "oklch(0.6 0.04 150)" }}>{m.aScore.toFixed(1)}</div>
                       <div style={{ fontSize: "0.72rem", color: m.aScore >= MEDIAN ? "oklch(0.42 0.15 150)" : "oklch(0.55 0.22 25)", fontWeight: 600 }}>{m.aScore >= MEDIAN ? "↑ Above Median" : "↓ Below Median"}</div>
                     </div>
                   </div>

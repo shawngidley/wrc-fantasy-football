@@ -66,14 +66,14 @@ function CommissionerPinPanel({ labelStyle }: { labelStyle: React.CSSProperties 
             <thead>
               <tr style={{ borderBottom: "2px solid oklch(0.88 0.02 150)" }}>
                 {["Team","Owner","Current PIN","Reset"].map(h => (
-                  <th key={h} style={{ textAlign: "left", padding: "0.35rem 0.75rem", fontFamily: "Oswald, sans-serif", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.06em", color: "oklch(0.45 0.06 150)", textTransform: "uppercase" }}>{h}</th>
+                  <th key={h} style={{ textAlign: "left", padding: "0.35rem 0.75rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.06em", color: "oklch(0.45 0.06 150)", textTransform: "uppercase" }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {teams.map((t, i) => (
                 <tr key={t.id} style={{ background: i%2===0?"white":"oklch(0.97 0.005 150)", borderBottom: "1px solid oklch(0.93 0.01 150)" }}>
-                  <td style={{ padding: "0.45rem 0.75rem", fontWeight: 700, color: "oklch(0.22 0.08 150)", fontFamily: "Oswald, sans-serif", fontSize: "0.82rem" }}>{t.name}</td>
+                  <td style={{ padding: "0.45rem 0.75rem", fontWeight: 700, color: "oklch(0.22 0.08 150)", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem" }}>{t.name}</td>
                   <td style={{ padding: "0.45rem 0.75rem", color: "oklch(0.45 0.04 150)" }}>{t.owner}</td>
                   <td style={{ padding: "0.45rem 0.75rem" }}>
                     <span style={{ fontFamily: "monospace", fontWeight: 700, color: t.pin !== "1234" ? "oklch(0.35 0.15 150)" : "oklch(0.55 0.04 150)", fontSize: "0.9rem" }}>{t.pin}</span>
@@ -83,7 +83,7 @@ function CommissionerPinPanel({ labelStyle }: { labelStyle: React.CSSProperties 
                     {t.pin !== "1234" && (
                       <button
                         onClick={() => handleResetToDefault(t.id)}
-                        style={{ display: "flex", alignItems: "center", gap: 4, background: "oklch(0.95 0.03 25)", color: "oklch(0.45 0.18 25)", border: "1px solid oklch(0.85 0.08 25)", borderRadius: 5, padding: "2px 8px", fontSize: "0.72rem", fontWeight: 700, fontFamily: "Oswald, sans-serif", cursor: "pointer" }}
+                        style={{ display: "flex", alignItems: "center", gap: 4, background: "oklch(0.95 0.03 25)", color: "oklch(0.45 0.18 25)", border: "1px solid oklch(0.85 0.08 25)", borderRadius: 5, padding: "2px 8px", fontSize: "0.72rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif", cursor: "pointer" }}
                       >
                         <RefreshCw size={11} /> Reset to 1234
                       </button>
@@ -122,7 +122,7 @@ function CommissionerPinPanel({ labelStyle }: { labelStyle: React.CSSProperties 
           <button
             type="submit"
             disabled={loading}
-            style={{ background: "oklch(0.45 0.14 85)", color: "white", border: "none", borderRadius: 8, padding: "0.6rem 1.25rem", fontFamily: "Oswald, sans-serif", fontSize: "0.82rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", whiteSpace: "nowrap", opacity: loading ? 0.7 : 1 }}
+            style={{ background: "oklch(0.45 0.14 85)", color: "white", border: "none", borderRadius: 8, padding: "0.6rem 1.25rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", whiteSpace: "nowrap", opacity: loading ? 0.7 : 1 }}
           >
             {loading ? "Saving..." : "Set PIN"}
           </button>
@@ -171,7 +171,7 @@ function CommissionerProtectionsPanel() {
       <div className="wrc-card-header" style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: "oklch(0.95 0.06 85)" }}>
         <ClipboardList size={14} color="oklch(0.45 0.14 85)" />
         <span style={{ color: "oklch(0.35 0.14 85)" }}>Commissioner: All Team Protections</span>
-        <span style={{ marginLeft: "auto", fontSize: "0.72rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, letterSpacing: "0.06em", color: isPastDeadline ? "oklch(0.45 0.18 25)" : "oklch(0.42 0.15 150)" }}>
+        <span style={{ marginLeft: "auto", fontSize: "0.72rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.06em", color: isPastDeadline ? "oklch(0.45 0.18 25)" : "oklch(0.42 0.15 150)" }}>
           {isPastDeadline ? "DEADLINE PASSED" : "DEADLINE: AUG 24 8PM ET"}
         </span>
       </div>
@@ -184,7 +184,7 @@ function CommissionerProtectionsPanel() {
               <thead>
                 <tr style={{ borderBottom: "2px solid oklch(0.88 0.02 150)" }}>
                   {["Team", "Owner", "Status", "Protected Players", "Picks Forfeited"].map(h => (
-                    <th key={h} style={{ textAlign: "left", padding: "0.35rem 0.75rem", fontFamily: "Oswald, sans-serif", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.06em", color: "oklch(0.45 0.06 150)", textTransform: "uppercase", whiteSpace: "nowrap" }}>{h}</th>
+                    <th key={h} style={{ textAlign: "left", padding: "0.35rem 0.75rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.06em", color: "oklch(0.45 0.06 150)", textTransform: "uppercase", whiteSpace: "nowrap" }}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -196,19 +196,19 @@ function CommissionerProtectionsPanel() {
 
                   return (
                     <tr key={team.id} style={{ background: i%2===0?"white":"oklch(0.97 0.005 150)", borderBottom: "1px solid oklch(0.93 0.01 150)" }}>
-                      <td style={{ padding: "0.5rem 0.75rem", fontWeight: 700, color: "oklch(0.22 0.08 150)", fontFamily: "Oswald, sans-serif", fontSize: "0.82rem", whiteSpace: "nowrap" }}>{team.name}</td>
+                      <td style={{ padding: "0.5rem 0.75rem", fontWeight: 700, color: "oklch(0.22 0.08 150)", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", whiteSpace: "nowrap" }}>{team.name}</td>
                       <td style={{ padding: "0.5rem 0.75rem", color: "oklch(0.45 0.04 150)", whiteSpace: "nowrap" }}>{team.owner}</td>
                       <td style={{ padding: "0.5rem 0.75rem" }}>
                         {!hasSubmitted ? (
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "0.7rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, color: "oklch(0.45 0.18 25)", background: "oklch(0.97 0.02 25)", border: "1px solid oklch(0.85 0.08 25)", borderRadius: 4, padding: "2px 7px" }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "0.7rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: "oklch(0.45 0.18 25)", background: "oklch(0.97 0.02 25)", border: "1px solid oklch(0.85 0.08 25)", borderRadius: 4, padding: "2px 7px" }}>
                             <AlertTriangle size={11} /> Not Submitted
                           </span>
                         ) : hasUnassigned ? (
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "0.7rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, color: "oklch(0.45 0.14 85)", background: "oklch(0.97 0.04 85)", border: "1px solid oklch(0.85 0.12 85)", borderRadius: 4, padding: "2px 7px" }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "0.7rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: "oklch(0.45 0.14 85)", background: "oklch(0.97 0.04 85)", border: "1px solid oklch(0.85 0.12 85)", borderRadius: 4, padding: "2px 7px" }}>
                             <AlertTriangle size={11} /> Incomplete
                           </span>
                         ) : (
-                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "0.7rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, color: "oklch(0.35 0.15 150)", background: "oklch(0.94 0.05 150)", border: "1px solid oklch(0.82 0.1 150)", borderRadius: 4, padding: "2px 7px" }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "0.7rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: "oklch(0.35 0.15 150)", background: "oklch(0.94 0.05 150)", border: "1px solid oklch(0.82 0.1 150)", borderRadius: 4, padding: "2px 7px" }}>
                             <CheckCircle2 size={11} /> Submitted
                           </span>
                         )}
@@ -303,14 +303,14 @@ export default function Settings() {
     color: "oklch(0.2 0.03 150)",
     background: "white",
     outline: "none",
-    fontFamily: "Inter, sans-serif",
+    fontFamily: "DM Sans, sans-serif",
     letterSpacing: "0.15em",
     boxSizing: "border-box" as const,
   };
 
   const labelStyle: React.CSSProperties = {
     display: "block",
-    fontFamily: "Oswald, sans-serif",
+    fontFamily: "Barlow Condensed, sans-serif",
     fontSize: "0.75rem",
     fontWeight: 700,
     letterSpacing: "0.08em",
@@ -341,13 +341,13 @@ export default function Settings() {
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
               <div>
                 <div style={labelStyle}>Team Name</div>
-                <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "1.05rem", color: "oklch(0.22 0.08 150)" }}>
+                <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1.05rem", color: "oklch(0.22 0.08 150)" }}>
                   {franchise?.name ?? "—"}
                 </div>
               </div>
               <div>
                 <div style={labelStyle}>Owner</div>
-                <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "1.05rem", color: "oklch(0.22 0.08 150)" }}>
+                <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1.05rem", color: "oklch(0.22 0.08 150)" }}>
                   {franchise?.owner ?? "—"}
                 </div>
               </div>
@@ -369,7 +369,7 @@ export default function Settings() {
                     display: "inline-flex", alignItems: "center", gap: "0.35rem",
                     background: "oklch(0.93 0.06 85)", color: "oklch(0.35 0.14 85)",
                     borderRadius: 6, padding: "3px 10px",
-                    fontSize: "0.75rem", fontWeight: 700, fontFamily: "Oswald, sans-serif", letterSpacing: "0.06em",
+                    fontSize: "0.75rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.06em",
                   }}>
                     <Shield size={12} /> Commissioner
                   </span>
@@ -466,7 +466,7 @@ export default function Settings() {
                 disabled={savingPin}
                 style={{
                   background: "oklch(0.28 0.09 150)", color: "white", border: "none", borderRadius: 8,
-                  padding: "0.6rem 1.5rem", fontFamily: "Oswald, sans-serif", fontSize: "0.85rem",
+                  padding: "0.6rem 1.5rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem",
                   fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer",
                   opacity: savingPin ? 0.7 : 1,
                 }}
@@ -492,7 +492,7 @@ export default function Settings() {
           <div className="wrc-card-gold-stripe" />
           <div style={{ padding: "1.25rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "1rem" }}>
             <div>
-              <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.95rem", color: "oklch(0.22 0.08 150)", marginBottom: "0.2rem" }}>
+              <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.95rem", color: "oklch(0.22 0.08 150)", marginBottom: "0.2rem" }}>
                 Sign Out
               </div>
               <div style={{ fontSize: "0.82rem", color: "oklch(0.5 0.04 150)" }}>
@@ -505,7 +505,7 @@ export default function Settings() {
                 display: "flex", alignItems: "center", gap: "0.5rem",
                 background: "oklch(0.97 0.02 25)", color: "oklch(0.45 0.18 25)",
                 border: "1.5px solid oklch(0.85 0.08 25)", borderRadius: 8,
-                padding: "0.6rem 1.25rem", fontFamily: "Oswald, sans-serif", fontSize: "0.85rem",
+                padding: "0.6rem 1.25rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem",
                 fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer",
               }}
             >

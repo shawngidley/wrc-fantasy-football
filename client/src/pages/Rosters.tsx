@@ -122,7 +122,7 @@ export default function Rosters() {
                 borderColor: selectedDivision === div ? "oklch(0.78 0.15 85)" : "rgba(255,255,255,0.25)",
                 background: selectedDivision === div ? "oklch(0.78 0.15 85)" : "rgba(0,0,0,0.3)",
                 color: selectedDivision === div ? "oklch(0.18 0.05 85)" : "white",
-                fontFamily: "Oswald, sans-serif",
+                fontFamily: "Barlow Condensed, sans-serif",
                 fontWeight: 700,
                 fontSize: "0.78rem",
                 letterSpacing: "0.06em",
@@ -140,7 +140,7 @@ export default function Rosters() {
           <div key={div} style={{ marginBottom: "2rem" }}>
             {/* Division Label */}
             <div style={{
-              fontFamily: "Oswald, sans-serif",
+              fontFamily: "Barlow Condensed, sans-serif",
               fontWeight: 700,
               fontSize: "0.82rem",
               letterSpacing: "0.12em",
@@ -165,7 +165,7 @@ export default function Rosters() {
                 return (
                   <div
                     key={team.id}
-                    className="wrc-card"
+                    className="wrc-card wrc-card-hover wrc-fade-in"
                     style={{
                       outline: isMyTeam ? "2px solid oklch(0.78 0.15 85)" : "none",
                     }}
@@ -192,7 +192,7 @@ export default function Rosters() {
                         flexShrink: 0,
                         fontSize: "0.55rem",
                         color: "oklch(0.6 0.04 150)",
-                        fontFamily: "Oswald, sans-serif",
+                        fontFamily: "Barlow Condensed, sans-serif",
                         letterSpacing: "0.04em",
                         fontWeight: 600,
                       }}>
@@ -201,7 +201,7 @@ export default function Rosters() {
 
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{
-                          fontFamily: "Oswald, sans-serif",
+                          fontFamily: "Barlow Condensed, sans-serif",
                           fontWeight: 700,
                           fontSize: "0.95rem",
                           color: "oklch(0.18 0.05 150)",
@@ -230,7 +230,7 @@ export default function Rosters() {
                             alignItems: "center",
                             gap: "0.25rem",
                             fontSize: "0.68rem",
-                            fontFamily: "Oswald, sans-serif",
+                            fontFamily: "Barlow Condensed, sans-serif",
                             fontWeight: 700,
                             letterSpacing: "0.04em",
                             color: team.faabRemaining > 100 ? "oklch(0.35 0.13 150)" : team.faabRemaining > 50 ? "oklch(0.5 0.12 85)" : "oklch(0.45 0.18 25)",
@@ -252,7 +252,7 @@ export default function Rosters() {
                         <div style={{
                           padding: "0.3rem 1rem 0.2rem",
                           fontSize: "0.65rem",
-                          fontFamily: "Oswald, sans-serif",
+                          fontFamily: "Barlow Condensed, sans-serif",
                           fontWeight: 700,
                           letterSpacing: "0.1em",
                           textTransform: "uppercase",
@@ -270,7 +270,7 @@ export default function Rosters() {
                         <div style={{
                           padding: "0.3rem 1rem 0.2rem",
                           fontSize: "0.65rem",
-                          fontFamily: "Oswald, sans-serif",
+                          fontFamily: "Barlow Condensed, sans-serif",
                           fontWeight: 700,
                           letterSpacing: "0.1em",
                           textTransform: "uppercase",
@@ -299,7 +299,7 @@ function PlayerRow({ player, alt, bench }: { player: Player; alt: boolean; bench
   const c = POS_COLORS[player.pos];
   const isFa = player.acq?.startsWith("FA");
   return (
-    <div style={{
+    <div className="wrc-row-hover" style={{
       display: "flex",
       alignItems: "center",
       gap: "0.6rem",
@@ -314,7 +314,7 @@ function PlayerRow({ player, alt, bench }: { player: Player; alt: boolean; bench
         padding: "1px 5px",
         fontSize: "0.62rem",
         fontWeight: 700,
-        fontFamily: "Oswald, sans-serif",
+        fontFamily: "Barlow Condensed, sans-serif",
         letterSpacing: "0.04em",
         minWidth: 28,
         textAlign: "center",
@@ -333,7 +333,7 @@ function PlayerRow({ player, alt, bench }: { player: Player; alt: boolean; bench
         fontSize: "0.68rem",
         color: "oklch(0.55 0.06 150)",
         fontWeight: 600,
-        fontFamily: "Oswald, sans-serif",
+        fontFamily: "Barlow Condensed, sans-serif",
         letterSpacing: "0.04em",
         flexShrink: 0,
       }}>{player.nflTeam}</span>
@@ -341,7 +341,7 @@ function PlayerRow({ player, alt, bench }: { player: Player; alt: boolean; bench
       {player.acq && (
         <span style={{
           fontSize: "0.6rem",
-          fontFamily: "Oswald, sans-serif",
+          fontFamily: "Barlow Condensed, sans-serif",
           fontWeight: 700,
           letterSpacing: "0.04em",
           padding: "1px 5px",

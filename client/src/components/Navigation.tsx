@@ -62,7 +62,7 @@ export default function Navigation({
                 border: "2px solid oklch(0.78 0.15 85)",
                 borderRadius: 6,
                 padding: "2px 10px",
-                fontFamily: "Oswald, sans-serif",
+                fontFamily: "Barlow Condensed, sans-serif",
                 fontWeight: 700,
                 fontSize: "1.1rem",
                 color: "white",
@@ -71,7 +71,7 @@ export default function Navigation({
                 WRC
               </div>
               <span style={{
-                fontFamily: "Oswald, sans-serif",
+                fontFamily: "Barlow Condensed, sans-serif",
                 fontWeight: 500,
                 fontSize: "0.95rem",
                 color: "rgba(255,255,255,0.85)",
@@ -110,7 +110,7 @@ export default function Navigation({
             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginLeft: "auto", flexShrink: 0 }}>
               {teamName && (
                 <span style={{
-                  fontFamily: "Oswald, sans-serif",
+                  fontFamily: "Barlow Condensed, sans-serif",
                   fontSize: "0.8rem",
                   color: "oklch(0.78 0.15 85)",
                   letterSpacing: "0.04em",
@@ -154,7 +154,7 @@ export default function Navigation({
       <div className={`wrc-mobile-nav ${mobileOpen ? "open" : ""}`}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1.5rem" }}>
           <div style={{
-            fontFamily: "Oswald, sans-serif",
+            fontFamily: "Barlow Condensed, sans-serif",
             fontWeight: 700,
             fontSize: "1.2rem",
             color: "oklch(0.78 0.15 85)",
@@ -195,7 +195,7 @@ export default function Navigation({
             paddingTop: "1rem",
             borderTop: "1px solid rgba(255,255,255,0.1)",
           }}>
-            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.8rem", fontFamily: "Oswald, sans-serif", letterSpacing: "0.06em", marginBottom: "0.75rem" }}>
+            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.8rem", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.06em", marginBottom: "0.75rem" }}>
               LOGGED IN AS: {teamName}
             </div>
             <Link

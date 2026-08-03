@@ -343,7 +343,7 @@ function PlayerAvatar({ name, size = 36 }: { name: string; size?: number }) {
       border: "1.5px solid oklch(0.78 0.06 150)",
       display: "flex", alignItems: "center", justifyContent: "center",
       flexShrink: 0,
-      fontFamily: "Oswald, sans-serif", fontWeight: 700,
+      fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700,
       fontSize: size * 0.35, color: "oklch(0.32 0.09 150)",
       letterSpacing: "0.02em",
     }}>
@@ -360,7 +360,7 @@ function Chip({ label, value }: StatChip) {
       background: "oklch(0.93 0.01 150)",
       border: "1px solid oklch(0.87 0.02 150)",
       borderRadius: 4, padding: "1px 5px",
-      fontSize: "0.62rem", fontFamily: "Oswald, sans-serif",
+      fontSize: "0.62rem", fontFamily: "Barlow Condensed, sans-serif",
       letterSpacing: "0.04em",
     }}>
       <span style={{ color: "oklch(0.55 0.04 150)", fontWeight: 600 }}>{label}</span>
@@ -403,7 +403,7 @@ function PlayerCell({ player, side }: { player: SlotPlayer | null; side: "home" 
         <PlayerAvatar name={player.fullName} size={34} />
         <div style={{ flex: 1, minWidth: 0, textAlign: isHome ? "left" : "right" }}>
           <div style={{
-            fontFamily: "Oswald, sans-serif", fontWeight: 700,
+            fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700,
             fontSize: "0.82rem", color: "#1a3a2a",
             whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
           }}>
@@ -411,7 +411,7 @@ function PlayerCell({ player, side }: { player: SlotPlayer | null; side: "home" 
           </div>
           <div style={{
             fontSize: "0.65rem", color: "oklch(0.5 0.04 150)",
-            fontFamily: "Oswald, sans-serif", letterSpacing: "0.03em",
+            fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.03em",
           }}>
             {player.pos}– {player.nflTeam}
             {player.isTE && (
@@ -426,7 +426,7 @@ function PlayerCell({ player, side }: { player: SlotPlayer | null; side: "home" 
         {/* Points — big orange */}
         <div style={{ textAlign: isHome ? "right" : "left", flexShrink: 0 }}>
           <div style={{
-            fontFamily: "Oswald, sans-serif", fontWeight: 800,
+            fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800,
             fontSize: "1.15rem", lineHeight: 1,
             color: hasScored ? "#e07b00" : "oklch(0.7 0.03 150)",
           }}>
@@ -448,7 +448,7 @@ function PlayerCell({ player, side }: { player: SlotPlayer | null; side: "home" 
           background: "oklch(0.93 0.01 150)",
           border: "1px solid oklch(0.88 0.015 150)",
           borderRadius: 4, padding: "1px 6px",
-          fontFamily: "Oswald, sans-serif", letterSpacing: "0.03em",
+          fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.03em",
           alignSelf: isHome ? "flex-start" : "flex-end",
         }}>
           {player.gameInfo}
@@ -488,7 +488,7 @@ function SlotRowComp({ row }: { row: SlotRow }) {
         borderRight: "1px solid oklch(0.9 0.005 150)",
       }}>
         <span style={{
-          fontFamily: "Oswald, sans-serif", fontWeight: 700,
+          fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700,
           fontSize: "0.6rem", letterSpacing: "0.06em",
           color: "oklch(0.45 0.06 150)",
           writingMode: "vertical-rl",
@@ -517,7 +517,7 @@ function MatchupDetail({ matchup }: { matchup: Matchup }) {
         <div style={{
           background: "linear-gradient(90deg, oklch(0.65 0.14 85), oklch(0.72 0.15 85))",
           color: "oklch(0.15 0.02 150)",
-          fontFamily: "Oswald, sans-serif", fontSize: "0.72rem", fontWeight: 700,
+          fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700,
           letterSpacing: "0.1em", textTransform: "uppercase",
           padding: "0.3rem 0.75rem", textAlign: "center",
         }}>
@@ -533,7 +533,7 @@ function MatchupDetail({ matchup }: { matchup: Matchup }) {
             <PlayerAvatar name={matchup.home.team} size={44} />
             <div>
               <div style={{
-                fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "2rem",
+                fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "2rem",
                 color: homeWinning ? "#1a3a2a" : "oklch(0.55 0.04 150)", lineHeight: 1,
               }}>
                 {matchup.home.score.toFixed(1)}
@@ -542,7 +542,7 @@ function MatchupDetail({ matchup }: { matchup: Matchup }) {
                 </sup>
               </div>
               <div style={{
-                fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.85rem",
+                fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.85rem",
                 color: "#1a6b3a", marginTop: 2,
               }}>
                 {matchup.home.team}
@@ -563,7 +563,7 @@ function MatchupDetail({ matchup }: { matchup: Matchup }) {
             <PlayerAvatar name={matchup.away.team} size={44} />
             <div style={{ textAlign: "right" }}>
               <div style={{
-                fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "2rem",
+                fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "2rem",
                 color: !homeWinning ? "#1a3a2a" : "oklch(0.55 0.04 150)", lineHeight: 1,
               }}>
                 {matchup.away.score.toFixed(1)}
@@ -572,7 +572,7 @@ function MatchupDetail({ matchup }: { matchup: Matchup }) {
                 </sup>
               </div>
               <div style={{
-                fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.85rem",
+                fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.85rem",
                 color: "#1a6b3a", marginTop: 2,
               }}>
                 {matchup.away.team}
@@ -597,10 +597,10 @@ function MatchupDetail({ matchup }: { matchup: Matchup }) {
               borderRadius: 3, transition: "width 0.5s",
             }} />
           </div>
-          <span style={{ fontSize: "0.65rem", color: "oklch(0.5 0.04 150)", flexShrink: 0, fontFamily: "Oswald, sans-serif" }}>
+          <span style={{ fontSize: "0.65rem", color: "oklch(0.5 0.04 150)", flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif" }}>
             {homePct.toFixed(0)}%
           </span>
-          <span style={{ fontSize: "0.65rem", color: "oklch(0.5 0.04 150)", flexShrink: 0, fontFamily: "Oswald, sans-serif" }}>
+          <span style={{ fontSize: "0.65rem", color: "oklch(0.5 0.04 150)", flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif" }}>
             {(100 - homePct).toFixed(0)}%
           </span>
           <div style={{ flex: 1, height: 6, background: "oklch(0.9 0.005 150)", borderRadius: 3, overflow: "hidden" }}>
@@ -615,7 +615,7 @@ function MatchupDetail({ matchup }: { matchup: Matchup }) {
         {/* OFFENSE label */}
         <div style={{
           textAlign: "center", marginTop: "0.5rem", marginBottom: 0,
-          fontFamily: "Oswald, sans-serif", fontWeight: 700,
+          fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700,
           fontSize: "0.72rem", letterSpacing: "0.12em",
           color: "oklch(0.45 0.04 150)", textTransform: "uppercase",
           borderTop: "1px solid oklch(0.9 0.005 150)",
@@ -638,7 +638,7 @@ function MatchupDetail({ matchup }: { matchup: Matchup }) {
           {/* Bench divider label */}
           <div style={{
             textAlign: "center",
-            fontFamily: "Oswald, sans-serif", fontWeight: 700,
+            fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700,
             fontSize: "0.72rem", letterSpacing: "0.12em",
             color: "oklch(0.55 0.04 150)", textTransform: "uppercase",
             background: "oklch(0.96 0.008 150)",
@@ -669,7 +669,7 @@ function MatchupDetail({ matchup }: { matchup: Matchup }) {
                   borderRight: "1px solid oklch(0.9 0.005 150)",
                 }}>
                   <span style={{
-                    fontFamily: "Oswald, sans-serif", fontWeight: 700,
+                    fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700,
                     fontSize: "0.58rem", letterSpacing: "0.06em",
                     color: "oklch(0.6 0.04 150)",
                     writingMode: "vertical-rl",
@@ -705,14 +705,14 @@ function MatchupPill({ matchup, active, onClick }: { matchup: Matchup; active: b
     >
       <PlayerAvatar name={matchup.home.team} size={22} />
       <span style={{
-        fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.82rem",
+        fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.82rem",
         color: active ? "#1a3a2a" : "white",
       }}>
         {matchup.home.score.toFixed(1)}
       </span>
       <span style={{ fontSize: "0.7rem", color: active ? "oklch(0.5 0.04 150)" : "rgba(255,255,255,0.6)" }}>vs</span>
       <span style={{
-        fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.82rem",
+        fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.82rem",
         color: active ? "#1a3a2a" : "white",
       }}>
         {matchup.away.score.toFixed(1)}
@@ -781,13 +781,13 @@ export default function LiveScoring() {
             background: "rgba(255,255,255,0.1)", borderRadius: 8, padding: "0.3rem 0.6rem",
           }}>
             <Clock size={12} color="rgba(255,255,255,0.7)" />
-            <span style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.75rem", color: "rgba(255,255,255,0.8)", letterSpacing: "0.04em" }}>{timeStr}</span>
+            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem", color: "rgba(255,255,255,0.8)", letterSpacing: "0.04em" }}>{timeStr}</span>
           </div>
           <button onClick={refresh} style={{
             background: "oklch(0.28 0.09 150)", border: "none", borderRadius: 8,
             padding: "0.3rem 0.6rem", color: "white", cursor: "pointer",
             display: "flex", alignItems: "center", gap: "0.3rem",
-            fontFamily: "Oswald, sans-serif", fontSize: "0.75rem",
+            fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem",
           }}>
             <RefreshCw size={11} />
           </button>
@@ -798,7 +798,7 @@ export default function LiveScoring() {
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "1rem 1rem 0" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
           <div>
-            <h1 style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "1.3rem", color: "white", letterSpacing: "0.04em", margin: 0 }}>
+            <h1 style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1.3rem", color: "white", letterSpacing: "0.04em", margin: 0 }}>
               LIVE SCORING
             </h1>
             <p style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.6)", margin: 0 }}>

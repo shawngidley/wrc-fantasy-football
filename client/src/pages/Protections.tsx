@@ -285,7 +285,7 @@ export default function Protections() {
             style={{
               background: saved ? "oklch(0.42 0.15 150)" : cd.past ? "rgba(0,0,0,0.3)" : !isValid ? "rgba(0,0,0,0.35)" : "oklch(0.28 0.09 150)",
               color: "white", border: !isValid && !cd.past && franchise ? "2px solid oklch(0.65 0.18 25)" : "none", borderRadius: 8,
-              padding: "0.55rem 1.25rem", fontFamily: "Oswald, sans-serif",
+              padding: "0.55rem 1.25rem", fontFamily: "Barlow Condensed, sans-serif",
               fontSize: "0.85rem", fontWeight: 700, letterSpacing: "0.06em",
               textTransform: "uppercase", cursor: (franchise && !cd.past && isValid) ? "pointer" : "not-allowed",
               display: "flex", alignItems: "center", gap: "0.4rem",
@@ -302,7 +302,7 @@ export default function Protections() {
         {/* Traded pick notice */}
         {franchise && pickStatus.notes.length > 0 && (
           <div style={{ background: "oklch(0.97 0.04 85)", border: "1.5px solid oklch(0.82 0.12 85)", borderRadius: 10, padding: "0.75rem 1.25rem", marginBottom: "1.25rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.35rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.75rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "oklch(0.45 0.14 85)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.35rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.75rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "oklch(0.45 0.14 85)" }}>
               <AlertTriangle size={13} /> Traded Pick Notice
             </div>
             {pickStatus.notes.map((note, i) => (
@@ -333,7 +333,7 @@ export default function Protections() {
             onClick={() => setExpandRules(r => !r)}
             style={{ width: "100%", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.75rem 1.25rem" }}
           >
-            <span style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.8rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "oklch(0.25 0.06 150)" }}>
+            <span style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.8rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "oklch(0.25 0.06 150)" }}>
               <Shield size={14} /> Protection Rules
             </span>
             {expandRules ? <ChevronUp size={16} color="oklch(0.5 0.04 150)" /> : <ChevronDown size={16} color="oklch(0.5 0.04 150)" />}
@@ -392,22 +392,22 @@ export default function Protections() {
                 border: "2px solid",
                 borderColor: totalSelected >= n ? "oklch(0.65 0.14 85)" : "rgba(255,255,255,0.2)",
                 display: "flex", alignItems: "center", justifyContent: "center",
-                fontFamily: "Oswald, sans-serif", fontSize: "0.8rem", fontWeight: 700,
+                fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.8rem", fontWeight: 700,
                 color: totalSelected >= n ? "oklch(0.15 0.02 150)" : "rgba(255,255,255,0.4)",
                 transition: "all 0.2s",
               }}>
                 {n}
               </div>
             ))}
-            <span style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.8rem", color: "rgba(255,255,255,0.7)", letterSpacing: "0.04em" }}>
+            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.8rem", color: "rgba(255,255,255,0.7)", letterSpacing: "0.04em" }}>
               {totalSelected}/3 selected
             </span>
           </div>
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-            <span style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "3px 10px", fontSize: "0.72rem", color: "rgba(255,255,255,0.65)", fontFamily: "Oswald, sans-serif" }}>
+            <span style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "3px 10px", fontSize: "0.72rem", color: "rgba(255,255,255,0.65)", fontFamily: "Barlow Condensed, sans-serif" }}>
               Rd 3–6 slot: {tier1Slots.length}/1
             </span>
-            <span style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "3px 10px", fontSize: "0.72rem", color: "rgba(255,255,255,0.65)", fontFamily: "Oswald, sans-serif" }}>
+            <span style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "3px 10px", fontSize: "0.72rem", color: "rgba(255,255,255,0.65)", fontFamily: "Barlow Condensed, sans-serif" }}>
               Rd 7–18 / FA slots: {tier2Slots.length}/3
             </span>
           </div>
@@ -475,7 +475,7 @@ export default function Protections() {
                       {/* Pos badge */}
                       <div style={{
                         width: 36, textAlign: "center",
-                        fontFamily: "Oswald, sans-serif", fontSize: "0.7rem", fontWeight: 700,
+                        fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", fontWeight: 700,
                         color: "white", background: POS_COLORS[entry.pos] ?? "#64748b",
                         borderRadius: 4, padding: "2px 0", flexShrink: 0,
                       }}>
@@ -497,17 +497,17 @@ export default function Protections() {
                       {/* Tier badge */}
                       <div style={{ flexShrink: 0 }}>
                         {entry.tier === "tier1" && (
-                          <span style={{ fontSize: "0.65rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, letterSpacing: "0.06em", background: "#6366f1", color: "white", borderRadius: 4, padding: "2px 6px" }}>
+                          <span style={{ fontSize: "0.65rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.06em", background: "#6366f1", color: "white", borderRadius: 4, padding: "2px 6px" }}>
                             RD 3–6
                           </span>
                         )}
                         {entry.tier === "tier2" && (
-                          <span style={{ fontSize: "0.65rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, letterSpacing: "0.06em", background: "oklch(0.42 0.15 150)", color: "white", borderRadius: 4, padding: "2px 6px" }}>
+                          <span style={{ fontSize: "0.65rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.06em", background: "oklch(0.42 0.15 150)", color: "white", borderRadius: 4, padding: "2px 6px" }}>
                             RD 7+ / FA
                           </span>
                         )}
                         {entry.tier === "ineligible" && (
-                          <span style={{ fontSize: "0.65rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, letterSpacing: "0.06em", background: "oklch(0.55 0.22 25)", color: "white", borderRadius: 4, padding: "2px 6px" }}>
+                          <span style={{ fontSize: "0.65rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.06em", background: "oklch(0.55 0.22 25)", color: "white", borderRadius: 4, padding: "2px 6px" }}>
                             RD 1–2
                           </span>
                         )}
@@ -543,7 +543,7 @@ export default function Protections() {
                         onClick={e => e.stopPropagation()}
                       >
                         <ArrowUpDown size={13} color="oklch(0.35 0.1 150)" />
-                        <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "oklch(0.28 0.1 150)", fontFamily: "Oswald, sans-serif", letterSpacing: "0.04em" }}>
+                        <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "oklch(0.28 0.1 150)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.04em" }}>
                           ASSIGN FORFEITED PICK:
                         </span>
                         <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
@@ -565,7 +565,7 @@ export default function Protections() {
                                       ? "oklch(0.78 0.04 150)"
                                       : "white",
                                   color: isAssignedToMe ? "white" : isAssignedToOther ? "oklch(0.55 0.04 150)" : "oklch(0.28 0.1 150)",
-                                  fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.78rem",
+                                  fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.78rem",
                                   cursor: cd.past ? "not-allowed" : "pointer",
                                   transition: "all 0.15s",
                                   position: "relative",
@@ -648,7 +648,7 @@ export default function Protections() {
                       <tr key={slot.playerId}>
                         <td style={{ fontWeight: 700 }}>{entry.name}</td>
                         <td>
-                          <span style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.72rem", color: "white", background: POS_COLORS[entry.pos] ?? "#64748b", borderRadius: 3, padding: "1px 6px" }}>
+                          <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem", color: "white", background: POS_COLORS[entry.pos] ?? "#64748b", borderRadius: 3, padding: "1px 6px" }}>
                             {entry.pos}
                           </span>
                         </td>
@@ -704,7 +704,7 @@ function DeadlineBanner({ cd }: { cd: ReturnType<typeof useDeadlineCountdown> })
     }}>
       <Clock size={18} color={cd.past ? "oklch(0.55 0.22 25)" : urgent ? "oklch(0.78 0.18 25)" : "rgba(255,255,255,0.7)"} />
       <div style={{ flex: 1 }}>
-        <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.78rem", letterSpacing: "0.1em", textTransform: "uppercase", color: cd.past ? "oklch(0.45 0.22 25)" : urgent ? "oklch(0.78 0.18 25)" : "rgba(255,255,255,0.9)" }}>
+        <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.78rem", letterSpacing: "0.1em", textTransform: "uppercase", color: cd.past ? "oklch(0.45 0.22 25)" : urgent ? "oklch(0.78 0.18 25)" : "rgba(255,255,255,0.9)" }}>
           {cd.past ? "Protections Deadline Has Passed" : urgent ? "⚡ Deadline Approaching!" : "Protections Deadline"}
         </div>
         <div style={{ fontSize: "0.78rem", color: cd.past ? "oklch(0.55 0.22 25)" : "rgba(255,255,255,0.55)", marginTop: 2 }}>
@@ -717,10 +717,10 @@ function DeadlineBanner({ cd }: { cd: ReturnType<typeof useDeadlineCountdown> })
             { v: cd.d, l: "D" }, { v: cd.h, l: "H" }, { v: cd.m, l: "M" }, { v: cd.s, l: "S" },
           ].map(({ v, l }, i, arr) => (
             <span key={l} style={{ display: "flex", alignItems: "baseline", gap: "1px" }}>
-              <span style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "1.1rem", color: urgent ? "oklch(0.78 0.18 25)" : "white", minWidth: 24, textAlign: "center" }}>
+              <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1.1rem", color: urgent ? "oklch(0.78 0.18 25)" : "white", minWidth: 24, textAlign: "center" }}>
                 {String(v).padStart(2, "0")}
               </span>
-              <span style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.6rem", color: "rgba(255,255,255,0.5)", letterSpacing: "0.05em" }}>{l}</span>
+              <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.6rem", color: "rgba(255,255,255,0.5)", letterSpacing: "0.05em" }}>{l}</span>
               {i < arr.length - 1 && <span style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.9rem", marginLeft: 1 }}>:</span>}
             </span>
           ))}

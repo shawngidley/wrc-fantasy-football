@@ -45,7 +45,7 @@ function BracketGame({ title, team1, team2, score1, score2, week }: {
             borderBottom: i === 0 ? "1px solid oklch(0.9 0.005 150)" : "none",
           }}>
             <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "oklch(0.22 0.06 150)" }}>{t.team}</span>
-            <span style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "1.1rem", color: t.score !== null ? "oklch(0.22 0.08 150)" : "oklch(0.75 0.01 150)" }}>
+            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1.1rem", color: t.score !== null ? "oklch(0.22 0.08 150)" : "oklch(0.75 0.01 150)" }}>
               {t.score !== null ? t.score.toFixed(1) : "—"}
             </span>
           </div>
@@ -74,12 +74,12 @@ export default function Playoffs() {
           <div className="wrc-card-body" style={{ padding: "1rem 1.25rem" }}>
             <div style={{ display: "flex", gap: "2rem", flexWrap: "wrap" }}>
               <div>
-                <div style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "oklch(0.35 0.06 150)", marginBottom: "0.35rem" }}>Seeds 1-2 (Bye)</div>
+                <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "oklch(0.35 0.06 150)", marginBottom: "0.35rem" }}>Seeds 1-2 (Bye)</div>
                 <div style={{ fontSize: "0.85rem", color: "oklch(0.3 0.04 150)" }}>1. Team Pattie — Central Division</div>
                 <div style={{ fontSize: "0.85rem", color: "oklch(0.3 0.04 150)" }}>2. Team Gidley — East Division</div>
               </div>
               <div>
-                <div style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "oklch(0.35 0.06 150)", marginBottom: "0.35rem" }}>Seeds 3-6 (Wild Card)</div>
+                <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "oklch(0.35 0.06 150)", marginBottom: "0.35rem" }}>Seeds 3-6 (Wild Card)</div>
                 <div style={{ fontSize: "0.85rem", color: "oklch(0.3 0.04 150)" }}>3. Team Sotka — East Division</div>
                 <div style={{ fontSize: "0.85rem", color: "oklch(0.3 0.04 150)" }}>4. Team Heiden — West Division</div>
                 <div style={{ fontSize: "0.85rem", color: "oklch(0.3 0.04 150)" }}>5. Team Krause — Central Division</div>
@@ -94,7 +94,7 @@ export default function Playoffs() {
           <div style={{ display: "flex", gap: "2rem", alignItems: "center", minWidth: 800, padding: "0.5rem 0" }}>
             {/* Wild Card Round */}
             <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.8rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.7)", textAlign: "center", marginBottom: "0.75rem" }}>
+              <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.8rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.7)", textAlign: "center", marginBottom: "0.75rem" }}>
                 Wild Card (Week 15)
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -108,7 +108,7 @@ export default function Playoffs() {
 
             {/* Semifinals */}
             <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.8rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.7)", textAlign: "center", marginBottom: "0.75rem" }}>
+              <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.8rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.7)", textAlign: "center", marginBottom: "0.75rem" }}>
                 Semifinals (Week 16)
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
@@ -122,13 +122,13 @@ export default function Playoffs() {
 
             {/* Championship */}
             <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.8rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.7)", textAlign: "center", marginBottom: "0.75rem" }}>
+              <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.8rem", fontWeight: 700, letterSpacing: "0.1em", textTransform: "uppercase", color: "rgba(255,255,255,0.7)", textAlign: "center", marginBottom: "0.75rem" }}>
                 Championship (Week 17)
               </div>
               <div className="wrc-card">
                 <div style={{ background: "linear-gradient(90deg, oklch(0.65 0.14 85), oklch(0.72 0.15 85))", padding: "0.5rem 1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
                   <Trophy size={16} color="oklch(0.15 0.02 150)" />
-                  <span style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "oklch(0.15 0.02 150)" }}>WRC Championship</span>
+                  <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "oklch(0.15 0.02 150)" }}>WRC Championship</span>
                 </div>
                 <div className="wrc-card-body" style={{ padding: "0.75rem 1rem" }}>
                   {["SF Winner 1", "SF Winner 2"].map((t, i) => (
@@ -140,7 +140,7 @@ export default function Playoffs() {
                       borderBottom: i === 0 ? "1px solid oklch(0.9 0.005 150)" : "none",
                     }}>
                       <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "oklch(0.22 0.06 150)" }}>{t}</span>
-                      <span style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "1.1rem", color: "oklch(0.75 0.01 150)" }}>—</span>
+                      <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1.1rem", color: "oklch(0.75 0.01 150)" }}>—</span>
                     </div>
                   ))}
                 </div>
