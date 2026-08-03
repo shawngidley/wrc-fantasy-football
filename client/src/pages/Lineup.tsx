@@ -144,6 +144,9 @@ const POS_COLORS: Record<string, string> = {
   DST: "oklch(0.45 0.18 25)",
 };
 
+// ── Current week (for bye conflict highlighting) ──────────────────────────────
+const CURRENT_WEEK = 14;
+
 // ── Season stats helper ─────────────────────────────────────────────────────
 function buildSeasonStatChips(player: Player): { label: string; value: string }[] {
   const s = player.seasonStats;
@@ -210,17 +213,21 @@ function SeasonStatsRow({ player }: { player: Player }) {
           {fpg}/G
         </span>
       )}
-      {/* Bye week */}
-      {player.byeWeek !== undefined && (
-        <span style={{
-          fontSize: "0.6rem", fontFamily: "Oswald, sans-serif", fontWeight: 700,
-          padding: "1px 5px", borderRadius: 3,
-          background: "oklch(0.93 0.005 150)", color: "oklch(0.52 0.02 150)",
-          border: "1px solid oklch(0.85 0.01 150)", whiteSpace: "nowrap" as const,
-        }}>
-          BYE {player.byeWeek}
-        </span>
-      )}
+      {/* Bye week — red if current week conflict */}
+      {player.byeWeek !== undefined && (() => {
+        const isByeConflict = player.byeWeek === CURRENT_WEEK;
+        return (
+          <span style={{
+            fontSize: "0.6rem", fontFamily: "Oswald, sans-serif", fontWeight: 700,
+            padding: "1px 5px", borderRadius: 3, whiteSpace: "nowrap" as const,
+            background: isByeConflict ? "oklch(0.92 0.12 25)" : "oklch(0.93 0.005 150)",
+            color:      isByeConflict ? "oklch(0.45 0.20 25)" : "oklch(0.52 0.02 150)",
+            border:     isByeConflict ? "1px solid oklch(0.82 0.14 25)" : "1px solid oklch(0.85 0.01 150)",
+          }}>
+            {isByeConflict ? `⚠ BYE ${player.byeWeek}` : `BYE ${player.byeWeek}`}
+          </span>
+        );
+      })()}
       {/* Season stat chips */}
       {chips.map((c, i) => (
         <span key={i} style={{
