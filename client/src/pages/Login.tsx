@@ -7,22 +7,12 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { Lock, ChevronDown, Trophy } from "lucide-react";
+import { TEAMS } from "@/lib/wrcData";
 
-// Mock franchises — replace with Supabase query
+// Real franchises from WRCFootballFolder(2025).xlsx
 const FRANCHISES = [
-  { id: "1", team_name: "Team Gidley", owner_name: "Shawn Gidley", auth_pin: "1234", is_commissioner: true },
-  { id: "2", team_name: "Team Osicki", owner_name: "Dan Osicki", auth_pin: "1234" },
-  { id: "3", team_name: "Team Sotka", owner_name: "David Sotka", auth_pin: "1234" },
-  { id: "4", team_name: "Team Nelson", owner_name: "Scott Nelson", auth_pin: "1234" },
-  { id: "5", team_name: "Team Yane", owner_name: "James Yane", auth_pin: "1234" },
-  { id: "6", team_name: "Team Cromer", owner_name: "Keith Cromer", auth_pin: "1234" },
-  { id: "7", team_name: "Team Pattie", owner_name: "Jonas Pattie", auth_pin: "1234" },
-  { id: "8", team_name: "Team Krause", owner_name: "Bill Krause", auth_pin: "1234" },
-  { id: "9", team_name: "Team Ryks", owner_name: "David Ryks", auth_pin: "1234" },
-  { id: "10", team_name: "Team Heiden", owner_name: "Jason Heiden", auth_pin: "1234" },
-  { id: "11", team_name: "Team Akagi", owner_name: "Greg Akagi", auth_pin: "1234" },
-  { id: "12", team_name: "Team Mackar", owner_name: "Scott Mackar", auth_pin: "1234" },
-  { id: "guest", team_name: "Guest", owner_name: "Guest", auth_pin: "0000" },
+  ...TEAMS.map(t => ({ id: t.id, team_name: t.teamName, owner_name: t.owner, auth_pin: "1234", is_commissioner: t.id === "dan" })),
+  { id: "guest", team_name: "Guest", owner_name: "Guest", auth_pin: "0000", is_commissioner: false },
 ];
 
 export default function Login() {

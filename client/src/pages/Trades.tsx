@@ -6,13 +6,10 @@
 import { useState } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { ArrowLeftRight, Plus, X, DollarSign, CalendarDays } from "lucide-react";
+import { ArrowLeftRight, Plus, X, DollarSign, CalendarDays, Inbox, Check, XCircle } from "lucide-react";
+import { TEAMS as WRC_TEAMS } from "@/lib/wrcData";
 
-const TEAMS = [
-  "Team Gidley", "Team Sotka", "Team Nelson", "Team Yane",
-  "Team Pattie", "Team Krause", "Team Ryks", "Team Osicki",
-  "Team Heiden", "Team Akagi", "Team Mackar", "Team Cromer",
-];
+const TEAMS = WRC_TEAMS.map(t => t.teamName);
 
 const CURRENT_YEAR = 2026;
 const NEXT_YEAR = 2027;
@@ -31,21 +28,52 @@ type TradeSide = {
 const TRADE_HISTORY = [
   {
     date: "Dec 15, 2025",
-    team1: "Team Sotka", sends1: ["Travis Kelce (TE)"],
-    team2: "Team Krause", sends2: ["Jaylen Waddle (WR)", `${CURRENT_YEAR} Rd 4 Pick`],
+    team1: "Jonas Pattie", sends1: ["Justin Jefferson (WR)"],
+    team2: "Legion of Doom", sends2: ["George Pickens (WR)", `${CURRENT_YEAR} Rd 4 Pick`],
     status: "Completed",
   },
   {
     date: "Nov 28, 2025",
-    team1: "Team Gidley", sends1: ["Davante Adams (WR)"],
-    team2: "Team Heiden", sends2: ["Jahmyr Gibbs (RB)"],
+    team1: "Xavier Musketeers", sends1: ["Sam Darnold (QB)"],
+    team2: "The Four Horsemen", sends2: ["Tua Tagovailoa (QB)", "FAAB $30"],
     status: "Completed",
   },
   {
     date: "Nov 10, 2025",
-    team1: "Team Pattie", sends1: [`${CURRENT_YEAR} Rd 2 Pick`, "FAAB $50"],
-    team2: "Team Akagi", sends2: ["Justin Jefferson (WR)"],
+    team1: "Millertime", sends1: [`${CURRENT_YEAR} Rd 2 Pick`, "FAAB $50"],
+    team2: "Legends", sends2: ["Patrick Mahomes (QB)"],
     status: "Completed",
+  },
+];
+
+// Incoming trade proposals for the inbox
+type IncomingProposal = {
+  id: string;
+  from: string;
+  date: string;
+  theySend: string[];
+  youSend: string[];
+  note?: string;
+  status: "pending" | "accepted" | "declined";
+};
+
+const SAMPLE_INCOMING: IncomingProposal[] = [
+  {
+    id: "ip1",
+    from: "Legion of Doom",
+    date: "Today, 2:14 PM",
+    theySend: ["Derrick Henry (RB)"],
+    youSend: ["Josh Allen (QB)", `${CURRENT_YEAR} Rd 3 Pick`],
+    note: "Let me know what you think!",
+    status: "pending",
+  },
+  {
+    id: "ip2",
+    from: "Xavier Musketeers",
+    date: "Yesterday, 6:40 PM",
+    theySend: ["Ja'Marr Chase (WR)", "FAAB $25"],
+    youSend: ["Lamar Jackson (QB)"],
+    status: "pending",
   },
 ];
 
@@ -230,12 +258,17 @@ export default function Trades() {
   const [mySide, setMySide] = useState<TradeSide>({ team: franchise?.team_name ?? "", assets: [] });
   const [theirSide, setTheirSide] = useState<TradeSide>({ team: "", assets: [] });
   const [note, setNote] = useState("");
+  const [inbox, setInbox] = useState<IncomingProposal[]>(SAMPLE_INCOMING);
 
   const resetForm = () => {
     setMySide({ team: franchise?.team_name ?? "", assets: [] });
     setTheirSide({ team: "", assets: [] });
     setNote("");
     setShowForm(false);
+  };
+
+  const respondToProposal = (id: string, action: "accepted" | "declined") => {
+    setInbox(prev => prev.map(p => p.id === id ? { ...p, status: action } : p));
   };
 
   return (
@@ -304,6 +337,88 @@ export default function Trades() {
                   Cancel
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Trade Inbox */}
+        {inbox.length > 0 && (
+          <div className="wrc-card" style={{ marginBottom: "1.25rem" }}>
+            <div className="wrc-card-gold-stripe" />
+            <div className="wrc-card-header" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <Inbox size={14} />
+              Incoming Proposals
+              <span style={{ marginLeft: "auto", fontSize: "0.7rem", fontWeight: 700, background: "oklch(0.78 0.15 85)", color: "oklch(0.15 0.02 150)", borderRadius: 10, padding: "1px 8px" }}>
+                {inbox.filter(p => p.status === "pending").length} pending
+              </span>
+            </div>
+            <div>
+              {inbox.map(proposal => (
+                <div key={proposal.id} style={{
+                  padding: "1rem 1.25rem",
+                  borderBottom: "1px solid oklch(0.92 0.005 150)",
+                  background: proposal.status !== "pending" ? "oklch(0.97 0.005 150)" : "white",
+                  opacity: proposal.status !== "pending" ? 0.65 : 1,
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem", flexWrap: "wrap", gap: "0.5rem" }}>
+                    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                      <span style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.22 0.08 150)" }}>{proposal.from}</span>
+                      <span style={{ fontSize: "0.7rem", color: "oklch(0.55 0.03 150)" }}>{proposal.date}</span>
+                    </div>
+                    {proposal.status === "pending" ? (
+                      <div style={{ display: "flex", gap: "0.5rem" }}>
+                        <button
+                          onClick={() => respondToProposal(proposal.id, "accepted")}
+                          style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "0.3rem 0.85rem", background: "oklch(0.38 0.15 150)", color: "white", border: "none", borderRadius: 6, fontFamily: "Oswald, sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.06em", cursor: "pointer" }}
+                        >
+                          <Check size={12} /> Accept
+                        </button>
+                        <button
+                          onClick={() => respondToProposal(proposal.id, "declined")}
+                          style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "0.3rem 0.85rem", background: "oklch(0.95 0.03 25)", color: "oklch(0.45 0.18 25)", border: "1px solid oklch(0.85 0.08 25)", borderRadius: 6, fontFamily: "Oswald, sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.06em", cursor: "pointer" }}
+                        >
+                          <XCircle size={12} /> Decline
+                        </button>
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: "0.72rem", fontWeight: 700, borderRadius: 4, padding: "2px 8px",
+                        background: proposal.status === "accepted" ? "oklch(0.93 0.06 150)" : "oklch(0.94 0.04 25)",
+                        color: proposal.status === "accepted" ? "oklch(0.35 0.15 150)" : "oklch(0.45 0.18 25)"
+                      }}>{proposal.status === "accepted" ? "✓ Accepted" : "✕ Declined"}</span>
+                    )}
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: "0.75rem", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "oklch(0.5 0.04 150)", marginBottom: "0.3rem", fontFamily: "Oswald, sans-serif", letterSpacing: "0.06em", textTransform: "uppercase" }}>They send</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
+                        {proposal.theySend.map((s, j) => {
+                          const isFaab = s.startsWith("FAAB");
+                          const isPick = s.includes("Pick") || s.includes("Rd");
+                          return <span key={j} style={{ fontSize: "0.75rem", fontWeight: 600, borderRadius: 4, padding: "2px 8px", background: isFaab ? "oklch(0.93 0.06 250)" : isPick ? "oklch(0.93 0.06 85)" : "oklch(0.93 0.03 150)", color: isFaab ? "oklch(0.32 0.14 250)" : isPick ? "oklch(0.35 0.14 85)" : "oklch(0.28 0.08 150)" }}>{s}</span>;
+                        })}
+                      </div>
+                    </div>
+                    <ArrowLeftRight size={16} color="oklch(0.6 0.04 150)" style={{ flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "oklch(0.5 0.04 150)", marginBottom: "0.3rem", fontFamily: "Oswald, sans-serif", letterSpacing: "0.06em", textTransform: "uppercase" }}>You send</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
+                        {proposal.youSend.map((s, j) => {
+                          const isFaab = s.startsWith("FAAB");
+                          const isPick = s.includes("Pick") || s.includes("Rd");
+                          return <span key={j} style={{ fontSize: "0.75rem", fontWeight: 600, borderRadius: 4, padding: "2px 8px", background: isFaab ? "oklch(0.93 0.06 250)" : isPick ? "oklch(0.93 0.06 85)" : "oklch(0.93 0.03 150)", color: isFaab ? "oklch(0.32 0.14 250)" : isPick ? "oklch(0.35 0.14 85)" : "oklch(0.28 0.08 150)" }}>{s}</span>;
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {proposal.note && (
+                    <div style={{ marginTop: "0.6rem", padding: "0.5rem 0.75rem", background: "oklch(0.96 0.01 150)", borderRadius: 6, fontSize: "0.8rem", color: "oklch(0.4 0.04 150)", fontStyle: "italic" }}>
+                      "{proposal.note}"
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}

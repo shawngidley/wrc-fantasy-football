@@ -7,6 +7,7 @@
 import { useState } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { TEAMS, type TeamRecord } from "@/lib/wrcData";
 
 type Player = {
   name: string;
@@ -16,6 +17,37 @@ type Player = {
   // acquisition: "Rd 3" for draft pick, "FA $45" for FAAB waiver
   acq?: string;
 };
+
+type Franchise = {
+  id: string;
+  teamName: string;
+  owner: string;
+  division: "East" | "Central" | "West";
+  logo?: string;
+  faabRemaining?: number;
+  players: Player[];
+};
+
+// Convert wrcData TeamRecord → local Franchise shape
+function toFranchise(t: TeamRecord): Franchise {
+  return {
+    id: t.id,
+    teamName: t.teamName,
+    owner: t.owner,
+    division: t.division,
+    faabRemaining: t.faabRemaining,
+    players: t.players.map((p, i) => ({
+      name: p.name,
+      pos: p.pos,
+      nflTeam: p.nflTeam,
+      // First 11 players are starters, rest are bench
+      isStarter: i < 11,
+      acq: p.acquisition === "Draft" ? "Draft" : "FA",
+    })),
+  };
+}
+
+const ROSTERS: Franchise[] = TEAMS.map(toFranchise);
 
 // ── Sort helpers ─────────────────────────────────────────────────────────────
 const POS_ORDER: Record<string, number> = { QB: 0, RB: 1, WR: 2, TE: 3, K: 4, DST: 5 };
@@ -47,298 +79,6 @@ function sortPlayers(players: Player[]): Player[] {
     return acqSortKey(a.acq) - acqSortKey(b.acq);
   });
 }
-
-type Franchise = {
-  id: string;
-  teamName: string;
-  owner: string;
-  division: "East" | "Central" | "West";
-  logo?: string;
-  faabRemaining?: number;
-  players: Player[];
-};
-
-const ROSTERS: Franchise[] = [
-  // ── EAST ──────────────────────────────────────────────
-  {
-    id: "gidley", teamName: "Team Gidley", owner: "Shawn Gidley", division: "East", faabRemaining: 312,
-    players: [
-      { name: "Lamar Jackson", pos: "QB", nflTeam: "BAL", isStarter: true, acq: "Rd 1" },
-      { name: "Derrick Henry", pos: "RB", nflTeam: "BAL", isStarter: true, acq: "Rd 2" },
-      { name: "Breece Hall", pos: "RB", nflTeam: "NYJ", isStarter: true, acq: "Rd 3" },
-      { name: "Ja'Marr Chase", pos: "WR", nflTeam: "CIN", isStarter: true, acq: "Rd 4" },
-      { name: "Stefon Diggs", pos: "WR", nflTeam: "HOU", isStarter: true, acq: "Rd 5" },
-      { name: "Sam LaPorta", pos: "TE", nflTeam: "DET", isStarter: true, acq: "Rd 6" },
-      { name: "Josh Allen", pos: "QB", nflTeam: "BUF", isStarter: true, acq: "Rd 7" },
-      { name: "Tony Pollard", pos: "RB", nflTeam: "TEN", isStarter: true, acq: "Rd 8" },
-      { name: "Rashee Rice", pos: "WR", nflTeam: "KC", isStarter: true, acq: "Rd 9" },
-      { name: "Harrison Butker", pos: "K", nflTeam: "KC", isStarter: true, acq: "Rd 15" },
-      { name: "San Francisco 49ers", pos: "DST", nflTeam: "SF", isStarter: true, acq: "Rd 16" },
-      { name: "Gus Edwards", pos: "RB", nflTeam: "LAC", acq: "FA $28" },
-      { name: "Marquise Brown", pos: "WR", nflTeam: "KC", acq: "FA $14" },
-      { name: "Trey McBride", pos: "TE", nflTeam: "ARI", acq: "Rd 10" },
-      { name: "Jordan Love", pos: "QB", nflTeam: "GB", acq: "Rd 11" },
-      { name: "Jaylen Warren", pos: "RB", nflTeam: "PIT", acq: "FA $7" },
-      { name: "Dontayvion Wicks", pos: "WR", nflTeam: "GB", acq: "FA $3" },
-      { name: "Evan McPherson", pos: "K", nflTeam: "CIN", acq: "Rd 17" },
-    ],
-  },
-  {
-    id: "sotka", teamName: "Team Sotka", owner: "David Sotka", division: "East", faabRemaining: 487,
-    players: [
-      { name: "Patrick Mahomes", pos: "QB", nflTeam: "KC", isStarter: true },
-      { name: "Christian McCaffrey", pos: "RB", nflTeam: "SF", isStarter: true },
-      { name: "Saquon Barkley", pos: "RB", nflTeam: "PHI", isStarter: true },
-      { name: "Tyreek Hill", pos: "WR", nflTeam: "MIA", isStarter: true },
-      { name: "CeeDee Lamb", pos: "WR", nflTeam: "DAL", isStarter: true },
-      { name: "Travis Kelce", pos: "TE", nflTeam: "KC", isStarter: true },
-      { name: "Dak Prescott", pos: "QB", nflTeam: "DAL", isStarter: true },
-      { name: "Rhamondre Stevenson", pos: "RB", nflTeam: "NE", isStarter: true },
-      { name: "Davante Adams", pos: "WR", nflTeam: "NYJ", isStarter: true },
-      { name: "Tyler Bass", pos: "K", nflTeam: "BUF", isStarter: true },
-      { name: "Dallas Cowboys", pos: "DST", nflTeam: "DAL", isStarter: true },
-      { name: "Rachaad White", pos: "RB", nflTeam: "TB" },
-      { name: "Odell Beckham Jr.", pos: "WR", nflTeam: "MIA" },
-      { name: "Dalton Kincaid", pos: "TE", nflTeam: "BUF" },
-      { name: "Sam Howell", pos: "QB", nflTeam: "SEA" },
-      { name: "Zack Moss", pos: "RB", nflTeam: "IND" },
-      { name: "Darius Slayton", pos: "WR", nflTeam: "NYG" },
-      { name: "Brandon Aubrey", pos: "K", nflTeam: "DAL" },
-    ],
-  },
-  {
-    id: "nelson", teamName: "Team Nelson", owner: "Scott Nelson", division: "East", faabRemaining: 155,
-    players: [
-      { name: "Jalen Hurts", pos: "QB", nflTeam: "PHI", isStarter: true },
-      { name: "Jonathan Taylor", pos: "RB", nflTeam: "IND", isStarter: true },
-      { name: "Josh Jacobs", pos: "RB", nflTeam: "GB", isStarter: true },
-      { name: "Justin Jefferson", pos: "WR", nflTeam: "MIN", isStarter: true },
-      { name: "Amon-Ra St. Brown", pos: "WR", nflTeam: "DET", isStarter: true },
-      { name: "Dallas Goedert", pos: "TE", nflTeam: "PHI", isStarter: true },
-      { name: "Anthony Richardson", pos: "QB", nflTeam: "IND", isStarter: true },
-      { name: "Dameon Pierce", pos: "RB", nflTeam: "HOU", isStarter: true },
-      { name: "Keenan Allen", pos: "WR", nflTeam: "CHI", isStarter: true },
-      { name: "Jake Elliott", pos: "K", nflTeam: "PHI", isStarter: true },
-      { name: "Philadelphia Eagles", pos: "DST", nflTeam: "PHI", isStarter: true },
-      { name: "Ty Chandler", pos: "RB", nflTeam: "SF" },
-      { name: "Jaxon Smith-Njigba", pos: "WR", nflTeam: "SEA" },
-      { name: "Cade Otton", pos: "TE", nflTeam: "TB" },
-      { name: "Will Levis", pos: "QB", nflTeam: "TEN" },
-      { name: "Clyde Edwards-Helaire", pos: "RB", nflTeam: "KC" },
-      { name: "Elijah Moore", pos: "WR", nflTeam: "CLE" },
-      { name: "Cairo Santos", pos: "K", nflTeam: "CHI" },
-    ],
-  },
-  {
-    id: "yane", teamName: "Team Yane", owner: "James Yane", division: "East",
-    players: [
-      { name: "Tua Tagovailoa", pos: "QB", nflTeam: "MIA", isStarter: true },
-      { name: "Tony Pollard", pos: "RB", nflTeam: "TEN", isStarter: true },
-      { name: "David Montgomery", pos: "RB", nflTeam: "DET", isStarter: true },
-      { name: "Puka Nacua", pos: "WR", nflTeam: "LAR", isStarter: true },
-      { name: "Tee Higgins", pos: "WR", nflTeam: "CIN", isStarter: true },
-      { name: "Jake Ferguson", pos: "TE", nflTeam: "DAL", isStarter: true },
-      { name: "Baker Mayfield", pos: "QB", nflTeam: "TB", isStarter: true },
-      { name: "Khalil Herbert", pos: "RB", nflTeam: "CHI", isStarter: true },
-      { name: "Diontae Johnson", pos: "WR", nflTeam: "CAR", isStarter: true },
-      { name: "Greg Zuerlein", pos: "K", nflTeam: "NYJ", isStarter: true },
-      { name: "New York Jets", pos: "DST", nflTeam: "NYJ", isStarter: true },
-      { name: "Roschon Johnson", pos: "RB", nflTeam: "CHI" },
-      { name: "Cedric Tillman", pos: "WR", nflTeam: "CLE" },
-      { name: "Juwan Johnson", pos: "TE", nflTeam: "NO" },
-      { name: "Aidan O'Connell", pos: "QB", nflTeam: "LV" },
-      { name: "Keaton Mitchell", pos: "RB", nflTeam: "BAL" },
-      { name: "Marvin Mims Jr.", pos: "WR", nflTeam: "DEN" },
-      { name: "Wil Lutz", pos: "K", nflTeam: "DEN" },
-    ],
-  },
-  // ── CENTRAL ───────────────────────────────────────────
-  {
-    id: "pattie", teamName: "Team Pattie", owner: "Jonas Pattie", division: "Central",
-    players: [
-      { name: "C.J. Stroud", pos: "QB", nflTeam: "HOU", isStarter: true },
-      { name: "Bijan Robinson", pos: "RB", nflTeam: "ATL", isStarter: true },
-      { name: "De'Von Achane", pos: "RB", nflTeam: "MIA", isStarter: true },
-      { name: "Davante Adams", pos: "WR", nflTeam: "NYJ", isStarter: true },
-      { name: "Jaylen Waddle", pos: "WR", nflTeam: "MIA", isStarter: true },
-      { name: "Mark Andrews", pos: "TE", nflTeam: "BAL", isStarter: true },
-      { name: "Sam Darnold", pos: "QB", nflTeam: "MIN", isStarter: true },
-      { name: "Raheem Mostert", pos: "RB", nflTeam: "MIA", isStarter: true },
-      { name: "Brandin Cooks", pos: "WR", nflTeam: "DAL", isStarter: true },
-      { name: "Younghoe Koo", pos: "K", nflTeam: "ATL", isStarter: true },
-      { name: "Miami Dolphins", pos: "DST", nflTeam: "MIA", isStarter: true },
-      { name: "Chuba Hubbard", pos: "RB", nflTeam: "CAR" },
-      { name: "Wan'Dale Robinson", pos: "WR", nflTeam: "NYG" },
-      { name: "Luke Musgrave", pos: "TE", nflTeam: "GB" },
-      { name: "Desmond Ridder", pos: "QB", nflTeam: "ARI" },
-      { name: "Tyjae Spears", pos: "RB", nflTeam: "TEN" },
-      { name: "Rashid Shaheed", pos: "WR", nflTeam: "NO" },
-      { name: "Chris Boswell", pos: "K", nflTeam: "PIT" },
-    ],
-  },
-  {
-    id: "krause", teamName: "Team Krause", owner: "Bill Krause", division: "Central",
-    players: [
-      { name: "Trevor Lawrence", pos: "QB", nflTeam: "JAX", isStarter: true },
-      { name: "Austin Ekeler", pos: "RB", nflTeam: "WAS", isStarter: true },
-      { name: "Jahmyr Gibbs", pos: "RB", nflTeam: "DET", isStarter: true },
-      { name: "Deebo Samuel", pos: "WR", nflTeam: "SF", isStarter: true },
-      { name: "Chris Olave", pos: "WR", nflTeam: "NO", isStarter: true },
-      { name: "Evan Engram", pos: "TE", nflTeam: "JAX", isStarter: true },
-      { name: "Geno Smith", pos: "QB", nflTeam: "SEA", isStarter: true },
-      { name: "Kareem Hunt", pos: "RB", nflTeam: "CLE", isStarter: true },
-      { name: "Courtland Sutton", pos: "WR", nflTeam: "DEN", isStarter: true },
-      { name: "Dustin Hopkins", pos: "K", nflTeam: "CLE", isStarter: true },
-      { name: "Cleveland Browns", pos: "DST", nflTeam: "CLE", isStarter: true },
-      { name: "Devin Singletary", pos: "RB", nflTeam: "NYG" },
-      { name: "Darnell Mooney", pos: "WR", nflTeam: "ATL" },
-      { name: "Dawson Knox", pos: "TE", nflTeam: "BUF" },
-      { name: "Tommy DeVito", pos: "QB", nflTeam: "NYG" },
-      { name: "Zack Moss", pos: "RB", nflTeam: "IND" },
-      { name: "Quentin Johnston", pos: "WR", nflTeam: "LAC" },
-      { name: "Eddy Pineiro", pos: "K", nflTeam: "CAR" },
-    ],
-  },
-  {
-    id: "ryks", teamName: "Team Ryks", owner: "David Ryks", division: "Central",
-    players: [
-      { name: "Jordan Love", pos: "QB", nflTeam: "GB", isStarter: true },
-      { name: "Alvin Kamara", pos: "RB", nflTeam: "NO", isStarter: true },
-      { name: "Isiah Pacheco", pos: "RB", nflTeam: "KC", isStarter: true },
-      { name: "Garrett Wilson", pos: "WR", nflTeam: "NYJ", isStarter: true },
-      { name: "Drake London", pos: "WR", nflTeam: "ATL", isStarter: true },
-      { name: "Kyle Pitts", pos: "TE", nflTeam: "ATL", isStarter: true },
-      { name: "Justin Fields", pos: "QB", nflTeam: "PIT", isStarter: true },
-      { name: "Ezekiel Elliott", pos: "RB", nflTeam: "NE", isStarter: true },
-      { name: "Michael Pittman Jr.", pos: "WR", nflTeam: "IND", isStarter: true },
-      { name: "Jason Sanders", pos: "K", nflTeam: "MIA", isStarter: true },
-      { name: "Pittsburgh Steelers", pos: "DST", nflTeam: "PIT", isStarter: true },
-      { name: "Najee Harris", pos: "RB", nflTeam: "PIT" },
-      { name: "Skyy Moore", pos: "WR", nflTeam: "KC" },
-      { name: "Chigoziem Okonkwo", pos: "TE", nflTeam: "TEN" },
-      { name: "Bryce Young", pos: "QB", nflTeam: "CAR" },
-      { name: "Ty Chandler", pos: "RB", nflTeam: "SF" },
-      { name: "Demarcus Robinson", pos: "WR", nflTeam: "LAR" },
-      { name: "Matt Gay", pos: "K", nflTeam: "IND" },
-    ],
-  },
-  {
-    id: "osicki", teamName: "Team Osicki", owner: "Dan Osicki", division: "Central",
-    players: [
-      { name: "Kyler Murray", pos: "QB", nflTeam: "ARI", isStarter: true },
-      { name: "James Conner", pos: "RB", nflTeam: "ARI", isStarter: true },
-      { name: "Miles Sanders", pos: "RB", nflTeam: "CAR", isStarter: true },
-      { name: "Zay Jones", pos: "WR", nflTeam: "ARI", isStarter: true },
-      { name: "Jahan Dotson", pos: "WR", nflTeam: "WAS", isStarter: true },
-      { name: "Gerald Everett", pos: "TE", nflTeam: "LAC", isStarter: true },
-      { name: "Deshaun Watson", pos: "QB", nflTeam: "CLE", isStarter: true },
-      { name: "Cam Akers", pos: "RB", nflTeam: "MIN", isStarter: true },
-      { name: "Kadarius Toney", pos: "WR", nflTeam: "KC", isStarter: true },
-      { name: "Riley Patterson", pos: "K", nflTeam: "JAX", isStarter: true },
-      { name: "Arizona Cardinals", pos: "DST", nflTeam: "ARI", isStarter: true },
-      { name: "Damien Harris", pos: "RB", nflTeam: "BUF" },
-      { name: "Parris Campbell", pos: "WR", nflTeam: "NYG" },
-      { name: "Tyler Conklin", pos: "TE", nflTeam: "NYJ" },
-      { name: "Malik Willis", pos: "QB", nflTeam: "TEN" },
-      { name: "Elijah Mitchell", pos: "RB", nflTeam: "SF" },
-      { name: "Josh Reynolds", pos: "WR", nflTeam: "DET" },
-      { name: "Tristan Vizcaino", pos: "K", nflTeam: "WAS" },
-    ],
-  },
-  // ── WEST ──────────────────────────────────────────────
-  {
-    id: "heiden", teamName: "Team Heiden", owner: "Jason Heiden", division: "West",
-    players: [
-      { name: "Joe Burrow", pos: "QB", nflTeam: "CIN", isStarter: true },
-      { name: "Nick Chubb", pos: "RB", nflTeam: "CLE", isStarter: true },
-      { name: "Aaron Jones", pos: "RB", nflTeam: "MIN", isStarter: true },
-      { name: "Stefon Diggs", pos: "WR", nflTeam: "HOU", isStarter: true },
-      { name: "Amari Cooper", pos: "WR", nflTeam: "CLE", isStarter: true },
-      { name: "Pat Freiermuth", pos: "TE", nflTeam: "PIT", isStarter: true },
-      { name: "Derek Carr", pos: "QB", nflTeam: "NO", isStarter: true },
-      { name: "Elijah Mitchell", pos: "RB", nflTeam: "SF", isStarter: true },
-      { name: "Mecole Hardman", pos: "WR", nflTeam: "KC", isStarter: true },
-      { name: "Cameron Dicker", pos: "K", nflTeam: "LAC", isStarter: true },
-      { name: "Kansas City Chiefs", pos: "DST", nflTeam: "KC", isStarter: true },
-      { name: "Samaje Perine", pos: "RB", nflTeam: "DEN" },
-      { name: "Tutu Atwell", pos: "WR", nflTeam: "LAR" },
-      { name: "Irv Smith Jr.", pos: "TE", nflTeam: "CIN" },
-      { name: "Hendon Hooker", pos: "QB", nflTeam: "DET" },
-      { name: "Kimani Vidal", pos: "RB", nflTeam: "LAC" },
-      { name: "Kalif Raymond", pos: "WR", nflTeam: "DET" },
-      { name: "Nick Folk", pos: "K", nflTeam: "TEN" },
-    ],
-  },
-  {
-    id: "akagi", teamName: "Team Akagi", owner: "Greg Akagi", division: "West",
-    players: [
-      { name: "Dak Prescott", pos: "QB", nflTeam: "DAL", isStarter: true },
-      { name: "Tony Pollard", pos: "RB", nflTeam: "TEN", isStarter: true },
-      { name: "Javonte Williams", pos: "RB", nflTeam: "DEN", isStarter: true },
-      { name: "Keenan Allen", pos: "WR", nflTeam: "CHI", isStarter: true },
-      { name: "DeAndre Hopkins", pos: "WR", nflTeam: "TEN", isStarter: true },
-      { name: "Dalton Schultz", pos: "TE", nflTeam: "HOU", isStarter: true },
-      { name: "Bryce Young", pos: "QB", nflTeam: "CAR", isStarter: true },
-      { name: "Roschon Johnson", pos: "RB", nflTeam: "CHI", isStarter: true },
-      { name: "Dontayvion Wicks", pos: "WR", nflTeam: "GB", isStarter: true },
-      { name: "Jake Moody", pos: "K", nflTeam: "SF", isStarter: true },
-      { name: "Green Bay Packers", pos: "DST", nflTeam: "GB", isStarter: true },
-      { name: "Dameon Pierce", pos: "RB", nflTeam: "HOU" },
-      { name: "Darius Slayton", pos: "WR", nflTeam: "NYG" },
-      { name: "Noah Fant", pos: "TE", nflTeam: "SEA" },
-      { name: "Aidan O'Connell", pos: "QB", nflTeam: "LV" },
-      { name: "Patrick Taylor", pos: "RB", nflTeam: "MIA" },
-      { name: "Marquez Valdes-Scantling", pos: "WR", nflTeam: "BUF" },
-      { name: "Brayden Narveson", pos: "K", nflTeam: "GB" },
-    ],
-  },
-  {
-    id: "mackar", teamName: "Team Mackar", owner: "Scott Mackar", division: "West",
-    players: [
-      { name: "Kirk Cousins", pos: "QB", nflTeam: "ATL", isStarter: true },
-      { name: "Rachaad White", pos: "RB", nflTeam: "TB", isStarter: true },
-      { name: "Zack Moss", pos: "RB", nflTeam: "IND", isStarter: true },
-      { name: "Odell Beckham Jr.", pos: "WR", nflTeam: "MIA", isStarter: true },
-      { name: "Adam Thielen", pos: "WR", nflTeam: "CAR", isStarter: true },
-      { name: "Tyler Higbee", pos: "TE", nflTeam: "LAR", isStarter: true },
-      { name: "Jacoby Brissett", pos: "QB", nflTeam: "WAS", isStarter: true },
-      { name: "Devin Singletary", pos: "RB", nflTeam: "NYG", isStarter: true },
-      { name: "Darnell Mooney", pos: "WR", nflTeam: "ATL", isStarter: true },
-      { name: "Graham Gano", pos: "K", nflTeam: "NYG", isStarter: true },
-      { name: "New England Patriots", pos: "DST", nflTeam: "NE", isStarter: true },
-      { name: "Damien Harris", pos: "RB", nflTeam: "BUF" },
-      { name: "Parris Campbell", pos: "WR", nflTeam: "NYG" },
-      { name: "Tyler Conklin", pos: "TE", nflTeam: "NYJ" },
-      { name: "Tommy DeVito", pos: "QB", nflTeam: "NYG" },
-      { name: "Elijah Mitchell", pos: "RB", nflTeam: "SF" },
-      { name: "Josh Reynolds", pos: "WR", nflTeam: "DET" },
-      { name: "Tristan Vizcaino", pos: "K", nflTeam: "WAS" },
-    ],
-  },
-  {
-    id: "cromer", teamName: "Team Cromer", owner: "Keith Cromer", division: "West",
-    players: [
-      { name: "Matthew Stafford", pos: "QB", nflTeam: "LAR", isStarter: true },
-      { name: "Cam Akers", pos: "RB", nflTeam: "MIN", isStarter: true },
-      { name: "Dameon Pierce", pos: "RB", nflTeam: "HOU", isStarter: true },
-      { name: "Demarcus Robinson", pos: "WR", nflTeam: "LAR", isStarter: true },
-      { name: "Van Jefferson", pos: "WR", nflTeam: "ATL", isStarter: true },
-      { name: "Tyler Conklin", pos: "TE", nflTeam: "NYJ", isStarter: true },
-      { name: "Tommy DeVito", pos: "QB", nflTeam: "NYG", isStarter: true },
-      { name: "Roschon Johnson", pos: "RB", nflTeam: "CHI", isStarter: true },
-      { name: "Marquez Valdes-Scantling", pos: "WR", nflTeam: "BUF", isStarter: true },
-      { name: "Tristan Vizcaino", pos: "K", nflTeam: "WAS", isStarter: true },
-      { name: "Carolina Panthers", pos: "DST", nflTeam: "CAR", isStarter: true },
-      { name: "Elijah Mitchell", pos: "RB", nflTeam: "SF" },
-      { name: "Josh Reynolds", pos: "WR", nflTeam: "DET" },
-      { name: "Juwan Johnson", pos: "TE", nflTeam: "NO" },
-      { name: "Malik Willis", pos: "QB", nflTeam: "TEN" },
-      { name: "Patrick Taylor", pos: "RB", nflTeam: "MIA" },
-      { name: "Kalif Raymond", pos: "WR", nflTeam: "DET" },
-      { name: "Nick Folk", pos: "K", nflTeam: "TEN" },
-    ],
-  },
-];
 
 const POS_COLORS: Record<string, { bg: string; text: string }> = {
   QB:  { bg: "oklch(0.92 0.08 25)",  text: "oklch(0.35 0.15 25)"  },

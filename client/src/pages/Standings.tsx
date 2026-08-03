@@ -11,6 +11,7 @@
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { TrendingUp, TrendingDown } from "lucide-react";
+import { TEAMS } from "@/lib/wrcData";
 
 type TeamRow = {
   rank: number;
@@ -34,35 +35,36 @@ type TeamRow = {
   streak: string;
 };
 
-const DIVISIONS: { name: string; teams: TeamRow[] }[] = [
-  {
-    name: "East Division",
-    teams: [
-      { rank: 1, team: "Team Gidley",  owner: "Shawn Gidley",  logo: undefined, w: 10, l: 4,  h2hW: 7, h2hL: 7,  medW: 10, medL: 4,  divW: 4, divL: 2, pf: 1482.6, pa: 1301.2, streak: "W3" },
-      { rank: 2, team: "Team Sotka",   owner: "David Sotka",   logo: undefined, w: 8,  l: 6,  h2hW: 6, h2hL: 8,  medW: 8,  medL: 6,  divW: 3, divL: 3, pf: 1390.4, pa: 1355.8, streak: "L1" },
-      { rank: 3, team: "Team Nelson",  owner: "Scott Nelson",  logo: undefined, w: 6,  l: 8,  h2hW: 5, h2hL: 9,  medW: 6,  medL: 8,  divW: 2, divL: 4, pf: 1280.2, pa: 1410.6, streak: "W1" },
-      { rank: 4, team: "Team Yane",    owner: "James Yane",    logo: undefined, w: 4,  l: 10, h2hW: 3, h2hL: 11, medW: 4,  medL: 10, divW: 1, divL: 5, pf: 1198.8, pa: 1450.2, streak: "L4" },
-    ],
-  },
-  {
-    name: "Central Division",
-    teams: [
-      { rank: 1, team: "Team Pattie",  owner: "Jonas Pattie",  logo: undefined, w: 11, l: 3,  h2hW: 8, h2hL: 6,  medW: 11, medL: 3,  divW: 5, divL: 1, pf: 1520.4, pa: 1280.6, streak: "W5" },
-      { rank: 2, team: "Team Krause",  owner: "Bill Krause",   logo: undefined, w: 9,  l: 5,  h2hW: 7, h2hL: 7,  medW: 9,  medL: 5,  divW: 4, divL: 2, pf: 1440.2, pa: 1310.8, streak: "W2" },
-      { rank: 3, team: "Team Ryks",    owner: "David Ryks",    logo: undefined, w: 7,  l: 7,  h2hW: 5, h2hL: 9,  medW: 7,  medL: 7,  divW: 2, divL: 4, pf: 1320.6, pa: 1380.4, streak: "L2" },
-      { rank: 4, team: "Team Osicki",  owner: "Dan Osicki",    logo: undefined, w: 3,  l: 11, h2hW: 2, h2hL: 12, medW: 3,  medL: 11, divW: 1, divL: 5, pf: 1150.2, pa: 1510.8, streak: "L6" },
-    ],
-  },
-  {
-    name: "West Division",
-    teams: [
-      { rank: 1, team: "Team Heiden",  owner: "Jason Heiden",  logo: undefined, w: 9,  l: 5,  h2hW: 7, h2hL: 7,  medW: 9,  medL: 5,  divW: 4, divL: 2, pf: 1460.8, pa: 1330.2, streak: "W1" },
-      { rank: 2, team: "Team Akagi",   owner: "Greg Akagi",    logo: undefined, w: 8,  l: 6,  h2hW: 6, h2hL: 8,  medW: 8,  medL: 6,  divW: 3, divL: 3, pf: 1380.4, pa: 1340.6, streak: "W3" },
-      { rank: 3, team: "Team Mackar",  owner: "Scott Mackar",  logo: undefined, w: 6,  l: 8,  h2hW: 5, h2hL: 9,  medW: 6,  medL: 8,  divW: 2, divL: 4, pf: 1260.6, pa: 1390.4, streak: "L1" },
-      { rank: 4, team: "Team Cromer",  owner: "Keith Cromer",  logo: undefined, w: 5,  l: 9,  h2hW: 4, h2hL: 10, medW: 5,  medL: 9,  divW: 1, divL: 5, pf: 1220.2, pa: 1420.8, streak: "L2" },
-    ],
-  },
-];
+// Build standings from real wrcData
+function buildDivisions(): { name: string; teams: TeamRow[] }[] {
+  const divNames = ["East", "Central", "West"] as const;
+  return divNames.map(div => {
+    const divTeams = TEAMS.filter(t => t.division === div)
+      .sort((a, b) => b.wins - a.wins || b.ptsFor - a.ptsFor);
+    return {
+      name: `${div} Division`,
+      teams: divTeams.map((t, i) => ({
+        rank: i + 1,
+        team: t.teamName,
+        owner: t.owner,
+        logo: undefined,
+        w: t.wins,
+        l: t.losses,
+        h2hW: t.wins,
+        h2hL: t.losses,
+        medW: 0,
+        medL: 0,
+        divW: 0,
+        divL: 0,
+        pf: t.ptsFor,
+        pa: t.ptsAgainst,
+        streak: "—",
+      })),
+    };
+  });
+}
+
+const DIVISIONS: { name: string; teams: TeamRow[] }[] = buildDivisions();
 
 /** Calculate games back from division leader */
 function gamesBack(leaderW: number, leaderL: number, teamW: number, teamL: number): string {
