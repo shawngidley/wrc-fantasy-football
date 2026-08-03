@@ -24,6 +24,7 @@ const navLinks = [
   { label: "Schedule", path: "/schedule" },
   { label: "Rules", path: "/rules" },
   { label: "NFL Sites", path: "/nfl-sites" },
+  { label: "Money", path: "/money" },
 ];
 
 interface NavigationProps {

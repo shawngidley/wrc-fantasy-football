@@ -24,6 +24,7 @@ import Schedule from "./pages/Schedule";
 import Rules from "./pages/Rules";
 import NFLSites from "./pages/NFLSites";
 import Rosters from "./pages/Rosters";
+import Money from "./pages/Money";
 
 function Router() {
   return (
@@ -45,6 +46,7 @@ function Router() {
       <Route path="/rules" component={Rules} />
       <Route path="/nfl-sites" component={NFLSites} />
       <Route path="/rosters" component={Rosters} />
+      <Route path="/money" component={Money} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
