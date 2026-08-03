@@ -1,13 +1,13 @@
 /**
  * WRC Fantasy Football - Lineup Page
  * Layout: Starters on top (full width), Bench below (full width)
- * Clicking any player opens an inline replacement panel showing eligible swap candidates
+ * Features: Best Lineup optimizer, per-player game info (day/time/opp/location), inline swap panel
  * TE Premium: 1.5x PPR for TE position regardless of slot
  */
 import { useState } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { Lock, CheckCircle2, ChevronDown, ArrowLeftRight, X } from "lucide-react";
+import { Lock, CheckCircle2, ChevronDown, ArrowLeftRight, X, Zap } from "lucide-react";
 
 const STARTER_SLOTS = [
   { slot: "QB",    label: "Quarterback",   eligible: ["QB"] },
@@ -22,6 +22,34 @@ const STARTER_SLOTS = [
   { slot: "DST",   label: "Defense / ST",  eligible: ["DST"] },
 ];
 
+// NFL game schedule data keyed by team abbreviation
+// Format: { day, time (ET), opp, home: true = playing at home }
+const NFL_GAMES: Record<string, { day: string; time: string; opp: string; home: boolean }> = {
+  BUF: { day: "Sun", time: "1:00pm", opp: "NYJ", home: true },
+  BAL: { day: "Sun", time: "1:00pm", opp: "CLE", home: false },
+  PHI: { day: "Sun", time: "4:25pm", opp: "NYG", home: true },
+  MIA: { day: "Sun", time: "1:00pm", opp: "NE",  home: false },
+  DAL: { day: "Sun", time: "4:25pm", opp: "WSH", home: true },
+  DET: { day: "Sun", time: "1:00pm", opp: "CHI", home: true },
+  KC:  { day: "Sun", time: "4:25pm", opp: "LV",  home: true },
+  SF:  { day: "Sun", time: "4:25pm", opp: "LAR", home: false },
+  TEN: { day: "Sun", time: "1:00pm", opp: "IND", home: true },
+  ATL: { day: "Sun", time: "1:00pm", opp: "CAR", home: true },
+  LAC: { day: "Sun", time: "4:25pm", opp: "DEN", home: false },
+  CLE: { day: "Sun", time: "1:00pm", opp: "BAL", home: true },
+  CIN: { day: "Mon", time: "8:15pm", opp: "PIT", home: true },
+  PIT: { day: "Mon", time: "8:15pm", opp: "CIN", home: false },
+  GB:  { day: "Thu", time: "8:20pm", opp: "MIN", home: true },
+  MIN: { day: "Thu", time: "8:20pm", opp: "GB",  home: false },
+};
+
+const DAY_COLORS: Record<string, string> = {
+  Thu: "oklch(0.55 0.18 260)",
+  Sun: "oklch(0.38 0.15 150)",
+  Mon: "oklch(0.55 0.18 25)",
+  Sat: "oklch(0.55 0.16 85)",
+};
+
 interface Player {
   id: string;
   name: string;
@@ -35,27 +63,27 @@ interface Player {
 }
 
 const MOCK_STARTERS: Player[] = [
-  { id: "s1",  slot: "QB",    name: "Josh Allen",        nflTeam: "BUF", pos: "QB",  pts: 34.2, proj: 38.0, status: "Active" },
-  { id: "s2",  slot: "RB1",   name: "Derrick Henry",     nflTeam: "BAL", pos: "RB",  pts: 18.6, proj: 22.0, status: "Active" },
-  { id: "s3",  slot: "RB2",   name: "Saquon Barkley",    nflTeam: "PHI", pos: "RB",  pts: 22.4, proj: 24.5, status: "Active" },
-  { id: "s4",  slot: "WR1",   name: "Tyreek Hill",       nflTeam: "MIA", pos: "WR",  pts: 14.8, proj: 18.0, status: "Active" },
-  { id: "s5",  slot: "WR2",   name: "CeeDee Lamb",       nflTeam: "DAL", pos: "WR",  pts: 28.6, proj: 26.0, status: "Active" },
-  { id: "s6",  slot: "TE",    name: "Sam LaPorta",       nflTeam: "DET", pos: "TE",  pts: 16.5, proj: 14.0, status: "Active" },
-  { id: "s7",  slot: "SFLEX", name: "Lamar Jackson",     nflTeam: "BAL", pos: "QB",  pts: 42.1, proj: 40.0, status: "Active" },
-  { id: "s8",  slot: "FLEX",  name: "Jahmyr Gibbs",      nflTeam: "DET", pos: "RB",  pts: 19.8, proj: 21.0, status: "Active" },
-  { id: "s9",  slot: "K",     name: "Harrison Butker",   nflTeam: "KC",  pos: "K",   pts: 8.0,  proj: 9.0,  status: "Active" },
-  { id: "s10", slot: "DST",   name: "San Francisco 49ers", nflTeam: "SF", pos: "DST", pts: 12.0, proj: 11.0, status: "Active" },
+  { id: "s1",  slot: "QB",    name: "Josh Allen",           nflTeam: "BUF", pos: "QB",  pts: 34.2, proj: 38.0, status: "Active" },
+  { id: "s2",  slot: "RB1",   name: "Derrick Henry",        nflTeam: "BAL", pos: "RB",  pts: 18.6, proj: 22.0, status: "Active" },
+  { id: "s3",  slot: "RB2",   name: "Saquon Barkley",       nflTeam: "PHI", pos: "RB",  pts: 22.4, proj: 24.5, status: "Active" },
+  { id: "s4",  slot: "WR1",   name: "Tyreek Hill",          nflTeam: "MIA", pos: "WR",  pts: 14.8, proj: 18.0, status: "Active" },
+  { id: "s5",  slot: "WR2",   name: "CeeDee Lamb",          nflTeam: "DAL", pos: "WR",  pts: 28.6, proj: 26.0, status: "Active" },
+  { id: "s6",  slot: "TE",    name: "Sam LaPorta",          nflTeam: "DET", pos: "TE",  pts: 16.5, proj: 14.0, status: "Active" },
+  { id: "s7",  slot: "SFLEX", name: "Lamar Jackson",        nflTeam: "BAL", pos: "QB",  pts: 42.1, proj: 40.0, status: "Active" },
+  { id: "s8",  slot: "FLEX",  name: "Jahmyr Gibbs",         nflTeam: "DET", pos: "RB",  pts: 19.8, proj: 21.0, status: "Active" },
+  { id: "s9",  slot: "K",     name: "Harrison Butker",      nflTeam: "KC",  pos: "K",   pts: 8.0,  proj: 9.0,  status: "Active" },
+  { id: "s10", slot: "DST",   name: "San Francisco 49ers",  nflTeam: "SF",  pos: "DST", pts: 12.0, proj: 11.0, status: "Active" },
 ];
 
 const MOCK_BENCH: Player[] = [
-  { id: "b1", name: "Jaylen Waddle",    nflTeam: "MIA", pos: "WR",  pts: 11.2, proj: 13.0, status: "Active", isBench: true },
-  { id: "b2", name: "Tony Pollard",     nflTeam: "TEN", pos: "RB",  pts: 8.4,  proj: 10.0, status: "Active", isBench: true },
-  { id: "b3", name: "Kyle Pitts",       nflTeam: "ATL", pos: "TE",  pts: 7.6,  proj: 9.5,  status: "Q",      isBench: true },
-  { id: "b4", name: "Gus Edwards",      nflTeam: "LAC", pos: "RB",  pts: 4.2,  proj: 6.0,  status: "Active", isBench: true },
-  { id: "b5", name: "Elijah Moore",     nflTeam: "CLE", pos: "WR",  pts: 6.8,  proj: 8.0,  status: "Active", isBench: true },
-  { id: "b6", name: "Evan McPherson",   nflTeam: "CIN", pos: "K",   pts: 5.0,  proj: 7.0,  status: "Active", isBench: true },
-  { id: "b7", name: "Pittsburgh Steelers", nflTeam: "PIT", pos: "DST", pts: 9.0, proj: 8.5, status: "Active", isBench: true },
-  { id: "b8", name: "Tyjae Spears",     nflTeam: "TEN", pos: "RB",  pts: 3.6,  proj: 5.0,  status: "Active", isBench: true },
+  { id: "b1", name: "Jaylen Waddle",       nflTeam: "MIA", pos: "WR",  pts: 11.2, proj: 13.0, status: "Active", isBench: true },
+  { id: "b2", name: "Tony Pollard",        nflTeam: "TEN", pos: "RB",  pts: 8.4,  proj: 10.0, status: "Active", isBench: true },
+  { id: "b3", name: "Kyle Pitts",          nflTeam: "ATL", pos: "TE",  pts: 7.6,  proj: 9.5,  status: "Q",      isBench: true },
+  { id: "b4", name: "Gus Edwards",         nflTeam: "LAC", pos: "RB",  pts: 4.2,  proj: 6.0,  status: "Active", isBench: true },
+  { id: "b5", name: "Elijah Moore",        nflTeam: "CLE", pos: "WR",  pts: 6.8,  proj: 8.0,  status: "Active", isBench: true },
+  { id: "b6", name: "Evan McPherson",      nflTeam: "CIN", pos: "K",   pts: 5.0,  proj: 7.0,  status: "Active", isBench: true },
+  { id: "b7", name: "Pittsburgh Steelers", nflTeam: "PIT", pos: "DST", pts: 9.0,  proj: 8.5,  status: "Active", isBench: true },
+  { id: "b8", name: "Tyjae Spears",        nflTeam: "TEN", pos: "RB",  pts: 3.6,  proj: 5.0,  status: "Active", isBench: true },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
@@ -83,78 +111,96 @@ const POS_COLORS: Record<string, string> = {
   DST: "oklch(0.45 0.18 25)",
 };
 
+function GameInfo({ nflTeam }: { nflTeam: string }) {
+  const game = NFL_GAMES[nflTeam];
+  if (!game) return <span style={{ fontSize: "0.68rem", color: "oklch(0.65 0.04 150)" }}>BYE</span>;
+  const dayColor = DAY_COLORS[game.day] || "oklch(0.5 0.04 150)";
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", flexWrap: "wrap" as const }}>
+      <span style={{
+        fontSize: "0.62rem", fontFamily: "Oswald, sans-serif", fontWeight: 700,
+        padding: "1px 5px", borderRadius: 3,
+        background: dayColor + "22",
+        color: dayColor,
+        border: `1px solid ${dayColor}44`,
+        whiteSpace: "nowrap" as const,
+      }}>{game.day} {game.time}</span>
+      <span style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)", whiteSpace: "nowrap" as const }}>
+        {game.home ? "vs" : "@"} <strong style={{ color: "oklch(0.35 0.06 150)" }}>{game.opp}</strong>
+      </span>
+    </div>
+  );
+}
+
 export default function Lineup() {
   const { franchise } = useAuth();
   const [starters, setStarters] = useState<Player[]>(MOCK_STARTERS);
   const [bench, setBench] = useState<Player[]>(MOCK_BENCH);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [optimized, setOptimized] = useState(false);
   const lineupLocked = false;
 
-  const totalPts = starters.reduce((s, p) => s + p.pts, 0);
+  const totalPts  = starters.reduce((s, p) => s + p.pts,  0);
   const totalProj = starters.reduce((s, p) => s + p.proj, 0);
 
-  // Find the selected player (starter or bench)
-  const selectedPlayer =
-    starters.find(p => p.id === selectedId) ||
-    bench.find(p => p.id === selectedId) || null;
+  // ── Best Lineup Optimizer ──────────────────────────────────────────────────
+  // For each slot (in order), find the highest-projected eligible player from
+  // the combined pool, assign them, then remove from available pool.
+  const runOptimizer = () => {
+    const allPlayers = [...starters, ...bench];
+    const available  = [...allPlayers]; // pool shrinks as we assign
+    const newStarters: Player[] = [];
 
-  // Get eligible bench players to swap with a starter slot
-  const getEligibleSwaps = (slotKey: string, currentPlayer: Player | undefined): Player[] => {
+    for (const slotDef of STARTER_SLOTS) {
+      // Find highest-projected eligible player not yet assigned
+      const eligible = available
+        .filter(p => slotDef.eligible.includes(p.pos))
+        .sort((a, b) => b.proj - a.proj);
+
+      if (eligible.length > 0) {
+        const best = eligible[0];
+        newStarters.push({ ...best, slot: slotDef.slot, isBench: false });
+        available.splice(available.findIndex(p => p.id === best.id), 1);
+      }
+    }
+
+    // Remaining players go to bench
+    const newBench = available.map(p => ({ ...p, slot: undefined, isBench: true }));
+
+    setStarters(newStarters);
+    setBench(newBench);
+    setSelectedId(null);
+    setOptimized(true);
+    setTimeout(() => setOptimized(false), 2500);
+  };
+
+  // ── Swap helpers ──────────────────────────────────────────────────────────
+  const getEligibleBench = (slotKey: string): Player[] => {
     const slotDef = STARTER_SLOTS.find(s => s.slot === slotKey);
     if (!slotDef) return bench;
     return bench.filter(b => slotDef.eligible.includes(b.pos));
   };
 
-  // Get eligible starter slots a bench player can fill
-  const getEligibleSlots = (benchPlayer: Player): typeof STARTER_SLOTS => {
-    return STARTER_SLOTS.filter(s => s.eligible.includes(benchPlayer.pos));
-  };
+  const getEligibleSlots = (benchPlayer: Player) =>
+    STARTER_SLOTS.filter(s => s.eligible.includes(benchPlayer.pos));
 
-  // Perform the swap
   const doSwap = (starterId: string, benchId: string) => {
-    const starterIdx = starters.findIndex(p => p.id === starterId);
-    const benchIdx   = bench.findIndex(p => p.id === benchId);
-    if (starterIdx === -1 || benchIdx === -1) return;
-
-    const newStarters = [...starters];
-    const newBench    = [...bench];
-    const slot        = newStarters[starterIdx].slot;
-
-    // Swap players, preserving slot assignment
-    const tmp = { ...newStarters[starterIdx] };
-    newStarters[starterIdx] = { ...newBench[benchIdx], slot, isBench: false };
-    newBench[benchIdx]      = { ...tmp, slot: undefined, isBench: true };
-
-    setStarters(newStarters);
-    setBench(newBench);
+    const si = starters.findIndex(p => p.id === starterId);
+    const bi = bench.findIndex(p => p.id === benchId);
+    if (si === -1 || bi === -1) return;
+    const ns = [...starters];
+    const nb = [...bench];
+    const slot = ns[si].slot;
+    const tmp  = { ...ns[si] };
+    ns[si] = { ...nb[bi], slot, isBench: false };
+    nb[bi] = { ...tmp, slot: undefined, isBench: true };
+    setStarters(ns);
+    setBench(nb);
     setSelectedId(null);
   };
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  };
-
-  // Determine what the replacement panel shows
-  // If a starter is selected: show eligible bench players
-  // If a bench player is selected: show eligible starters to replace
-  const isStarterSelected = selectedPlayer && !selectedPlayer.isBench;
-  const isBenchSelected   = selectedPlayer && selectedPlayer.isBench;
-
-  const replacementOptions: Array<{ label: string; player: Player; swapWith: string }> = [];
-  if (isStarterSelected && selectedPlayer.slot) {
-    const eligibles = getEligibleSwaps(selectedPlayer.slot, selectedPlayer);
-    eligibles.forEach(b => replacementOptions.push({ label: "Move to bench", player: b, swapWith: selectedPlayer.id }));
-  } else if (isBenchSelected) {
-    const eligibleSlots = getEligibleSlots(selectedPlayer);
-    eligibleSlots.forEach(slotDef => {
-      const starterInSlot = starters.find(s => s.slot === slotDef.slot);
-      if (starterInSlot) {
-        replacementOptions.push({ label: slotDef.slot, player: starterInSlot, swapWith: starterInSlot.id });
-      }
-    });
-  }
+  const handleSave = () => { setSaved(true); setTimeout(() => setSaved(false), 2000); };
 
   return (
     <div className="bg-turf bg-overlay" style={{ minHeight: "100vh" }}>
@@ -162,53 +208,71 @@ export default function Lineup() {
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "1.5rem 1rem 3rem" }}>
 
-        {/* Header */}
+        {/* ── Header ── */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1.25rem" }}>
           <div className="wrc-page-title" style={{ padding: 0 }}>
             <h1>My Lineup</h1>
             <p>{franchise?.team_name || "Select a team"} — Week 14 · Lock: Sun 1:00pm ET</p>
           </div>
-          {lineupLocked ? (
-            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "0.4rem 0.875rem" }}>
-              <Lock size={14} color="#ef4444" />
-              <span style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.8rem", color: "#ef4444", letterSpacing: "0.04em" }}>LINEUP LOCKED</span>
-            </div>
-          ) : (
-            <button onClick={handleSave} style={{
-              background: saved ? "oklch(0.42 0.15 150)" : "oklch(0.28 0.09 150)",
-              color: "white", border: "none", borderRadius: 8,
-              padding: "0.5rem 1.25rem",
-              fontFamily: "Oswald, sans-serif", fontSize: "0.85rem", fontWeight: 600,
-              letterSpacing: "0.06em", textTransform: "uppercase" as const,
-              cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem",
-              transition: "background 0.2s",
-            }}>
-              {saved ? <><CheckCircle2 size={14} /> Saved!</> : "Save Lineup"}
-            </button>
-          )}
+          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" as const }}>
+            {/* Best Lineup button */}
+            {!lineupLocked && (
+              <button
+                onClick={runOptimizer}
+                style={{
+                  background: optimized ? "oklch(0.55 0.16 85)" : "oklch(0.55 0.18 85)",
+                  color: "white", border: "none", borderRadius: 8,
+                  padding: "0.5rem 1.1rem",
+                  fontFamily: "Oswald, sans-serif", fontSize: "0.82rem", fontWeight: 600,
+                  letterSpacing: "0.06em", textTransform: "uppercase" as const,
+                  cursor: "pointer", display: "flex", alignItems: "center", gap: "0.35rem",
+                  transition: "background 0.2s",
+                  boxShadow: "0 2px 8px oklch(0.55 0.16 85 / 0.35)",
+                }}
+              >
+                <Zap size={13} />
+                {optimized ? "Optimized!" : "Best Lineup"}
+              </button>
+            )}
+            {/* Save button */}
+            {lineupLocked ? (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "0.4rem 0.875rem" }}>
+                <Lock size={14} color="#ef4444" />
+                <span style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.8rem", color: "#ef4444", letterSpacing: "0.04em" }}>LINEUP LOCKED</span>
+              </div>
+            ) : (
+              <button onClick={handleSave} style={{
+                background: saved ? "oklch(0.42 0.15 150)" : "oklch(0.28 0.09 150)",
+                color: "white", border: "none", borderRadius: 8,
+                padding: "0.5rem 1.25rem",
+                fontFamily: "Oswald, sans-serif", fontSize: "0.82rem", fontWeight: 600,
+                letterSpacing: "0.06em", textTransform: "uppercase" as const,
+                cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem",
+                transition: "background 0.2s",
+              }}>
+                {saved ? <><CheckCircle2 size={14} /> Saved!</> : "Save Lineup"}
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Points summary bar */}
+        {/* ── Points summary bar ── */}
         <div style={{
-          background: "oklch(0.18 0.06 150)",
-          borderRadius: 10,
-          padding: "0.6rem 1.25rem",
-          display: "flex",
-          gap: "2rem",
-          marginBottom: "1rem",
-          flexWrap: "wrap",
+          background: "oklch(0.18 0.06 150)", borderRadius: 10,
+          padding: "0.6rem 1.25rem", display: "flex", gap: "2rem",
+          marginBottom: "1rem", flexWrap: "wrap" as const,
         }}>
           <div>
-            <div style={{ fontSize: "0.65rem", color: "oklch(0.75 0.06 150)", fontFamily: "Oswald, sans-serif", letterSpacing: "0.08em", textTransform: "uppercase" as const }}>Total Points</div>
+            <div style={{ fontSize: "0.62rem", color: "oklch(0.75 0.06 150)", fontFamily: "Oswald, sans-serif", letterSpacing: "0.08em", textTransform: "uppercase" as const }}>Total Points</div>
             <div style={{ fontFamily: "Oswald, sans-serif", fontSize: "1.4rem", fontWeight: 700, color: "oklch(0.88 0.15 85)", lineHeight: 1 }}>{totalPts.toFixed(1)}</div>
           </div>
           <div>
-            <div style={{ fontSize: "0.65rem", color: "oklch(0.75 0.06 150)", fontFamily: "Oswald, sans-serif", letterSpacing: "0.08em", textTransform: "uppercase" as const }}>Projected</div>
+            <div style={{ fontSize: "0.62rem", color: "oklch(0.75 0.06 150)", fontFamily: "Oswald, sans-serif", letterSpacing: "0.08em", textTransform: "uppercase" as const }}>Projected</div>
             <div style={{ fontFamily: "Oswald, sans-serif", fontSize: "1.4rem", fontWeight: 700, color: "white", lineHeight: 1 }}>{totalProj.toFixed(1)}</div>
           </div>
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center" }}>
-            <span style={{ fontSize: "0.75rem", color: "oklch(0.75 0.06 150)" }}>
-              {lineupLocked ? "Lineup is locked" : "Tap a player to see swap options"}
+            <span style={{ fontSize: "0.72rem", color: "oklch(0.75 0.06 150)" }}>
+              {lineupLocked ? "Lineup is locked" : "Tap a player to swap · ⚡ Best Lineup auto-optimizes"}
             </span>
           </div>
         </div>
@@ -222,26 +286,17 @@ export default function Lineup() {
           </div>
 
           {STARTER_SLOTS.map(({ slot, label }) => {
-            const player = starters.find(p => p.slot === slot);
+            const player    = starters.find(p => p.slot === slot);
             const isSelected = selectedId === player?.id;
-
-            // Eligible bench swaps for this slot
-            const slotDef = STARTER_SLOTS.find(s => s.slot === slot)!;
-            const eligibleBench = bench.filter(b => slotDef.eligible.includes(b.pos));
+            const eligibleBench = getEligibleBench(slot);
 
             return (
               <div key={slot}>
-                {/* Player row */}
                 <div
-                  onClick={() => {
-                    if (lineupLocked || !player) return;
-                    setSelectedId(isSelected ? null : player.id);
-                  }}
+                  onClick={() => { if (lineupLocked || !player) return; setSelectedId(isSelected ? null : player.id); }}
                   style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.75rem",
-                    padding: "0.65rem 1rem",
+                    display: "flex", alignItems: "center", gap: "0.75rem",
+                    padding: "0.6rem 1rem",
                     borderBottom: isSelected ? "none" : "1px solid oklch(0.93 0.005 150)",
                     cursor: lineupLocked ? "default" : "pointer",
                     background: isSelected ? "oklch(0.94 0.04 150)" : "white",
@@ -255,37 +310,35 @@ export default function Lineup() {
                     letterSpacing: "0.06em", color: "white",
                     background: player ? POS_COLORS[player.pos] || "oklch(0.5 0.04 150)" : "oklch(0.75 0.02 150)",
                     borderRadius: 4, padding: "2px 0", flexShrink: 0,
-                  }}>
-                    {slot}
-                  </div>
+                  }}>{slot}</div>
 
                   {player ? (
                     <>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.18 0.05 150)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.18 0.05 150)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                           {player.name}
                           {player.pos === "TE" && (
-                            <span style={{ marginLeft: 6, fontSize: "0.6rem", background: "oklch(0.92 0.1 85)", color: "oklch(0.35 0.15 85)", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>1.5x</span>
+                            <span style={{ marginLeft: 6, fontSize: "0.58rem", background: "oklch(0.92 0.1 85)", color: "oklch(0.35 0.15 85)", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>1.5x</span>
                           )}
                         </div>
-                        <div style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)" }}>{player.pos} · {player.nflTeam}</div>
+                        {/* Game info line */}
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "2px", flexWrap: "wrap" as const }}>
+                          <span style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)" }}>{player.pos} · {player.nflTeam}</span>
+                          <GameInfo nflTeam={player.nflTeam} />
+                        </div>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
                         <span style={{
-                          fontSize: "0.65rem", fontWeight: 700, fontFamily: "Oswald, sans-serif",
-                          padding: "1px 6px", borderRadius: 3,
+                          fontSize: "0.62rem", fontWeight: 700, fontFamily: "Oswald, sans-serif",
+                          padding: "1px 5px", borderRadius: 3,
                           background: STATUS_BG[player.status] || "oklch(0.94 0.02 150)",
                           color: STATUS_COLORS[player.status] || "oklch(0.5 0.04 150)",
                         }}>{player.status}</span>
                         <div style={{ textAlign: "right" }}>
                           <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "1rem", color: "oklch(0.22 0.08 150)" }}>{player.pts.toFixed(1)}</div>
-                          <div style={{ fontSize: "0.65rem", color: "oklch(0.6 0.04 150)" }}>Proj {player.proj.toFixed(1)}</div>
+                          <div style={{ fontSize: "0.62rem", color: "oklch(0.6 0.04 150)" }}>Proj {player.proj.toFixed(1)}</div>
                         </div>
-                        {!lineupLocked && (
-                          isSelected
-                            ? <X size={14} color="oklch(0.5 0.04 150)" />
-                            : <ChevronDown size={14} color="oklch(0.7 0.04 150)" />
-                        )}
+                        {!lineupLocked && (isSelected ? <X size={14} color="oklch(0.5 0.04 150)" /> : <ChevronDown size={14} color="oklch(0.7 0.04 150)" />)}
                       </div>
                     </>
                   ) : (
@@ -293,14 +346,10 @@ export default function Lineup() {
                   )}
                 </div>
 
-                {/* Inline replacement panel — shown when this starter is selected */}
+                {/* Inline swap panel — starter selected */}
                 {isSelected && !lineupLocked && (
-                  <div style={{
-                    background: "oklch(0.96 0.02 150)",
-                    borderBottom: "1px solid oklch(0.88 0.01 150)",
-                    padding: "0.5rem 1rem 0.75rem",
-                  }}>
-                    <div style={{ fontSize: "0.68rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, letterSpacing: "0.08em", color: "oklch(0.45 0.06 150)", textTransform: "uppercase" as const, marginBottom: "0.5rem" }}>
+                  <div style={{ background: "oklch(0.96 0.02 150)", borderBottom: "1px solid oklch(0.88 0.01 150)", padding: "0.5rem 1rem 0.75rem" }}>
+                    <div style={{ fontSize: "0.65rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, letterSpacing: "0.08em", color: "oklch(0.45 0.06 150)", textTransform: "uppercase" as const, marginBottom: "0.5rem" }}>
                       Replace with bench player:
                     </div>
                     {eligibleBench.length === 0 ? (
@@ -311,38 +360,23 @@ export default function Lineup() {
                           <div
                             key={bp.id}
                             onClick={(e) => { e.stopPropagation(); doSwap(player!.id, bp.id); }}
-                            style={{
-                              display: "flex", alignItems: "center", gap: "0.65rem",
-                              padding: "0.5rem 0.75rem",
-                              background: "white",
-                              borderRadius: 6,
-                              border: "1px solid oklch(0.88 0.01 150)",
-                              cursor: "pointer",
-                              transition: "background 0.1s",
-                            }}
+                            style={{ display: "flex", alignItems: "center", gap: "0.65rem", padding: "0.5rem 0.75rem", background: "white", borderRadius: 6, border: "1px solid oklch(0.88 0.01 150)", cursor: "pointer", transition: "background 0.1s" }}
                             onMouseEnter={e => (e.currentTarget.style.background = "oklch(0.92 0.04 150)")}
                             onMouseLeave={e => (e.currentTarget.style.background = "white")}
                           >
-                            <div style={{
-                              width: 36, textAlign: "center",
-                              fontFamily: "Oswald, sans-serif", fontSize: "0.65rem", fontWeight: 700,
-                              color: "white", background: POS_COLORS[bp.pos] || "oklch(0.5 0.04 150)",
-                              borderRadius: 3, padding: "2px 0", flexShrink: 0,
-                            }}>{bp.pos}</div>
+                            <div style={{ width: 36, textAlign: "center", fontFamily: "Oswald, sans-serif", fontSize: "0.65rem", fontWeight: 700, color: "white", background: POS_COLORS[bp.pos] || "oklch(0.5 0.04 150)", borderRadius: 3, padding: "2px 0", flexShrink: 0 }}>{bp.pos}</div>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "oklch(0.18 0.05 150)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{bp.name}</div>
-                              <div style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)" }}>{bp.nflTeam}</div>
+                              <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginTop: "2px", flexWrap: "wrap" as const }}>
+                                <span style={{ fontSize: "0.65rem", color: "oklch(0.55 0.04 150)" }}>{bp.nflTeam}</span>
+                                <GameInfo nflTeam={bp.nflTeam} />
+                              </div>
                             </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
-                              <span style={{
-                                fontSize: "0.62rem", fontWeight: 700, fontFamily: "Oswald, sans-serif",
-                                padding: "1px 5px", borderRadius: 3,
-                                background: STATUS_BG[bp.status] || "oklch(0.94 0.02 150)",
-                                color: STATUS_COLORS[bp.status] || "oklch(0.5 0.04 150)",
-                              }}>{bp.status}</span>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexShrink: 0 }}>
+                              <span style={{ fontSize: "0.6rem", fontWeight: 700, fontFamily: "Oswald, sans-serif", padding: "1px 5px", borderRadius: 3, background: STATUS_BG[bp.status] || "oklch(0.94 0.02 150)", color: STATUS_COLORS[bp.status] || "oklch(0.5 0.04 150)" }}>{bp.status}</span>
                               <div style={{ textAlign: "right" }}>
-                                <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.22 0.08 150)" }}>{bp.pts.toFixed(1)}</div>
-                                <div style={{ fontSize: "0.62rem", color: "oklch(0.6 0.04 150)" }}>Proj {bp.proj.toFixed(1)}</div>
+                                <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.22 0.08 150)" }}>{bp.pts.toFixed(1)}</div>
+                                <div style={{ fontSize: "0.6rem", color: "oklch(0.6 0.04 150)" }}>Proj {bp.proj.toFixed(1)}</div>
                               </div>
                               <ArrowLeftRight size={13} color="oklch(0.28 0.09 150)" />
                             </div>
@@ -365,65 +399,45 @@ export default function Lineup() {
             <span style={{ marginLeft: "auto", fontSize: "0.78rem", color: "oklch(0.6 0.04 150)" }}>{bench.length} players</span>
           </div>
 
-          {bench.map((player, i) => {
-            const isSelected = selectedId === player.id;
+          {bench.map((player) => {
+            const isSelected    = selectedId === player.id;
             const eligibleSlots = getEligibleSlots(player);
 
             return (
               <div key={player.id}>
-                {/* Bench player row */}
                 <div
-                  onClick={() => {
-                    if (lineupLocked) return;
-                    setSelectedId(isSelected ? null : player.id);
-                  }}
+                  onClick={() => { if (lineupLocked) return; setSelectedId(isSelected ? null : player.id); }}
                   style={{
                     display: "flex", alignItems: "center", gap: "0.75rem",
-                    padding: "0.65rem 1rem",
+                    padding: "0.6rem 1rem",
                     borderBottom: isSelected ? "none" : "1px solid oklch(0.93 0.005 150)",
                     cursor: lineupLocked ? "default" : "pointer",
                     background: isSelected ? "oklch(0.94 0.04 150)" : "white",
                     transition: "background 0.12s",
                   }}
                 >
-                  <div style={{
-                    width: 52, textAlign: "center",
-                    fontFamily: "Oswald, sans-serif", fontSize: "0.68rem", fontWeight: 700,
-                    letterSpacing: "0.06em", color: "white",
-                    background: POS_COLORS[player.pos] || "oklch(0.5 0.04 150)",
-                    borderRadius: 4, padding: "2px 0", flexShrink: 0,
-                  }}>{player.pos}</div>
+                  <div style={{ width: 52, textAlign: "center", fontFamily: "Oswald, sans-serif", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", color: "white", background: POS_COLORS[player.pos] || "oklch(0.5 0.04 150)", borderRadius: 4, padding: "2px 0", flexShrink: 0 }}>{player.pos}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.18 0.05 150)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{player.name}</div>
-                    <div style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)" }}>{player.pos} · {player.nflTeam}</div>
+                    <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.18 0.05 150)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{player.name}</div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "2px", flexWrap: "wrap" as const }}>
+                      <span style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)" }}>{player.pos} · {player.nflTeam}</span>
+                      <GameInfo nflTeam={player.nflTeam} />
+                    </div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
-                    <span style={{
-                      fontSize: "0.65rem", fontWeight: 700, fontFamily: "Oswald, sans-serif",
-                      padding: "1px 6px", borderRadius: 3,
-                      background: STATUS_BG[player.status] || "oklch(0.94 0.02 150)",
-                      color: STATUS_COLORS[player.status] || "oklch(0.5 0.04 150)",
-                    }}>{player.status}</span>
+                    <span style={{ fontSize: "0.62rem", fontWeight: 700, fontFamily: "Oswald, sans-serif", padding: "1px 5px", borderRadius: 3, background: STATUS_BG[player.status] || "oklch(0.94 0.02 150)", color: STATUS_COLORS[player.status] || "oklch(0.5 0.04 150)" }}>{player.status}</span>
                     <div style={{ textAlign: "right" }}>
                       <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "1rem", color: "oklch(0.22 0.08 150)" }}>{player.pts.toFixed(1)}</div>
-                      <div style={{ fontSize: "0.65rem", color: "oklch(0.6 0.04 150)" }}>Proj {player.proj.toFixed(1)}</div>
+                      <div style={{ fontSize: "0.62rem", color: "oklch(0.6 0.04 150)" }}>Proj {player.proj.toFixed(1)}</div>
                     </div>
-                    {!lineupLocked && (
-                      isSelected
-                        ? <X size={14} color="oklch(0.5 0.04 150)" />
-                        : <ChevronDown size={14} color="oklch(0.7 0.04 150)" />
-                    )}
+                    {!lineupLocked && (isSelected ? <X size={14} color="oklch(0.5 0.04 150)" /> : <ChevronDown size={14} color="oklch(0.7 0.04 150)" />)}
                   </div>
                 </div>
 
-                {/* Inline replacement panel — shown when this bench player is selected */}
+                {/* Inline swap panel — bench player selected */}
                 {isSelected && !lineupLocked && (
-                  <div style={{
-                    background: "oklch(0.96 0.02 150)",
-                    borderBottom: "1px solid oklch(0.88 0.01 150)",
-                    padding: "0.5rem 1rem 0.75rem",
-                  }}>
-                    <div style={{ fontSize: "0.68rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, letterSpacing: "0.08em", color: "oklch(0.45 0.06 150)", textTransform: "uppercase" as const, marginBottom: "0.5rem" }}>
+                  <div style={{ background: "oklch(0.96 0.02 150)", borderBottom: "1px solid oklch(0.88 0.01 150)", padding: "0.5rem 1rem 0.75rem" }}>
+                    <div style={{ fontSize: "0.65rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, letterSpacing: "0.08em", color: "oklch(0.45 0.06 150)", textTransform: "uppercase" as const, marginBottom: "0.5rem" }}>
                       Move to starting slot:
                     </div>
                     {eligibleSlots.length === 0 ? (
@@ -436,34 +450,21 @@ export default function Lineup() {
                             <div
                               key={slotDef.slot}
                               onClick={(e) => { e.stopPropagation(); if (currentStarter) doSwap(currentStarter.id, player.id); }}
-                              style={{
-                                display: "flex", alignItems: "center", gap: "0.65rem",
-                                padding: "0.5rem 0.75rem",
-                                background: "white", borderRadius: 6,
-                                border: "1px solid oklch(0.88 0.01 150)",
-                                cursor: "pointer", transition: "background 0.1s",
-                              }}
+                              style={{ display: "flex", alignItems: "center", gap: "0.65rem", padding: "0.5rem 0.75rem", background: "white", borderRadius: 6, border: "1px solid oklch(0.88 0.01 150)", cursor: "pointer", transition: "background 0.1s" }}
                               onMouseEnter={e => (e.currentTarget.style.background = "oklch(0.92 0.04 150)")}
                               onMouseLeave={e => (e.currentTarget.style.background = "white")}
                             >
-                              {/* Slot badge */}
-                              <div style={{
-                                width: 52, textAlign: "center",
-                                fontFamily: "Oswald, sans-serif", fontSize: "0.68rem", fontWeight: 700,
-                                color: "white", background: "oklch(0.28 0.09 150)",
-                                borderRadius: 3, padding: "2px 0", flexShrink: 0,
-                              }}>{slotDef.slot}</div>
-                              {/* Current starter in that slot */}
+                              <div style={{ width: 52, textAlign: "center", fontFamily: "Oswald, sans-serif", fontSize: "0.68rem", fontWeight: 700, color: "white", background: "oklch(0.28 0.09 150)", borderRadius: 3, padding: "2px 0", flexShrink: 0 }}>{slotDef.slot}</div>
                               {currentStarter ? (
                                 <>
                                   <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "oklch(0.18 0.05 150)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{currentStarter.name}</div>
-                                    <div style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)" }}>moves to bench</div>
+                                    <div style={{ fontSize: "0.65rem", color: "oklch(0.6 0.04 150)" }}>moves to bench</div>
                                   </div>
-                                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
+                                  <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexShrink: 0 }}>
                                     <div style={{ textAlign: "right" }}>
-                                      <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.22 0.08 150)" }}>{currentStarter.pts.toFixed(1)}</div>
-                                      <div style={{ fontSize: "0.62rem", color: "oklch(0.6 0.04 150)" }}>Proj {currentStarter.proj.toFixed(1)}</div>
+                                      <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.22 0.08 150)" }}>{currentStarter.pts.toFixed(1)}</div>
+                                      <div style={{ fontSize: "0.6rem", color: "oklch(0.6 0.04 150)" }}>Proj {currentStarter.proj.toFixed(1)}</div>
                                     </div>
                                     <ArrowLeftRight size={13} color="oklch(0.28 0.09 150)" />
                                   </div>
