@@ -11,7 +11,7 @@ import { TEAMS } from "@/lib/wrcData";
 
 // Real franchises — PINs stored in wrcData.ts
 const FRANCHISES = [
-  ...TEAMS.map(t => ({ id: t.id, team_name: t.teamName, owner_name: t.owner, auth_pin: t.pin, is_commissioner: t.id === "dan" })),
+  ...TEAMS.map(t => ({ id: t.id, team_name: t.teamName, owner_name: t.owner, auth_pin: t.pin, is_commissioner: t.is_commissioner === true })),
   { id: "guest", team_name: "Guest", owner_name: "Guest", auth_pin: "0000", is_commissioner: false },
 ];
 
@@ -205,7 +205,7 @@ export default function Login() {
         textAlign: "center",
         letterSpacing: "0.02em",
       }}>
-        © 2025 Western Reserve Conference Fantasy Football League
+        © 2026 Western Reserve Conference Fantasy Football League
       </p>
     </div>
   );

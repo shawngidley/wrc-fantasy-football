@@ -28,6 +28,7 @@ export interface TeamRecord {
   clinched: null | "playoff" | null;
   pin: string;
   faabRemaining: number;
+  is_commissioner?: boolean;
   players: RosterPlayer[];
 }
 
@@ -350,6 +351,7 @@ export const TEAMS: TeamRecord[] = [
     wins: 0, losses: 0, ptsFor: 0, ptsAgainst: 0,
     clinched: null,
     pin: "1234",
+    is_commissioner: true,
     faabRemaining: 1000,
     players: [
       p("Baker Mayfield",           "QB",  "TAM", 6,    "Draft"),

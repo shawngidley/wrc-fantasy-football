@@ -15,6 +15,25 @@ const TIMER_SECONDS = 90;
 const TOTAL_ROUNDS = 18;
 const TOTAL_TEAMS = 12;
 
+// 2026 WRC Draft date — update this when the date is set
+// Format: ISO 8601 string in Eastern Time
+const DRAFT_DATE = new Date("2026-08-28T19:00:00-04:00"); // Aug 28, 2026 7:00 PM ET (placeholder)
+
+function useDraftCountdown() {
+  const [timeLeft, setTimeLeft] = useState(() => DRAFT_DATE.getTime() - Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setTimeLeft(DRAFT_DATE.getTime() - Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  if (timeLeft <= 0) return null;
+  const totalSecs = Math.floor(timeLeft / 1000);
+  const days = Math.floor(totalSecs / 86400);
+  const hrs  = Math.floor((totalSecs % 86400) / 3600);
+  const mins = Math.floor((totalSecs % 3600) / 60);
+  const secs = totalSecs % 60;
+  return { days, hrs, mins, secs };
+}
+
 // Real 2026 draft order — round 1 pick order
 const ROUND1_ORDER = [
   "Greg","Shawn","Bill","David R.","Jason","Scott N.",
@@ -57,6 +76,62 @@ function getPickTeamIndex(round: number, pick: number): number {
 }
 
 type DraftPick = { team: string; player: string; pos: string };
+
+// ── Draft Countdown Banner ────────────────────────────────────────────────────
+function DraftCountdownBanner() {
+  const cd = useDraftCountdown();
+  if (!cd) return null;
+  const isClose = cd.days < 3;
+  const unitStyle: React.CSSProperties = {
+    display: "flex", flexDirection: "column", alignItems: "center", minWidth: 52,
+  };
+  const numStyle: React.CSSProperties = {
+    fontFamily: "Oswald, sans-serif", fontWeight: 700,
+    fontSize: "clamp(1.6rem, 4vw, 2.2rem)",
+    color: isClose ? "oklch(0.78 0.15 85)" : "white",
+    lineHeight: 1,
+    textShadow: isClose ? "0 0 18px oklch(0.78 0.15 85 / 0.6)" : "none",
+  };
+  const lblStyle: React.CSSProperties = {
+    fontFamily: "Oswald, sans-serif", fontWeight: 400, fontSize: "0.65rem",
+    letterSpacing: "0.1em", textTransform: "uppercase",
+    color: "rgba(255,255,255,0.55)", marginTop: 2,
+  };
+  const sepStyle: React.CSSProperties = {
+    fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "1.6rem",
+    color: "rgba(255,255,255,0.3)", alignSelf: "flex-start", marginTop: 2,
+  };
+  return (
+    <div style={{
+      background: isClose
+        ? "linear-gradient(90deg, oklch(0.22 0.09 150), oklch(0.28 0.1 150))"
+        : "rgba(0,0,0,0.55)",
+      border: `1.5px solid ${isClose ? "oklch(0.78 0.15 85)" : "rgba(255,255,255,0.15)"}`,
+      borderRadius: 12,
+      padding: "1rem 1.5rem",
+      marginBottom: "1rem",
+      display: "flex", alignItems: "center", gap: "1.25rem", flexWrap: "wrap",
+    }}>
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        <span style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.72rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "oklch(0.78 0.15 85)" }}>
+          {isClose ? "⚡ Draft is almost here!" : "Draft Countdown"}
+        </span>
+        <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.5)", marginTop: 2 }}>
+          Aug 28, 2026 · 7:00 PM ET
+        </span>
+      </div>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: "0.25rem" }}>
+        <div style={unitStyle}><span style={numStyle}>{String(cd.days).padStart(2,"0")}</span><span style={lblStyle}>Days</span></div>
+        <span style={sepStyle}>:</span>
+        <div style={unitStyle}><span style={numStyle}>{String(cd.hrs).padStart(2,"0")}</span><span style={lblStyle}>Hrs</span></div>
+        <span style={sepStyle}>:</span>
+        <div style={unitStyle}><span style={numStyle}>{String(cd.mins).padStart(2,"0")}</span><span style={lblStyle}>Min</span></div>
+        <span style={sepStyle}>:</span>
+        <div style={unitStyle}><span style={numStyle}>{String(cd.secs).padStart(2,"0")}</span><span style={lblStyle}>Sec</span></div>
+      </div>
+    </div>
+  );
+}
 
 // Owner color palette
 const OWNER_COLORS: Record<string, string> = {
@@ -159,6 +234,9 @@ export default function DraftBoard() {
       <Navigation showTicker={false} teamName={franchise?.team_name} />
 
       <div style={{ maxWidth: 1400, margin: "0 auto", padding: "1rem 1rem 3rem" }}>
+        {/* Draft Countdown Banner */}
+        {!draftStarted && <DraftCountdownBanner />}
+
         {/* Page Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1rem" }}>
           <div className="wrc-page-title" style={{ padding: 0 }}>
