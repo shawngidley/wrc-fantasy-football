@@ -2,28 +2,37 @@
  * WRC Fantasy Football - Protections (Dynasty Keeper) Page
  *
  * OFFICIAL WRC RULES (Section 5):
- * - Max 3 players total kept per team
+ * - Max 3 keepers total per team
  * - Rounds 1-2: INELIGIBLE — cannot be protected
  * - Rounds 3-6: Max ONE player from this tier
  *     Cost: forfeit one round HIGHER than player's draft/protection round
  *     e.g. drafted Rd 4 → forfeit Rd 3 pick
- * - Rounds 7-18 and Free Agents: Max THREE players (combined with Rd 3-6 slot)
+ * - Rounds 7-18 and Free Agents: Max THREE players (combined total still capped at 3)
  *     Cost: forfeit 6th, 7th, or 8th round pick (owner assigns which)
- *     - If 2+ players protected from this tier, owner assigns protection rounds
- *       starting from Round 6 (6th first, then 7th, then 8th)
- *     - If 6th/7th/8th not available (traded away), use next highest available pick
+ *     - Owner manually chooses which player gets Rd 6, 7, or 8
+ *     - If a pick is traded away, next highest available is used instead
  * - Forfeited pick must ALWAYS be higher (earlier round #) than player's draft status
  *
  * DEADLINE: Monday August 24, 2026 at 8:00 PM ET
+ *
+ * TRADED PICKS (from 2025 Transactions):
+ * - Shawn: traded away own Rd 3; received Scott M.'s Rd 8 → owns Rd 6, 7, Rd 8 (Scott M.'s)
+ * - David S.: traded away own Rd 3 & 10; received Greg's Rd 6 & 13 → owns Greg's Rd 6, own Rd 7 & 8
+ * - Greg: traded away own Rd 6 & 13; received David S.'s Rd 3 & 10 → does NOT own Rd 6, falls back to Rd 5
+ * - Jason: traded away own Rd 12; received David S.'s Rd 8 → owns Rd 6, 7, David S.'s Rd 8
+ * - Jamie: traded away own Rd 1; received David R.'s Rd 12 → owns Rd 6, 7, 8 (no impact)
  */
 import { useState, useEffect } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { Shield, AlertTriangle, CheckCircle2, Lock, Info, Clock, ChevronDown, ChevronUp, X } from "lucide-react";
+import {
+  Shield, AlertTriangle, CheckCircle2, Lock, Info, Clock,
+  ChevronDown, ChevronUp, X, ArrowUpDown
+} from "lucide-react";
 import { TEAMS } from "@/lib/wrcData";
 
 // ── Deadline ─────────────────────────────────────────────────────────────────
-const DEADLINE = new Date("2026-08-24T20:00:00-04:00"); // Mon Aug 24 8pm ET
+const DEADLINE = new Date("2026-08-24T20:00:00-04:00");
 
 function useDeadlineCountdown() {
   const [ms, setMs] = useState(() => DEADLINE.getTime() - Date.now());
@@ -40,8 +49,54 @@ function useDeadlineCountdown() {
   return { past, d, h, m, s };
 }
 
+// ── Traded pick data (from 2025 transactions) ─────────────────────────────────
+// Maps teamId → which Rd 6/7/8 picks they own (may include picks from other teams)
+// and which of their own picks they've traded away.
+// Format: { available: number[], note: string }
+// "available" = the actual rounds they can use for tier-2 protections, in order.
+// If they traded away Rd 6, the list starts at Rd 7 (or lower if also traded Rd 7).
+const TEAM_PICK_STATUS: Record<string, { available: number[]; tradedAway: number[]; notes: string[] }> = {
+  // Greg: traded away own Rd 6 & 13 to David S. → no Rd 6, falls back to Rd 5
+  "greg-akagi": {
+    available: [5, 7, 8],
+    tradedAway: [6],
+    notes: ["Rd 6 traded to David S. — protection falls back to Rd 5 for first slot"]
+  },
+  // David S.: traded away own Rd 3 & 10; received Greg's Rd 6 & 13
+  // For tier-2 protections: owns Greg's Rd 6, own Rd 7, own Rd 8
+  "david-sotka": {
+    available: [6, 7, 8],
+    tradedAway: [],
+    notes: ["Rd 6 is Greg's pick (received in trade) — still counts as Rd 6 for protection cost"]
+  },
+  // Shawn: traded away own Rd 3; received Scott M.'s Rd 8
+  // Owns own Rd 6, own Rd 7, Scott M.'s Rd 8
+  "shawn-gidley": {
+    available: [6, 7, 8],
+    tradedAway: [],
+    notes: ["Rd 8 is Scott M.'s pick (received in trade) — still counts as Rd 8 for protection cost"]
+  },
+  // Jason: traded away own Rd 12; received David S.'s Rd 8
+  // Owns own Rd 6, own Rd 7, David S.'s Rd 8
+  "jason-heiden": {
+    available: [6, 7, 8],
+    tradedAway: [],
+    notes: ["Rd 8 is David S.'s pick (received in trade) — still counts as Rd 8 for protection cost"]
+  },
+  // Jamie: traded away own Rd 1; received David R.'s Rd 12 — no impact on Rd 6/7/8
+  "james-yane": {
+    available: [6, 7, 8],
+    tradedAway: [],
+    notes: []
+  },
+};
+
+function getPickStatus(teamId: string) {
+  return TEAM_PICK_STATUS[teamId] ?? { available: [6, 7, 8], tradedAway: [], notes: [] };
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
-type Tier = "ineligible" | "tier1" | "tier2"; // tier1=Rd3-6, tier2=Rd7-18+FA
+type Tier = "ineligible" | "tier1" | "tier2";
 
 interface RosterEntry {
   id: string;
@@ -50,29 +105,26 @@ interface RosterEntry {
   nflTeam: string;
   byeWeek: number | null;
   acquisition: "Draft" | "FA";
-  draftRound: number | null; // null = FA
+  draftRound: number | null;
   tier: Tier;
 }
 
 interface ProtectionSlot {
   playerId: string;
-  assignedRound: number | null; // for tier2: 6, 7, or 8; for tier1: auto-computed
+  assignedRound: number | null; // tier2: owner-chosen; tier1: auto-computed
 }
 
 // ── Rules helpers ─────────────────────────────────────────────────────────────
 function getTier(draftRound: number | null): Tier {
-  if (draftRound === null) return "tier2"; // FA
+  if (draftRound === null) return "tier2";
   if (draftRound <= 2) return "ineligible";
   if (draftRound <= 6) return "tier1";
   return "tier2";
 }
 
 function tier1Cost(draftRound: number): number {
-  // forfeit one round HIGHER (lower number) than draft round
   return draftRound - 1;
 }
-
-const TIER2_ROUNDS = [6, 7, 8]; // assigned in order
 
 // ── Position colors ───────────────────────────────────────────────────────────
 const POS_COLORS: Record<string, string> = {
@@ -81,7 +133,7 @@ const POS_COLORS: Record<string, string> = {
 };
 
 // ── Persistence ───────────────────────────────────────────────────────────────
-const STORAGE_KEY = "wrc_protections_v2";
+const STORAGE_KEY = "wrc_protections_v3";
 function loadSaved(): Record<string, ProtectionSlot[]> {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}"); } catch { return {}; }
 }
@@ -97,13 +149,9 @@ export default function Protections() {
   const cd = useDeadlineCountdown();
 
   const team = TEAMS.find(t => t.id === franchise?.id);
+  const pickStatus = getPickStatus(franchise?.id ?? "");
 
-  // Build roster with tier info — use byeWeek column as draft round proxy
-  // (In wrcData, byeWeek is the NFL bye week, NOT draft round. Draft round is
-  //  stored separately in the 4th arg of p(). We re-use byeWeek as draft round
-  //  since the data was entered that way in wrcData.ts.)
   const roster: RosterEntry[] = (team?.players ?? []).map(pl => {
-    // byeWeek in wrcData holds the draft round for drafted players
     const draftRound = pl.acquisition === "Draft" ? (pl.byeWeek ?? null) : null;
     return {
       id: pl.id,
@@ -130,54 +178,50 @@ export default function Protections() {
 
   // ── Derived state ──────────────────────────────────────────────────────────
   const selectedIds = slots.map(s => s.playerId);
-  const tier1Selected = slots.filter(s => {
-    const p = roster.find(r => r.id === s.playerId);
-    return p?.tier === "tier1";
-  });
-  const tier2Selected = slots.filter(s => {
-    const p = roster.find(r => r.id === s.playerId);
-    return p?.tier === "tier2";
-  });
-
-  const canAddTier1 = tier1Selected.length < 1;
-  const canAddTier2 = tier2Selected.length < 3;
+  const tier1Slots = slots.filter(s => roster.find(r => r.id === s.playerId)?.tier === "tier1");
+  const tier2Slots = slots.filter(s => roster.find(r => r.id === s.playerId)?.tier === "tier2");
   const totalSelected = slots.length;
-  const maxTotal = 3;
+
+  // Which tier-2 rounds are already assigned
+  const assignedTier2Rounds = tier2Slots.map(s => s.assignedRound).filter(Boolean) as number[];
+  // Available rounds for tier-2 (from pick status, minus already assigned)
+  const availableTier2Rounds = pickStatus.available.filter(r => !assignedTier2Rounds.includes(r));
 
   // ── Toggle selection ───────────────────────────────────────────────────────
   const toggle = (entry: RosterEntry) => {
-    if (entry.tier === "ineligible") return;
-    if (cd.past) return; // deadline passed
+    if (entry.tier === "ineligible" || cd.past) return;
 
     if (selectedIds.includes(entry.id)) {
-      // Deselect — remove and re-assign tier2 rounds sequentially
-      const newSlots = slots.filter(s => s.playerId !== entry.id);
-      setSlots(reassignTier2Rounds(newSlots, roster));
+      setSlots(prev => prev.filter(s => s.playerId !== entry.id));
     } else {
-      if (totalSelected >= maxTotal) return;
-      if (entry.tier === "tier1" && !canAddTier1) return;
-      if (entry.tier === "tier2" && !canAddTier2) return;
+      if (totalSelected >= 3) return;
+      if (entry.tier === "tier1" && tier1Slots.length >= 1) return;
+      if (entry.tier === "tier2" && tier2Slots.length >= 3) return;
 
-      const newSlot: ProtectionSlot = {
+      // For tier2: auto-assign the next available round, owner can change it
+      const nextRound = availableTier2Rounds[0] ?? null;
+      setSlots(prev => [...prev, {
         playerId: entry.id,
-        assignedRound: entry.tier === "tier2" ? null : null, // assigned below
-      };
-      const newSlots = reassignTier2Rounds([...slots, newSlot], roster);
-      setSlots(newSlots);
+        assignedRound: entry.tier === "tier2" ? nextRound : null,
+      }]);
     }
     setSaved(false);
   };
 
-  // Assign tier2 rounds in order: 6, 7, 8
-  function reassignTier2Rounds(s: ProtectionSlot[], r: RosterEntry[]): ProtectionSlot[] {
-    let t2idx = 0;
-    return s.map(slot => {
-      const entry = r.find(x => x.id === slot.playerId);
-      if (!entry || entry.tier !== "tier2") return slot;
-      const round = TIER2_ROUNDS[t2idx++] ?? 8;
-      return { ...slot, assignedRound: round };
-    });
-  }
+  // ── Change round assignment for a tier-2 slot ─────────────────────────────
+  const changeRound = (playerId: string, newRound: number) => {
+    if (cd.past) return;
+    setSlots(prev => prev.map(s => {
+      if (s.playerId === playerId) return { ...s, assignedRound: newRound };
+      // If another slot had this round, swap them
+      if (s.assignedRound === newRound) {
+        const thisSlot = prev.find(x => x.playerId === playerId);
+        return { ...s, assignedRound: thisSlot?.assignedRound ?? null };
+      }
+      return s;
+    }));
+    setSaved(false);
+  };
 
   const handleSave = () => {
     if (!franchise?.id || cd.past) return;
@@ -186,7 +230,7 @@ export default function Protections() {
     setTimeout(() => setSaved(false), 3000);
   };
 
-  // ── Sorted roster: ineligible last, then by tier, then pos ────────────────
+  // ── Sorted roster ─────────────────────────────────────────────────────────
   const posOrder = ["QB","RB","WR","TE","K","DST"];
   const sorted = [...roster].sort((a, b) => {
     const tierRank = { tier1: 0, tier2: 1, ineligible: 2 };
@@ -226,6 +270,23 @@ export default function Protections() {
         {/* Deadline Banner */}
         <DeadlineBanner cd={cd} />
 
+        {/* Traded pick notice */}
+        {franchise && pickStatus.notes.length > 0 && (
+          <div style={{ background: "oklch(0.97 0.04 85)", border: "1.5px solid oklch(0.82 0.12 85)", borderRadius: 10, padding: "0.75rem 1.25rem", marginBottom: "1.25rem" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.35rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.75rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "oklch(0.45 0.14 85)" }}>
+              <AlertTriangle size={13} /> Traded Pick Notice
+            </div>
+            {pickStatus.notes.map((note, i) => (
+              <p key={i} style={{ margin: 0, fontSize: "0.8rem", color: "oklch(0.35 0.1 85)", lineHeight: 1.5 }}>{note}</p>
+            ))}
+            {pickStatus.tradedAway.length > 0 && (
+              <p style={{ margin: "0.35rem 0 0", fontSize: "0.78rem", color: "oklch(0.45 0.14 85)", fontWeight: 600 }}>
+                Picks traded away: {pickStatus.tradedAway.map(r => `Rd ${r}`).join(", ")}
+              </p>
+            )}
+          </div>
+        )}
+
         {/* Not logged in */}
         {!franchise && (
           <div style={{ background: "oklch(0.97 0.03 85)", border: "1.5px solid oklch(0.82 0.12 85)", borderRadius: 10, padding: "0.875rem 1.25rem", marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: "0.75rem" }}>
@@ -256,7 +317,7 @@ export default function Protections() {
                     <tr>
                       <th>Draft Status</th>
                       <th>Eligible?</th>
-                      <th>Max from this tier</th>
+                      <th>Max from tier</th>
                       <th>Forfeited Pick</th>
                     </tr>
                   </thead>
@@ -277,7 +338,7 @@ export default function Protections() {
                       <td style={{ fontWeight: 600 }}>Rounds 7–18 &amp; Free Agents</td>
                       <td style={{ color: "oklch(0.42 0.15 150)", fontWeight: 700 }}>✓ Yes</td>
                       <td>3</td>
-                      <td>Rd 6, 7, or 8 pick (assigned in order)<br /><span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)" }}>If not available, next highest pick used</span></td>
+                      <td>Rd 6, 7, or 8 — <strong>you choose which player gets which round</strong><br /><span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)" }}>If a pick is traded away, next highest available is used</span></td>
                     </tr>
                   </tbody>
                 </table>
@@ -285,7 +346,7 @@ export default function Protections() {
               <div style={{ padding: "0.75rem 1.25rem", background: "oklch(0.97 0.01 150)", borderTop: "1px solid oklch(0.92 0.005 150)", display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
                 <Info size={13} color="oklch(0.5 0.04 150)" style={{ marginTop: 2, flexShrink: 0 }} />
                 <p style={{ margin: 0, fontSize: "0.78rem", color: "oklch(0.5 0.04 150)", lineHeight: 1.6 }}>
-                  <strong>Max 3 keepers total.</strong> You may protect at most <strong>1 player from Rounds 3–6</strong> and up to <strong>3 players from Rounds 7–18 / Free Agents</strong> (combined total still capped at 3). The forfeited pick must always be a higher (earlier) round than the player's draft status. If you no longer own the required pick (traded away), the next highest available pick is used instead.
+                  <strong>Max 3 keepers total.</strong> At most <strong>1 from Rounds 3–6</strong> and up to <strong>3 from Rounds 7–18 / Free Agents</strong>. For tier-2 players, use the round selector on each selected player to assign Rd 6, 7, or 8 — you decide which player costs which pick. The forfeited pick must always be an earlier round than the player's draft status.
                 </p>
               </div>
             </div>
@@ -315,10 +376,10 @@ export default function Protections() {
           </div>
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
             <span style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "3px 10px", fontSize: "0.72rem", color: "rgba(255,255,255,0.65)", fontFamily: "Oswald, sans-serif" }}>
-              Rd 3–6 slot: {tier1Selected.length}/1
+              Rd 3–6 slot: {tier1Slots.length}/1
             </span>
             <span style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "3px 10px", fontSize: "0.72rem", color: "rgba(255,255,255,0.65)", fontFamily: "Oswald, sans-serif" }}>
-              Rd 7–18 / FA slots: {tier2Selected.length}/3
+              Rd 7–18 / FA slots: {tier2Slots.length}/3
             </span>
           </div>
         </div>
@@ -341,9 +402,9 @@ export default function Protections() {
                 const isSelected = selectedIds.includes(entry.id);
                 const slot = slots.find(s => s.playerId === entry.id);
                 const isIneligible = entry.tier === "ineligible";
-                const isTier1Full = entry.tier === "tier1" && !canAddTier1 && !isSelected;
-                const isTier2Full = entry.tier === "tier2" && !canAddTier2 && !isSelected;
-                const isTotalFull = totalSelected >= maxTotal && !isSelected;
+                const isTier1Full = entry.tier === "tier1" && tier1Slots.length >= 1 && !isSelected;
+                const isTier2Full = entry.tier === "tier2" && tier2Slots.length >= 3 && !isSelected;
+                const isTotalFull = totalSelected >= 3 && !isSelected;
                 const isDisabled = isIneligible || isTier1Full || isTier2Full || isTotalFull || cd.past;
 
                 // Cost label
@@ -356,93 +417,171 @@ export default function Protections() {
                   costLabel = `Rd ${cost} pick`;
                   costNote = `Drafted Rd ${entry.draftRound} → forfeit Rd ${cost}`;
                 } else {
-                  // tier2
                   if (isSelected && slot?.assignedRound) {
                     costLabel = `Rd ${slot.assignedRound} pick`;
                     costNote = entry.draftRound ? `Drafted Rd ${entry.draftRound}` : "Free Agent";
                   } else {
-                    // Preview what round they'd get if selected
-                    const nextRound = TIER2_ROUNDS[tier2Selected.length] ?? 8;
-                    costLabel = isSelected ? `Rd ${slot?.assignedRound ?? nextRound} pick` : `~Rd ${nextRound} pick`;
+                    const nextRound = availableTier2Rounds[0] ?? pickStatus.available[0] ?? 6;
+                    costLabel = `~Rd ${nextRound} pick`;
                     costNote = entry.draftRound ? `Drafted Rd ${entry.draftRound}` : "Free Agent";
                   }
                 }
 
                 return (
-                  <div
-                    key={entry.id}
-                    onClick={() => !isDisabled && toggle(entry)}
-                    style={{
-                      display: "flex", alignItems: "center", gap: "0.75rem",
-                      padding: "0.75rem 1.25rem",
-                      borderBottom: "1px solid oklch(0.92 0.005 150)",
-                      cursor: isDisabled ? "default" : "pointer",
-                      background: isSelected
-                        ? "oklch(0.93 0.06 150)"
-                        : isIneligible ? "oklch(0.97 0.005 150)" : "white",
-                      opacity: isDisabled && !isSelected ? 0.4 : 1,
-                      transition: "background 0.12s",
-                    }}
-                  >
-                    {/* Pos badge */}
-                    <div style={{
-                      width: 36, textAlign: "center",
-                      fontFamily: "Oswald, sans-serif", fontSize: "0.7rem", fontWeight: 700,
-                      color: "white", background: POS_COLORS[entry.pos] ?? "#64748b",
-                      borderRadius: 4, padding: "2px 0", flexShrink: 0,
-                    }}>
-                      {entry.pos}
-                    </div>
-
-                    {/* Name + acquisition */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.18 0.05 150)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                        {entry.name}
+                  <div key={entry.id}>
+                    <div
+                      onClick={() => !isDisabled && toggle(entry)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: "0.75rem",
+                        padding: "0.75rem 1.25rem",
+                        borderBottom: isSelected ? "none" : "1px solid oklch(0.92 0.005 150)",
+                        cursor: isDisabled ? "default" : "pointer",
+                        background: isSelected
+                          ? "oklch(0.93 0.06 150)"
+                          : isIneligible ? "oklch(0.97 0.005 150)" : "white",
+                        opacity: isDisabled && !isSelected ? 0.4 : 1,
+                        transition: "background 0.12s",
+                      }}
+                    >
+                      {/* Pos badge */}
+                      <div style={{
+                        width: 36, textAlign: "center",
+                        fontFamily: "Oswald, sans-serif", fontSize: "0.7rem", fontWeight: 700,
+                        color: "white", background: POS_COLORS[entry.pos] ?? "#64748b",
+                        borderRadius: 4, padding: "2px 0", flexShrink: 0,
+                      }}>
+                        {entry.pos}
                       </div>
-                      <div style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)", display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-                        <span>{entry.nflTeam}</span>
-                        <span>·</span>
-                        <span>{entry.acquisition === "FA" ? "Free Agent" : `Drafted Rd ${entry.draftRound}`}</span>
-                        {entry.byeWeek && entry.acquisition === "FA" && <><span>·</span><span>BYE {entry.byeWeek}</span></>}
-                      </div>
-                    </div>
 
-                    {/* Tier badge */}
-                    <div style={{ flexShrink: 0 }}>
-                      {entry.tier === "tier1" && (
-                        <span style={{ fontSize: "0.65rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, letterSpacing: "0.06em", background: "#6366f1", color: "white", borderRadius: 4, padding: "2px 6px" }}>
-                          RD 3–6
-                        </span>
-                      )}
-                      {entry.tier === "tier2" && (
-                        <span style={{ fontSize: "0.65rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, letterSpacing: "0.06em", background: "oklch(0.42 0.15 150)", color: "white", borderRadius: 4, padding: "2px 6px" }}>
-                          RD 7+ / FA
-                        </span>
-                      )}
-                      {entry.tier === "ineligible" && (
-                        <span style={{ fontSize: "0.65rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, letterSpacing: "0.06em", background: "oklch(0.55 0.22 25)", color: "white", borderRadius: 4, padding: "2px 6px" }}>
-                          RD 1–2
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Cost + status */}
-                    <div style={{ textAlign: "right", flexShrink: 0, minWidth: 110 }}>
-                      {isIneligible ? (
-                        <div style={{ fontSize: "0.72rem", color: "oklch(0.55 0.22 25)", display: "flex", alignItems: "center", gap: 3, justifyContent: "flex-end" }}>
-                          <AlertTriangle size={12} /> Ineligible
+                      {/* Name + acquisition */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.18 0.05 150)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {entry.name}
                         </div>
-                      ) : (
-                        <>
-                          <div style={{ fontSize: "0.75rem", fontWeight: 700, color: isSelected ? "oklch(0.28 0.12 150)" : "oklch(0.35 0.06 150)" }}>
-                            {isSelected ? `✓ ${costLabel}` : costLabel}
+                        <div style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)", display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                          <span>{entry.nflTeam}</span>
+                          <span>·</span>
+                          <span>{entry.acquisition === "FA" ? "Free Agent" : `Drafted Rd ${entry.draftRound}`}</span>
+                        </div>
+                      </div>
+
+                      {/* Tier badge */}
+                      <div style={{ flexShrink: 0 }}>
+                        {entry.tier === "tier1" && (
+                          <span style={{ fontSize: "0.65rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, letterSpacing: "0.06em", background: "#6366f1", color: "white", borderRadius: 4, padding: "2px 6px" }}>
+                            RD 3–6
+                          </span>
+                        )}
+                        {entry.tier === "tier2" && (
+                          <span style={{ fontSize: "0.65rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, letterSpacing: "0.06em", background: "oklch(0.42 0.15 150)", color: "white", borderRadius: 4, padding: "2px 6px" }}>
+                            RD 7+ / FA
+                          </span>
+                        )}
+                        {entry.tier === "ineligible" && (
+                          <span style={{ fontSize: "0.65rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, letterSpacing: "0.06em", background: "oklch(0.55 0.22 25)", color: "white", borderRadius: 4, padding: "2px 6px" }}>
+                            RD 1–2
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Cost + status */}
+                      <div style={{ textAlign: "right", flexShrink: 0, minWidth: 110 }}>
+                        {isIneligible ? (
+                          <div style={{ fontSize: "0.72rem", color: "oklch(0.55 0.22 25)", display: "flex", alignItems: "center", gap: 3, justifyContent: "flex-end" }}>
+                            <AlertTriangle size={12} /> Ineligible
                           </div>
-                          {costNote && (
-                            <div style={{ fontSize: "0.68rem", color: "oklch(0.6 0.04 150)" }}>{costNote}</div>
-                          )}
-                        </>
-                      )}
+                        ) : (
+                          <>
+                            <div style={{ fontSize: "0.75rem", fontWeight: 700, color: isSelected ? "oklch(0.28 0.12 150)" : "oklch(0.35 0.06 150)" }}>
+                              {isSelected ? `✓ ${costLabel}` : costLabel}
+                            </div>
+                            {costNote && (
+                              <div style={{ fontSize: "0.68rem", color: "oklch(0.6 0.04 150)" }}>{costNote}</div>
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
+
+                    {/* ── Round assignment panel (tier2 selected only) ── */}
+                    {isSelected && entry.tier === "tier2" && (
+                      <div style={{
+                        background: "oklch(0.89 0.07 150)",
+                        borderBottom: "1px solid oklch(0.82 0.06 150)",
+                        padding: "0.6rem 1.25rem 0.6rem 3.75rem",
+                        display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap",
+                      }}
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <ArrowUpDown size={13} color="oklch(0.35 0.1 150)" />
+                        <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "oklch(0.28 0.1 150)", fontFamily: "Oswald, sans-serif", letterSpacing: "0.04em" }}>
+                          ASSIGN FORFEITED PICK:
+                        </span>
+                        <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
+                          {pickStatus.available.map(round => {
+                            const isAssignedToMe = slot?.assignedRound === round;
+                            const isAssignedToOther = assignedTier2Rounds.includes(round) && !isAssignedToMe;
+                            return (
+                              <button
+                                key={round}
+                                onClick={() => changeRound(entry.id, round)}
+                                disabled={cd.past}
+                                style={{
+                                  padding: "3px 12px",
+                                  borderRadius: 6,
+                                  border: isAssignedToMe ? "2px solid oklch(0.42 0.15 150)" : "2px solid transparent",
+                                  background: isAssignedToMe
+                                    ? "oklch(0.42 0.15 150)"
+                                    : isAssignedToOther
+                                      ? "oklch(0.78 0.04 150)"
+                                      : "white",
+                                  color: isAssignedToMe ? "white" : isAssignedToOther ? "oklch(0.55 0.04 150)" : "oklch(0.28 0.1 150)",
+                                  fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.78rem",
+                                  cursor: cd.past ? "not-allowed" : "pointer",
+                                  transition: "all 0.15s",
+                                  position: "relative",
+                                }}
+                                title={isAssignedToOther ? "Swap with other player" : `Assign Rd ${round} to this player`}
+                              >
+                                Rd {round}
+                                {isAssignedToOther && (
+                                  <span style={{ fontSize: "0.6rem", position: "absolute", top: -6, right: -4, background: "oklch(0.55 0.14 85)", color: "white", borderRadius: 3, padding: "0 3px" }}>swap</span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <button
+                          onClick={() => toggle(entry)}
+                          style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "oklch(0.55 0.22 25)", display: "flex", alignItems: "center", gap: "0.25rem", fontSize: "0.72rem", fontWeight: 600 }}
+                        >
+                          <X size={13} /> Remove
+                        </button>
+                      </div>
+                    )}
+                    {/* Remove button for tier1 selected */}
+                    {isSelected && entry.tier === "tier1" && (
+                      <div style={{
+                        background: "oklch(0.89 0.07 150)",
+                        borderBottom: "1px solid oklch(0.82 0.06 150)",
+                        padding: "0.45rem 1.25rem 0.45rem 3.75rem",
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                      }}
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <span style={{ fontSize: "0.75rem", color: "oklch(0.35 0.1 150)", fontWeight: 600 }}>
+                          Forfeits Round {tier1Cost(entry.draftRound!)} pick (one round higher than Rd {entry.draftRound})
+                        </span>
+                        {!cd.past && (
+                          <button
+                            onClick={() => toggle(entry)}
+                            style={{ background: "none", border: "none", cursor: "pointer", color: "oklch(0.55 0.22 25)", display: "flex", alignItems: "center", gap: "0.25rem", fontSize: "0.72rem", fontWeight: 600 }}
+                          >
+                            <X size={13} /> Remove
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -475,6 +614,7 @@ export default function Protections() {
                     let pickLabel = "";
                     if (entry.tier === "tier1") pickLabel = `Round ${tier1Cost(entry.draftRound!)}`;
                     else if (slot.assignedRound) pickLabel = `Round ${slot.assignedRound}`;
+                    else pickLabel = "⚠ Assign a round";
                     return (
                       <tr key={slot.playerId}>
                         <td style={{ fontWeight: 700 }}>{entry.name}</td>
@@ -486,7 +626,9 @@ export default function Protections() {
                         <td style={{ fontSize: "0.82rem", color: "oklch(0.45 0.04 150)" }}>
                           {entry.acquisition === "FA" ? "Free Agent" : `Drafted Rd ${entry.draftRound}`}
                         </td>
-                        <td style={{ fontWeight: 700, color: "oklch(0.28 0.12 150)" }}>{pickLabel}</td>
+                        <td style={{ fontWeight: 700, color: slot.assignedRound || entry.tier === "tier1" ? "oklch(0.28 0.12 150)" : "oklch(0.55 0.22 25)" }}>
+                          {pickLabel}
+                        </td>
                         <td>
                           {!cd.past && (
                             <button
