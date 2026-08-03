@@ -12,6 +12,7 @@ const navLinks = [
   { label: "Playoffs", path: "/playoffs" },
   { label: "Live", path: "/live", live: true },
   { label: "Lineup", path: "/lineup" },
+  { label: "Rosters", path: "/rosters" },
   { label: "Rundown", path: "/rundown" },
   { label: "News", path: "/news" },
   { label: "Transactions", path: "/transactions" },

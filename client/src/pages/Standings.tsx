@@ -118,32 +118,6 @@ export default function Standings() {
           <p>Regular Season Standings — Through Week 14</p>
         </div>
 
-        {/* Column Legend */}
-        <div style={{
-          display: "flex",
-          flexWrap: "wrap",
-          gap: "0.6rem 1.5rem",
-          marginBottom: "1.25rem",
-          padding: "0.6rem 1rem",
-          background: "rgba(0,0,0,0.35)",
-          borderRadius: 8,
-          backdropFilter: "blur(4px)",
-        }}>
-          {[
-            ["W-L", "Combined record — H2H counts 2 results, Median counts 1"],
-            ["GB", "Games Back from division leader"],
-            ["H2H", "Head-to-head result — worth 2 wins or 2 losses per week"],
-            ["MED", "League median result — worth 1 win or 1 loss per week"],
-            ["DIV", "Division record (H2H only vs. division opponents)"],
-            ["PF / PA", "Points For / Points Against"],
-          ].map(([abbr, desc]) => (
-            <div key={abbr} style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-              <span style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.72rem", color: "oklch(0.78 0.15 85)", letterSpacing: "0.06em" }}>{abbr}</span>
-              <span style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.6)" }}>{desc}</span>
-            </div>
-          ))}
-        </div>
-
         {/* Division Tables */}
         {DIVISIONS.map((division) => {
           const leader = division.teams[0];
@@ -154,28 +128,24 @@ export default function Standings() {
               <div style={{ overflowX: "auto" }}>
                 <table className="wrc-table" style={{ minWidth: 780 }}>
                   <thead>
-                    {/* Row 1: group labels */}
-                    <tr style={{ borderBottom: "none" }}>
-                      <th colSpan={2} style={{ textAlign: "left", padding: "0.45rem 0.75rem 0", fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", letterSpacing: "0.06em" }}>Team</th>
-                      <th colSpan={3} style={{ textAlign: "center", padding: "0.45rem 0.5rem 0", fontSize: "0.72rem", color: "oklch(0.45 0.04 150)", fontWeight: 400 }}></th>
-                      <th colSpan={2} style={{ textAlign: "center", padding: "0.45rem 0.5rem 0", fontSize: "0.72rem", color: "oklch(0.35 0.06 150)", fontWeight: 700, fontFamily: "Oswald, sans-serif", letterSpacing: "0.06em", borderLeft: "2px solid oklch(0.82 0.06 150)", borderBottom: "1px solid oklch(0.82 0.06 150)" }}>Head to Head <span style={{fontWeight:400,fontSize:"0.65rem",color:"oklch(0.5 0.04 150)"}}>2 results</span></th>
-                      <th colSpan={2} style={{ textAlign: "center", padding: "0.45rem 0.5rem 0", fontSize: "0.72rem", color: "oklch(0.35 0.06 150)", fontWeight: 700, fontFamily: "Oswald, sans-serif", letterSpacing: "0.06em", borderLeft: "2px solid oklch(0.82 0.06 150)", borderBottom: "1px solid oklch(0.82 0.06 150)" }}>League Median <span style={{fontWeight:400,fontSize:"0.65rem",color:"oklch(0.5 0.04 150)"}}>1 result</span></th>
-                      <th colSpan={2} style={{ textAlign: "center", padding: "0.45rem 0.5rem 0", fontSize: "0.72rem", color: "oklch(0.35 0.06 150)", fontWeight: 700, fontFamily: "Oswald, sans-serif", letterSpacing: "0.06em", borderLeft: "2px solid oklch(0.82 0.06 150)", borderBottom: "1px solid oklch(0.82 0.06 150)" }}>Division</th>
-                      <th colSpan={3} style={{ textAlign: "center", padding: "0.45rem 0.5rem 0", fontSize: "0.72rem", color: "oklch(0.45 0.04 150)", fontWeight: 400 }}></th>
-                    </tr>
-                    {/* Row 2: column sub-headers */}
                     <tr>
-                      <th style={{ width: 48, padding: "0 0.4rem 0.45rem" }}></th>
-                      <th style={{ textAlign: "left", minWidth: 160, padding: "0 0.75rem 0.45rem" }}></th>
+                      <th style={{ width: 48, padding: "0.55rem 0.4rem" }}></th>
+                      <th style={{ textAlign: "left", minWidth: 160, padding: "0.55rem 0.75rem", fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", letterSpacing: "0.06em" }}>Team</th>
                       <th style={TH}>W-L</th>
                       <th style={TH}>PCT</th>
                       <th style={TH}>GB</th>
-                      <th style={{ ...TH, borderLeft: "2px solid oklch(0.82 0.06 150)" }}>Win</th>
-                      <th style={TH}>Loss</th>
-                      <th style={{ ...TH, borderLeft: "2px solid oklch(0.82 0.06 150)" }}>Win</th>
-                      <th style={TH}>Loss</th>
-                      <th style={{ ...TH, borderLeft: "2px solid oklch(0.82 0.06 150)" }}>Win</th>
-                      <th style={TH}>Loss</th>
+                      <th style={{ ...TH, borderLeft: "2px solid oklch(0.82 0.06 150)", borderBottom: "2px solid oklch(0.82 0.06 150)" }} colSpan={2}>
+                        <div style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.06em", marginBottom: 2 }}>Head to Head</div>
+                        <div style={{ display: "flex", justifyContent: "space-around", fontSize: "0.68rem", fontWeight: 400, color: "oklch(0.45 0.04 150)" }}><span>Win</span><span>Loss</span></div>
+                      </th>
+                      <th style={{ ...TH, borderLeft: "2px solid oklch(0.82 0.06 150)", borderBottom: "2px solid oklch(0.82 0.06 150)" }} colSpan={2}>
+                        <div style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.06em", marginBottom: 2 }}>League Median</div>
+                        <div style={{ display: "flex", justifyContent: "space-around", fontSize: "0.68rem", fontWeight: 400, color: "oklch(0.45 0.04 150)" }}><span>Win</span><span>Loss</span></div>
+                      </th>
+                      <th style={{ ...TH, borderLeft: "2px solid oklch(0.82 0.06 150)", borderBottom: "2px solid oklch(0.82 0.06 150)" }} colSpan={2}>
+                        <div style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.06em", marginBottom: 2 }}>Division</div>
+                        <div style={{ display: "flex", justifyContent: "space-around", fontSize: "0.68rem", fontWeight: 400, color: "oklch(0.45 0.04 150)" }}><span>Win</span><span>Loss</span></div>
+                      </th>
                       <th style={{ ...TH, textAlign: "right" }}>PF</th>
                       <th style={{ ...TH, textAlign: "right" }}>PA</th>
                       <th style={TH}>Streak</th>
