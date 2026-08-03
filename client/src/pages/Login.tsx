@@ -2,26 +2,51 @@
  * WRC Fantasy Football - Login Page
  * Background: Stadium at night
  * Card: Team dropdown + PIN entry
+ * Auth: Supabase teams table PIN verification
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { Lock, ChevronDown, Trophy } from "lucide-react";
-import { TEAMS } from "@/lib/wrcData";
+import { supabase } from "@/lib/supabase";
+import type { LoggedInTeam } from "@/contexts/AuthContext";
 
-// Real franchises — PINs stored in wrcData.ts
-const FRANCHISES = [
-  ...TEAMS.map(t => ({ id: t.id, team_name: t.teamName, owner_name: t.owner, auth_pin: t.pin, is_commissioner: t.is_commissioner === true })),
-  { id: "guest", team_name: "Guest", owner_name: "Guest", auth_pin: "0000", is_commissioner: false },
-];
+interface TeamRow {
+  id: string;
+  name: string;
+  owner: string;
+  division: string;
+  faab: number;
+  wins: number;
+  losses: number;
+  ties: number;
+  points_for: number;
+  points_against: number;
+  is_commissioner: boolean;
+  pin: string;
+}
 
 export default function Login() {
   const [, navigate] = useLocation();
   const { login } = useAuth();
+  const [teams, setTeams] = useState<TeamRow[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingTeams, setLoadingTeams] = useState(true);
+
+  // Load teams from Supabase on mount
+  useEffect(() => {
+    supabase
+      .from("teams")
+      .select("id, name, owner, division, faab, wins, losses, ties, points_for, points_against, is_commissioner, pin")
+      .order("name")
+      .then(({ data, error: err }) => {
+        if (!err && data) setTeams(data as TeamRow[]);
+        setLoadingTeams(false);
+      });
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,14 +54,21 @@ export default function Login() {
     if (!selectedId) { setError("Please select your team."); return; }
     if (!pin) { setError("Please enter your PIN."); return; }
     setLoading(true);
-    await new Promise(r => setTimeout(r, 400));
-    const franchise = FRANCHISES.find(f => f.id === selectedId);
-    if (!franchise || franchise.auth_pin !== pin) {
+
+    const team = teams.find(t => t.id === selectedId);
+    if (!team || team.pin !== pin) {
       setError("Incorrect PIN. Please try again.");
       setLoading(false);
       return;
     }
-    login({ id: franchise.id, team_name: franchise.team_name, owner_name: franchise.owner_name, is_commissioner: franchise.is_commissioner });
+
+    const loggedIn: LoggedInTeam = {
+      ...team,
+      team_name: team.name,
+      owner_name: team.owner,
+      auth_pin: team.pin,
+    };
+    login(loggedIn);
     navigate("/standings");
   };
 
@@ -100,6 +132,7 @@ export default function Login() {
                 <select
                   value={selectedId}
                   onChange={e => setSelectedId(e.target.value)}
+                  disabled={loadingTeams}
                   style={{
                     width: "100%",
                     padding: "0.75rem 2.5rem 0.75rem 0.875rem",
@@ -114,9 +147,9 @@ export default function Login() {
                     fontFamily: "Inter, sans-serif",
                   }}
                 >
-                  <option value="">Select Your Team</option>
-                  {FRANCHISES.map(f => (
-                    <option key={f.id} value={f.id}>{f.team_name} — {f.owner_name}</option>
+                  <option value="">{loadingTeams ? "Loading teams…" : "Select Your Team"}</option>
+                  {teams.map(t => (
+                    <option key={t.id} value={t.id}>{t.name} — {t.owner}</option>
                   ))}
                 </select>
                 <ChevronDown
@@ -188,8 +221,8 @@ export default function Login() {
             <button
               type="submit"
               className="wrc-btn-primary"
-              disabled={loading}
-              style={{ opacity: loading ? 0.7 : 1 }}
+              disabled={loading || loadingTeams}
+              style={{ opacity: (loading || loadingTeams) ? 0.7 : 1 }}
             >
               {loading ? "Signing In..." : "Sign In"}
             </button>

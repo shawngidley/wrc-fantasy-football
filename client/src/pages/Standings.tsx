@@ -8,11 +8,12 @@
  *   - Division Record
  *   - PF, PA, Streak
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { TrendingUp, TrendingDown, Megaphone, X, ChevronDown, ChevronUp } from "lucide-react";
 import { TEAMS } from "@/lib/wrcData";
+import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 
 type TeamRow = {
@@ -106,14 +107,25 @@ const TD_CENTER: React.CSSProperties = { textAlign: "center", padding: "0.55rem 
 const STORAGE_KEY = "wrc_announcements_dismissed";
 
 function AnnouncementBanner({ isCommissioner }: { isCommissioner: boolean }) {
-  const [announcements, setAnnouncements] = useState<{id: string; text: string; date: string}[]>(() => {
-    try { return JSON.parse(localStorage.getItem("wrc_announcements") || "[]"); } catch { return []; }
-  });
+  type Ann = { id: string; text: string; date: string };
+  const [announcements, setAnnouncements] = useState<Ann[]>([]);
   const [dismissed, setDismissed] = useState<string[]>(() => {
     try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { return []; }
   });
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
+
+  // Load announcements from Supabase on mount
+  useEffect(() => {
+    supabase.from("announcements").select("id, message, created_at").eq("active", true).order("created_at", { ascending: false })
+      .then(({ data }) => {
+        if (data) setAnnouncements(data.map((r: { id: string; message: string; created_at: string }) => ({
+          id: r.id,
+          text: r.message,
+          date: new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        })));
+      });
+  }, []);
 
   const visible = announcements.filter(a => !dismissed.includes(a.id));
 
@@ -123,20 +135,20 @@ function AnnouncementBanner({ isCommissioner }: { isCommissioner: boolean }) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   }
 
-  function post() {
+  async function post() {
     if (!draft.trim()) return;
-    const next = [{ id: Date.now().toString(), text: draft.trim(), date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }) }, ...announcements];
-    setAnnouncements(next);
-    localStorage.setItem("wrc_announcements", JSON.stringify(next));
+    const { data, error } = await supabase.from("announcements").insert({ message: draft.trim(), created_by: "commissioner", active: true }).select().single();
+    if (error) { toast.error("Failed to post announcement"); return; }
+    const newAnn = { id: data.id, text: data.message, date: new Date(data.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" }) };
+    setAnnouncements(prev => [newAnn, ...prev]);
     setDraft("");
     setEditing(false);
     toast.success("Announcement posted to all owners");
   }
 
-  function deleteAnnouncement(id: string) {
-    const next = announcements.filter(a => a.id !== id);
-    setAnnouncements(next);
-    localStorage.setItem("wrc_announcements", JSON.stringify(next));
+  async function deleteAnnouncement(id: string) {
+    await supabase.from("announcements").update({ active: false }).eq("id", id);
+    setAnnouncements(prev => prev.filter(a => a.id !== id));
     toast.success("Announcement removed");
   }
 

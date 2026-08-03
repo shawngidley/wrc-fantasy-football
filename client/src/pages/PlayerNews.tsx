@@ -16,15 +16,13 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { supabase } from "@/lib/supabase";
 
 // ── Current week ──────────────────────────────────────────────────────────────
 const CURRENT_WEEK = 14;
-// Logged-in team's remaining FAAB (mock)
-const MY_FAAB = 312;
-// My team name (mock — in production comes from useAuth franchise)
-const MY_TEAM = "Team Gidley";
+// myFaab and myTeamName are replaced by useAuth franchise data below
 
-// My roster — players owned by MY_TEAM (for drop selector and trade give-side)
+// My roster — players owned by myTeamName (for drop selector and trade give-side)
 const MY_ROSTER = [
   { id: "p1",  name: "Josh Allen",         pos: "QB" },
   { id: "p2",  name: "Lamar Jackson",       pos: "QB" },
@@ -185,6 +183,7 @@ interface ESPNArticle {
 
 // ── Player Browser ────────────────────────────────────────────────────────────
 function PlayerBrowser() {
+  const { franchise } = useAuth();
   const [search, setSearch]           = useState("");
   const [posFilter, setPosFilter]     = useState("ALL");
   const [ownFilter, setOwnFilter]     = useState("ALL");
@@ -198,6 +197,25 @@ function PlayerBrowser() {
   const [injuryExpanded, setInjuryExpanded] = useState<Set<string>>(new Set());
   // pending claims list
   const [pendingClaims, setPendingClaims] = useState<PendingClaim[]>([]);
+  const myFaab = franchise?.faab ?? 1000;
+  const myTeamName = franchise?.team_name ?? "My Team";
+
+  // Load pending claims from Supabase on mount
+  useEffect(() => {
+    if (!franchise?.id) return;
+    supabase.from("faab_bids").select("id, player_id, drop_player_id, faab_amount, note").eq("team_id", franchise.id).eq("status", "pending")
+      .then(({ data }) => {
+        if (!data) return;
+        setPendingClaims(data.map((r: { id: string; player_id: string; drop_player_id: string | null; faab_amount: number; note: string }) => ({
+          playerId: r.player_id,
+          playerName: r.player_id,
+          playerPos: "",
+          bidAmount: r.faab_amount,
+          dropPlayerId: r.drop_player_id,
+          dropPlayerName: r.drop_player_id,
+        })));
+      });
+  }, [franchise?.id]);
   // drop selection per bid
   const [bidDropId, setBidDropId] = useState<string>("");
   // per-player news modal
@@ -269,8 +287,8 @@ function PlayerBrowser() {
       toast.error("Enter a valid FAAB amount (0 or more)");
       return;
     }
-    if (amt > MY_FAAB) {
-      toast.error(`Bid exceeds your FAAB balance ($${MY_FAAB})`);
+    if (amt > myFaab) {
+      toast.error(`Bid exceeds your FAAB balance ($${myFaab})`);
       return;
     }
     const dropPlayer = bidDropId ? MY_ROSTER.find(r => r.id === bidDropId) : null;
@@ -282,6 +300,19 @@ function PlayerBrowser() {
       dropPlayerId: dropPlayer?.id ?? null,
       dropPlayerName: dropPlayer?.name ?? null,
     };
+    // Save to Supabase
+    if (franchise?.id) {
+      supabase.from("faab_bids").upsert({
+        team_id: franchise.id,
+        player_id: player.id,
+        drop_player_id: dropPlayer?.id ?? null,
+        faab_amount: amt,
+        note: dropPlayer ? `Drop: ${dropPlayer.name}` : "",
+        status: "pending",
+      }, { onConflict: "team_id,player_id" }).then(({ error }) => {
+        if (error) toast.error("Failed to save bid: " + error.message);
+      });
+    }
     setPendingClaims(prev => [...prev.filter(c => c.playerId !== player.id), claim]);
     setBidPlayerId(null);
     setBidAmount("");
@@ -290,7 +321,10 @@ function PlayerBrowser() {
     toast.success(`Waiver claim submitted: ${player.name} — $${amt} FAAB${dropMsg}`);
   };
 
-  const cancelClaim = (playerId: string) => {
+  const cancelClaim = async (playerId: string) => {
+    if (franchise?.id) {
+      await supabase.from("faab_bids").delete().eq("team_id", franchise.id).eq("player_id", playerId);
+    }
     setPendingClaims(prev => prev.filter(c => c.playerId !== playerId));
     toast.info("Waiver claim cancelled");
   };
@@ -302,7 +336,7 @@ function PlayerBrowser() {
     setTradeNote("");
   };
 
-  const submitTrade = () => {
+  const submitTrade = async () => {
     if (!tradeTarget) return;
     if (tradeGiveIds.length === 0 && !tradeFaab) {
       toast.error("Add at least one player or FAAB to your offer");
@@ -310,6 +344,19 @@ function PlayerBrowser() {
     }
     const giveNames = tradeGiveIds.map(id => MY_ROSTER.find(r => r.id === id)?.name).filter(Boolean).join(", ");
     const faabPart = tradeFaab ? ` + $${tradeFaab} FAAB` : "";
+    // Save to Supabase
+    if (franchise?.id) {
+      const { error } = await supabase.from("trade_proposals").insert({
+        from_team_id: franchise.id,
+        to_team_id: tradeTarget.ownerTeam ?? "unknown",
+        give_player_ids: tradeGiveIds,
+        receive_player_ids: [tradeTarget.id],
+        faab_amount: parseInt(tradeFaab || "0", 10),
+        note: tradeNote,
+        status: "pending",
+      });
+      if (error) { toast.error("Failed to send trade: " + error.message); return; }
+    }
     toast.success(`Trade proposal sent to ${tradeTarget.ownerTeam}: ${giveNames}${faabPart} → ${tradeTarget.name}`);
     setTradeTarget(null);
   };
@@ -391,7 +438,7 @@ function PlayerBrowser() {
         <div style={{ padding: "0 1.25rem 0.75rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
           <DollarSign size={13} color="oklch(0.38 0.14 85)" />
           <span style={{ fontSize: "0.75rem", color: "oklch(0.45 0.04 150)" }}>
-            Your FAAB balance: <strong style={{ color: "oklch(0.28 0.09 150)" }}>${MY_FAAB}</strong>
+            Your FAAB balance: <strong style={{ color: "oklch(0.28 0.09 150)" }}>${myFaab}</strong>
           </span>
           {watchlist.size > 0 && (
             <span style={{ marginLeft: "auto", fontSize: "0.72rem", color: "oklch(0.55 0.16 85)", fontWeight: 700 }}>
@@ -621,7 +668,7 @@ function PlayerBrowser() {
                     </button>
                   )}
                   {/* Trade button — only for rostered players on other teams */}
-                  {p.owned && p.ownerTeam !== MY_TEAM && (
+                  {p.owned && p.ownerTeam !== myTeamName && (
                     <button
                       onClick={() => openTrade(p)}
                       style={{
@@ -658,7 +705,7 @@ function PlayerBrowser() {
                       <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", background: "white", border: "1.5px solid oklch(0.84 0.04 150)", borderRadius: 6, padding: "0.3rem 0.6rem" }}>
                         <DollarSign size={13} color="oklch(0.38 0.14 85)" />
                         <input
-                          type="number" min={0} max={MY_FAAB}
+                          type="number" min={0} max={myFaab}
                           value={bidAmount}
                           onChange={e => setBidAmount(e.target.value)}
                           placeholder="0"
@@ -667,7 +714,7 @@ function PlayerBrowser() {
                           autoFocus
                         />
                       </div>
-                      <span style={{ fontSize: "0.68rem", color: "oklch(0.6 0.04 150)" }}>Balance: <strong>${MY_FAAB}</strong></span>
+                      <span style={{ fontSize: "0.68rem", color: "oklch(0.6 0.04 150)" }}>Balance: <strong>${myFaab}</strong></span>
                     </div>
                   </div>
                   {/* Row 2: Drop player */}
@@ -831,14 +878,14 @@ function PlayerBrowser() {
                 <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", background: "white", border: "1.5px solid oklch(0.84 0.04 150)", borderRadius: 6, padding: "0.3rem 0.6rem" }}>
                   <DollarSign size={13} color="oklch(0.38 0.14 85)" />
                   <input
-                    type="number" min={0} max={MY_FAAB}
+                    type="number" min={0} max={myFaab}
                     value={tradeFaab}
                     onChange={e => setTradeFaab(e.target.value)}
                     placeholder="0 (optional)"
                     style={{ width: 100, border: "none", outline: "none", fontSize: "0.88rem", fontFamily: "Oswald, sans-serif", fontWeight: 600, color: "oklch(0.22 0.08 150)" }}
                   />
                 </div>
-                <span style={{ fontSize: "0.68rem", color: "oklch(0.6 0.04 150)" }}>Balance: ${MY_FAAB}</span>
+                <span style={{ fontSize: "0.68rem", color: "oklch(0.6 0.04 150)" }}>Balance: ${myFaab}</span>
               </div>
 
               {/* Note */}

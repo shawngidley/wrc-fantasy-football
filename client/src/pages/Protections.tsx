@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 // AlertTriangle already imported above — used in Submit button validation
 import { TEAMS } from "@/lib/wrcData";
+import { supabase } from "@/lib/supabase";
 
 // ── Deadline ─────────────────────────────────────────────────────────────────
 const DEADLINE = new Date("2026-08-24T20:00:00-04:00");
@@ -133,15 +134,34 @@ const POS_COLORS: Record<string, string> = {
   TE: "oklch(0.65 0.14 85)", K: "#64748b", DST: "#ef4444",
 };
 
-// ── Persistence ───────────────────────────────────────────────────────────────
-const STORAGE_KEY = "wrc_protections_v3";
-function loadSaved(): Record<string, ProtectionSlot[]> {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "{}"); } catch { return {}; }
+// ── Persistence (Supabase) ────────────────────────────────────────────────────
+async function loadFromSupabase(teamId: string): Promise<ProtectionSlot[]> {
+  const { data } = await supabase
+    .from("protections")
+    .select("player_id, tier, forfeited_round")
+    .eq("team_id", teamId);
+  if (!data) return [];
+  return data.map((r: { player_id: string; tier: string; forfeited_round: number | null }) => ({
+    playerId: r.player_id,
+    assignedRound: r.forfeited_round,
+  }));
 }
-function saveToDisk(teamId: string, slots: ProtectionSlot[]) {
-  const all = loadSaved();
-  all[teamId] = slots;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+
+async function saveToSupabase(teamId: string, slots: ProtectionSlot[], roster: RosterEntry[]) {
+  // Delete existing protections for this team
+  await supabase.from("protections").delete().eq("team_id", teamId);
+  if (slots.length === 0) return;
+  const rows = slots.map(s => {
+    const entry = roster.find(r => r.id === s.playerId);
+    return {
+      team_id: teamId,
+      player_id: s.playerId,
+      tier: entry?.tier ?? "tier2",
+      forfeited_round: s.assignedRound,
+      submitted: true,
+    };
+  });
+  await supabase.from("protections").insert(rows);
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -166,15 +186,18 @@ export default function Protections() {
     };
   });
 
-  const [slots, setSlots] = useState<ProtectionSlot[]>(() => {
-    if (!franchise?.id) return [];
-    return loadSaved()[franchise.id] ?? [];
-  });
+  const [slots, setSlots] = useState<ProtectionSlot[]>([]);
   const [saved, setSaved] = useState(false);
   const [expandRules, setExpandRules] = useState(false);
+  const [loadingSlots, setLoadingSlots] = useState(true);
 
   useEffect(() => {
-    if (franchise?.id) setSlots(loadSaved()[franchise.id] ?? []);
+    if (!franchise?.id) { setLoadingSlots(false); return; }
+    setLoadingSlots(true);
+    loadFromSupabase(franchise.id).then(loaded => {
+      setSlots(loaded);
+      setLoadingSlots(false);
+    });
   }, [franchise?.id]);
 
   // ── Derived state ──────────────────────────────────────────────────────────
@@ -228,9 +251,9 @@ export default function Protections() {
   const unassignedTier2 = tier2Slots.filter(s => !s.assignedRound);
   const isValid = unassignedTier2.length === 0;
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!franchise?.id || cd.past || !isValid) return;
-    saveToDisk(franchise.id, slots);
+    await saveToSupabase(franchise.id, slots, roster);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
