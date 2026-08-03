@@ -13,6 +13,8 @@ type Player = {
   pos: "QB" | "RB" | "WR" | "TE" | "K" | "DST";
   nflTeam: string;
   isStarter?: boolean;
+  // acquisition: "Rd 3" for draft pick, "FA $45" for FAAB waiver
+  acq?: string;
 };
 
 type Franchise = {
@@ -29,24 +31,24 @@ const ROSTERS: Franchise[] = [
   {
     id: "gidley", teamName: "Team Gidley", owner: "Shawn Gidley", division: "East",
     players: [
-      { name: "Lamar Jackson", pos: "QB", nflTeam: "BAL", isStarter: true },
-      { name: "Derrick Henry", pos: "RB", nflTeam: "BAL", isStarter: true },
-      { name: "Breece Hall", pos: "RB", nflTeam: "NYJ", isStarter: true },
-      { name: "Ja'Marr Chase", pos: "WR", nflTeam: "CIN", isStarter: true },
-      { name: "Stefon Diggs", pos: "WR", nflTeam: "HOU", isStarter: true },
-      { name: "Sam LaPorta", pos: "TE", nflTeam: "DET", isStarter: true },
-      { name: "Josh Allen", pos: "QB", nflTeam: "BUF", isStarter: true },
-      { name: "Tony Pollard", pos: "RB", nflTeam: "TEN", isStarter: true },
-      { name: "Rashee Rice", pos: "WR", nflTeam: "KC", isStarter: true },
-      { name: "Harrison Butker", pos: "K", nflTeam: "KC", isStarter: true },
-      { name: "San Francisco 49ers", pos: "DST", nflTeam: "SF", isStarter: true },
-      { name: "Gus Edwards", pos: "RB", nflTeam: "LAC" },
-      { name: "Marquise Brown", pos: "WR", nflTeam: "KC" },
-      { name: "Trey McBride", pos: "TE", nflTeam: "ARI" },
-      { name: "Jordan Love", pos: "QB", nflTeam: "GB" },
-      { name: "Jaylen Warren", pos: "RB", nflTeam: "PIT" },
-      { name: "Dontayvion Wicks", pos: "WR", nflTeam: "GB" },
-      { name: "Evan McPherson", pos: "K", nflTeam: "CIN" },
+      { name: "Lamar Jackson", pos: "QB", nflTeam: "BAL", isStarter: true, acq: "Rd 1" },
+      { name: "Derrick Henry", pos: "RB", nflTeam: "BAL", isStarter: true, acq: "Rd 2" },
+      { name: "Breece Hall", pos: "RB", nflTeam: "NYJ", isStarter: true, acq: "Rd 3" },
+      { name: "Ja'Marr Chase", pos: "WR", nflTeam: "CIN", isStarter: true, acq: "Rd 4" },
+      { name: "Stefon Diggs", pos: "WR", nflTeam: "HOU", isStarter: true, acq: "Rd 5" },
+      { name: "Sam LaPorta", pos: "TE", nflTeam: "DET", isStarter: true, acq: "Rd 6" },
+      { name: "Josh Allen", pos: "QB", nflTeam: "BUF", isStarter: true, acq: "Rd 7" },
+      { name: "Tony Pollard", pos: "RB", nflTeam: "TEN", isStarter: true, acq: "Rd 8" },
+      { name: "Rashee Rice", pos: "WR", nflTeam: "KC", isStarter: true, acq: "Rd 9" },
+      { name: "Harrison Butker", pos: "K", nflTeam: "KC", isStarter: true, acq: "Rd 15" },
+      { name: "San Francisco 49ers", pos: "DST", nflTeam: "SF", isStarter: true, acq: "Rd 16" },
+      { name: "Gus Edwards", pos: "RB", nflTeam: "LAC", acq: "FA $28" },
+      { name: "Marquise Brown", pos: "WR", nflTeam: "KC", acq: "FA $14" },
+      { name: "Trey McBride", pos: "TE", nflTeam: "ARI", acq: "Rd 10" },
+      { name: "Jordan Love", pos: "QB", nflTeam: "GB", acq: "Rd 11" },
+      { name: "Jaylen Warren", pos: "RB", nflTeam: "PIT", acq: "FA $7" },
+      { name: "Dontayvion Wicks", pos: "WR", nflTeam: "GB", acq: "FA $3" },
+      { name: "Evan McPherson", pos: "K", nflTeam: "CIN", acq: "Rd 17" },
     ],
   },
   {
@@ -505,6 +507,7 @@ export default function Rosters() {
 
 function PlayerRow({ player, alt, bench }: { player: Player; alt: boolean; bench?: boolean }) {
   const c = POS_COLORS[player.pos];
+  const isFa = player.acq?.startsWith("FA");
   return (
     <div style={{
       display: "flex",
@@ -554,6 +557,19 @@ function PlayerRow({ player, alt, bench }: { player: Player; alt: boolean; bench
           fontWeight: 700,
           flexShrink: 0,
         }}>1.5x</span>
+      )}
+      {player.acq && (
+        <span style={{
+          fontSize: "0.6rem",
+          fontFamily: "Oswald, sans-serif",
+          fontWeight: 700,
+          letterSpacing: "0.04em",
+          padding: "1px 5px",
+          borderRadius: 3,
+          flexShrink: 0,
+          background: isFa ? "oklch(0.93 0.06 250)" : "oklch(0.93 0.03 150)",
+          color: isFa ? "oklch(0.32 0.14 250)" : "oklch(0.35 0.08 150)",
+        }}>{player.acq}</span>
       )}
     </div>
   );
