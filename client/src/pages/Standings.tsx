@@ -16,6 +16,7 @@ type TeamRow = {
   rank: number;
   team: string;
   owner: string;
+  logo?: string; // URL to team logo — uploaded per franchise
   // Combined (H2H + Median) record
   w: number;
   l: number;
@@ -37,28 +38,28 @@ const DIVISIONS: { name: string; teams: TeamRow[] }[] = [
   {
     name: "East Division",
     teams: [
-      { rank: 1, team: "Team Gidley",  owner: "Shawn Gidley",  w: 10, l: 4,  h2hW: 7, h2hL: 7,  medW: 10, medL: 4,  divW: 4, divL: 2, pf: 1482.6, pa: 1301.2, streak: "W3" },
-      { rank: 2, team: "Team Sotka",   owner: "David Sotka",   w: 8,  l: 6,  h2hW: 6, h2hL: 8,  medW: 8,  medL: 6,  divW: 3, divL: 3, pf: 1390.4, pa: 1355.8, streak: "L1" },
-      { rank: 3, team: "Team Nelson",  owner: "Scott Nelson",  w: 6,  l: 8,  h2hW: 5, h2hL: 9,  medW: 6,  medL: 8,  divW: 2, divL: 4, pf: 1280.2, pa: 1410.6, streak: "W1" },
-      { rank: 4, team: "Team Yane",    owner: "James Yane",    w: 4,  l: 10, h2hW: 3, h2hL: 11, medW: 4,  medL: 10, divW: 1, divL: 5, pf: 1198.8, pa: 1450.2, streak: "L4" },
+      { rank: 1, team: "Team Gidley",  owner: "Shawn Gidley",  logo: undefined, w: 10, l: 4,  h2hW: 7, h2hL: 7,  medW: 10, medL: 4,  divW: 4, divL: 2, pf: 1482.6, pa: 1301.2, streak: "W3" },
+      { rank: 2, team: "Team Sotka",   owner: "David Sotka",   logo: undefined, w: 8,  l: 6,  h2hW: 6, h2hL: 8,  medW: 8,  medL: 6,  divW: 3, divL: 3, pf: 1390.4, pa: 1355.8, streak: "L1" },
+      { rank: 3, team: "Team Nelson",  owner: "Scott Nelson",  logo: undefined, w: 6,  l: 8,  h2hW: 5, h2hL: 9,  medW: 6,  medL: 8,  divW: 2, divL: 4, pf: 1280.2, pa: 1410.6, streak: "W1" },
+      { rank: 4, team: "Team Yane",    owner: "James Yane",    logo: undefined, w: 4,  l: 10, h2hW: 3, h2hL: 11, medW: 4,  medL: 10, divW: 1, divL: 5, pf: 1198.8, pa: 1450.2, streak: "L4" },
     ],
   },
   {
     name: "Central Division",
     teams: [
-      { rank: 1, team: "Team Pattie",  owner: "Jonas Pattie",  w: 11, l: 3,  h2hW: 8, h2hL: 6,  medW: 11, medL: 3,  divW: 5, divL: 1, pf: 1520.4, pa: 1280.6, streak: "W5" },
-      { rank: 2, team: "Team Krause",  owner: "Bill Krause",   w: 9,  l: 5,  h2hW: 7, h2hL: 7,  medW: 9,  medL: 5,  divW: 4, divL: 2, pf: 1440.2, pa: 1310.8, streak: "W2" },
-      { rank: 3, team: "Team Ryks",    owner: "David Ryks",    w: 7,  l: 7,  h2hW: 5, h2hL: 9,  medW: 7,  medL: 7,  divW: 2, divL: 4, pf: 1320.6, pa: 1380.4, streak: "L2" },
-      { rank: 4, team: "Team Osicki",  owner: "Dan Osicki",    w: 3,  l: 11, h2hW: 2, h2hL: 12, medW: 3,  medL: 11, divW: 1, divL: 5, pf: 1150.2, pa: 1510.8, streak: "L6" },
+      { rank: 1, team: "Team Pattie",  owner: "Jonas Pattie",  logo: undefined, w: 11, l: 3,  h2hW: 8, h2hL: 6,  medW: 11, medL: 3,  divW: 5, divL: 1, pf: 1520.4, pa: 1280.6, streak: "W5" },
+      { rank: 2, team: "Team Krause",  owner: "Bill Krause",   logo: undefined, w: 9,  l: 5,  h2hW: 7, h2hL: 7,  medW: 9,  medL: 5,  divW: 4, divL: 2, pf: 1440.2, pa: 1310.8, streak: "W2" },
+      { rank: 3, team: "Team Ryks",    owner: "David Ryks",    logo: undefined, w: 7,  l: 7,  h2hW: 5, h2hL: 9,  medW: 7,  medL: 7,  divW: 2, divL: 4, pf: 1320.6, pa: 1380.4, streak: "L2" },
+      { rank: 4, team: "Team Osicki",  owner: "Dan Osicki",    logo: undefined, w: 3,  l: 11, h2hW: 2, h2hL: 12, medW: 3,  medL: 11, divW: 1, divL: 5, pf: 1150.2, pa: 1510.8, streak: "L6" },
     ],
   },
   {
     name: "West Division",
     teams: [
-      { rank: 1, team: "Team Heiden",  owner: "Jason Heiden",  w: 9,  l: 5,  h2hW: 7, h2hL: 7,  medW: 9,  medL: 5,  divW: 4, divL: 2, pf: 1460.8, pa: 1330.2, streak: "W1" },
-      { rank: 2, team: "Team Akagi",   owner: "Greg Akagi",    w: 8,  l: 6,  h2hW: 6, h2hL: 8,  medW: 8,  medL: 6,  divW: 3, divL: 3, pf: 1380.4, pa: 1340.6, streak: "W3" },
-      { rank: 3, team: "Team Mackar",  owner: "Scott Mackar",  w: 6,  l: 8,  h2hW: 5, h2hL: 9,  medW: 6,  medL: 8,  divW: 2, divL: 4, pf: 1260.6, pa: 1390.4, streak: "L1" },
-      { rank: 4, team: "Team Cromer",  owner: "Keith Cromer",  w: 5,  l: 9,  h2hW: 4, h2hL: 10, medW: 5,  medL: 9,  divW: 1, divL: 5, pf: 1220.2, pa: 1420.8, streak: "L2" },
+      { rank: 1, team: "Team Heiden",  owner: "Jason Heiden",  logo: undefined, w: 9,  l: 5,  h2hW: 7, h2hL: 7,  medW: 9,  medL: 5,  divW: 4, divL: 2, pf: 1460.8, pa: 1330.2, streak: "W1" },
+      { rank: 2, team: "Team Akagi",   owner: "Greg Akagi",    logo: undefined, w: 8,  l: 6,  h2hW: 6, h2hL: 8,  medW: 8,  medL: 6,  divW: 3, divL: 3, pf: 1380.4, pa: 1340.6, streak: "W3" },
+      { rank: 3, team: "Team Mackar",  owner: "Scott Mackar",  logo: undefined, w: 6,  l: 8,  h2hW: 5, h2hL: 9,  medW: 6,  medL: 8,  divW: 2, divL: 4, pf: 1260.6, pa: 1390.4, streak: "L1" },
+      { rank: 4, team: "Team Cromer",  owner: "Keith Cromer",  logo: undefined, w: 5,  l: 9,  h2hW: 4, h2hL: 10, medW: 5,  medL: 9,  divW: 1, divL: 5, pf: 1220.2, pa: 1420.8, streak: "L2" },
     ],
   },
 ];
@@ -154,7 +155,7 @@ export default function Standings() {
                 <table className="wrc-table" style={{ minWidth: 780 }}>
                   <thead>
                     <tr>
-                      <th style={{ width: 36, textAlign: "center" }}>#</th>
+                      <th style={{ width: 48, textAlign: "center" }}>Logo</th>
                       <th style={{ textAlign: "left", minWidth: 160 }}>Team</th>
                       <th style={TH}>W-L</th>
                       <th style={TH}>PCT</th>
@@ -181,7 +182,32 @@ export default function Standings() {
                             : i % 2 === 0 ? "white" : "oklch(0.975 0.003 150)",
                           fontWeight: isMyTeam ? 600 : 400,
                         }}>
-                          <td style={{ textAlign: "center", fontWeight: 700, color: "oklch(0.35 0.06 150)", fontSize: "0.85rem" }}>{team.rank}</td>
+                          <td style={{ textAlign: "center", padding: "0.3rem 0.4rem" }}>
+                            {team.logo ? (
+                              <img
+                                src={team.logo}
+                                alt={team.team}
+                                style={{ width: 36, height: 36, objectFit: "contain", borderRadius: 4, display: "block", margin: "0 auto" }}
+                              />
+                            ) : (
+                              <div style={{
+                                width: 36,
+                                height: 36,
+                                borderRadius: 4,
+                                background: "oklch(0.92 0.02 150)",
+                                border: "1.5px dashed oklch(0.75 0.06 150)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                margin: "0 auto",
+                                fontSize: "0.6rem",
+                                color: "oklch(0.6 0.04 150)",
+                                fontFamily: "Oswald, sans-serif",
+                                letterSpacing: "0.04em",
+                                fontWeight: 600,
+                              }}>LOGO</div>
+                            )}
+                          </td>
                           <td style={{ padding: "0.55rem 0.75rem" }}>
                             <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.18 0.05 150)" }}>{team.team}</div>
                             <div style={{ fontSize: "0.72rem", color: "oklch(0.5 0.04 150)" }}>{team.owner}</div>
