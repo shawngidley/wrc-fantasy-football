@@ -4,36 +4,61 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import Home from "./pages/Home";
+import { AuthProvider } from "./contexts/AuthContext";
 
+// All 16 pages
+import Login from "./pages/Login";
+import Standings from "./pages/Standings";
+import LiveScoring from "./pages/LiveScoring";
+import Lineup from "./pages/Lineup";
+import DraftBoard from "./pages/DraftBoard";
+import Protections from "./pages/Protections";
+import Rundown from "./pages/Rundown";
+import PlayerNews from "./pages/PlayerNews";
+import Transactions from "./pages/Transactions";
+import Results from "./pages/Results";
+import Trades from "./pages/Trades";
+import History from "./pages/History";
+import Playoffs from "./pages/Playoffs";
+import Schedule from "./pages/Schedule";
+import Rules from "./pages/Rules";
+import NFLSites from "./pages/NFLSites";
 
 function Router() {
   return (
     <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/404"} component={NotFound} />
-      {/* Final fallback route */}
+      <Route path="/" component={Login} />
+      <Route path="/standings" component={Standings} />
+      <Route path="/live" component={LiveScoring} />
+      <Route path="/lineup" component={Lineup} />
+      <Route path="/draft" component={DraftBoard} />
+      <Route path="/protections" component={Protections} />
+      <Route path="/rundown" component={Rundown} />
+      <Route path="/news" component={PlayerNews} />
+      <Route path="/transactions" component={Transactions} />
+      <Route path="/results" component={Results} />
+      <Route path="/trades" component={Trades} />
+      <Route path="/history" component={History} />
+      <Route path="/playoffs" component={Playoffs} />
+      <Route path="/schedule" component={Schedule} />
+      <Route path="/rules" component={Rules} />
+      <Route path="/nfl-sites" component={NFLSites} />
+      <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
   );
 }
 
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
-
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="light"
-        // switchable
-      >
-        <TooltipProvider>
-          <Toaster />
-          <Router />
-        </TooltipProvider>
+      <ThemeProvider defaultTheme="light">
+        <AuthProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Router />
+          </TooltipProvider>
+        </AuthProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

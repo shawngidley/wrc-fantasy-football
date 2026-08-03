@@ -3,6 +3,12 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* WRC Fantasy Football Design System
+ * Theme: Dark Green + White + Gold
+ * Fonts: Oswald (headings) + Inter (body/data)
+ * Backgrounds: Stadium Night, Field Turf, Stadium Crowd
+ */
+
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -40,138 +46,377 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* WRC Custom Colors */
+  --color-wrc-green: oklch(0.28 0.09 150);
+  --color-wrc-green-dark: oklch(0.18 0.07 150);
+  --color-wrc-green-light: oklch(0.38 0.1 150);
+  --color-wrc-gold: oklch(0.78 0.15 85);
+  --color-wrc-gold-dark: oklch(0.65 0.14 85);
+  --color-wrc-white: oklch(0.98 0 0);
 }
 
 :root {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-600);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --radius: 0.65rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.235 0.015 65);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.235 0.015 65);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.235 0.015 65);
-  --secondary: oklch(0.98 0.001 286.375);
-  --secondary-foreground: oklch(0.4 0.015 65);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.141 0.005 285.823);
+  --radius: 0.75rem;
+  --background: oklch(0.12 0.02 150);
+  --foreground: oklch(0.96 0 0);
+  --card: oklch(0.98 0 0);
+  --card-foreground: oklch(0.15 0.02 150);
+  --popover: oklch(0.98 0 0);
+  --popover-foreground: oklch(0.15 0.02 150);
+  --primary: oklch(0.28 0.09 150);
+  --primary-foreground: oklch(0.98 0 0);
+  --secondary: oklch(0.94 0.01 150);
+  --secondary-foreground: oklch(0.28 0.09 150);
+  --muted: oklch(0.94 0.01 150);
+  --muted-foreground: oklch(0.52 0.04 150);
+  --accent: oklch(0.78 0.15 85);
+  --accent-foreground: oklch(0.15 0.02 150);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.623 0.214 259.815);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.235 0.015 65);
-  --sidebar-accent: oklch(0.967 0.001 286.375);
-  --sidebar-accent-foreground: oklch(0.141 0.005 285.823);
-  --sidebar-border: oklch(0.92 0.004 286.32);
-  --sidebar-ring: oklch(0.623 0.214 259.815);
+  --border: oklch(0.88 0.01 150);
+  --input: oklch(0.88 0.01 150);
+  --ring: oklch(0.28 0.09 150);
+  --chart-1: oklch(0.28 0.09 150);
+  --chart-2: oklch(0.78 0.15 85);
+  --chart-3: oklch(0.5 0.12 150);
+  --chart-4: oklch(0.65 0.14 85);
+  --chart-5: oklch(0.38 0.1 150);
+  --sidebar: oklch(0.18 0.07 150);
+  --sidebar-foreground: oklch(0.96 0 0);
+  --sidebar-primary: oklch(0.78 0.15 85);
+  --sidebar-primary-foreground: oklch(0.15 0.02 150);
+  --sidebar-accent: oklch(0.28 0.09 150);
+  --sidebar-accent-foreground: oklch(0.96 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.78 0.15 85);
 }
 
-.dark {
-  --primary: var(--color-blue-700);
-  --primary-foreground: var(--color-blue-50);
-  --sidebar-primary: var(--color-blue-500);
-  --sidebar-primary-foreground: var(--color-blue-50);
-  --background: oklch(0.141 0.005 285.823);
-  --foreground: oklch(0.85 0.005 65);
-  --card: oklch(0.21 0.006 285.885);
-  --card-foreground: oklch(0.85 0.005 65);
-  --popover: oklch(0.21 0.006 285.885);
-  --popover-foreground: oklch(0.85 0.005 65);
-  --secondary: oklch(0.24 0.006 286.033);
-  --secondary-foreground: oklch(0.7 0.005 65);
-  --muted: oklch(0.274 0.006 286.033);
-  --muted-foreground: oklch(0.705 0.015 286.067);
-  --accent: oklch(0.274 0.006 286.033);
-  --accent-foreground:  oklch(0.92 0.005 65);
-  --destructive: oklch(0.704 0.191 22.216);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.488 0.243 264.376);
-  --chart-1: var(--color-blue-300);
-  --chart-2: var(--color-blue-500);
-  --chart-3: var(--color-blue-600);
-  --chart-4: var(--color-blue-700);
-  --chart-5: var(--color-blue-800);
-  --sidebar: oklch(0.21 0.006 285.885);
-  --sidebar-foreground: oklch(0.85 0.005 65);
-  --sidebar-accent: oklch(0.274 0.006 286.033);
-  --sidebar-accent-foreground:  oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.488 0.243 264.376);
+/* Background image URLs */
+:root {
+  --bg-stadium-night: url('/manus-storage/bg-stadium-night_5cfb7155.png');
+  --bg-turf: url('/manus-storage/bg-turf_c4773c1e.png');
+  --bg-crowd: url('/manus-storage/bg-crowd_f0a294dc.png');
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    box-sizing: border-box;
   }
   body {
     @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1, h2, h3, .heading {
+    font-family: 'Oswald', sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
   [type="button"]:not(:disabled),
   [type="submit"]:not(:disabled),
-  [type="reset"]:not(:disabled),
   a[href],
-  select:not(:disabled),
-  input[type="checkbox"]:not(:disabled),
-  input[type="radio"]:not(:disabled) {
+  select:not(:disabled) {
     @apply cursor-pointer;
   }
 }
 
+/* WRC Page Backgrounds */
+.bg-stadium-night {
+  background-image: var(--bg-stadium-night);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+.bg-turf {
+  background-image: var(--bg-turf);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+.bg-crowd {
+  background-image: var(--bg-crowd);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+
+/* Dark overlay for all page backgrounds */
+.bg-overlay {
+  position: relative;
+}
+.bg-overlay::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.52);
+  z-index: 0;
+  pointer-events: none;
+}
+.bg-overlay > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* WRC Card */
+.wrc-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.18), 0 1px 4px rgba(0,0,0,0.12);
+  overflow: hidden;
+}
+.wrc-card-header {
+  background: oklch(0.22 0.08 150);
+  color: white;
+  padding: 0.75rem 1.25rem;
+  font-family: 'Oswald', sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.wrc-card-gold-stripe {
+  height: 3px;
+  background: linear-gradient(90deg, oklch(0.78 0.15 85), oklch(0.65 0.14 85));
+}
+.wrc-card-body {
+  padding: 1.25rem;
+  color: oklch(0.15 0.02 150);
+}
+
+/* WRC Navigation */
+.wrc-nav {
+  background: rgba(20, 42, 25, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.wrc-nav-link {
+  color: rgba(255,255,255,0.82);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.35rem 0.5rem;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.wrc-nav-link:hover {
+  color: white;
+  background: rgba(255,255,255,0.08);
+}
+.wrc-nav-link.active {
+  color: oklch(0.78 0.15 85);
+  border-bottom: 2px solid oklch(0.78 0.15 85);
+}
+
+/* WRC Ticker */
+.wrc-ticker {
+  background: linear-gradient(90deg, oklch(0.65 0.14 85), oklch(0.72 0.15 85), oklch(0.65 0.14 85));
+  color: oklch(0.15 0.02 150);
+  font-family: 'Oswald', sans-serif;
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.45rem 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.wrc-ticker-inner {
+  display: inline-block;
+  animation: ticker-scroll 40s linear infinite;
+}
+@keyframes ticker-scroll {
+  0% { transform: translateX(100vw); }
+  100% { transform: translateX(-100%); }
+}
+
+/* WRC Button */
+.wrc-btn-primary {
+  background: oklch(0.28 0.09 150);
+  color: white;
+  font-family: 'Oswald', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 8px;
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
+  transition: background 0.15s, transform 0.1s;
+  cursor: pointer;
+  width: 100%;
+}
+.wrc-btn-primary:hover {
+  background: oklch(0.22 0.08 150);
+}
+.wrc-btn-primary:active {
+  transform: scale(0.97);
+}
+
+/* WRC Table */
+.wrc-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+.wrc-table thead th {
+  background: oklch(0.22 0.08 150);
+  color: white;
+  font-family: 'Oswald', sans-serif;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 0.65rem 0.85rem;
+  text-align: left;
+  font-size: 0.78rem;
+}
+.wrc-table tbody tr:nth-child(even) {
+  background: oklch(0.96 0.005 150);
+}
+.wrc-table tbody tr:hover {
+  background: oklch(0.92 0.01 150);
+}
+.wrc-table tbody td {
+  padding: 0.65rem 0.85rem;
+  color: oklch(0.2 0.03 150);
+  border-bottom: 1px solid oklch(0.9 0.005 150);
+}
+
+/* WRC Division Header */
+.wrc-division-header {
+  background: oklch(0.28 0.09 150);
+  color: white;
+  font-family: 'Oswald', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.55rem 0.85rem;
+  font-size: 0.85rem;
+}
+
+/* Page title area */
+.wrc-page-title {
+  padding: 1.5rem 1.5rem 1rem;
+}
+.wrc-page-title h1 {
+  font-family: 'Oswald', sans-serif;
+  font-size: 2rem;
+  font-weight: 700;
+  color: white;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+  margin: 0;
+  line-height: 1.1;
+}
+.wrc-page-title p {
+  color: rgba(255,255,255,0.72);
+  font-size: 0.875rem;
+  margin: 0.25rem 0 0;
+}
+
+/* Win/Loss colors */
+.text-win { color: oklch(0.42 0.15 150); font-weight: 700; }
+.text-loss { color: oklch(0.55 0.22 25); font-weight: 700; }
+
+/* Mobile hamburger */
+.wrc-hamburger {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  cursor: pointer;
+  padding: 4px;
+}
+.wrc-hamburger span {
+  display: block;
+  width: 24px;
+  height: 2px;
+  background: white;
+  border-radius: 2px;
+  transition: all 0.25s;
+}
+
+/* Mobile nav drawer */
+.wrc-mobile-nav {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 30, 18, 0.97);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  padding: 1.5rem;
+  transform: translateX(100%);
+  transition: transform 0.3s cubic-bezier(0.23, 1, 0.32, 1);
+}
+.wrc-mobile-nav.open {
+  transform: translateX(0);
+}
+.wrc-mobile-nav-link {
+  color: rgba(255,255,255,0.85);
+  font-family: 'Oswald', sans-serif;
+  font-size: 1.3rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.wrc-mobile-nav-link:hover, .wrc-mobile-nav-link.active {
+  color: oklch(0.78 0.15 85);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .wrc-hamburger { display: flex; }
+  .wrc-desktop-nav { display: none !important; }
+  .wrc-page-title h1 { font-size: 1.5rem; }
+  .wrc-page-title { padding: 1rem; }
+  .wrc-card-body { padding: 1rem; }
+  .bg-stadium-night,
+  .bg-turf,
+  .bg-crowd {
+    background-attachment: scroll;
+  }
+}
+
 @layer components {
-  /**
-   * Custom container utility that centers content and adds responsive padding.
-   *
-   * This overrides Tailwind's default container behavior to:
-   * - Auto-center content (mx-auto)
-   * - Add responsive horizontal padding
-   * - Set max-width for large screens
-   *
-   * Usage: <div className="container">...</div>
-   *
-   * For custom widths, use max-w-* utilities directly:
-   * <div className="max-w-6xl mx-auto px-4">...</div>
-   */
   .container {
     width: 100%;
     margin-left: auto;
     margin-right: auto;
-    padding-left: 1rem; /* 16px - mobile padding */
+    padding-left: 1rem;
     padding-right: 1rem;
   }
-
   .flex {
     min-height: 0;
     min-width: 0;
   }
-
   @media (min-width: 640px) {
     .container {
-      padding-left: 1.5rem; /* 24px - tablet padding */
+      padding-left: 1.5rem;
       padding-right: 1.5rem;
     }
   }
-
   @media (min-width: 1024px) {
     .container {
-      padding-left: 2rem; /* 32px - desktop padding */
+      padding-left: 2rem;
       padding-right: 2rem;
-      max-width: 1280px; /* Standard content width */
+      max-width: 1280px;
     }
   }
 }
