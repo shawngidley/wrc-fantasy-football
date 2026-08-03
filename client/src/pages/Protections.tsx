@@ -29,6 +29,7 @@ import {
   Shield, AlertTriangle, CheckCircle2, Lock, Info, Clock,
   ChevronDown, ChevronUp, X, ArrowUpDown
 } from "lucide-react";
+// AlertTriangle already imported above — used in Submit button validation
 import { TEAMS } from "@/lib/wrcData";
 
 // ── Deadline ─────────────────────────────────────────────────────────────────
@@ -223,8 +224,12 @@ export default function Protections() {
     setSaved(false);
   };
 
+  // Validation: any tier-2 slot missing a round assignment?
+  const unassignedTier2 = tier2Slots.filter(s => !s.assignedRound);
+  const isValid = unassignedTier2.length === 0;
+
   const handleSave = () => {
-    if (!franchise?.id || cd.past) return;
+    if (!franchise?.id || cd.past || !isValid) return;
     saveToDisk(franchise.id, slots);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
@@ -252,18 +257,19 @@ export default function Protections() {
           </div>
           <button
             onClick={handleSave}
-            disabled={!franchise || cd.past}
+            disabled={!franchise || cd.past || !isValid}
+            title={!isValid ? `${unassignedTier2.length} player${unassignedTier2.length > 1 ? 's' : ''} need round assignment` : undefined}
             style={{
-              background: saved ? "oklch(0.42 0.15 150)" : cd.past ? "rgba(0,0,0,0.3)" : "oklch(0.28 0.09 150)",
-              color: "white", border: "none", borderRadius: 8,
+              background: saved ? "oklch(0.42 0.15 150)" : cd.past ? "rgba(0,0,0,0.3)" : !isValid ? "rgba(0,0,0,0.35)" : "oklch(0.28 0.09 150)",
+              color: "white", border: !isValid && !cd.past && franchise ? "2px solid oklch(0.65 0.18 25)" : "none", borderRadius: 8,
               padding: "0.55rem 1.25rem", fontFamily: "Oswald, sans-serif",
               fontSize: "0.85rem", fontWeight: 700, letterSpacing: "0.06em",
-              textTransform: "uppercase", cursor: (franchise && !cd.past) ? "pointer" : "not-allowed",
+              textTransform: "uppercase", cursor: (franchise && !cd.past && isValid) ? "pointer" : "not-allowed",
               display: "flex", alignItems: "center", gap: "0.4rem",
               opacity: (franchise && !cd.past) ? 1 : 0.5,
             }}
           >
-            {saved ? <><CheckCircle2 size={14} /> Saved!</> : cd.past ? "Deadline Passed" : "Submit Protections"}
+            {saved ? <><CheckCircle2 size={14} /> Saved!</> : cd.past ? "Deadline Passed" : !isValid && franchise ? <><AlertTriangle size={14} /> {unassignedTier2.length} Need Round Assignment</> : "Submit Protections"}
           </button>
         </div>
 

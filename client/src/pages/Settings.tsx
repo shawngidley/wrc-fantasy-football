@@ -7,8 +7,14 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { Lock, LogOut, User, Shield, CheckCircle2, Eye, EyeOff, RefreshCw } from "lucide-react";
+import { Lock, LogOut, User, Shield, CheckCircle2, Eye, EyeOff, RefreshCw, ClipboardList, AlertTriangle } from "lucide-react";
 import { TEAMS } from "@/lib/wrcData";
+
+const PROTECTIONS_STORAGE_KEY = "wrc_protections_v3";
+
+function loadAllProtections(): Record<string, Array<{ playerId: string; assignedRound: number | null }>> {
+  try { return JSON.parse(localStorage.getItem(PROTECTIONS_STORAGE_KEY) ?? "{}"); } catch { return {}; }
+}
 
 // PIN storage helpers — per-team override stored in localStorage
 const PIN_STORAGE_KEY = "wrc_team_pins";
@@ -147,6 +153,107 @@ function CommissionerPinPanel({ labelStyle }: { labelStyle: React.CSSProperties 
 
         {resetError && <div style={{ marginTop: "0.75rem", color: "oklch(0.45 0.18 25)", fontSize: "0.82rem", fontWeight: 600 }}>{resetError}</div>}
         {resetSuccess && <div style={{ marginTop: "0.75rem", color: "oklch(0.35 0.15 150)", fontSize: "0.82rem", fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}><CheckCircle2 size={15} /> {resetSuccess}</div>}
+      </div>
+    </div>
+  );
+}
+
+// ── Commissioner Protections Overview Panel ──────────────────────────────────
+function CommissionerProtectionsPanel() {
+  const allProtections = loadAllProtections();
+  const DEADLINE = new Date("2026-08-24T20:00:00-04:00");
+  const isPastDeadline = Date.now() > DEADLINE.getTime();
+
+  return (
+    <div className="wrc-card" style={{ marginBottom: "1.25rem", border: "2px solid oklch(0.78 0.15 85)" }}>
+      <div className="wrc-card-gold-stripe" />
+      <div className="wrc-card-header" style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: "oklch(0.95 0.06 85)" }}>
+        <ClipboardList size={14} color="oklch(0.45 0.14 85)" />
+        <span style={{ color: "oklch(0.35 0.14 85)" }}>Commissioner: All Team Protections</span>
+        <span style={{ marginLeft: "auto", fontSize: "0.72rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, letterSpacing: "0.06em", color: isPastDeadline ? "oklch(0.45 0.18 25)" : "oklch(0.42 0.15 150)" }}>
+          {isPastDeadline ? "DEADLINE PASSED" : "DEADLINE: AUG 24 8PM ET"}
+        </span>
+      </div>
+      <div style={{ padding: "1.25rem" }}>
+        <p style={{ fontSize: "0.82rem", color: "oklch(0.5 0.04 150)", margin: "0 0 1.25rem" }}>
+          Shows each team's submitted keeper selections. Teams that haven't submitted yet are flagged.
+        </p>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+            <thead>
+              <tr style={{ borderBottom: "2px solid oklch(0.88 0.02 150)" }}>
+                {["Team", "Owner", "Status", "Protected Players", "Picks Forfeited"].map(h => (
+                  <th key={h} style={{ textAlign: "left", padding: "0.35rem 0.75rem", fontFamily: "Oswald, sans-serif", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.06em", color: "oklch(0.45 0.06 150)", textTransform: "uppercase", whiteSpace: "nowrap" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {TEAMS.map((team, i) => {
+                const teamSlots = allProtections[team.id] ?? [];
+                const hasSubmitted = teamSlots.length > 0;
+                const hasUnassigned = teamSlots.some(s => s.assignedRound === null);
+
+                // Resolve player names
+                const playerDetails = teamSlots.map(slot => {
+                  const player = team.players?.find((p: { id: string; name: string }) => p.id === slot.playerId);
+                  return {
+                    name: player?.name ?? slot.playerId,
+                    round: slot.assignedRound,
+                  };
+                });
+
+                return (
+                  <tr key={team.id} style={{ background: i%2===0?"white":"oklch(0.97 0.005 150)", borderBottom: "1px solid oklch(0.93 0.01 150)" }}>
+                    <td style={{ padding: "0.5rem 0.75rem", fontWeight: 700, color: "oklch(0.22 0.08 150)", fontFamily: "Oswald, sans-serif", fontSize: "0.82rem", whiteSpace: "nowrap" }}>{team.teamName}</td>
+                    <td style={{ padding: "0.5rem 0.75rem", color: "oklch(0.45 0.04 150)", whiteSpace: "nowrap" }}>{team.owner}</td>
+                    <td style={{ padding: "0.5rem 0.75rem" }}>
+                      {!hasSubmitted ? (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "0.7rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, color: "oklch(0.45 0.18 25)", background: "oklch(0.97 0.02 25)", border: "1px solid oklch(0.85 0.08 25)", borderRadius: 4, padding: "2px 7px" }}>
+                          <AlertTriangle size={11} /> Not Submitted
+                        </span>
+                      ) : hasUnassigned ? (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "0.7rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, color: "oklch(0.45 0.14 85)", background: "oklch(0.97 0.04 85)", border: "1px solid oklch(0.85 0.12 85)", borderRadius: 4, padding: "2px 7px" }}>
+                          <AlertTriangle size={11} /> Incomplete
+                        </span>
+                      ) : (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: "0.7rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, color: "oklch(0.35 0.15 150)", background: "oklch(0.94 0.05 150)", border: "1px solid oklch(0.82 0.1 150)", borderRadius: 4, padding: "2px 7px" }}>
+                          <CheckCircle2 size={11} /> Submitted
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ padding: "0.5rem 0.75rem" }}>
+                      {playerDetails.length === 0 ? (
+                        <span style={{ color: "oklch(0.7 0.02 150)", fontSize: "0.78rem" }}>—</span>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                          {playerDetails.map((p, j) => (
+                            <span key={j} style={{ fontSize: "0.8rem", fontWeight: 600, color: "oklch(0.25 0.06 150)" }}>{p.name}</span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ padding: "0.5rem 0.75rem" }}>
+                      {playerDetails.length === 0 ? (
+                        <span style={{ color: "oklch(0.7 0.02 150)", fontSize: "0.78rem" }}>—</span>
+                      ) : (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                          {playerDetails.map((p, j) => (
+                            <span key={j} style={{ fontSize: "0.78rem", fontWeight: 700, color: p.round ? "oklch(0.35 0.12 150)" : "oklch(0.55 0.18 25)" }}>
+                              {p.round ? `Round ${p.round}` : "⚠ Unassigned"}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p style={{ margin: "1rem 0 0", fontSize: "0.75rem", color: "oklch(0.6 0.04 150)" }}>
+          Note: Protections are stored locally in each owner's browser. This view only shows submissions made on this device.
+        </p>
       </div>
     </div>
   );
@@ -385,6 +492,11 @@ export default function Settings() {
         {/* Commissioner PIN Reset Panel — only visible to commissioner */}
         {franchise?.is_commissioner && (
           <CommissionerPinPanel labelStyle={labelStyle} />
+        )}
+
+        {/* Commissioner Protections Overview — only visible to commissioner */}
+        {franchise?.is_commissioner && (
+          <CommissionerProtectionsPanel />
         )}
 
         {/* Logout Card */}
