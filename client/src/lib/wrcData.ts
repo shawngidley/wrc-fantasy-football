@@ -25,7 +25,8 @@ export interface TeamRecord {
   losses: number;
   ptsFor: number;
   ptsAgainst: number;
-  clinched: "division" | "playoff" | null;
+  clinched: null | "playoff" | null;
+  pin: string;
   faabRemaining: number;
   players: RosterPlayer[];
 }
@@ -44,8 +45,9 @@ export const TEAMS: TeamRecord[] = [
     owner: "Jonas",
     teamName: "Jonas Pattie",
     division: "East",
-    wins: 27, losses: 15, ptsFor: 1874.26, ptsAgainst: 1812.14,
-    clinched: "division",
+    wins: 0, losses: 0, ptsFor: 0, ptsAgainst: 0,
+    clinched: null,
+    pin: "1234",
     faabRemaining: 1000,
     players: [
       p("Jared Goff",           "QB",  "DET", 7,    "Draft"),
@@ -73,8 +75,9 @@ export const TEAMS: TeamRecord[] = [
     owner: "David R.",
     teamName: "The Boys of Fall",
     division: "East",
-    wins: 17, losses: 25, ptsFor: 1749.64, ptsAgainst: 1799.58,
+    wins: 0, losses: 0, ptsFor: 0, ptsAgainst: 0,
     clinched: null,
+    pin: "1234",
     faabRemaining: 1000,
     players: [
       p("Bo Nix",               "QB",  "DEN", 6,    "Draft"),
@@ -102,8 +105,9 @@ export const TEAMS: TeamRecord[] = [
     owner: "Jason",
     teamName: "Heiden's Hardtimes",
     division: "East",
-    wins: 22, losses: 20, ptsFor: 1769.8, ptsAgainst: 1706.58,
+    wins: 0, losses: 0, ptsFor: 0, ptsAgainst: 0,
     clinched: null,
+    pin: "1234",
     faabRemaining: 1000,
     players: [
       p("Justin Herbert",       "QB",  "LAC", 6,    "Draft"),
@@ -132,8 +136,9 @@ export const TEAMS: TeamRecord[] = [
     owner: "Keith",
     teamName: "Keith Cromer",
     division: "Central",
-    wins: 20, losses: 22, ptsFor: 1812.6, ptsAgainst: 1788.44,
+    wins: 0, losses: 0, ptsFor: 0, ptsAgainst: 0,
     clinched: null,
+    pin: "1234",
     faabRemaining: 1000,
     players: [
       p("Jordan Love",          "QB",  "GB",  9,    "Draft"),
@@ -161,8 +166,9 @@ export const TEAMS: TeamRecord[] = [
     owner: "Dan",
     teamName: "Legion of Doom",
     division: "Central",
-    wins: 26, losses: 16, ptsFor: 1929.64, ptsAgainst: 1814.96,
-    clinched: "playoff",
+    wins: 0, losses: 0, ptsFor: 0, ptsAgainst: 0,
+    clinched: null,
+    pin: "1234",
     faabRemaining: 1000,
     players: [
       p("Dak Prescott",         "QB",  "DAL", 5,    "Draft"),
@@ -190,8 +196,9 @@ export const TEAMS: TeamRecord[] = [
     owner: "Scott N.",
     teamName: "Millertime",
     division: "Central",
-    wins: 22, losses: 20, ptsFor: 1906.2, ptsAgainst: 1861.32,
+    wins: 0, losses: 0, ptsFor: 0, ptsAgainst: 0,
     clinched: null,
+    pin: "1234",
     faabRemaining: 1000,
     players: [
       p("Lamar Jackson",        "QB",  "BAL", 2,    "Draft"),
@@ -219,8 +226,9 @@ export const TEAMS: TeamRecord[] = [
     owner: "Bill",
     teamName: "Billy Goats Gruff",
     division: "Central",
-    wins: 14, losses: 28, ptsFor: 1650.22, ptsAgainst: 1877.1,
+    wins: 0, losses: 0, ptsFor: 0, ptsAgainst: 0,
     clinched: null,
+    pin: "1234",
     faabRemaining: 1000,
     players: [
       p("Jayden Daniels",       "QB",  "WAS", 3,    "Draft"),
@@ -249,8 +257,9 @@ export const TEAMS: TeamRecord[] = [
     owner: "Jamie",
     teamName: "The Four Horsemen",
     division: "West",
-    wins: 26, losses: 16, ptsFor: 1774.48, ptsAgainst: 1761.14,
-    clinched: "division",
+    wins: 0, losses: 0, ptsFor: 0, ptsAgainst: 0,
+    clinched: null,
+    pin: "1234",
     faabRemaining: 1000,
     players: [
       p("Jalen Hurts",          "QB",  "PHI", 2,    "Draft"),
@@ -278,8 +287,9 @@ export const TEAMS: TeamRecord[] = [
     owner: "Scott M.",
     teamName: "Xavier Musketeers",
     division: "West",
-    wins: 27, losses: 15, ptsFor: 1904.4, ptsAgainst: 1748.9,
-    clinched: "division",
+    wins: 0, losses: 0, ptsFor: 0, ptsAgainst: 0,
+    clinched: null,
+    pin: "1234",
     faabRemaining: 1000,
     players: [
       p("Caleb Williams",       "QB",  "CHI", 9,    "Draft"),
@@ -307,8 +317,9 @@ export const TEAMS: TeamRecord[] = [
     owner: "David S.",
     teamName: "Legends",
     division: "West",
-    wins: 25, losses: 17, ptsFor: 1999.02, ptsAgainst: 1959.82,
-    clinched: "playoff",
+    wins: 0, losses: 0, ptsFor: 0, ptsAgainst: 0,
+    clinched: null,
+    pin: "1234",
     faabRemaining: 1000,
     players: [
       p("Josh Allen",           "QB",  "BUF", 1,    "Draft"),
@@ -336,8 +347,9 @@ export const TEAMS: TeamRecord[] = [
     owner: "Shawn",
     teamName: "Vipers",
     division: "West",
-    wins: 12, losses: 30, ptsFor: 1739.7, ptsAgainst: 1898.16,
+    wins: 0, losses: 0, ptsFor: 0, ptsAgainst: 0,
     clinched: null,
+    pin: "1234",
     faabRemaining: 1000,
     players: [
       p("Baker Mayfield",           "QB",  "TAM", 6,    "Draft"),
@@ -365,8 +377,9 @@ export const TEAMS: TeamRecord[] = [
     owner: "Greg",
     teamName: "Larry \"Bud\" Melman123",
     division: "West",
-    wins: 8, losses: 34, ptsFor: 1600.14, ptsAgainst: 1818.48,
+    wins: 0, losses: 0, ptsFor: 0, ptsAgainst: 0,
     clinched: null,
+    pin: "1234",
     faabRemaining: 1000,
     players: [
       p("C.J. Stroud",          "QB",  "HOU", 9,    "Draft"),

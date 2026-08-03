@@ -5,7 +5,7 @@
  */
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { X, Menu } from "lucide-react";
+import { X, Menu, Settings } from "lucide-react";
 
 const navLinks = [
   { label: "Standings", path: "/standings" },
@@ -119,6 +119,15 @@ export default function Navigation({
                   {teamName}
                 </span>
               )}
+              {teamName && (
+                <Link
+                  href="/settings"
+                  style={{ display: "flex", alignItems: "center", color: location === "/settings" ? "oklch(0.78 0.15 85)" : "rgba(255,255,255,0.6)", transition: "color 0.15s" }}
+                  title="Settings"
+                >
+                  <Settings size={18} />
+                </Link>
+              )}
               <button
                 className="wrc-hamburger"
                 onClick={() => setMobileOpen(true)}
@@ -185,12 +194,18 @@ export default function Navigation({
             marginTop: "1.5rem",
             paddingTop: "1rem",
             borderTop: "1px solid rgba(255,255,255,0.1)",
-            color: "rgba(255,255,255,0.5)",
-            fontSize: "0.8rem",
-            fontFamily: "Oswald, sans-serif",
-            letterSpacing: "0.06em",
           }}>
-            LOGGED IN AS: {teamName}
+            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.8rem", fontFamily: "Oswald, sans-serif", letterSpacing: "0.06em", marginBottom: "0.75rem" }}>
+              LOGGED IN AS: {teamName}
+            </div>
+            <Link
+              href="/settings"
+              className={`wrc-mobile-nav-link ${location === "/settings" ? "active" : ""}`}
+              onClick={() => setMobileOpen(false)}
+              style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+            >
+              <Settings size={15} /> Settings
+            </Link>
           </div>
         )}
       </div>
