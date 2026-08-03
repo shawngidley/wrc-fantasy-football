@@ -43,6 +43,8 @@ type TeamSide = {
   logo?: string;
 };
 
+type BenchPlayer = SlotPlayer & { slot: "BN" };
+
 type Matchup = {
   id: number;
   week: number;
@@ -50,6 +52,7 @@ type Matchup = {
   home: TeamSide;
   away: TeamSide;
   slots: SlotRow[];
+  bench: { home: BenchPlayer[]; away: BenchPlayer[] };
 };
 
 // ── Mock Data ──────────────────────────────────────────────────────────────────
@@ -58,6 +61,28 @@ const MOCK_MATCHUPS: Matchup[] = [
     id: 1, week: 14, isChallenge: true,
     home: { team: "Team Gidley", owner: "Shawn Gidley", score: 202.7, projected: 218.4, playersPlayed: 10, playersTotal: 10 },
     away: { team: "Team Pattie", owner: "Jonas Pattie", score: 141.48, projected: 168.2, playersPlayed: 10, playersTotal: 10 },
+    bench: {
+      home: [
+        { slot: "BN", name: "G. Edwards", fullName: "Gus Edwards", pos: "RB", nflTeam: "LAC", pts: 8.4, proj: 8.4, gameInfo: "LAC 27 @ DEN 14 F", stats: [{ label: "YDS", value: 54 }, { label: "REC", value: 1 }] },
+        { slot: "BN", name: "M. Brown", fullName: "Marquise Brown", pos: "WR", nflTeam: "KC", pts: 4.2, proj: 4.2, gameInfo: "LV 14 @ KC 31 F", stats: [{ label: "REC", value: 2 }, { label: "YDS", value: 22 }] },
+        { slot: "BN", name: "T. McBride", fullName: "Trey McBride", pos: "TE", nflTeam: "ARI", pts: 9.6, proj: 9.6, isTE: true, gameInfo: "ARI 14 @ CIN 37 F", stats: [{ label: "REC", value: 4 }, { label: "YDS", value: 36 }] },
+        { slot: "BN", name: "J. Love", fullName: "Jordan Love", pos: "QB", nflTeam: "GB", pts: 14.2, proj: 14.2, gameInfo: "BAL 41 @ GB 24 F", stats: [{ label: "YDS", value: 184 }, { label: "TD", value: 1 }] },
+        { slot: "BN", name: "J. Warren", fullName: "Jaylen Warren", pos: "RB", nflTeam: "PIT", pts: 6.8, proj: 6.8, gameInfo: "HOU 24 @ PIT 20 F", stats: [{ label: "YDS", value: 38 }, { label: "REC", value: 2 }] },
+        { slot: "BN", name: "D. Wicks", fullName: "Dontayvion Wicks", pos: "WR", nflTeam: "GB", pts: 3.2, proj: 3.2, gameInfo: "BAL 41 @ GB 24 F", stats: [{ label: "REC", value: 2 }, { label: "YDS", value: 12 }] },
+        { slot: "BN", name: "E. McPherson", fullName: "Evan McPherson", pos: "K", nflTeam: "CIN", pts: 7.0, proj: 7.0, gameInfo: "ARI 14 @ CIN 37 F", stats: [{ label: "FG", value: "2/2" }, { label: "XP", value: "1/1" }] },
+        { slot: "BN", name: "J. Allen (BUF DST)", fullName: "Buffalo Bills DST", pos: "DST", nflTeam: "BUF", pts: 4.0, proj: 4.0, gameInfo: "PHI 13 @ BUF 12 F", stats: [{ label: "SACK", value: 1 }] },
+      ],
+      away: [
+        { slot: "BN", name: "A. Cooper", fullName: "Amari Cooper", pos: "WR", nflTeam: "CLE", pts: 5.4, proj: 5.4, gameInfo: "CLE 21 @ BAL 28 F", stats: [{ label: "REC", value: 4 }, { label: "YDS", value: 44 }] },
+        { slot: "BN", name: "Z. Moss", fullName: "Zack Moss", pos: "RB", nflTeam: "IND", pts: 3.6, proj: 3.6, gameInfo: "TEN 17 @ IND 24 F", stats: [{ label: "YDS", value: 26 }] },
+        { slot: "BN", name: "L. Musgrave", fullName: "Luke Musgrave", pos: "TE", nflTeam: "GB", pts: 4.8, proj: 4.8, isTE: true, gameInfo: "BAL 41 @ GB 24 F", stats: [{ label: "REC", value: 2 }, { label: "YDS", value: 18 }] },
+        { slot: "BN", name: "D. Ridder", fullName: "Desmond Ridder", pos: "QB", nflTeam: "ARI", pts: 8.2, proj: 8.2, gameInfo: "ARI 14 @ CIN 37 F", stats: [{ label: "YDS", value: 148 }, { label: "TD", value: 1 }] },
+        { slot: "BN", name: "T. Spears", fullName: "Tyjae Spears", pos: "RB", nflTeam: "TEN", pts: 5.4, proj: 5.4, gameInfo: "TEN 17 @ IND 24 F", stats: [{ label: "YDS", value: 34 }, { label: "REC", value: 1 }] },
+        { slot: "BN", name: "R. Shaheed", fullName: "Rashid Shaheed", pos: "WR", nflTeam: "NO", pts: 6.2, proj: 6.2, gameInfo: "NO 24 @ TB 17 F", stats: [{ label: "REC", value: 3 }, { label: "YDS", value: 42 }] },
+        { slot: "BN", name: "C. Boswell", fullName: "Chris Boswell", pos: "K", nflTeam: "PIT", pts: 9.0, proj: 9.0, gameInfo: "HOU 24 @ PIT 20 F", stats: [{ label: "FG", value: "2/2" }, { label: "XP", value: "3/3" }] },
+        { slot: "BN", name: "C. Hubbard", fullName: "Chuba Hubbard", pos: "RB", nflTeam: "CAR", pts: 7.8, proj: 7.8, gameInfo: "SEA 27 @ CAR 10 F", stats: [{ label: "YDS", value: 58 }, { label: "REC", value: 1 }] },
+      ],
+    },
     slots: [
       {
         slotLabel: "QB",
@@ -115,6 +140,28 @@ const MOCK_MATCHUPS: Matchup[] = [
     id: 2, week: 14, isChallenge: false,
     home: { team: "Team Sotka", owner: "David Sotka", score: 112.8, projected: 131.2, playersPlayed: 10, playersTotal: 10 },
     away: { team: "Team Krause", owner: "Bill Krause", score: 95.6, projected: 108.4, playersPlayed: 10, playersTotal: 10 },
+    bench: {
+      home: [
+        { slot: "BN", name: "R. White", fullName: "Rachaad White", pos: "RB", nflTeam: "TB", pts: 6.4, proj: 6.4, gameInfo: "NO 24 @ TB 17 F", stats: [{ label: "YDS", value: 44 }] },
+        { slot: "BN", name: "O. Beckham", fullName: "Odell Beckham Jr.", pos: "WR", nflTeam: "MIA", pts: 4.8, proj: 4.8, gameInfo: "MIA 28 @ NE 10 F", stats: [{ label: "REC", value: 3 }, { label: "YDS", value: 28 }] },
+        { slot: "BN", name: "D. Kincaid", fullName: "Dalton Kincaid", pos: "TE", nflTeam: "BUF", pts: 3.2, proj: 3.2, isTE: true, gameInfo: "PHI 13 @ BUF 12 F", stats: [{ label: "REC", value: 2 }, { label: "YDS", value: 12 }] },
+        { slot: "BN", name: "S. Howell", fullName: "Sam Howell", pos: "QB", nflTeam: "SEA", pts: 0, proj: 12.4, gameInfo: "SEA 27 @ CAR 10 F", stats: [] },
+        { slot: "BN", name: "Z. Moss", fullName: "Zack Moss", pos: "RB", nflTeam: "IND", pts: 3.6, proj: 3.6, gameInfo: "TEN 17 @ IND 24 F", stats: [{ label: "YDS", value: 26 }] },
+        { slot: "BN", name: "D. Slayton", fullName: "Darius Slayton", pos: "WR", nflTeam: "NYG", pts: 5.2, proj: 5.2, gameInfo: "DAL 30 @ WAS 23 F", stats: [{ label: "REC", value: 3 }, { label: "YDS", value: 32 }] },
+        { slot: "BN", name: "B. Aubrey", fullName: "Brandon Aubrey", pos: "K", nflTeam: "DAL", pts: 8.0, proj: 8.0, gameInfo: "DAL 30 @ WAS 23 F", stats: [{ label: "FG", value: "2/2" }, { label: "XP", value: "2/2" }] },
+        { slot: "BN", name: "NYG DST", fullName: "New York Giants DST", pos: "DST", nflTeam: "NYG", pts: 2.0, proj: 2.0, gameInfo: "DAL 30 @ WAS 23 F", stats: [] },
+      ],
+      away: [
+        { slot: "BN", name: "D. Singletary", fullName: "Devin Singletary", pos: "RB", nflTeam: "NYG", pts: 4.2, proj: 4.2, gameInfo: "DAL 30 @ WAS 23 F", stats: [{ label: "YDS", value: 32 }] },
+        { slot: "BN", name: "D. Mooney", fullName: "Darnell Mooney", pos: "WR", nflTeam: "ATL", pts: 5.8, proj: 5.8, gameInfo: "LAR 24 @ ATL 27 F", stats: [{ label: "REC", value: 3 }, { label: "YDS", value: 38 }] },
+        { slot: "BN", name: "D. Knox", fullName: "Dawson Knox", pos: "TE", nflTeam: "BUF", pts: 2.4, proj: 2.4, isTE: true, gameInfo: "PHI 13 @ BUF 12 F", stats: [{ label: "REC", value: 1 }, { label: "YDS", value: 9 }] },
+        { slot: "BN", name: "T. DeVito", fullName: "Tommy DeVito", pos: "QB", nflTeam: "NYG", pts: 6.8, proj: 6.8, gameInfo: "DAL 30 @ WAS 23 F", stats: [{ label: "YDS", value: 148 }, { label: "TD", value: 1 }] },
+        { slot: "BN", name: "Z. Moss", fullName: "Zack Moss", pos: "RB", nflTeam: "IND", pts: 3.6, proj: 3.6, gameInfo: "TEN 17 @ IND 24 F", stats: [{ label: "YDS", value: 26 }] },
+        { slot: "BN", name: "Q. Johnston", fullName: "Quentin Johnston", pos: "WR", nflTeam: "LAC", pts: 4.4, proj: 4.4, gameInfo: "LAC 27 @ DEN 14 F", stats: [{ label: "REC", value: 2 }, { label: "YDS", value: 24 }] },
+        { slot: "BN", name: "E. Pineiro", fullName: "Eddy Pineiro", pos: "K", nflTeam: "CAR", pts: 3.0, proj: 3.0, gameInfo: "SEA 27 @ CAR 10 F", stats: [{ label: "FG", value: "0/1" }, { label: "XP", value: "3/3" }] },
+        { slot: "BN", name: "CLE DST", fullName: "Cleveland Browns DST", pos: "DST", nflTeam: "CLE", pts: 10.2, proj: 10.2, gameInfo: "CLE 21 @ BAL 28 F", stats: [{ label: "SACK", value: 3 }, { label: "INT", value: 1 }, { label: "TD", value: 1 }] },
+      ],
+    },
     slots: [
       { slotLabel: "QB", home: { name: "P. Mahomes", fullName: "Patrick Mahomes", pos: "QB", nflTeam: "KC", pts: 28.4, proj: 28.4, gameInfo: "LV 14 @ KC 31 F", stats: [{ label: "YDS", value: 312 }, { label: "TD", value: 3 }] }, away: { name: "T. Lawrence", fullName: "Trevor Lawrence", pos: "QB", nflTeam: "JAX", pts: 18.2, proj: 18.2, gameInfo: "JAX 20 @ TEN 17 F", stats: [{ label: "YDS", value: 224 }, { label: "TD", value: 2 }] } },
       { slotLabel: "RB", home: { name: "C. McCaffrey", fullName: "Christian McCaffrey", pos: "RB", nflTeam: "SF", pts: 24.6, proj: 24.6, gameInfo: "CHI 38 @ SF 42 F", stats: [{ label: "YDS", value: 148 }, { label: "TD", value: 1 }, { label: "REC", value: 5 }] }, away: { name: "A. Ekeler", fullName: "Austin Ekeler", pos: "RB", nflTeam: "WAS", pts: 14.2, proj: 14.2, gameInfo: "DAL 30 @ WAS 23 F", stats: [{ label: "YDS", value: 72 }, { label: "REC", value: 4 }, { label: "YDS", value: 30 }] } },
@@ -132,6 +179,28 @@ const MOCK_MATCHUPS: Matchup[] = [
     id: 3, week: 14, isChallenge: false,
     home: { team: "Team Heiden", owner: "Jason Heiden", score: 78.2, projected: 119.8, playersPlayed: 7, playersTotal: 10 },
     away: { team: "Team Nelson", owner: "Scott Nelson", score: 84.6, projected: 112.2, playersPlayed: 8, playersTotal: 10 },
+    bench: {
+      home: [
+        { slot: "BN", name: "S. Perine", fullName: "Samaje Perine", pos: "RB", nflTeam: "DEN", pts: 4.2, proj: 4.2, gameInfo: "LAC 27 @ DEN 14 F", stats: [{ label: "YDS", value: 28 }] },
+        { slot: "BN", name: "T. Atwell", fullName: "Tutu Atwell", pos: "WR", nflTeam: "LAR", pts: 3.6, proj: 3.6, gameInfo: "LAR 24 @ ATL 27 F", stats: [{ label: "REC", value: 2 }, { label: "YDS", value: 16 }] },
+        { slot: "BN", name: "I. Smith Jr.", fullName: "Irv Smith Jr.", pos: "TE", nflTeam: "CIN", pts: 5.4, proj: 5.4, isTE: true, gameInfo: "ARI 14 @ CIN 37 F", stats: [{ label: "REC", value: 2 }, { label: "YDS", value: 24 }] },
+        { slot: "BN", name: "H. Hooker", fullName: "Hendon Hooker", pos: "QB", nflTeam: "DET", pts: 0, proj: 8.4, gameInfo: "DET 10 @ MIN 23 F", stats: [] },
+        { slot: "BN", name: "K. Vidal", fullName: "Kimani Vidal", pos: "RB", nflTeam: "LAC", pts: 3.8, proj: 3.8, gameInfo: "LAC 27 @ DEN 14 F", stats: [{ label: "YDS", value: 24 }] },
+        { slot: "BN", name: "K. Raymond", fullName: "Kalif Raymond", pos: "WR", nflTeam: "DET", pts: 2.4, proj: 2.4, gameInfo: "DET 10 @ MIN 23 F", stats: [{ label: "REC", value: 1 }, { label: "YDS", value: 14 }] },
+        { slot: "BN", name: "N. Folk", fullName: "Nick Folk", pos: "K", nflTeam: "TEN", pts: 4.0, proj: 4.0, gameInfo: "TEN 17 @ IND 24 F", stats: [{ label: "FG", value: "1/1" }, { label: "XP", value: "1/1" }] },
+        { slot: "BN", name: "KC DST", fullName: "Kansas City Chiefs DST", pos: "DST", nflTeam: "KC", pts: 0, proj: 8.4, gameInfo: "LV 14 @ KC 31 F", stats: [] },
+      ],
+      away: [
+        { slot: "BN", name: "T. Chandler", fullName: "Ty Chandler", pos: "RB", nflTeam: "SF", pts: 4.8, proj: 4.8, gameInfo: "CHI 38 @ SF 42 F", stats: [{ label: "YDS", value: 34 }] },
+        { slot: "BN", name: "J. Smith-Njigba", fullName: "Jaxon Smith-Njigba", pos: "WR", nflTeam: "SEA", pts: 6.2, proj: 6.2, gameInfo: "SEA 27 @ CAR 10 F", stats: [{ label: "REC", value: 4 }, { label: "YDS", value: 42 }] },
+        { slot: "BN", name: "C. Otton", fullName: "Cade Otton", pos: "TE", nflTeam: "TB", pts: 4.8, proj: 4.8, isTE: true, gameInfo: "NO 24 @ TB 17 F", stats: [{ label: "REC", value: 2 }, { label: "YDS", value: 18 }] },
+        { slot: "BN", name: "W. Levis", fullName: "Will Levis", pos: "QB", nflTeam: "TEN", pts: 0, proj: 10.4, gameInfo: "TEN 17 @ IND 24 F", stats: [] },
+        { slot: "BN", name: "C. Edwards-Helaire", fullName: "Clyde Edwards-Helaire", pos: "RB", nflTeam: "KC", pts: 5.2, proj: 5.2, gameInfo: "LV 14 @ KC 31 F", stats: [{ label: "YDS", value: 32 }, { label: "REC", value: 1 }] },
+        { slot: "BN", name: "E. Moore", fullName: "Elijah Moore", pos: "WR", nflTeam: "CLE", pts: 3.4, proj: 3.4, gameInfo: "CLE 21 @ BAL 28 F", stats: [{ label: "REC", value: 2 }, { label: "YDS", value: 14 }] },
+        { slot: "BN", name: "C. Santos", fullName: "Cairo Santos", pos: "K", nflTeam: "CHI", pts: 5.0, proj: 5.0, gameInfo: "CHI 38 @ SF 42 F", stats: [{ label: "FG", value: "1/1" }, { label: "XP", value: "2/2" }] },
+        { slot: "BN", name: "PHI DST", fullName: "Philadelphia Eagles DST", pos: "DST", nflTeam: "PHI", pts: 5.0, proj: 5.0, gameInfo: "PHI 13 @ BUF 12 F", stats: [{ label: "SACK", value: 2 }] },
+      ],
+    },
     slots: [
       { slotLabel: "QB", home: { name: "J. Burrow", fullName: "Joe Burrow", pos: "QB", nflTeam: "CIN", pts: 22.4, proj: 22.4, gameInfo: "ARI 14 @ CIN 37 F", stats: [{ label: "YDS", value: 284 }, { label: "TD", value: 3 }] }, away: { name: "J. Hurts", fullName: "Jalen Hurts", pos: "QB", nflTeam: "PHI", pts: 18.6, proj: 18.6, gameInfo: "PHI 13 @ BUF 12 F", stats: [{ label: "YDS", value: 198 }, { label: "TD", value: 1 }, { label: "RUSH", value: 48 }] } },
       { slotLabel: "RB", home: { name: "N. Chubb", fullName: "Nick Chubb", pos: "RB", nflTeam: "CLE", pts: 8.4, proj: 8.4, gameInfo: "CLE 21 @ BAL 28 F", stats: [{ label: "YDS", value: 54 }, { label: "REC", value: 2 }] }, away: { name: "J. Taylor", fullName: "Jonathan Taylor", pos: "RB", nflTeam: "IND", pts: 14.8, proj: 14.8, gameInfo: "TEN 17 @ IND 24 F", stats: [{ label: "YDS", value: 98 }, { label: "TD", value: 1 }] } },
@@ -149,6 +218,28 @@ const MOCK_MATCHUPS: Matchup[] = [
     id: 4, week: 14, isChallenge: false,
     home: { team: "Team Akagi", owner: "Greg Akagi", score: 105.4, projected: 122.6, playersPlayed: 10, playersTotal: 10 },
     away: { team: "Team Yane", owner: "James Yane", score: 88.8, projected: 98.4, playersPlayed: 10, playersTotal: 10 },
+    bench: {
+      home: [
+        { slot: "BN", name: "D. Pierce", fullName: "Dameon Pierce", pos: "RB", nflTeam: "HOU", pts: 5.4, proj: 5.4, gameInfo: "HOU 24 @ PIT 20 F", stats: [{ label: "YDS", value: 34 }] },
+        { slot: "BN", name: "D. Slayton", fullName: "Darius Slayton", pos: "WR", nflTeam: "NYG", pts: 4.2, proj: 4.2, gameInfo: "DAL 30 @ WAS 23 F", stats: [{ label: "REC", value: 2 }, { label: "YDS", value: 22 }] },
+        { slot: "BN", name: "N. Fant", fullName: "Noah Fant", pos: "TE", nflTeam: "SEA", pts: 3.8, proj: 3.8, isTE: true, gameInfo: "SEA 27 @ CAR 10 F", stats: [{ label: "REC", value: 2 }, { label: "YDS", value: 18 }] },
+        { slot: "BN", name: "A. O'Connell", fullName: "Aidan O'Connell", pos: "QB", nflTeam: "LV", pts: 4.2, proj: 4.2, gameInfo: "LV 14 @ KC 31 F", stats: [{ label: "YDS", value: 98 }, { label: "TD", value: 1 }] },
+        { slot: "BN", name: "P. Taylor", fullName: "Patrick Taylor", pos: "RB", nflTeam: "MIA", pts: 3.6, proj: 3.6, gameInfo: "MIA 28 @ NE 10 F", stats: [{ label: "YDS", value: 24 }] },
+        { slot: "BN", name: "M. Valdes-Scantling", fullName: "Marquez Valdes-Scantling", pos: "WR", nflTeam: "BUF", pts: 2.8, proj: 2.8, gameInfo: "PHI 13 @ BUF 12 F", stats: [{ label: "REC", value: 1 }, { label: "YDS", value: 18 }] },
+        { slot: "BN", name: "B. Aubrey", fullName: "Brandon Aubrey", pos: "K", nflTeam: "DAL", pts: 8.0, proj: 8.0, gameInfo: "DAL 30 @ WAS 23 F", stats: [{ label: "FG", value: "2/2" }, { label: "XP", value: "2/2" }] },
+        { slot: "BN", name: "DEN DST", fullName: "Denver Broncos DST", pos: "DST", nflTeam: "DEN", pts: 6.0, proj: 6.0, gameInfo: "LAC 27 @ DEN 14 F", stats: [{ label: "SACK", value: 2 }, { label: "INT", value: 1 }] },
+      ],
+      away: [
+        { slot: "BN", name: "R. Johnson", fullName: "Roschon Johnson", pos: "RB", nflTeam: "CHI", pts: 6.8, proj: 6.8, gameInfo: "CHI 38 @ SF 42 F", stats: [{ label: "YDS", value: 44 }, { label: "REC", value: 2 }] },
+        { slot: "BN", name: "C. Tillman", fullName: "Cedric Tillman", pos: "WR", nflTeam: "CLE", pts: 3.4, proj: 3.4, gameInfo: "CLE 21 @ BAL 28 F", stats: [{ label: "REC", value: 2 }, { label: "YDS", value: 14 }] },
+        { slot: "BN", name: "J. Johnson", fullName: "Juwan Johnson", pos: "TE", nflTeam: "NO", pts: 4.2, proj: 4.2, isTE: true, gameInfo: "NO 24 @ TB 17 F", stats: [{ label: "REC", value: 2 }, { label: "YDS", value: 12 }] },
+        { slot: "BN", name: "A. O'Connell", fullName: "Aidan O'Connell", pos: "QB", nflTeam: "LV", pts: 4.2, proj: 4.2, gameInfo: "LV 14 @ KC 31 F", stats: [{ label: "YDS", value: 98 }, { label: "TD", value: 1 }] },
+        { slot: "BN", name: "K. Mitchell", fullName: "Keaton Mitchell", pos: "RB", nflTeam: "BAL", pts: 5.6, proj: 5.6, gameInfo: "BAL 41 @ GB 24 F", stats: [{ label: "YDS", value: 36 }, { label: "REC", value: 1 }] },
+        { slot: "BN", name: "M. Mims Jr.", fullName: "Marvin Mims Jr.", pos: "WR", nflTeam: "DEN", pts: 3.2, proj: 3.2, gameInfo: "LAC 27 @ DEN 14 F", stats: [{ label: "REC", value: 2 }, { label: "YDS", value: 12 }] },
+        { slot: "BN", name: "W. Lutz", fullName: "Wil Lutz", pos: "K", nflTeam: "DEN", pts: 4.0, proj: 4.0, gameInfo: "LAC 27 @ DEN 14 F", stats: [{ label: "FG", value: "1/1" }, { label: "XP", value: "1/1" }] },
+        { slot: "BN", name: "NYJ DST", fullName: "New York Jets DST", pos: "DST", nflTeam: "NYJ", pts: 7.2, proj: 7.2, gameInfo: "NE 42 @ NYJ 10 F", stats: [{ label: "SACK", value: 2 }, { label: "INT", value: 1 }] },
+      ],
+    },
     slots: [
       { slotLabel: "QB", home: { name: "D. Prescott", fullName: "Dak Prescott", pos: "QB", nflTeam: "DAL", pts: 20.68, proj: 20.68, gameInfo: "DAL 30 @ WAS 23 F", stats: [{ label: "YDS", value: 307 }, { label: "TD", value: 2 }] }, away: { name: "T. Tagovailoa", fullName: "Tua Tagovailoa", pos: "QB", nflTeam: "MIA", pts: 16.4, proj: 16.4, gameInfo: "MIA 28 @ NE 10 F", stats: [{ label: "YDS", value: 224 }, { label: "TD", value: 2 }] } },
       { slotLabel: "RB", home: { name: "T. Pollard", fullName: "Tony Pollard", pos: "RB", nflTeam: "TEN", pts: 12.4, proj: 12.4, gameInfo: "TEN 17 @ IND 24 F", stats: [{ label: "YDS", value: 84 }, { label: "REC", value: 2 }] }, away: { name: "T. Pollard", fullName: "Tony Pollard", pos: "RB", nflTeam: "TEN", pts: 12.4, proj: 12.4, gameInfo: "TEN 17 @ IND 24 F", stats: [{ label: "YDS", value: 84 }, { label: "REC", value: 2 }] } },
@@ -166,6 +257,28 @@ const MOCK_MATCHUPS: Matchup[] = [
     id: 5, week: 14, isChallenge: false,
     home: { team: "Team Mackar", owner: "Scott Mackar", score: 92.2, projected: 115.4, playersPlayed: 9, playersTotal: 10 },
     away: { team: "Team Ryks", owner: "David Ryks", score: 101.6, projected: 120.8, playersPlayed: 10, playersTotal: 10 },
+    bench: {
+      home: [
+        { slot: "BN", name: "J. Waddle", fullName: "Jaylen Waddle", pos: "WR", nflTeam: "MIA", pts: 6.2, proj: 6.2, gameInfo: "MIA 28 @ NE 10 F", stats: [{ label: "REC", value: 4 }, { label: "YDS", value: 42 }] },
+        { slot: "BN", name: "T. Pollard", fullName: "Tony Pollard", pos: "RB", nflTeam: "TEN", pts: 12.4, proj: 12.4, gameInfo: "TEN 17 @ IND 24 F", stats: [{ label: "YDS", value: 84 }, { label: "REC", value: 2 }] },
+        { slot: "BN", name: "M. Andrews", fullName: "Mark Andrews", pos: "TE", nflTeam: "BAL", pts: 8.4, proj: 8.4, isTE: true, gameInfo: "BAL 41 @ GB 24 F", stats: [{ label: "REC", value: 3 }, { label: "YDS", value: 34 }] },
+        { slot: "BN", name: "S. Darnold", fullName: "Sam Darnold", pos: "QB", nflTeam: "MIN", pts: 0, proj: 14.2, gameInfo: "DET 10 @ MIN 23 F", stats: [] },
+        { slot: "BN", name: "R. Mostert", fullName: "Raheem Mostert", pos: "RB", nflTeam: "MIA", pts: 7.2, proj: 7.2, gameInfo: "MIA 28 @ NE 10 F", stats: [{ label: "YDS", value: 52 }, { label: "REC", value: 1 }] },
+        { slot: "BN", name: "B. Cooks", fullName: "Brandin Cooks", pos: "WR", nflTeam: "DAL", pts: 4.8, proj: 4.8, gameInfo: "DAL 30 @ WAS 23 F", stats: [{ label: "REC", value: 3 }, { label: "YDS", value: 28 }] },
+        { slot: "BN", name: "Y. Koo", fullName: "Younghoe Koo", pos: "K", nflTeam: "ATL", pts: 7.0, proj: 7.0, gameInfo: "LAR 24 @ ATL 27 F", stats: [{ label: "FG", value: "1/1" }, { label: "XP", value: "4/4" }] },
+        { slot: "BN", name: "MIA DST", fullName: "Miami Dolphins DST", pos: "DST", nflTeam: "MIA", pts: 4.0, proj: 4.0, gameInfo: "MIA 28 @ NE 10 F", stats: [{ label: "SACK", value: 1 }, { label: "INT", value: 1 }] },
+      ],
+      away: [
+        { slot: "BN", name: "N. Harris", fullName: "Najee Harris", pos: "RB", nflTeam: "PIT", pts: 8.4, proj: 8.4, gameInfo: "HOU 24 @ PIT 20 F", stats: [{ label: "YDS", value: 54 }, { label: "REC", value: 2 }] },
+        { slot: "BN", name: "S. Moore", fullName: "Skyy Moore", pos: "WR", nflTeam: "KC", pts: 3.2, proj: 3.2, gameInfo: "LV 14 @ KC 31 F", stats: [{ label: "REC", value: 2 }, { label: "YDS", value: 12 }] },
+        { slot: "BN", name: "C. Okonkwo", fullName: "Chigoziem Okonkwo", pos: "TE", nflTeam: "TEN", pts: 4.8, proj: 4.8, isTE: true, gameInfo: "TEN 17 @ IND 24 F", stats: [{ label: "REC", value: 2 }, { label: "YDS", value: 18 }] },
+        { slot: "BN", name: "B. Young", fullName: "Bryce Young", pos: "QB", nflTeam: "CAR", pts: 14.8, proj: 14.8, gameInfo: "SEA 27 @ CAR 10 F", stats: [{ label: "YDS", value: 198 }, { label: "TD", value: 1 }] },
+        { slot: "BN", name: "T. Chandler", fullName: "Ty Chandler", pos: "RB", nflTeam: "SF", pts: 4.8, proj: 4.8, gameInfo: "CHI 38 @ SF 42 F", stats: [{ label: "YDS", value: 34 }] },
+        { slot: "BN", name: "D. Robinson", fullName: "Demarcus Robinson", pos: "WR", nflTeam: "LAR", pts: 3.6, proj: 3.6, gameInfo: "LAR 24 @ ATL 27 F", stats: [{ label: "REC", value: 2 }, { label: "YDS", value: 16 }] },
+        { slot: "BN", name: "M. Gay", fullName: "Matt Gay", pos: "K", nflTeam: "IND", pts: 6.0, proj: 6.0, gameInfo: "TEN 17 @ IND 24 F", stats: [{ label: "FG", value: "1/1" }, { label: "XP", value: "3/3" }] },
+        { slot: "BN", name: "PIT DST", fullName: "Pittsburgh Steelers DST", pos: "DST", nflTeam: "PIT", pts: 9.4, proj: 9.4, gameInfo: "HOU 24 @ PIT 20 F", stats: [{ label: "SACK", value: 3 }, { label: "INT", value: 1 }] },
+      ],
+    },
     slots: [
       { slotLabel: "QB", home: { name: "L. Jackson", fullName: "Lamar Jackson", pos: "QB", nflTeam: "BAL", pts: 32.4, proj: 32.4, gameInfo: "BAL 41 @ GB 24 F", stats: [{ label: "YDS", value: 248 }, { label: "TD", value: 2 }, { label: "RUSH", value: 84 }, { label: "TD", value: 1 }] }, away: { name: "J. Love", fullName: "Jordan Love", pos: "QB", nflTeam: "GB", pts: 14.2, proj: 14.2, gameInfo: "BAL 41 @ GB 24 F", stats: [{ label: "YDS", value: 184 }, { label: "TD", value: 1 }] } },
       { slotLabel: "RB", home: { name: "D. Henry", fullName: "Derrick Henry", pos: "RB", nflTeam: "BAL", pts: 45.6, proj: 45.6, gameInfo: "BAL 41 @ GB 24 F", stats: [{ label: "YDS", value: 216 }, { label: "TD", value: 4 }] }, away: { name: "A. Kamara", fullName: "Alvin Kamara", pos: "RB", nflTeam: "NO", pts: 18.4, proj: 18.4, gameInfo: "NO 24 @ TB 17 F", stats: [{ label: "YDS", value: 88 }, { label: "TD", value: 1 }, { label: "REC", value: 4 }, { label: "YDS", value: 36 }] } },
@@ -183,6 +296,28 @@ const MOCK_MATCHUPS: Matchup[] = [
     id: 6, week: 14, isChallenge: false,
     home: { team: "Team Cromer", owner: "Keith Cromer", score: 76.4, projected: 104.2, playersPlayed: 8, playersTotal: 10 },
     away: { team: "Team Osicki", owner: "Dan Osicki", score: 68.8, projected: 92.6, playersPlayed: 8, playersTotal: 10 },
+    bench: {
+      home: [
+        { slot: "BN", name: "R. White", fullName: "Rachaad White", pos: "RB", nflTeam: "TB", pts: 6.4, proj: 6.4, gameInfo: "NO 24 @ TB 17 F", stats: [{ label: "YDS", value: 44 }] },
+        { slot: "BN", name: "T. McLaurin", fullName: "Terry McLaurin", pos: "WR", nflTeam: "WAS", pts: 7.8, proj: 7.8, gameInfo: "DAL 30 @ WAS 23 F", stats: [{ label: "REC", value: 5 }, { label: "YDS", value: 58 }] },
+        { slot: "BN", name: "T. Hill (TE)", fullName: "Taysom Hill", pos: "TE", nflTeam: "NO", pts: 4.2, proj: 4.2, isTE: true, gameInfo: "NO 24 @ TB 17 F", stats: [{ label: "REC", value: 1 }, { label: "RUSH", value: 22 }] },
+        { slot: "BN", name: "G. Minshew", fullName: "Gardner Minshew", pos: "QB", nflTeam: "LV", pts: 8.4, proj: 8.4, gameInfo: "LV 14 @ KC 31 F", stats: [{ label: "YDS", value: 148 }, { label: "TD", value: 1 }] },
+        { slot: "BN", name: "C. Hubbard", fullName: "Chuba Hubbard", pos: "RB", nflTeam: "CAR", pts: 7.8, proj: 7.8, gameInfo: "SEA 27 @ CAR 10 F", stats: [{ label: "YDS", value: 58 }, { label: "REC", value: 1 }] },
+        { slot: "BN", name: "J. Dotson", fullName: "Jahan Dotson", pos: "WR", nflTeam: "WAS", pts: 7.4, proj: 7.4, gameInfo: "DAL 30 @ WAS 23 F", stats: [{ label: "REC", value: 4 }, { label: "YDS", value: 54 }] },
+        { slot: "BN", name: "M. Badgley", fullName: "Michael Badgley", pos: "K", nflTeam: "IND", pts: 5.0, proj: 5.0, gameInfo: "TEN 17 @ IND 24 F", stats: [{ label: "FG", value: "1/1" }, { label: "XP", value: "2/2" }] },
+        { slot: "BN", name: "WAS DST", fullName: "Washington Commanders DST", pos: "DST", nflTeam: "WAS", pts: 3.0, proj: 3.0, gameInfo: "DAL 30 @ WAS 23 F", stats: [{ label: "SACK", value: 1 }] },
+      ],
+      away: [
+        { slot: "BN", name: "D. Harris", fullName: "Damien Harris", pos: "RB", nflTeam: "BUF", pts: 6.4, proj: 6.4, gameInfo: "PHI 13 @ BUF 12 F", stats: [{ label: "YDS", value: 44 }] },
+        { slot: "BN", name: "P. Campbell", fullName: "Parris Campbell", pos: "WR", nflTeam: "NYG", pts: 3.8, proj: 3.8, gameInfo: "DAL 30 @ WAS 23 F", stats: [{ label: "REC", value: 2 }, { label: "YDS", value: 18 }] },
+        { slot: "BN", name: "T. Conklin", fullName: "Tyler Conklin", pos: "TE", nflTeam: "NYJ", pts: 4.2, proj: 4.2, isTE: true, gameInfo: "NE 42 @ NYJ 10 F", stats: [{ label: "REC", value: 2 }, { label: "YDS", value: 12 }] },
+        { slot: "BN", name: "M. Willis", fullName: "Malik Willis", pos: "QB", nflTeam: "TEN", pts: 8.4, proj: 8.4, gameInfo: "TEN 17 @ IND 24 F", stats: [{ label: "YDS", value: 124 }, { label: "RUSH", value: 44 }] },
+        { slot: "BN", name: "E. Mitchell", fullName: "Elijah Mitchell", pos: "RB", nflTeam: "SF", pts: 4.8, proj: 4.8, gameInfo: "CHI 38 @ SF 42 F", stats: [{ label: "YDS", value: 28 }, { label: "REC", value: 1 }] },
+        { slot: "BN", name: "J. Reynolds", fullName: "Josh Reynolds", pos: "WR", nflTeam: "DET", pts: 4.4, proj: 4.4, gameInfo: "DET 10 @ MIN 23 F", stats: [{ label: "REC", value: 2 }, { label: "YDS", value: 24 }] },
+        { slot: "BN", name: "T. Vizcaino", fullName: "Tristan Vizcaino", pos: "K", nflTeam: "WAS", pts: 5.0, proj: 5.0, gameInfo: "DAL 30 @ WAS 23 F", stats: [{ label: "FG", value: "1/1" }, { label: "XP", value: "2/2" }] },
+        { slot: "BN", name: "ARI DST", fullName: "Arizona Cardinals DST", pos: "DST", nflTeam: "ARI", pts: 14.0, proj: 14.0, gameInfo: "ARI 14 @ CIN 37 F", stats: [{ label: "SACK", value: 2 }, { label: "INT", value: 1 }, { label: "TD", value: 1 }] },
+      ],
+    },
     slots: [
       { slotLabel: "QB", home: { name: "K. Murray", fullName: "Kyler Murray", pos: "QB", nflTeam: "ARI", pts: 14.2, proj: 14.2, gameInfo: "ARI 14 @ CIN 37 F", stats: [{ label: "YDS", value: 184 }, { label: "TD", value: 1 }] }, away: { name: "K. Murray", fullName: "Kyler Murray", pos: "QB", nflTeam: "ARI", pts: 14.2, proj: 14.2, gameInfo: "ARI 14 @ CIN 37 F", stats: [{ label: "YDS", value: 184 }, { label: "TD", value: 1 }] } },
       { slotLabel: "RB", home: { name: "J. Conner", fullName: "James Conner", pos: "RB", nflTeam: "ARI", pts: 8.4, proj: 8.4, gameInfo: "ARI 14 @ CIN 37 F", stats: [{ label: "YDS", value: 44 }, { label: "REC", value: 2 }] }, away: { name: "J. Conner", fullName: "James Conner", pos: "RB", nflTeam: "ARI", pts: 8.4, proj: 8.4, gameInfo: "ARI 14 @ CIN 37 F", stats: [{ label: "YDS", value: 44 }, { label: "REC", value: 2 }] } },
@@ -496,6 +631,58 @@ function MatchupDetail({ matchup }: { matchup: Matchup }) {
           <SlotRowComp key={i} row={row} />
         ))}
       </div>
+
+      {/* BENCH section */}
+      {(matchup.bench.home.length > 0 || matchup.bench.away.length > 0) && (
+        <>
+          {/* Bench divider label */}
+          <div style={{
+            textAlign: "center",
+            fontFamily: "Oswald, sans-serif", fontWeight: 700,
+            fontSize: "0.72rem", letterSpacing: "0.12em",
+            color: "oklch(0.55 0.04 150)", textTransform: "uppercase",
+            background: "oklch(0.96 0.008 150)",
+            borderTop: "2px solid oklch(0.88 0.01 150)",
+            borderBottom: "1px solid oklch(0.9 0.005 150)",
+            padding: "0.35rem 0",
+          }}>
+            BENCH
+          </div>
+          {/* Bench rows — pair home[i] with away[i] side by side */}
+          {Array.from({ length: Math.max(matchup.bench.home.length, matchup.bench.away.length) }).map((_, i) => {
+            const hp = matchup.bench.home[i] ?? null;
+            const ap = matchup.bench.away[i] ?? null;
+            return (
+              <div key={i} style={{
+                display: "flex", alignItems: "stretch",
+                borderBottom: "1px solid oklch(0.93 0.004 150)",
+                background: "oklch(0.975 0.003 150)",
+                opacity: 0.88,
+              }}>
+                <PlayerCell player={hp} side="home" />
+                {/* Center BN label */}
+                <div style={{
+                  width: 32, flexShrink: 0,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: "oklch(0.93 0.005 150)",
+                  borderLeft: "1px solid oklch(0.9 0.005 150)",
+                  borderRight: "1px solid oklch(0.9 0.005 150)",
+                }}>
+                  <span style={{
+                    fontFamily: "Oswald, sans-serif", fontWeight: 700,
+                    fontSize: "0.58rem", letterSpacing: "0.06em",
+                    color: "oklch(0.6 0.04 150)",
+                    writingMode: "vertical-rl",
+                    textTransform: "uppercase",
+                    transform: "rotate(180deg)",
+                  }}>BN</span>
+                </div>
+                <PlayerCell player={ap} side="away" />
+              </div>
+            );
+          })}
+        </>
+      )}
     </div>
   );
 }
