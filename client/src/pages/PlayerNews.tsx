@@ -10,13 +10,38 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   Search, AlertTriangle, Activity, Users, Newspaper,
   Star, ChevronDown, ChevronUp, DollarSign, Check, X,
+  ArrowLeftRight, ClipboardList, Trash2,
 } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 
 // ── Current week ──────────────────────────────────────────────────────────────
 const CURRENT_WEEK = 14;
 // Logged-in team's remaining FAAB (mock)
 const MY_FAAB = 312;
+// My team name (mock — in production comes from useAuth franchise)
+const MY_TEAM = "Team Gidley";
+
+// My roster — players owned by MY_TEAM (for drop selector and trade give-side)
+const MY_ROSTER = [
+  { id: "p1",  name: "Josh Allen",         pos: "QB" },
+  { id: "p2",  name: "Lamar Jackson",       pos: "QB" },
+  { id: "p9",  name: "Derrick Henry",       pos: "RB" },
+  { id: "p11", name: "Jahmyr Gibbs",        pos: "RB" },
+  { id: "p21", name: "Ja'Marr Chase",       pos: "WR" },
+  { id: "p27", name: "Sam LaPorta",         pos: "TE" },
+  { id: "p32", name: "Harrison Butker",     pos: "K"  },
+  { id: "p35", name: "San Francisco 49ers", pos: "DST"},
+];
+
+// All teams in the league
+const LEAGUE_TEAMS = [
+  "Team Gidley", "Team Sotka", "Team Nelson", "Team Yane",
+  "Team Pattie", "Team Krause", "Team Ryks", "Team Osicki",
+  "Team Heiden", "Team Akagi", "Team Mackar", "Team Cromer",
+];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface SeasonStats {
@@ -39,7 +64,26 @@ interface NFLPlayer {
   seasonFpts: number;
   byeWeek: number;
   seasonStats: SeasonStats;
-  injuryNote?: string; // latest injury headline
+  injuryNote?: string;
+}
+
+interface PendingClaim {
+  playerId: string;
+  playerName: string;
+  playerPos: string;
+  bidAmount: number;
+  dropPlayerId: string | null; // null = no drop
+  dropPlayerName: string | null;
+}
+
+interface TradeProposal {
+  targetPlayerId: string;
+  targetPlayerName: string;
+  targetPlayerPos: string;
+  targetTeam: string;
+  givePlayerIds: string[];
+  giveFaab: string;
+  note: string;
 }
 
 // ── Mock player pool ───────────────────────────────────────────────────────────
@@ -151,8 +195,15 @@ function PlayerBrowser() {
   const [bidAmount, setBidAmount]     = useState("");
   // injuryExpanded: which rows have the injury note expanded
   const [injuryExpanded, setInjuryExpanded] = useState<Set<string>>(new Set());
-  // submitted bids (persisted in local state for demo)
-  const [submittedBids, setSubmittedBids] = useState<Record<string, number>>({});
+  // pending claims list
+  const [pendingClaims, setPendingClaims] = useState<PendingClaim[]>([]);
+  // drop selection per bid
+  const [bidDropId, setBidDropId] = useState<string>("");
+  // trade modal
+  const [tradeTarget, setTradeTarget] = useState<NFLPlayer | null>(null);
+  const [tradeGiveIds, setTradeGiveIds] = useState<string[]>([]);
+  const [tradeFaab, setTradeFaab] = useState("");
+  const [tradeNote, setTradeNote] = useState("");
 
   const toggleWatch = (id: string) => {
     setWatchlist(prev => {
@@ -173,11 +224,13 @@ function PlayerBrowser() {
   const openBid = (id: string) => {
     setBidPlayerId(id);
     setBidAmount("");
+    setBidDropId("");
   };
 
   const cancelBid = () => {
     setBidPlayerId(null);
     setBidAmount("");
+    setBidDropId("");
   };
 
   const submitBid = (player: NFLPlayer) => {
@@ -190,10 +243,54 @@ function PlayerBrowser() {
       toast.error(`Bid exceeds your FAAB balance ($${MY_FAAB})`);
       return;
     }
-    setSubmittedBids(prev => ({ ...prev, [player.id]: amt }));
+    const dropPlayer = bidDropId ? MY_ROSTER.find(r => r.id === bidDropId) : null;
+    const claim: PendingClaim = {
+      playerId: player.id,
+      playerName: player.name,
+      playerPos: player.pos,
+      bidAmount: amt,
+      dropPlayerId: dropPlayer?.id ?? null,
+      dropPlayerName: dropPlayer?.name ?? null,
+    };
+    setPendingClaims(prev => [...prev.filter(c => c.playerId !== player.id), claim]);
     setBidPlayerId(null);
     setBidAmount("");
-    toast.success(`Waiver claim submitted: ${player.name} — $${amt} FAAB`);
+    setBidDropId("");
+    const dropMsg = dropPlayer ? ` · Drop: ${dropPlayer.name}` : " · No drop";
+    toast.success(`Waiver claim submitted: ${player.name} — $${amt} FAAB${dropMsg}`);
+  };
+
+  const cancelClaim = (playerId: string) => {
+    setPendingClaims(prev => prev.filter(c => c.playerId !== playerId));
+    toast.info("Waiver claim cancelled");
+  };
+
+  const openTrade = (player: NFLPlayer) => {
+    setTradeTarget(player);
+    setTradeGiveIds([]);
+    setTradeFaab("");
+    setTradeNote("");
+  };
+
+  const submitTrade = () => {
+    if (!tradeTarget) return;
+    if (tradeGiveIds.length === 0 && !tradeFaab) {
+      toast.error("Add at least one player or FAAB to your offer");
+      return;
+    }
+    const giveNames = tradeGiveIds.map(id => MY_ROSTER.find(r => r.id === id)?.name).filter(Boolean).join(", ");
+    const faabPart = tradeFaab ? ` + $${tradeFaab} FAAB` : "";
+    toast.success(`Trade proposal sent to ${tradeTarget.ownerTeam}: ${giveNames}${faabPart} → ${tradeTarget.name}`);
+    setTradeTarget(null);
+  };
+
+  const hasPendingClaim = (id: string) => pendingClaims.some(c => c.playerId === id);
+
+  // Trade modal helpers
+  const toggleGivePlayer = (id: string) => {
+    setTradeGiveIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
   };
 
   const filtered = PLAYERS
@@ -274,6 +371,46 @@ function PlayerBrowser() {
         </div>
       </div>
 
+      {/* Pending Claims list */}
+      {pendingClaims.length > 0 && (
+        <div className="wrc-card" style={{ marginBottom: "1.25rem" }}>
+          <div className="wrc-card-gold-stripe" />
+          <div className="wrc-card-header">
+            <ClipboardList size={14} />
+            My Pending Waiver Claims
+            <span style={{ marginLeft: "auto", fontSize: "0.78rem", color: "oklch(0.6 0.04 150)" }}>
+              {pendingClaims.length} claim{pendingClaims.length > 1 ? "s" : ""} · processes Tue morning
+            </span>
+          </div>
+          {pendingClaims.map((claim, ci) => (
+            <div key={claim.playerId} style={{
+              display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.65rem 1.25rem",
+              borderBottom: ci < pendingClaims.length - 1 ? "1px solid oklch(0.93 0.005 150)" : "none",
+            }}>
+              <span style={{ fontSize: "0.65rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: POS_COLORS[claim.playerPos] || "oklch(0.5 0.04 150)", color: "white" }}>{claim.playerPos}</span>
+              <span style={{ fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.18 0.05 150)", flex: 1 }}>{claim.playerName}</span>
+              <span style={{ fontSize: "0.7rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, color: "oklch(0.38 0.16 85)", background: "oklch(0.94 0.06 85)", border: "1px solid oklch(0.84 0.10 85)", borderRadius: 4, padding: "1px 7px" }}>
+                ${claim.bidAmount} FAAB
+              </span>
+              {claim.dropPlayerName ? (
+                <span style={{ fontSize: "0.68rem", color: "oklch(0.5 0.22 25)", display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                  <Trash2 size={11} /> Drop: {claim.dropPlayerName}
+                </span>
+              ) : (
+                <span style={{ fontSize: "0.68rem", color: "oklch(0.6 0.04 150)" }}>No drop</span>
+              )}
+              <button
+                onClick={() => cancelClaim(claim.playerId)}
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "oklch(0.6 0.04 150)", display: "flex", alignItems: "center" }}
+                title="Cancel claim"
+              >
+                <X size={15} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Player list */}
       <div className="wrc-card">
         <div className="wrc-card-gold-stripe" />
@@ -297,7 +434,8 @@ function PlayerBrowser() {
           const isWatched   = watchlist.has(p.id);
           const isBidOpen   = bidPlayerId === p.id;
           const isInjuryOpen = injuryExpanded.has(p.id);
-          const hasBid      = submittedBids[p.id] !== undefined;
+          const hasBid      = hasPendingClaim(p.id);
+          const pendingClaim = pendingClaims.find(c => c.playerId === p.id);
           const hasInjury   = !!p.injuryNote && p.status !== "Active";
 
           return (
@@ -352,9 +490,9 @@ function PlayerBrowser() {
                         FREE AGENT
                       </span>
                     )}
-                    {hasBid && (
+                    {hasBid && pendingClaim && (
                       <span style={{ fontSize: "0.62rem", fontWeight: 700, fontFamily: "Oswald, sans-serif", padding: "1px 5px", borderRadius: 3, background: "oklch(0.92 0.08 85)", color: "oklch(0.38 0.16 85)", border: "1px solid oklch(0.82 0.10 85)" }}>
-                        BID ${submittedBids[p.id]}
+                        BID ${pendingClaim.bidAmount}
                       </span>
                     )}
                   </div>
@@ -442,10 +580,26 @@ function PlayerBrowser() {
                   )}
                   {hasBid && (
                     <button
-                      onClick={() => { setSubmittedBids(prev => { const n = {...prev}; delete n[p.id]; return n; }); }}
+                      onClick={() => cancelClaim(p.id)}
                       style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "3px 10px", borderRadius: 5, cursor: "pointer", fontFamily: "Oswald, sans-serif", fontSize: "0.7rem", fontWeight: 700, background: "oklch(0.95 0.02 150)", color: "oklch(0.5 0.04 150)", border: "1px solid oklch(0.82 0.02 150)" }}
                     >
-                      <X size={11} /> Cancel Bid
+                      <X size={11} /> Cancel
+                    </button>
+                  )}
+                  {/* Trade button — only for rostered players on other teams */}
+                  {p.owned && p.ownerTeam !== MY_TEAM && (
+                    <button
+                      onClick={() => openTrade(p)}
+                      style={{
+                        display: "flex", alignItems: "center", gap: "0.3rem",
+                        padding: "3px 10px", borderRadius: 5, cursor: "pointer",
+                        fontFamily: "Oswald, sans-serif", fontSize: "0.7rem", fontWeight: 700,
+                        letterSpacing: "0.04em",
+                        background: "oklch(0.42 0.18 260)", color: "white", border: "none",
+                        transition: "background 0.15s",
+                      }}
+                    >
+                      <ArrowLeftRight size={11} /> Trade
                     </button>
                   )}
                 </div>
@@ -455,30 +609,54 @@ function PlayerBrowser() {
               {isBidOpen && (
                 <div style={{
                   margin: "0 1rem 0.75rem",
-                  padding: "0.75rem 1rem",
+                  padding: "0.875rem 1rem",
                   background: "oklch(0.97 0.02 150)",
                   border: "1.5px solid oklch(0.88 0.04 150)",
                   borderRadius: 8,
                 }}>
-                  <div style={{ fontSize: "0.72rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, letterSpacing: "0.06em", color: "oklch(0.38 0.08 150)", textTransform: "uppercase" as const, marginBottom: "0.5rem" }}>
+                  <div style={{ fontSize: "0.72rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, letterSpacing: "0.06em", color: "oklch(0.38 0.08 150)", textTransform: "uppercase" as const, marginBottom: "0.75rem" }}>
                     FAAB Waiver Claim — {p.name}
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" as const }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", background: "white", border: "1.5px solid oklch(0.84 0.04 150)", borderRadius: 6, padding: "0.3rem 0.6rem" }}>
-                      <DollarSign size={13} color="oklch(0.38 0.14 85)" />
-                      <input
-                        type="number" min={0} max={MY_FAAB}
-                        value={bidAmount}
-                        onChange={e => setBidAmount(e.target.value)}
-                        placeholder="0"
-                        style={{ width: 70, border: "none", outline: "none", fontSize: "0.9rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, color: "oklch(0.22 0.08 150)" }}
-                        onKeyDown={e => e.key === "Enter" && submitBid(p)}
-                        autoFocus
-                      />
+                  {/* Row 1: FAAB amount */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" as const, marginBottom: "0.6rem" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                      <span style={{ fontSize: "0.7rem", color: "oklch(0.45 0.04 150)", fontWeight: 600 }}>Bid:</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", background: "white", border: "1.5px solid oklch(0.84 0.04 150)", borderRadius: 6, padding: "0.3rem 0.6rem" }}>
+                        <DollarSign size={13} color="oklch(0.38 0.14 85)" />
+                        <input
+                          type="number" min={0} max={MY_FAAB}
+                          value={bidAmount}
+                          onChange={e => setBidAmount(e.target.value)}
+                          placeholder="0"
+                          style={{ width: 70, border: "none", outline: "none", fontSize: "0.9rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, color: "oklch(0.22 0.08 150)" }}
+                          onKeyDown={e => e.key === "Enter" && submitBid(p)}
+                          autoFocus
+                        />
+                      </div>
+                      <span style={{ fontSize: "0.68rem", color: "oklch(0.6 0.04 150)" }}>Balance: <strong>${MY_FAAB}</strong></span>
                     </div>
-                    <span style={{ fontSize: "0.7rem", color: "oklch(0.55 0.04 150)" }}>
-                      Balance: <strong>${MY_FAAB}</strong> · Max bid: <strong>${MY_FAAB}</strong>
-                    </span>
+                  </div>
+                  {/* Row 2: Drop player */}
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" as const, marginBottom: "0.75rem" }}>
+                    <span style={{ fontSize: "0.7rem", color: "oklch(0.45 0.04 150)", fontWeight: 600 }}>Drop:</span>
+                    <select
+                      value={bidDropId}
+                      onChange={e => setBidDropId(e.target.value)}
+                      style={{ padding: "0.35rem 0.6rem", border: "1.5px solid oklch(0.84 0.04 150)", borderRadius: 6, fontSize: "0.82rem", background: "white", cursor: "pointer", outline: "none", color: bidDropId ? "oklch(0.22 0.08 150)" : "oklch(0.6 0.04 150)" }}
+                    >
+                      <option value="">No drop (open roster spot)</option>
+                      {MY_ROSTER.map(r => (
+                        <option key={r.id} value={r.id}>{r.name} ({r.pos})</option>
+                      ))}
+                    </select>
+                    {bidDropId && (
+                      <span style={{ fontSize: "0.68rem", color: "oklch(0.5 0.22 25)", fontWeight: 600 }}>
+                        ⚠ {MY_ROSTER.find(r => r.id === bidDropId)?.name} will be released
+                      </span>
+                    )}
+                  </div>
+                  {/* Row 3: Actions */}
+                  <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" as const }}>
                     <button
                       onClick={() => submitBid(p)}
                       style={{
@@ -486,7 +664,6 @@ function PlayerBrowser() {
                         padding: "0.4rem 1rem", borderRadius: 6, cursor: "pointer",
                         fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", fontWeight: 700,
                         background: "oklch(0.38 0.15 150)", color: "white", border: "none",
-                        transition: "background 0.15s",
                       }}
                     >
                       <Check size={13} /> Submit Claim
@@ -498,7 +675,7 @@ function PlayerBrowser() {
                       <X size={13} /> Cancel
                     </button>
                   </div>
-                  <div style={{ fontSize: "0.68rem", color: "oklch(0.6 0.04 150)", marginTop: "0.4rem" }}>
+                  <div style={{ fontSize: "0.68rem", color: "oklch(0.6 0.04 150)", marginTop: "0.5rem" }}>
                     Waiver claims process Tuesday morning. Highest bid wins. $0 bid = priority waiver.
                   </div>
                 </div>
@@ -507,6 +684,101 @@ function PlayerBrowser() {
           );
         })}
       </div>
+      {/* Trade Proposal Modal */}
+      <Dialog open={!!tradeTarget} onOpenChange={open => { if (!open) setTradeTarget(null); }}>
+        <DialogContent style={{ maxWidth: 480 }}>
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: "Oswald, sans-serif", letterSpacing: "0.04em" }}>
+              Propose Trade
+            </DialogTitle>
+          </DialogHeader>
+          {tradeTarget && (
+            <div style={{ display: "flex", flexDirection: "column" as const, gap: "1rem" }}>
+              {/* Target player */}
+              <div style={{ padding: "0.75rem", background: "oklch(0.96 0.03 260)", borderRadius: 8, border: "1px solid oklch(0.88 0.06 260)" }}>
+                <div style={{ fontSize: "0.68rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, color: "oklch(0.42 0.12 260)", letterSpacing: "0.06em", marginBottom: "0.3rem" }}>YOU WANT</div>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <span style={{ fontSize: "0.65rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: POS_COLORS[tradeTarget.pos], color: "white" }}>{tradeTarget.pos}</span>
+                  <span style={{ fontWeight: 700, fontSize: "0.95rem", color: "oklch(0.18 0.05 150)" }}>{tradeTarget.name}</span>
+                  <span style={{ fontSize: "0.7rem", color: "oklch(0.55 0.04 150)" }}>{tradeTarget.nflTeam}</span>
+                  <span style={{ marginLeft: "auto", fontSize: "0.7rem", color: "oklch(0.42 0.12 260)", fontWeight: 600 }}>from {tradeTarget.ownerTeam}</span>
+                </div>
+              </div>
+
+              {/* Give players */}
+              <div>
+                <div style={{ fontSize: "0.68rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, color: "oklch(0.45 0.04 150)", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>YOU GIVE — select from your roster</div>
+                <div style={{ display: "flex", flexDirection: "column" as const, gap: "0.35rem" }}>
+                  {MY_ROSTER.map(r => {
+                    const selected = tradeGiveIds.includes(r.id);
+                    return (
+                      <button
+                        key={r.id}
+                        onClick={() => toggleGivePlayer(r.id)}
+                        style={{
+                          display: "flex", alignItems: "center", gap: "0.5rem",
+                          padding: "0.45rem 0.75rem", borderRadius: 6, cursor: "pointer",
+                          border: selected ? "1.5px solid oklch(0.38 0.15 150)" : "1.5px solid oklch(0.88 0.01 150)",
+                          background: selected ? "oklch(0.94 0.06 150)" : "white",
+                          transition: "all 0.12s",
+                        }}
+                      >
+                        <span style={{ fontSize: "0.62rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, padding: "1px 4px", borderRadius: 3, background: POS_COLORS[r.pos], color: "white" }}>{r.pos}</span>
+                        <span style={{ fontSize: "0.85rem", fontWeight: selected ? 700 : 400, color: selected ? "oklch(0.22 0.08 150)" : "oklch(0.35 0.04 150)" }}>{r.name}</span>
+                        {selected && <Check size={13} color="oklch(0.38 0.15 150)" style={{ marginLeft: "auto" }} />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* FAAB sweetener */}
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                <span style={{ fontSize: "0.7rem", color: "oklch(0.45 0.04 150)", fontWeight: 600 }}>Add FAAB:</span>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", background: "white", border: "1.5px solid oklch(0.84 0.04 150)", borderRadius: 6, padding: "0.3rem 0.6rem" }}>
+                  <DollarSign size={13} color="oklch(0.38 0.14 85)" />
+                  <input
+                    type="number" min={0} max={MY_FAAB}
+                    value={tradeFaab}
+                    onChange={e => setTradeFaab(e.target.value)}
+                    placeholder="0 (optional)"
+                    style={{ width: 100, border: "none", outline: "none", fontSize: "0.88rem", fontFamily: "Oswald, sans-serif", fontWeight: 600, color: "oklch(0.22 0.08 150)" }}
+                  />
+                </div>
+                <span style={{ fontSize: "0.68rem", color: "oklch(0.6 0.04 150)" }}>Balance: ${MY_FAAB}</span>
+              </div>
+
+              {/* Note */}
+              <div>
+                <div style={{ fontSize: "0.68rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, color: "oklch(0.45 0.04 150)", letterSpacing: "0.06em", marginBottom: "0.35rem" }}>NOTE (optional)</div>
+                <textarea
+                  value={tradeNote}
+                  onChange={e => setTradeNote(e.target.value)}
+                  placeholder="Add a message to the other team…"
+                  rows={2}
+                  style={{ width: "100%", padding: "0.5rem 0.75rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 6, fontSize: "0.85rem", resize: "vertical" as const, outline: "none", boxSizing: "border-box" as const }}
+                />
+              </div>
+
+              {/* Actions */}
+              <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" as const }}>
+                <button
+                  onClick={() => setTradeTarget(null)}
+                  style={{ padding: "0.5rem 1rem", borderRadius: 6, cursor: "pointer", fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", fontWeight: 700, background: "white", color: "oklch(0.5 0.04 150)", border: "1px solid oklch(0.82 0.02 150)" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitTrade}
+                  style={{ display: "flex", alignItems: "center", gap: "0.35rem", padding: "0.5rem 1.25rem", borderRadius: 6, cursor: "pointer", fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", fontWeight: 700, background: "oklch(0.42 0.18 260)", color: "white", border: "none" }}
+                >
+                  <ArrowLeftRight size={13} /> Send Proposal
+                </button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
