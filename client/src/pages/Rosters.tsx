@@ -320,8 +320,6 @@ const DIVISIONS = ["East", "Central", "West"] as const;
 export default function Rosters() {
   const { franchise } = useAuth();
   const [selectedDivision, setSelectedDivision] = useState<"All" | "East" | "Central" | "West">("All");
-  const [expandedTeam, setExpandedTeam] = useState<string | null>(null);
-
   const filtered = selectedDivision === "All"
     ? ROSTERS
     : ROSTERS.filter(f => f.division === selectedDivision);
@@ -386,7 +384,6 @@ export default function Rosters() {
               gap: "1rem",
             }}>
               {ROSTERS.filter(f => f.division === div).map(team => {
-                const isExpanded = expandedTeam === team.id;
                 const isMyTeam = team.teamName === franchise?.team_name;
                 const starters = team.players.filter(p => p.isStarter);
                 const bench = team.players.filter(p => !p.isStarter);
@@ -396,11 +393,8 @@ export default function Rosters() {
                     key={team.id}
                     className="wrc-card"
                     style={{
-                      cursor: "pointer",
                       outline: isMyTeam ? "2px solid oklch(0.78 0.15 85)" : "none",
-                      transition: "transform 0.15s ease, box-shadow 0.15s ease",
                     }}
-                    onClick={() => setExpandedTeam(isExpanded ? null : team.id)}
                   >
                     <div className="wrc-card-gold-stripe" />
 
@@ -457,45 +451,10 @@ export default function Rosters() {
                         <div style={{ fontSize: "0.75rem", color: "oklch(0.5 0.04 150)" }}>{team.owner}</div>
                       </div>
 
-                      {/* Expand chevron */}
-                      <div style={{
-                        fontSize: "0.75rem",
-                        color: "oklch(0.55 0.06 150)",
-                        transition: "transform 0.2s ease",
-                        transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
-                        flexShrink: 0,
-                      }}>▼</div>
+
                     </div>
 
-                    {/* Collapsed: position summary pills */}
-                    {!isExpanded && (
-                      <div style={{ padding: "0 1rem 0.85rem", display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
-                        {(["QB","RB","WR","TE","K","DST"] as const).map(pos => {
-                          const count = team.players.filter(p => p.pos === pos).length;
-                          const c = POS_COLORS[pos];
-                          return (
-                            <span key={pos} style={{
-                              background: c.bg,
-                              color: c.text,
-                              borderRadius: 4,
-                              padding: "2px 7px",
-                              fontSize: "0.68rem",
-                              fontWeight: 700,
-                              fontFamily: "Oswald, sans-serif",
-                              letterSpacing: "0.04em",
-                            }}>
-                              {pos} ×{count}
-                            </span>
-                          );
-                        })}
-                        <span style={{ fontSize: "0.7rem", color: "oklch(0.55 0.06 150)", alignSelf: "center", marginLeft: "auto" }}>
-                          {team.players.length} players — tap to expand
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Expanded: full roster */}
-                    {isExpanded && (
+                    {/* Full roster — always open */}
                       <div style={{ padding: "0 0 0.5rem" }}>
                         {/* Starters */}
                         <div style={{
@@ -533,7 +492,6 @@ export default function Rosters() {
                           <PlayerRow key={i} player={p} alt={i % 2 !== 0} bench />
                         ))}
                       </div>
-                    )}
                   </div>
                 );
               })}
