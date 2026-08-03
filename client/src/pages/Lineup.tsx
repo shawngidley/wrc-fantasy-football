@@ -4,11 +4,12 @@
  * Features: Best Lineup optimizer, per-player game info (day/time/opp/location), inline swap panel
  * TE Premium: 1.5x PPR for TE position regardless of slot
  */
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Lock, CheckCircle2, ChevronDown, ArrowLeftRight, X, Zap } from "lucide-react";
 import { TEAMS } from "@/lib/wrcData";
+import { useDraftedRoster } from "@/hooks/useDraftedRoster";
 
 const STARTER_SLOTS = [
   { slot: "QB",    label: "Quarterback",   eligible: ["QB"] },
@@ -313,14 +314,54 @@ function buildRealRoster(teamName: string | undefined): { starters: Player[]; be
 
 export default function Lineup() {
   const { franchise } = useAuth();
+  const { rostersByTeam, hasPicks, loading: draftLoading } = useDraftedRoster();
+
+  // Build roster from live draft picks or fall back to static
+  const liveRoster = useMemo(() => {
+    if (!hasPicks || !franchise?.team_name) return null;
+    const players = rostersByTeam[franchise.team_name];
+    if (!players || players.length === 0) return null;
+    const allPlayers: Player[] = players.map((rp, i) => ({
+      id: rp.id,
+      name: rp.name,
+      pos: rp.pos,
+      nflTeam: rp.nflTeam,
+      pts: 0,
+      proj: 0,
+      status: "Active",
+      byeWeek: rp.byeWeek ?? undefined,
+      seasonFpts: undefined,
+      seasonStats: undefined,
+      isBench: false,
+    }));
+    const pool = [...allPlayers];
+    const starters: Player[] = [];
+    for (const slotDef of STARTER_SLOTS) {
+      const idx = pool.findIndex(p => slotDef.eligible.includes(p.pos));
+      if (idx !== -1) {
+        const [player] = pool.splice(idx, 1);
+        starters.push({ ...player, slot: slotDef.slot, isBench: false });
+      }
+    }
+    const bench = pool.map(p => ({ ...p, isBench: true }));
+    return { starters, bench };
+  }, [rostersByTeam, hasPicks, franchise?.team_name]);
 
   const { starters: initialStarters, bench: initialBench } = useMemo(
-    () => buildRealRoster(franchise?.team_name),
-    [franchise?.team_name]
+    () => liveRoster ?? buildRealRoster(franchise?.team_name),
+    [liveRoster, franchise?.team_name]
   );
 
   const [starters, setStarters] = useState<Player[]>(initialStarters);
   const [bench, setBench] = useState<Player[]>(initialBench);
+
+  // Re-seed when live roster arrives (draft picks come in after initial mount)
+  useEffect(() => {
+    if (liveRoster) {
+      setStarters(liveRoster.starters);
+      setBench(liveRoster.bench);
+    }
+  }, [liveRoster]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [optimized, setOptimized] = useState(false);

@@ -10,8 +10,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import {
   Lock, LogOut, User, Shield, CheckCircle2, Eye, EyeOff,
-  RefreshCw, ClipboardList, AlertTriangle,
+  RefreshCw, ClipboardList, AlertTriangle, Music, Upload, Trash2, Play, Square,
 } from "lucide-react";
+import { useRef } from "react";
 
 // ── Commissioner PIN Reset Panel ──────────────────────────────────────────────
 function CommissionerPinPanel({ labelStyle }: { labelStyle: React.CSSProperties }) {
@@ -263,6 +264,74 @@ export default function Settings() {
   const [pinSuccess, setPinSuccess] = useState(false);
   const [savingPin, setSavingPin] = useState(false);
 
+  // ── Theme Song state ──
+  const [themeSongUrl, setThemeSongUrl] = useState<string | null>(null);
+  const [themeSongName, setThemeSongName] = useState<string | null>(null);
+  const [uploadingTheme, setUploadingTheme] = useState(false);
+  const [themeError, setThemeError] = useState("");
+  const [themeSuccess, setThemeSuccess] = useState("");
+  const [isPlaying, setIsPlaying] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Load existing theme song on mount
+  useEffect(() => {
+    if (!franchise) return;
+    supabase.from("teams").select("theme_song_url").eq("id", franchise.id).single()
+      .then(({ data }) => {
+        if (data?.theme_song_url) {
+          setThemeSongUrl(data.theme_song_url);
+          const parts = data.theme_song_url.split("/");
+          setThemeSongName(decodeURIComponent(parts[parts.length - 1]));
+        }
+      });
+  }, [franchise?.id]);
+
+  const handleThemeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !franchise) return;
+    setThemeError(""); setThemeSuccess("");
+    if (file.size > 10 * 1024 * 1024) { setThemeError("File must be under 10MB."); return; }
+    const allowed = ["audio/mpeg", "audio/mp3", "audio/wav", "audio/ogg", "audio/m4a", "audio/aac", "audio/x-m4a"];
+    if (!allowed.includes(file.type) && !file.name.match(/\.(mp3|wav|ogg|m4a|aac)$/i)) {
+      setThemeError("Only MP3, WAV, OGG, M4A, or AAC files are supported."); return;
+    }
+    setUploadingTheme(true);
+    const path = `${franchise.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+    const { error: upErr } = await supabase.storage.from("theme-songs").upload(path, file, { upsert: true, contentType: file.type });
+    if (upErr) { setThemeError("Upload failed: " + upErr.message); setUploadingTheme(false); return; }
+    const { data: { publicUrl } } = supabase.storage.from("theme-songs").getPublicUrl(path);
+    const { error: dbErr } = await supabase.from("teams").update({ theme_song_url: publicUrl }).eq("id", franchise.id);
+    if (dbErr) { setThemeError("Saved file but failed to update record: " + dbErr.message); setUploadingTheme(false); return; }
+    setThemeSongUrl(publicUrl);
+    setThemeSongName(file.name);
+    setThemeSuccess("Theme song uploaded!");
+    setUploadingTheme(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleRemoveTheme = async () => {
+    if (!franchise || !themeSongUrl) return;
+    setThemeError(""); setThemeSuccess("");
+    if (audioRef.current) { audioRef.current.pause(); setIsPlaying(false); }
+    await supabase.from("teams").update({ theme_song_url: null }).eq("id", franchise.id);
+    setThemeSongUrl(null); setThemeSongName(null);
+    setThemeSuccess("Theme song removed.");
+  };
+
+  const handlePlayPause = () => {
+    if (!themeSongUrl) return;
+    if (!audioRef.current) audioRef.current = new Audio(themeSongUrl);
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current.play().catch(() => {});
+      audioRef.current.onended = () => setIsPlaying(false);
+      setIsPlaying(true);
+    }
+  };
+
   const handlePinChange = async (e: React.FormEvent) => {
     e.preventDefault();
     setPinError(""); setPinSuccess(false);
@@ -474,6 +543,49 @@ export default function Settings() {
                 {savingPin ? "Saving…" : "Update PIN"}
               </button>
             </form>
+          </div>
+        </div>
+
+        {/* Theme Song Card */}
+        <div className="wrc-card" style={{ marginBottom: "1.25rem" }}>
+          <div className="wrc-card-gold-stripe" />
+          <div className="wrc-card-header" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <Music size={14} /> Draft Theme Song
+          </div>
+          <div style={{ padding: "1.25rem" }}>
+            <p style={{ fontSize: "0.85rem", color: "oklch(0.5 0.04 150)", margin: "0 0 1.25rem" }}>
+              Upload your theme song — it plays automatically on the Draft Board when you go on the clock. MP3, WAV, OGG, M4A, or AAC · Max 10MB.
+            </p>
+
+            {/* Current song */}
+            {themeSongUrl && (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", background: "oklch(0.94 0.05 150)", border: "1.5px solid oklch(0.82 0.1 150)", borderRadius: 8, padding: "0.65rem 1rem", marginBottom: "1rem" }}>
+                <Music size={16} color="oklch(0.35 0.15 150)" />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.82rem", color: "oklch(0.22 0.08 150)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{themeSongName ?? "Theme Song"}</div>
+                  <div style={{ fontSize: "0.72rem", color: "oklch(0.5 0.04 150)" }}>Uploaded · plays on draft clock</div>
+                </div>
+                <button onClick={handlePlayPause} title={isPlaying ? "Stop" : "Preview"} style={{ background: "oklch(0.28 0.09 150)", color: "white", border: "none", borderRadius: 6, padding: "0.35rem 0.6rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700 }}>
+                  {isPlaying ? <><Square size={11} /> Stop</> : <><Play size={11} /> Preview</>}
+                </button>
+                <button onClick={handleRemoveTheme} title="Remove" style={{ background: "oklch(0.97 0.02 25)", color: "oklch(0.45 0.18 25)", border: "1px solid oklch(0.85 0.08 25)", borderRadius: 6, padding: "0.35rem 0.5rem", cursor: "pointer" }}>
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            )}
+
+            {/* Upload button */}
+            <input ref={fileInputRef} type="file" accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/m4a,audio/aac,.mp3,.wav,.ogg,.m4a,.aac" onChange={handleThemeUpload} style={{ display: "none" }} id="theme-song-input" />
+            <label htmlFor="theme-song-input" style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", background: uploadingTheme ? "oklch(0.88 0.01 150)" : "oklch(0.28 0.09 150)", color: "white", borderRadius: 8, padding: "0.6rem 1.25rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: uploadingTheme ? "not-allowed" : "pointer", pointerEvents: uploadingTheme ? "none" : "auto" }}>
+              <Upload size={14} /> {uploadingTheme ? "Uploading…" : themeSongUrl ? "Replace Song" : "Upload Song"}
+            </label>
+
+            {themeError && <div style={{ marginTop: "0.75rem", color: "oklch(0.45 0.18 25)", fontSize: "0.82rem", fontWeight: 600 }}>{themeError}</div>}
+            {themeSuccess && (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.75rem", color: "oklch(0.35 0.15 150)", fontSize: "0.82rem", fontWeight: 600 }}>
+                <CheckCircle2 size={15} /> {themeSuccess}
+              </div>
+            )}
           </div>
         </div>
 

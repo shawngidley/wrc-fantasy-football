@@ -4,10 +4,11 @@
  * Shows all 12 franchise rosters at a glance — each team's 18 players
  * with position, NFL team, and starter/bench designation.
  */
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { TEAMS, type TeamRecord } from "@/lib/wrcData";
+import { useDraftedRoster } from "@/hooks/useDraftedRoster";
 
 type Player = {
   name: string;
@@ -47,7 +48,8 @@ function toFranchise(t: TeamRecord): Franchise {
   };
 }
 
-const ROSTERS: Franchise[] = TEAMS.map(toFranchise);
+// Static fallback — used before draft starts
+const STATIC_ROSTERS: Franchise[] = TEAMS.map(toFranchise);
 
 // ── Sort helpers ─────────────────────────────────────────────────────────────
 const POS_ORDER: Record<string, number> = { QB: 0, RB: 1, WR: 2, TE: 3, K: 4, DST: 5 };
@@ -94,6 +96,30 @@ const DIVISIONS = ["East", "Central", "West"] as const;
 export default function Rosters() {
   const { franchise } = useAuth();
   const [selectedDivision, setSelectedDivision] = useState<"All" | "East" | "Central" | "West">("All");
+  const { rostersByTeam, loading: draftLoading, hasPicks } = useDraftedRoster();
+
+  // Build live rosters from draft picks (or fall back to static)
+  const ROSTERS: Franchise[] = useMemo(() => {
+    if (!hasPicks) return STATIC_ROSTERS;
+    return TEAMS.map(t => {
+      const draftedPlayers = rostersByTeam[t.teamName] ?? [];
+      return {
+        id: t.id,
+        teamName: t.teamName,
+        owner: t.owner,
+        division: t.division,
+        faabRemaining: t.faabRemaining,
+        players: draftedPlayers.map((p, i) => ({
+          name: p.name,
+          pos: p.pos,
+          nflTeam: p.nflTeam,
+          isStarter: i < 11,
+          acq: p.acquisition === "Draft" ? "Draft" : "FA",
+        })),
+      };
+    });
+  }, [rostersByTeam, hasPicks]);
+
   const filtered = selectedDivision === "All"
     ? ROSTERS
     : ROSTERS.filter(f => f.division === selectedDivision);
@@ -106,7 +132,15 @@ export default function Rosters() {
         {/* Page Title */}
         <div className="wrc-page-title" style={{ padding: "1rem 0 1.25rem" }}>
           <h1>WRC Rosters</h1>
-          <p>2026 Season — All 12 Franchises</p>
+          <p style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+            2026 Season — All 12 Franchises
+            {draftLoading && <span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.08em" }}>Loading rosters…</span>}
+            {!draftLoading && hasPicks && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", background: "oklch(0.93 0.06 85)", color: "oklch(0.35 0.14 85)", borderRadius: 6, padding: "2px 8px", fontSize: "0.7rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.08em" }}>
+                ⚡ LIVE DRAFT ROSTERS
+              </span>
+            )}
+          </p>
         </div>
 
         {/* Division Filter */}
