@@ -200,6 +200,35 @@ function PlayerBrowser() {
   const [pendingClaims, setPendingClaims] = useState<PendingClaim[]>([]);
   // drop selection per bid
   const [bidDropId, setBidDropId] = useState<string>("");
+  // per-player news modal
+  const [newsPlayer, setNewsPlayer] = useState<NFLPlayer | null>(null);
+  const [newsArticles, setNewsArticles] = useState<ESPNArticle[]>([]);
+  const [newsLoading, setNewsLoading] = useState(false);
+
+  const openPlayerNews = async (player: NFLPlayer) => {
+    setNewsPlayer(player);
+    setNewsArticles([]);
+    setNewsLoading(true);
+    try {
+      // Search ESPN for this player's name
+      const query = encodeURIComponent(player.name);
+      const res = await fetch(
+        `https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=8&q=${query}`
+      );
+      const json = await res.json();
+      const all: ESPNArticle[] = json.articles ?? [];
+      // Filter to articles that mention the player name
+      const filtered = all.filter(a =>
+        a.headline.toLowerCase().includes(player.name.split(" ")[1]?.toLowerCase() ?? player.name.toLowerCase())
+      );
+      setNewsArticles(filtered.length > 0 ? filtered : all.slice(0, 5));
+    } catch {
+      setNewsArticles([]);
+    } finally {
+      setNewsLoading(false);
+    }
+  };
+
   // trade modal
   const [tradeTarget, setTradeTarget] = useState<NFLPlayer | null>(null);
   const [tradeGiveIds, setTradeGiveIds] = useState<string[]>([]);
@@ -472,7 +501,11 @@ function PlayerBrowser() {
                 {/* Main info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap" as const }}>
-                    <span style={{ fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.18 0.05 150)" }}>{p.name}</span>
+                    <button
+                      onClick={() => openPlayerNews(p)}
+                      style={{ fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.22 0.12 260)", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline", textDecorationColor: "oklch(0.22 0.12 260 / 0.3)", textUnderlineOffset: 2 }}
+                      title={`View ESPN news for ${p.name}`}
+                    >{p.name}</button>
                     <span style={{ fontSize: "0.7rem", color: "oklch(0.55 0.04 150)" }}>{p.nflTeam}</span>
                     {p.status !== "Active" && (
                       <span style={{
@@ -685,6 +718,65 @@ function PlayerBrowser() {
           );
         })}
       </div>
+      {/* Per-Player ESPN News Modal */}
+      <Dialog open={!!newsPlayer} onOpenChange={open => { if (!open) { setNewsPlayer(null); setNewsArticles([]); } }}>
+        <DialogContent style={{ maxWidth: 560, maxHeight: "80vh", overflowY: "auto" }}>
+          <DialogHeader>
+            <DialogTitle style={{ fontFamily: "Oswald, sans-serif", letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <Newspaper size={18} />
+              {newsPlayer?.name} — ESPN News
+            </DialogTitle>
+          </DialogHeader>
+          {newsLoading && (
+            <div style={{ padding: "2rem", textAlign: "center", color: "oklch(0.6 0.04 150)" }}>
+              <Activity size={20} style={{ margin: "0 auto 0.5rem", display: "block", animation: "spin 1s linear infinite" }} />
+              Loading news…
+            </div>
+          )}
+          {!newsLoading && newsArticles.length === 0 && (
+            <div style={{ padding: "2rem", textAlign: "center", color: "oklch(0.6 0.04 150)" }}>
+              No recent ESPN articles found for {newsPlayer?.name}.
+            </div>
+          )}
+          {!newsLoading && newsArticles.map((a, i) => (
+            <div key={a.id ?? i} style={{
+              borderBottom: i < newsArticles.length - 1 ? "1px solid oklch(0.93 0.005 150)" : "none",
+              padding: "0.875rem 0",
+              display: "flex", gap: "0.75rem", alignItems: "flex-start",
+            }}>
+              {a.images?.[0]?.url && (
+                <img
+                  src={a.images[0].url}
+                  alt=""
+                  style={{ width: 72, height: 52, objectFit: "cover", borderRadius: 6, flexShrink: 0 }}
+                />
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <a
+                  href={a.links?.web?.href ?? "#"}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.18 0.05 150)", textDecoration: "none", lineHeight: 1.35, display: "block", marginBottom: "0.3rem" }}
+                >
+                  {a.headline}
+                </a>
+                {a.description && (
+                  <p style={{ fontSize: "0.78rem", color: "oklch(0.45 0.04 150)", lineHeight: 1.5, margin: 0, marginBottom: "0.3rem" }}>
+                    {a.description.length > 140 ? a.description.slice(0, 140) + "…" : a.description}
+                  </p>
+                )}
+                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
+                  {a.byline && <span style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)" }}>{a.byline}</span>}
+                  <span style={{ fontSize: "0.68rem", color: "oklch(0.65 0.04 150)" }}>{timeAgo(a.published)}</span>
+                  {a.premium && <span style={{ fontSize: "0.6rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "oklch(0.88 0.10 85)", color: "oklch(0.38 0.16 85)" }}>ESPN+</span>}
+                  <a href={a.links?.web?.href ?? "#"} target="_blank" rel="noopener noreferrer" style={{ marginLeft: "auto", fontSize: "0.68rem", color: "oklch(0.42 0.18 260)", fontWeight: 600 }}>Read on ESPN →</a>
+                </div>
+              </div>
+            </div>
+          ))}
+        </DialogContent>
+      </Dialog>
+
       {/* Trade Proposal Modal */}
       <Dialog open={!!tradeTarget} onOpenChange={open => { if (!open) setTradeTarget(null); }}>
         <DialogContent style={{ maxWidth: 480 }}>

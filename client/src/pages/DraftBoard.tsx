@@ -17,7 +17,7 @@ const TOTAL_TEAMS = 12;
 
 // 2026 WRC Draft date — update this when the date is set
 // Format: ISO 8601 string in Eastern Time
-const DRAFT_DATE = new Date("2026-08-28T19:00:00-04:00"); // Aug 28, 2026 7:00 PM ET (placeholder)
+const DRAFT_DATE = new Date("2026-08-27T19:00:00-04:00"); // Aug 27, 2026 7:00 PM ET (Thursday)
 
 function useDraftCountdown() {
   const [timeLeft, setTimeLeft] = useState(() => DRAFT_DATE.getTime() - Date.now());
@@ -117,7 +117,7 @@ function DraftCountdownBanner() {
           {isClose ? "⚡ Draft is almost here!" : "Draft Countdown"}
         </span>
         <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.5)", marginTop: 2 }}>
-          Aug 28, 2026 · 7:00 PM ET
+          Thu Aug 27, 2026 · 7:00 PM ET
         </span>
       </div>
       <div style={{ display: "flex", alignItems: "flex-start", gap: "0.25rem" }}>
