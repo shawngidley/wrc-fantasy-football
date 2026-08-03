@@ -154,18 +154,29 @@ export default function Standings() {
               <div style={{ overflowX: "auto" }}>
                 <table className="wrc-table" style={{ minWidth: 780 }}>
                   <thead>
+                    {/* Row 1: group labels */}
+                    <tr style={{ borderBottom: "none" }}>
+                      <th colSpan={2} style={{ textAlign: "left", padding: "0.45rem 0.75rem 0", fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", letterSpacing: "0.06em" }}>Team</th>
+                      <th colSpan={3} style={{ textAlign: "center", padding: "0.45rem 0.5rem 0", fontSize: "0.72rem", color: "oklch(0.45 0.04 150)", fontWeight: 400 }}></th>
+                      <th colSpan={2} style={{ textAlign: "center", padding: "0.45rem 0.5rem 0", fontSize: "0.72rem", color: "oklch(0.35 0.06 150)", fontWeight: 700, fontFamily: "Oswald, sans-serif", letterSpacing: "0.06em", borderLeft: "2px solid oklch(0.82 0.06 150)", borderBottom: "1px solid oklch(0.82 0.06 150)" }}>Head to Head</th>
+                      <th colSpan={2} style={{ textAlign: "center", padding: "0.45rem 0.5rem 0", fontSize: "0.72rem", color: "oklch(0.35 0.06 150)", fontWeight: 700, fontFamily: "Oswald, sans-serif", letterSpacing: "0.06em", borderLeft: "2px solid oklch(0.82 0.06 150)", borderBottom: "1px solid oklch(0.82 0.06 150)" }}>League Median</th>
+                      <th colSpan={2} style={{ textAlign: "center", padding: "0.45rem 0.5rem 0", fontSize: "0.72rem", color: "oklch(0.35 0.06 150)", fontWeight: 700, fontFamily: "Oswald, sans-serif", letterSpacing: "0.06em", borderLeft: "2px solid oklch(0.82 0.06 150)", borderBottom: "1px solid oklch(0.82 0.06 150)" }}>Division</th>
+                      <th colSpan={3} style={{ textAlign: "center", padding: "0.45rem 0.5rem 0", fontSize: "0.72rem", color: "oklch(0.45 0.04 150)", fontWeight: 400 }}></th>
+                    </tr>
+                    {/* Row 2: column sub-headers */}
                     <tr>
-                      <th style={{ width: 48, textAlign: "center" }}>Logo</th>
-                      <th style={{ textAlign: "left", minWidth: 160 }}>Team</th>
+                      <th style={{ width: 48, padding: "0 0.4rem 0.45rem" }}></th>
+                      <th style={{ textAlign: "left", minWidth: 160, padding: "0 0.75rem 0.45rem" }}></th>
                       <th style={TH}>W-L</th>
                       <th style={TH}>PCT</th>
                       <th style={TH}>GB</th>
-                      <th style={{ ...TH, borderLeft: "1px solid oklch(0.88 0.01 150)" }}>H2H W</th>
-                      <th style={TH}>H2H L</th>
-                      <th style={{ ...TH, borderLeft: "1px solid oklch(0.88 0.01 150)" }}>MED W</th>
-                      <th style={TH}>MED L</th>
-                      <th style={{ ...TH, borderLeft: "1px solid oklch(0.88 0.01 150)" }}>DIV</th>
-                      <th style={{ ...TH, borderLeft: "1px solid oklch(0.88 0.01 150)", textAlign: "right" }}>PF</th>
+                      <th style={{ ...TH, borderLeft: "2px solid oklch(0.82 0.06 150)" }}>Win</th>
+                      <th style={TH}>Loss</th>
+                      <th style={{ ...TH, borderLeft: "2px solid oklch(0.82 0.06 150)" }}>Win</th>
+                      <th style={TH}>Loss</th>
+                      <th style={{ ...TH, borderLeft: "2px solid oklch(0.82 0.06 150)" }}>Win</th>
+                      <th style={TH}>Loss</th>
+                      <th style={{ ...TH, textAlign: "right" }}>PF</th>
                       <th style={{ ...TH, textAlign: "right" }}>PA</th>
                       <th style={TH}>Streak</th>
                     </tr>
@@ -223,17 +234,14 @@ export default function Standings() {
                           {/* GB */}
                           <td style={{ ...TD_CENTER, fontWeight: gb === "—" ? 400 : 600, color: gb === "—" ? "oklch(0.65 0.03 150)" : "oklch(0.35 0.06 150)" }}>{gb}</td>
                           {/* H2H */}
-                          <td style={{ ...TD_CENTER, borderLeft: "1px solid oklch(0.92 0.005 150)", color: "oklch(0.38 0.15 150)", fontWeight: 700 }}>{team.h2hW}</td>
+                          <td style={{ ...TD_CENTER, borderLeft: "2px solid oklch(0.82 0.06 150)", color: "oklch(0.38 0.15 150)", fontWeight: 700 }}>{team.h2hW}</td>
                           <td style={{ ...TD_CENTER, color: "oklch(0.52 0.22 25)" }}>{team.h2hL}</td>
                           {/* Median */}
-                          <td style={{ ...TD_CENTER, borderLeft: "1px solid oklch(0.92 0.005 150)", color: "oklch(0.38 0.15 150)", fontWeight: 700 }}>{team.medW}</td>
+                          <td style={{ ...TD_CENTER, borderLeft: "2px solid oklch(0.82 0.06 150)", color: "oklch(0.38 0.15 150)", fontWeight: 700 }}>{team.medW}</td>
                           <td style={{ ...TD_CENTER, color: "oklch(0.52 0.22 25)" }}>{team.medL}</td>
                           {/* Division */}
-                          <td style={{ ...TD_CENTER, borderLeft: "1px solid oklch(0.92 0.005 150)" }}>
-                            <span style={{ fontWeight: 700, color: "oklch(0.28 0.09 150)" }}>{team.divW}</span>
-                            <span style={{ color: "oklch(0.65 0.03 150)", margin: "0 2px" }}>-</span>
-                            <span style={{ color: "oklch(0.45 0.04 150)" }}>{team.divL}</span>
-                          </td>
+                          <td style={{ ...TD_CENTER, borderLeft: "2px solid oklch(0.82 0.06 150)", color: "oklch(0.38 0.15 150)", fontWeight: 700 }}>{team.divW}</td>
+                          <td style={{ ...TD_CENTER, color: "oklch(0.52 0.22 25)" }}>{team.divL}</td>
                           {/* PF / PA */}
                           <td style={{ ...TD_CENTER, borderLeft: "1px solid oklch(0.92 0.005 150)", textAlign: "right", fontWeight: 600, color: "oklch(0.22 0.06 150)" }}>{team.pf.toFixed(1)}</td>
                           <td style={{ ...TD_CENTER, textAlign: "right", color: "oklch(0.5 0.04 150)" }}>{team.pa.toFixed(1)}</td>
