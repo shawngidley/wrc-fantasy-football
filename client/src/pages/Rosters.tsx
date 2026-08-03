@@ -23,13 +23,14 @@ type Franchise = {
   owner: string;
   division: "East" | "Central" | "West";
   logo?: string;
+  faabRemaining?: number;
   players: Player[];
 };
 
 const ROSTERS: Franchise[] = [
   // ── EAST ──────────────────────────────────────────────
   {
-    id: "gidley", teamName: "Team Gidley", owner: "Shawn Gidley", division: "East",
+    id: "gidley", teamName: "Team Gidley", owner: "Shawn Gidley", division: "East", faabRemaining: 312,
     players: [
       { name: "Lamar Jackson", pos: "QB", nflTeam: "BAL", isStarter: true, acq: "Rd 1" },
       { name: "Derrick Henry", pos: "RB", nflTeam: "BAL", isStarter: true, acq: "Rd 2" },
@@ -52,7 +53,7 @@ const ROSTERS: Franchise[] = [
     ],
   },
   {
-    id: "sotka", teamName: "Team Sotka", owner: "David Sotka", division: "East",
+    id: "sotka", teamName: "Team Sotka", owner: "David Sotka", division: "East", faabRemaining: 487,
     players: [
       { name: "Patrick Mahomes", pos: "QB", nflTeam: "KC", isStarter: true },
       { name: "Christian McCaffrey", pos: "RB", nflTeam: "SF", isStarter: true },
@@ -75,7 +76,7 @@ const ROSTERS: Franchise[] = [
     ],
   },
   {
-    id: "nelson", teamName: "Team Nelson", owner: "Scott Nelson", division: "East",
+    id: "nelson", teamName: "Team Nelson", owner: "Scott Nelson", division: "East", faabRemaining: 155,
     players: [
       { name: "Jalen Hurts", pos: "QB", nflTeam: "PHI", isStarter: true },
       { name: "Jonathan Taylor", pos: "RB", nflTeam: "IND", isStarter: true },
@@ -451,6 +452,24 @@ export default function Rosters() {
                           )}
                         </div>
                         <div style={{ fontSize: "0.75rem", color: "oklch(0.5 0.04 150)" }}>{team.owner}</div>
+                        {team.faabRemaining !== undefined && (
+                          <div style={{
+                            marginTop: "0.2rem",
+                            display: "inline-flex",
+                            alignItems: "center",
+                            gap: "0.25rem",
+                            fontSize: "0.68rem",
+                            fontFamily: "Oswald, sans-serif",
+                            fontWeight: 700,
+                            letterSpacing: "0.04em",
+                            color: team.faabRemaining > 100 ? "oklch(0.35 0.13 150)" : team.faabRemaining > 50 ? "oklch(0.5 0.12 85)" : "oklch(0.45 0.18 25)",
+                            background: team.faabRemaining > 100 ? "oklch(0.93 0.04 150)" : team.faabRemaining > 50 ? "oklch(0.95 0.06 85)" : "oklch(0.95 0.05 25)",
+                            borderRadius: 4,
+                            padding: "1px 6px",
+                          }}>
+                            FAAB: ${team.faabRemaining}
+                          </div>
+                        )}
                       </div>
 
 
