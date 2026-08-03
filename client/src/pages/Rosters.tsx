@@ -566,17 +566,7 @@ function PlayerRow({ player, alt, bench }: { player: Player; alt: boolean; bench
         letterSpacing: "0.04em",
         flexShrink: 0,
       }}>{player.nflTeam}</span>
-      {player.pos === "TE" && !bench && (
-        <span style={{
-          fontSize: "0.58rem",
-          background: "oklch(0.92 0.1 85)",
-          color: "oklch(0.35 0.15 85)",
-          borderRadius: 3,
-          padding: "1px 4px",
-          fontWeight: 700,
-          flexShrink: 0,
-        }}>1.5x</span>
-      )}
+
       {player.acq && (
         <span style={{
           fontSize: "0.6rem",
