@@ -20,6 +20,77 @@
 
 export type MatchupPair = [string, string]; // [home/left owner, away/right owner]
 
+/** Per-matchup result keyed by "week-ownerA-ownerB" (alphabetical owners) */
+export interface MatchupResult {
+  week: number;
+  ownerA: string; // left/home owner key
+  ownerB: string; // right/away owner key
+  scoreA: number;
+  scoreB: number;
+}
+
+/**
+ * 2026 season results — populate as weeks complete.
+ * ownerA/ownerB match the owner keys in SCHEDULE_2026 matchups (left = ownerA).
+ * Scores are fantasy points to one decimal.
+ */
+export const RESULTS_2026: MatchupResult[] = [
+  // Example (replace with real scores each week):
+  // { week: 1, ownerA: "Jonas", ownerB: "Keith", scoreA: 138.4, scoreB: 112.6 },
+];
+
+/** Look up the result for a specific matchup pair in a given week */
+export function getResult(week: number, ownerA: string, ownerB: string): MatchupResult | null {
+  return RESULTS_2026.find(
+    r => r.week === week &&
+      ((r.ownerA === ownerA && r.ownerB === ownerB) ||
+       (r.ownerA === ownerB && r.ownerB === ownerA))
+  ) ?? null;
+}
+
+/**
+ * Derive playoff seeds from live standings data.
+ * Format: 3 division winners (seeds 1-3) + 3 wild cards (seeds 4-6).
+ * Division winner = best record in division (tiebreak: ptsFor).
+ * Wild cards = best remaining records league-wide.
+ *
+ * Returns array of 6 team names in seed order [1..6].
+ */
+export interface StandingsTeam {
+  teamName: string;
+  owner: string;
+  division: string;
+  wins: number;
+  losses: number;
+  ptsFor: number;
+}
+
+export function derivePlayoffSeeds(teams: StandingsTeam[]): string[] {
+  const divs = ["East", "Central", "West"] as const;
+  const divWinners: StandingsTeam[] = [];
+  const nonWinners: StandingsTeam[] = [];
+
+  for (const div of divs) {
+    const divTeams = teams
+      .filter(t => t.division === div)
+      .sort((a, b) => b.wins - a.wins || b.ptsFor - a.ptsFor);
+    if (divTeams.length > 0) {
+      divWinners.push(divTeams[0]);
+      nonWinners.push(...divTeams.slice(1));
+    }
+  }
+
+  // Sort division winners by record (for seeding 1-3)
+  divWinners.sort((a, b) => b.wins - a.wins || b.ptsFor - a.ptsFor);
+
+  // Wild cards: best 3 non-winners by record
+  const wildCards = nonWinners
+    .sort((a, b) => b.wins - a.wins || b.ptsFor - a.ptsFor)
+    .slice(0, 3);
+
+  return [...divWinners, ...wildCards].map(t => t.teamName);
+}
+
 export interface ScheduleWeek {
   week: number;
   label: string;       // e.g. "Week 1", "Wild Card", "Super Bowl"
