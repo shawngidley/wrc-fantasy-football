@@ -1,7 +1,8 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
-import { Route, Switch } from "wouter";
+import { Route, Switch, Redirect } from "wouter";
+import { useAuth } from "./contexts/AuthContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { AuthProvider } from "./contexts/AuthContext";
@@ -27,13 +28,20 @@ import Rosters from "./pages/Rosters";
 import Money from "./pages/Money";
 import Settings from "./pages/Settings";
 
+// Route guard — redirects to login if no team is authenticated
+function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
+  const { franchise } = useAuth();
+  if (!franchise) return <Redirect to="/" />;
+  return <Component />;
+}
+
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Login} />
       <Route path="/standings" component={Standings} />
       <Route path="/live" component={LiveScoring} />
-      <Route path="/lineup" component={Lineup} />
+      <Route path="/lineup">{() => <ProtectedRoute component={Lineup} />}</Route>
       <Route path="/draft" component={DraftBoard} />
       <Route path="/protections" component={Protections} />
       <Route path="/rundown" component={Rundown} />
@@ -48,7 +56,7 @@ function Router() {
       <Route path="/nfl-sites" component={NFLSites} />
       <Route path="/rosters" component={Rosters} />
       <Route path="/money" component={Money} />
-      <Route path="/settings" component={Settings} />
+      <Route path="/settings">{() => <ProtectedRoute component={Settings} />}</Route>
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

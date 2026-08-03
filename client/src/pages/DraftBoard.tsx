@@ -7,17 +7,22 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { Play, Pause, SkipForward, Search, Music, Clock, Trophy } from "lucide-react";
+import { Play, Pause, SkipForward, Search, Music, ArrowLeftRight, Grid3X3, Users, ChevronDown, ChevronUp } from "lucide-react";
+import { DRAFT_PICKS_2026, OWNER_TO_TEAM_ID, getTradedPicks } from "@/lib/draftData2026";
+import { TEAMS as WRC_TEAMS } from "@/lib/wrcData";
 
 const TIMER_SECONDS = 90;
 const TOTAL_ROUNDS = 18;
 const TOTAL_TEAMS = 12;
 
-const TEAMS = [
-  "Team Gidley", "Team Osicki", "Team Sotka", "Team Nelson",
-  "Team Yane", "Team Cromer", "Team Pattie", "Team Krause",
-  "Team Ryks", "Team Heiden", "Team Akagi", "Team Mackar",
+// Real 2026 draft order — round 1 pick order
+const ROUND1_ORDER = [
+  "Greg","Shawn","Bill","David R.","Jason","Scott N.",
+  "David S.","Jonas","David R. (Jamie)","Keith","Scott M.","Dan",
 ];
+
+// For the grid, use owner names (12 owners)
+const TEAMS = ROUND1_ORDER.map(o => o.replace(/ \(.*\)/, ""));
 
 const SAMPLE_PLAYERS = [
   { id: "1", name: "Josh Allen", pos: "QB", nflTeam: "BUF", adp: 1.2 },
@@ -53,6 +58,18 @@ function getPickTeamIndex(round: number, pick: number): number {
 
 type DraftPick = { team: string; player: string; pos: string };
 
+// Owner color palette
+const OWNER_COLORS: Record<string, string> = {
+  "Greg":"oklch(0.55 0.18 260)","Shawn":"oklch(0.52 0.18 25)",
+  "Bill":"oklch(0.50 0.16 150)","David R.":"oklch(0.52 0.18 85)",
+  "Jason":"oklch(0.50 0.16 310)","Scott N.":"oklch(0.52 0.16 195)",
+  "David S.":"oklch(0.50 0.18 45)","Jonas":"oklch(0.50 0.18 170)",
+  "Jamie":"oklch(0.52 0.16 280)","Keith":"oklch(0.50 0.16 10)",
+  "Scott M.":"oklch(0.52 0.16 230)","Dan":"oklch(0.50 0.16 130)",
+};
+
+type BoardView = "live" | "order" | "traded";
+
 export default function DraftBoard() {
   const { franchise, isCommissioner } = useAuth();
   const [draftStarted, setDraftStarted] = useState(false);
@@ -65,7 +82,15 @@ export default function DraftBoard() {
   const [posFilter, setPosFilter] = useState("ALL");
   const [availablePlayers, setAvailablePlayers] = useState(SAMPLE_PLAYERS);
   const [showPlayerPool, setShowPlayerPool] = useState(false);
+  const [boardView, setBoardView] = useState<BoardView>("live");
+  const [expandedRound, setExpandedRound] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const tradedPicks = getTradedPicks();
+  const picksByRound: Record<number, typeof DRAFT_PICKS_2026> = {};
+  for (const p of DRAFT_PICKS_2026) {
+    if (!picksByRound[p.round]) picksByRound[p.round] = [];
+    picksByRound[p.round].push(p);
+  }
 
   const currentTeamIndex = getPickTeamIndex(currentRound, currentPick);
   const currentTeam = TEAMS[currentTeamIndex];
@@ -137,8 +162,8 @@ export default function DraftBoard() {
         {/* Page Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1rem" }}>
           <div className="wrc-page-title" style={{ padding: 0 }}>
-            <h1>2025 WRC Draft</h1>
-            <p>Thursday, August 27, 2025 · 7:00 PM ET · 18 Rounds</p>
+            <h1>2026 WRC Draft</h1>
+            <p>2026 WRC Fantasy Football · 18 Rounds · 12 Teams · Snake Draft</p>
           </div>
           {!draftStarted && isCommissioner && (
             <button
@@ -291,6 +316,92 @@ export default function DraftBoard() {
             ))}
           </div>
         </div>
+
+        {/* View Tabs */}
+        <div style={{ display: "flex", gap: "0.35rem", marginBottom: "1rem", background: "rgba(0,0,0,0.35)", borderRadius: 8, padding: 4, width: "fit-content" }}>
+          {(["live","order","traded"] as BoardView[]).map(v => (
+            <button key={v} onClick={() => setBoardView(v)} style={{
+              background: boardView === v ? "oklch(0.78 0.15 85)" : "transparent",
+              color: boardView === v ? "oklch(0.15 0.02 150)" : "rgba(255,255,255,0.65)",
+              border: "none", borderRadius: 6, padding: "0.4rem 0.9rem",
+              fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", fontWeight: 700,
+              letterSpacing: "0.05em", textTransform: "uppercase", cursor: "pointer",
+            }}>
+              {v === "live" ? "Live Board" : v === "order" ? `Draft Order (${DRAFT_PICKS_2026.length})` : `Traded Picks (${tradedPicks.length})`}
+            </button>
+          ))}
+        </div>
+
+        {/* Draft Order View */}
+        {boardView === "order" && (
+          <div style={{ marginBottom: "1.5rem" }}>
+            {Array.from({ length: 18 }, (_, i) => i + 1).map(round => {
+              const rPicks = picksByRound[round] ?? [];
+              const isExp = expandedRound === round;
+              return (
+                <div key={round} className="wrc-card" style={{ marginBottom: "0.6rem" }}>
+                  <div onClick={() => setExpandedRound(isExp ? null : round)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.65rem 1rem", cursor: "pointer", borderBottom: isExp ? "1px solid oklch(0.88 0.02 150)" : "none" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                      <span style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.22 0.08 150)" }}>ROUND {round}</span>
+                      <span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)" }}>Picks {(round-1)*12+1}–{round*12}</span>
+                      {rPicks.some(p => p.isTraded) && <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "oklch(0.45 0.14 85)", background: "oklch(0.97 0.08 85)", border: "1px solid oklch(0.85 0.12 85)", borderRadius: 4, padding: "1px 6px" }}>{rPicks.filter(p=>p.isTraded).length} traded</span>}
+                    </div>
+                    {isExp ? <ChevronUp size={15} color="oklch(0.5 0.04 150)" /> : <ChevronDown size={15} color="oklch(0.5 0.04 150)" />}
+                  </div>
+                  <div style={{ padding: "0.5rem 0.75rem", display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
+                    {rPicks.map(pick => (
+                      <div key={pick.overall} style={{
+                        background: pick.isTraded ? "oklch(0.97 0.08 85)" : "oklch(0.95 0.02 150)",
+                        border: `1.5px solid ${pick.isTraded ? "oklch(0.78 0.15 85)" : (OWNER_COLORS[pick.owner] ?? "oklch(0.8 0.04 150)")}`,
+                        borderRadius: 5, padding: "3px 8px",
+                      }}>
+                        <span style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.72rem", color: OWNER_COLORS[pick.owner] ?? "oklch(0.35 0.06 150)" }}>{pick.owner}</span>
+                        {pick.isTraded && <span style={{ fontSize: "0.6rem", color: "oklch(0.45 0.14 85)", marginLeft: 4 }}>via {pick.originalOwner}</span>}
+                        <div style={{ fontSize: "0.6rem", color: "oklch(0.55 0.04 150)", fontStyle: "italic" }}>#{pick.overall} · Rd{pick.round} P{pick.pickInRound}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Traded Picks View */}
+        {boardView === "traded" && (
+          <div className="wrc-card" style={{ marginBottom: "1.5rem" }}>
+            <div className="wrc-card-gold-stripe" />
+            <div className="wrc-card-header" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <ArrowLeftRight size={14} /> Traded Picks ({tradedPicks.length})
+            </div>
+            <div style={{ padding: "1rem", overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+                <thead>
+                  <tr style={{ borderBottom: "2px solid oklch(0.88 0.02 150)" }}>
+                    {["#","Round","Pick","Current Owner","Original Owner"].map(h => (
+                      <th key={h} style={{ textAlign: "left", padding: "0.35rem 0.75rem", fontFamily: "Oswald, sans-serif", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.06em", color: "oklch(0.45 0.06 150)", textTransform: "uppercase" }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {tradedPicks.map((pick, i) => (
+                    <tr key={pick.overall} style={{ background: i%2===0?"white":"oklch(0.97 0.005 150)", borderBottom: "1px solid oklch(0.93 0.01 150)" }}>
+                      <td style={{ padding: "0.45rem 0.75rem", fontWeight: 700, color: "oklch(0.35 0.06 150)" }}>#{pick.overall}</td>
+                      <td style={{ padding: "0.45rem 0.75rem", color: "oklch(0.45 0.04 150)" }}>Rd {pick.round}</td>
+                      <td style={{ padding: "0.45rem 0.75rem", color: "oklch(0.45 0.04 150)" }}>Pick {pick.pickInRound}</td>
+                      <td style={{ padding: "0.45rem 0.75rem" }}>
+                        <span style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, color: OWNER_COLORS[pick.owner]??"oklch(0.35 0.06 150)", fontSize: "0.78rem" }}>{pick.owner}</span>
+                      </td>
+                      <td style={{ padding: "0.45rem 0.75rem" }}>
+                        <span style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, color: OWNER_COLORS[pick.originalOwner!]??"oklch(0.5 0.04 150)", fontSize: "0.78rem" }}>{pick.originalOwner}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Theme Song Note */}
         <div style={{ background: "rgba(0,0,0,0.45)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "0.875rem 1.25rem", display: "flex", alignItems: "center", gap: "0.75rem" }}>

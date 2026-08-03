@@ -7,7 +7,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { Lock, LogOut, User, Shield, CheckCircle2, Eye, EyeOff } from "lucide-react";
+import { Lock, LogOut, User, Shield, CheckCircle2, Eye, EyeOff, RefreshCw } from "lucide-react";
 import { TEAMS } from "@/lib/wrcData";
 
 // PIN storage helpers — per-team override stored in localStorage
@@ -32,6 +32,124 @@ export function getEffectivePin(teamId: string): string {
   if (stored) return stored;
   const team = TEAMS.find(t => t.id === teamId);
   return team?.pin ?? "1234";
+}
+
+// ── Commissioner PIN Reset Panel ──────────────────────────────────────────
+function CommissionerPinPanel({ labelStyle }: { labelStyle: React.CSSProperties }) {
+  const [selectedTeamId, setSelectedTeamId] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [resetSuccess, setResetSuccess] = useState("");
+  const [resetError, setResetError] = useState("");
+
+  const handleReset = (e: React.FormEvent) => {
+    e.preventDefault();
+    setResetError("");
+    setResetSuccess("");
+    if (!selectedTeamId) { setResetError("Select a team first."); return; }
+    if (newPin.length < 4) { setResetError("New PIN must be at least 4 characters."); return; }
+    savePin(selectedTeamId, newPin);
+    const team = TEAMS.find(t => t.id === selectedTeamId);
+    setResetSuccess(`PIN reset for ${team?.teamName ?? selectedTeamId} to "${newPin}".`);
+    setNewPin("");
+    setSelectedTeamId("");
+  };
+
+  const handleResetToDefault = (teamId: string) => {
+    const pins = JSON.parse(localStorage.getItem(PIN_STORAGE_KEY) ?? "{}");
+    delete pins[teamId];
+    localStorage.setItem(PIN_STORAGE_KEY, JSON.stringify(pins));
+    const team = TEAMS.find(t => t.id === teamId);
+    setResetSuccess(`PIN for ${team?.teamName ?? teamId} reset to default (1234).`);
+  };
+
+  return (
+    <div className="wrc-card" style={{ marginBottom: "1.25rem", border: "2px solid oklch(0.78 0.15 85)" }}>
+      <div className="wrc-card-gold-stripe" />
+      <div className="wrc-card-header" style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: "oklch(0.95 0.06 85)" }}>
+        <Shield size={14} color="oklch(0.45 0.14 85)" />
+        <span style={{ color: "oklch(0.35 0.14 85)" }}>Commissioner: Reset Team PINs</span>
+      </div>
+      <div style={{ padding: "1.25rem" }}>
+        <p style={{ fontSize: "0.82rem", color: "oklch(0.5 0.04 150)", margin: "0 0 1.25rem" }}>
+          Use this panel to reset any team's PIN if they are locked out. Only visible to the commissioner.
+        </p>
+
+        {/* All teams quick-reset table */}
+        <div style={{ marginBottom: "1.25rem", overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+            <thead>
+              <tr style={{ borderBottom: "2px solid oklch(0.88 0.02 150)" }}>
+                {["Team","Owner","Current PIN","Reset to Default"].map(h => (
+                  <th key={h} style={{ textAlign: "left", padding: "0.35rem 0.75rem", fontFamily: "Oswald, sans-serif", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.06em", color: "oklch(0.45 0.06 150)", textTransform: "uppercase" }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {TEAMS.map((t, i) => {
+                const effectivePin = getEffectivePin(t.id);
+                const isOverridden = JSON.parse(localStorage.getItem(PIN_STORAGE_KEY) ?? "{}")[t.id];
+                return (
+                  <tr key={t.id} style={{ background: i%2===0?"white":"oklch(0.97 0.005 150)", borderBottom: "1px solid oklch(0.93 0.01 150)" }}>
+                    <td style={{ padding: "0.45rem 0.75rem", fontWeight: 700, color: "oklch(0.22 0.08 150)", fontFamily: "Oswald, sans-serif", fontSize: "0.82rem" }}>{t.teamName}</td>
+                    <td style={{ padding: "0.45rem 0.75rem", color: "oklch(0.45 0.04 150)" }}>{t.owner}</td>
+                    <td style={{ padding: "0.45rem 0.75rem" }}>
+                      <span style={{ fontFamily: "monospace", fontWeight: 700, color: isOverridden ? "oklch(0.35 0.15 150)" : "oklch(0.55 0.04 150)", fontSize: "0.9rem" }}>{effectivePin}</span>
+                      {isOverridden && <span style={{ marginLeft: 6, fontSize: "0.65rem", color: "oklch(0.45 0.14 85)", fontWeight: 600 }}>custom</span>}
+                    </td>
+                    <td style={{ padding: "0.45rem 0.75rem" }}>
+                      {isOverridden && (
+                        <button
+                          onClick={() => handleResetToDefault(t.id)}
+                          style={{ display: "flex", alignItems: "center", gap: 4, background: "oklch(0.95 0.03 25)", color: "oklch(0.45 0.18 25)", border: "1px solid oklch(0.85 0.08 25)", borderRadius: 5, padding: "2px 8px", fontSize: "0.72rem", fontWeight: 700, fontFamily: "Oswald, sans-serif", cursor: "pointer" }}
+                        >
+                          <RefreshCw size={11} /> Reset to 1234
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Set specific PIN form */}
+        <form onSubmit={handleReset} style={{ display: "flex", gap: "0.75rem", flexWrap: "wrap", alignItems: "flex-end" }}>
+          <div style={{ flex: "1 1 180px" }}>
+            <label style={labelStyle}>Team</label>
+            <select
+              value={selectedTeamId}
+              onChange={e => setSelectedTeamId(e.target.value)}
+              style={{ width: "100%", padding: "0.6rem 0.75rem", border: "1.5px solid oklch(0.85 0.01 150)", borderRadius: 8, fontSize: "0.88rem", color: "oklch(0.2 0.03 150)", background: "white", outline: "none" }}
+            >
+              <option value="">Select team...</option>
+              {TEAMS.map(t => <option key={t.id} value={t.id}>{t.teamName} ({t.owner})</option>)}
+            </select>
+          </div>
+          <div style={{ flex: "1 1 140px" }}>
+            <label style={labelStyle}>New PIN</label>
+            <input
+              type="text"
+              value={newPin}
+              onChange={e => setNewPin(e.target.value)}
+              placeholder="Min 4 chars"
+              maxLength={12}
+              style={{ width: "100%", padding: "0.6rem 0.75rem", border: "1.5px solid oklch(0.85 0.01 150)", borderRadius: 8, fontSize: "0.88rem", color: "oklch(0.2 0.03 150)", background: "white", outline: "none", boxSizing: "border-box" }}
+            />
+          </div>
+          <button
+            type="submit"
+            style={{ background: "oklch(0.45 0.14 85)", color: "white", border: "none", borderRadius: 8, padding: "0.6rem 1.25rem", fontFamily: "Oswald, sans-serif", fontSize: "0.82rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", whiteSpace: "nowrap" }}
+          >
+            Set PIN
+          </button>
+        </form>
+
+        {resetError && <div style={{ marginTop: "0.75rem", color: "oklch(0.45 0.18 25)", fontSize: "0.82rem", fontWeight: 600 }}>{resetError}</div>}
+        {resetSuccess && <div style={{ marginTop: "0.75rem", color: "oklch(0.35 0.15 150)", fontSize: "0.82rem", fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}><CheckCircle2 size={15} /> {resetSuccess}</div>}
+      </div>
+    </div>
+  );
 }
 
 export default function Settings() {
@@ -263,6 +381,11 @@ export default function Settings() {
             </form>
           </div>
         </div>
+
+        {/* Commissioner PIN Reset Panel — only visible to commissioner */}
+        {franchise?.is_commissioner && (
+          <CommissionerPinPanel labelStyle={labelStyle} />
+        )}
 
         {/* Logout Card */}
         <div className="wrc-card">
