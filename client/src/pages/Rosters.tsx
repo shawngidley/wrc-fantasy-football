@@ -17,6 +17,37 @@ type Player = {
   acq?: string;
 };
 
+// ── Sort helpers ─────────────────────────────────────────────────────────────
+const POS_ORDER: Record<string, number> = { QB: 0, RB: 1, WR: 2, TE: 3, K: 4, DST: 5 };
+
+/**
+ * Parse acquisition string into a numeric sort key:
+ *   "Rd 3"  → 3          (draft round — lower is earlier / better)
+ *   "FA $28" → -28        (FAAB — higher dollar = earlier pick, so negate)
+ *   undefined → 9999      (no acq data — sort last)
+ */
+function acqSortKey(acq?: string): number {
+  if (!acq) return 9999;
+  if (acq.startsWith("Rd ")) {
+    const round = parseInt(acq.replace("Rd ", ""), 10);
+    return isNaN(round) ? 9999 : round;
+  }
+  if (acq.startsWith("FA $")) {
+    const dollars = parseInt(acq.replace("FA $", ""), 10);
+    // Negate so higher FAAB sorts first (lower sort key)
+    return isNaN(dollars) ? 9999 : -dollars;
+  }
+  return 9999;
+}
+
+function sortPlayers(players: Player[]): Player[] {
+  return [...players].sort((a, b) => {
+    const posDiff = (POS_ORDER[a.pos] ?? 99) - (POS_ORDER[b.pos] ?? 99);
+    if (posDiff !== 0) return posDiff;
+    return acqSortKey(a.acq) - acqSortKey(b.acq);
+  });
+}
+
 type Franchise = {
   id: string;
   teamName: string;
@@ -388,8 +419,8 @@ export default function Rosters() {
             }}>
               {ROSTERS.filter(f => f.division === div).map(team => {
                 const isMyTeam = team.teamName === franchise?.team_name;
-                const starters = team.players.filter(p => p.isStarter);
-                const bench = team.players.filter(p => !p.isStarter);
+                const starters = sortPlayers(team.players.filter(p => p.isStarter));
+                const bench = sortPlayers(team.players.filter(p => !p.isStarter));
 
                 return (
                   <div
@@ -467,7 +498,7 @@ export default function Rosters() {
                             borderRadius: 4,
                             padding: "1px 6px",
                           }}>
-                            FAAB: ${team.faabRemaining}
+                            FAAB: ${`${team.faabRemaining}`}
                           </div>
                         )}
                       </div>
