@@ -130,11 +130,11 @@ export default function Standings() {
           backdropFilter: "blur(4px)",
         }}>
           {[
-            ["W-L", "Combined record (H2H + Median)"],
+            ["W-L", "Combined record — H2H counts 2 results, Median counts 1"],
             ["GB", "Games Back from division leader"],
-            ["H2H", "Head-to-head wins / losses"],
-            ["MED", "League median wins / losses"],
-            ["DIV", "Division record"],
+            ["H2H", "Head-to-head result — worth 2 wins or 2 losses per week"],
+            ["MED", "League median result — worth 1 win or 1 loss per week"],
+            ["DIV", "Division record (H2H only vs. division opponents)"],
             ["PF / PA", "Points For / Points Against"],
           ].map(([abbr, desc]) => (
             <div key={abbr} style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
@@ -158,8 +158,8 @@ export default function Standings() {
                     <tr style={{ borderBottom: "none" }}>
                       <th colSpan={2} style={{ textAlign: "left", padding: "0.45rem 0.75rem 0", fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", letterSpacing: "0.06em" }}>Team</th>
                       <th colSpan={3} style={{ textAlign: "center", padding: "0.45rem 0.5rem 0", fontSize: "0.72rem", color: "oklch(0.45 0.04 150)", fontWeight: 400 }}></th>
-                      <th colSpan={2} style={{ textAlign: "center", padding: "0.45rem 0.5rem 0", fontSize: "0.72rem", color: "oklch(0.35 0.06 150)", fontWeight: 700, fontFamily: "Oswald, sans-serif", letterSpacing: "0.06em", borderLeft: "2px solid oklch(0.82 0.06 150)", borderBottom: "1px solid oklch(0.82 0.06 150)" }}>Head to Head</th>
-                      <th colSpan={2} style={{ textAlign: "center", padding: "0.45rem 0.5rem 0", fontSize: "0.72rem", color: "oklch(0.35 0.06 150)", fontWeight: 700, fontFamily: "Oswald, sans-serif", letterSpacing: "0.06em", borderLeft: "2px solid oklch(0.82 0.06 150)", borderBottom: "1px solid oklch(0.82 0.06 150)" }}>League Median</th>
+                      <th colSpan={2} style={{ textAlign: "center", padding: "0.45rem 0.5rem 0", fontSize: "0.72rem", color: "oklch(0.35 0.06 150)", fontWeight: 700, fontFamily: "Oswald, sans-serif", letterSpacing: "0.06em", borderLeft: "2px solid oklch(0.82 0.06 150)", borderBottom: "1px solid oklch(0.82 0.06 150)" }}>Head to Head <span style={{fontWeight:400,fontSize:"0.65rem",color:"oklch(0.5 0.04 150)"}}>2 results</span></th>
+                      <th colSpan={2} style={{ textAlign: "center", padding: "0.45rem 0.5rem 0", fontSize: "0.72rem", color: "oklch(0.35 0.06 150)", fontWeight: 700, fontFamily: "Oswald, sans-serif", letterSpacing: "0.06em", borderLeft: "2px solid oklch(0.82 0.06 150)", borderBottom: "1px solid oklch(0.82 0.06 150)" }}>League Median <span style={{fontWeight:400,fontSize:"0.65rem",color:"oklch(0.5 0.04 150)"}}>1 result</span></th>
                       <th colSpan={2} style={{ textAlign: "center", padding: "0.45rem 0.5rem 0", fontSize: "0.72rem", color: "oklch(0.35 0.06 150)", fontWeight: 700, fontFamily: "Oswald, sans-serif", letterSpacing: "0.06em", borderLeft: "2px solid oklch(0.82 0.06 150)", borderBottom: "1px solid oklch(0.82 0.06 150)" }}>Division</th>
                       <th colSpan={3} style={{ textAlign: "center", padding: "0.45rem 0.5rem 0", fontSize: "0.72rem", color: "oklch(0.45 0.04 150)", fontWeight: 400 }}></th>
                     </tr>
@@ -265,7 +265,7 @@ export default function Standings() {
               <div style={{ flex: 1, minWidth: 200 }}>
                 <div style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", color: "oklch(0.35 0.06 150)", marginBottom: "0.35rem" }}>Double Result System</div>
                 <p style={{ fontSize: "0.82rem", color: "oklch(0.4 0.04 150)", margin: 0, lineHeight: 1.5 }}>
-                  Each team earns two results per week: a head-to-head result (H2H — 2W or 2L) and a league median result (MED — 1W for top 6 scorers, 1L for bottom 6). Maximum 3W or 3L per week.
+                  Each week produces 3 total results per team. The head-to-head matchup is worth 2 results — a win counts as 2W, a loss counts as 2L. The league median is worth 1 result — scoring above the median earns 1W, below earns 1L. Maximum possible: 3W (H2H win + above median) or 3L (H2H loss + below median) per week.
                 </p>
               </div>
               <div style={{ flex: 1, minWidth: 200 }}>
