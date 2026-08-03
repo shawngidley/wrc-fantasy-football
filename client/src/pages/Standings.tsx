@@ -8,10 +8,12 @@
  *   - Division Record
  *   - PF, PA, Streak
  */
+import { useState } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { TrendingUp, TrendingDown } from "lucide-react";
+import { TrendingUp, TrendingDown, Megaphone, X, ChevronDown, ChevronUp } from "lucide-react";
 import { TEAMS } from "@/lib/wrcData";
+import { toast } from "sonner";
 
 type TeamRow = {
   rank: number;
@@ -100,6 +102,100 @@ const TH: React.CSSProperties = {
 // Cell style
 const TD_CENTER: React.CSSProperties = { textAlign: "center", padding: "0.55rem 0.4rem", fontSize: "0.82rem" };
 
+// ── Commissioner Announcement Banner ────────────────────────────────────────
+const STORAGE_KEY = "wrc_announcements_dismissed";
+
+function AnnouncementBanner({ isCommissioner }: { isCommissioner: boolean }) {
+  const [announcements, setAnnouncements] = useState<{id: string; text: string; date: string}[]>(() => {
+    try { return JSON.parse(localStorage.getItem("wrc_announcements") || "[]"); } catch { return []; }
+  });
+  const [dismissed, setDismissed] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]"); } catch { return []; }
+  });
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+
+  const visible = announcements.filter(a => !dismissed.includes(a.id));
+
+  function dismiss(id: string) {
+    const next = [...dismissed, id];
+    setDismissed(next);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  }
+
+  function post() {
+    if (!draft.trim()) return;
+    const next = [{ id: Date.now().toString(), text: draft.trim(), date: new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" }) }, ...announcements];
+    setAnnouncements(next);
+    localStorage.setItem("wrc_announcements", JSON.stringify(next));
+    setDraft("");
+    setEditing(false);
+    toast.success("Announcement posted to all owners");
+  }
+
+  function deleteAnnouncement(id: string) {
+    const next = announcements.filter(a => a.id !== id);
+    setAnnouncements(next);
+    localStorage.setItem("wrc_announcements", JSON.stringify(next));
+    toast.success("Announcement removed");
+  }
+
+  if (visible.length === 0 && !isCommissioner) return null;
+
+  return (
+    <div style={{ marginBottom: "1.25rem" }}>
+      {/* Commissioner compose panel */}
+      {isCommissioner && (
+        <div style={{ background: "oklch(0.18 0.06 85)", border: "1.5px solid oklch(0.55 0.16 85)", borderRadius: 10, padding: "0.875rem 1.25rem", marginBottom: visible.length > 0 ? "0.75rem" : 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: editing ? "0.75rem" : 0 }}>
+            <Megaphone size={14} color="oklch(0.75 0.16 85)" />
+            <span style={{ fontFamily: "Oswald, sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.06em", color: "oklch(0.75 0.16 85)", textTransform: "uppercase" as const, flex: 1 }}>Commissioner Broadcast</span>
+            <button
+              onClick={() => setEditing(e => !e)}
+              style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "0.3rem 0.75rem", borderRadius: 6, border: "1px solid oklch(0.55 0.16 85)", background: "transparent", color: "oklch(0.75 0.16 85)", cursor: "pointer", fontFamily: "Oswald, sans-serif", fontSize: "0.72rem", fontWeight: 700 }}
+            >
+              {editing ? <><ChevronUp size={11} /> Cancel</> : <><ChevronDown size={11} /> Post Message</>}
+            </button>
+          </div>
+          {editing && (
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" as const }}>
+              <input
+                value={draft}
+                onChange={e => setDraft(e.target.value)}
+                onKeyDown={e => e.key === "Enter" && post()}
+                placeholder="Type your announcement for all 12 owners…"
+                autoFocus
+                style={{ flex: 1, minWidth: 200, padding: "0.5rem 0.75rem", borderRadius: 6, border: "1px solid oklch(0.45 0.12 85)", background: "oklch(0.12 0.04 85)", color: "oklch(0.92 0.02 85)", fontSize: "0.875rem", outline: "none" }}
+              />
+              <button
+                onClick={post}
+                style={{ padding: "0.5rem 1.25rem", borderRadius: 6, border: "none", background: "oklch(0.55 0.16 85)", color: "oklch(0.12 0.04 85)", cursor: "pointer", fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", fontWeight: 700 }}
+              >Post</button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Visible announcements */}
+      {visible.map(a => (
+        <div key={a.id} style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem", background: "oklch(0.96 0.04 85)", border: "1.5px solid oklch(0.82 0.12 85)", borderRadius: 10, padding: "0.875rem 1.25rem", marginBottom: "0.5rem" }}>
+          <Megaphone size={16} color="oklch(0.55 0.16 85)" style={{ flexShrink: 0, marginTop: 2 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.22 0.06 85)", lineHeight: 1.4 }}>{a.text}</div>
+            <div style={{ fontSize: "0.68rem", color: "oklch(0.55 0.08 85)", marginTop: "0.2rem" }}>Commissioner · {a.date}</div>
+          </div>
+          <div style={{ display: "flex", gap: "0.35rem", flexShrink: 0 }}>
+            {isCommissioner && (
+              <button onClick={() => deleteAnnouncement(a.id)} style={{ padding: "0.25rem 0.5rem", borderRadius: 5, border: "1px solid oklch(0.72 0.12 85)", background: "transparent", color: "oklch(0.52 0.22 25)", cursor: "pointer", fontSize: "0.68rem" }}>Delete</button>
+            )}
+            <button onClick={() => dismiss(a.id)} style={{ display: "flex", alignItems: "center", padding: "0.25rem", borderRadius: 5, border: "none", background: "transparent", color: "oklch(0.6 0.08 85)", cursor: "pointer" }}><X size={14} /></button>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function Standings() {
   const { franchise } = useAuth();
 
@@ -119,6 +215,9 @@ export default function Standings() {
           <h1>WRC Fantasy Football 2026</h1>
           <p>Regular Season Standings — Through Week 14</p>
         </div>
+
+        {/* Commissioner Announcement Banner */}
+        <AnnouncementBanner isCommissioner={franchise?.is_commissioner === true} />
 
         {/* Division Tables */}
         {DIVISIONS.map((division) => {

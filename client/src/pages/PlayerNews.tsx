@@ -4,7 +4,7 @@
  *         inline injury news, watchlist stars
  * Tab 2: Injury News feed
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -170,17 +170,18 @@ const STATUS_COLORS: Record<string, string> = {
   D: "oklch(0.55 0.22 25)", OUT: "oklch(0.5 0.22 25)", BYE: "oklch(0.50 0.02 150)",
 };
 
-// ── News data ─────────────────────────────────────────────────────────────────
-const NEWS = [
-  { player: "Justin Jefferson", team: "MIN", pos: "WR", status: "Q",      headline: "Questionable with hamstring — limited practice Wednesday", time: "2h ago",  source: "ESPN" },
-  { player: "Tyreek Hill",      team: "MIA", pos: "WR", status: "OUT",    headline: "Ruled out Sunday with ankle injury, missed full practice",  time: "3h ago",  source: "Rotowire" },
-  { player: "Derrick Henry",    team: "BAL", pos: "RB", status: "Active", headline: "Full practice participant, no injury designation",           time: "4h ago",  source: "ESPN" },
-  { player: "Travis Kelce",     team: "KC",  pos: "TE", status: "Q",      headline: "Questionable with knee — limited practice Thursday",        time: "5h ago",  source: "ESPN" },
-  { player: "CeeDee Lamb",      team: "DAL", pos: "WR", status: "Active", headline: "No injury designation, full practice all week",             time: "6h ago",  source: "Rotowire" },
-  { player: "Saquon Barkley",   team: "PHI", pos: "RB", status: "Active", headline: "Full practice, expected to play full workload Sunday",      time: "8h ago",  source: "ESPN" },
-  { player: "Sam LaPorta",      team: "DET", pos: "TE", status: "Q",      headline: "Questionable with shoulder, limited Wednesday",             time: "10h ago", source: "Rotowire" },
-  { player: "Josh Allen",       team: "BUF", pos: "QB", status: "Active", headline: "No injury concerns, full practice participant all week",    time: "12h ago", source: "ESPN" },
-];
+// ── ESPN News types ───────────────────────────────────────────────────────────
+interface ESPNArticle {
+  id: string;
+  headline: string;
+  description: string;
+  published: string;
+  byline?: string;
+  categories: { description: string }[];
+  images: { url: string }[];
+  links: { web: { href: string } };
+  premium: boolean;
+}
 
 // ── Player Browser ────────────────────────────────────────────────────────────
 function PlayerBrowser() {
@@ -783,16 +784,40 @@ function PlayerBrowser() {
   );
 }
 
-// ── News Feed ─────────────────────────────────────────────────────────────────
-function NewsFeed() {
-  const [search, setSearch]             = useState("");
-  const [statusFilter, setStatusFilter] = useState("ALL");
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
 
-  const filtered = NEWS.filter(n => {
-    const matchSearch = n.player.toLowerCase().includes(search.toLowerCase()) || n.team.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === "ALL" || n.status === statusFilter;
-    return matchSearch && matchStatus;
-  });
+// ── News Feed (live ESPN API) ─────────────────────────────────────────────────
+function NewsFeed() {
+  const [search, setSearch]     = useState("");
+  const [articles, setArticles] = useState<ESPNArticle[]>([]);
+  const [loading, setLoading]   = useState(true);
+  const [error, setError]       = useState<string | null>(null);
+  const [page, setPage]         = useState(0);
+  const PAGE_SIZE = 10;
+
+  useEffect(() => {
+    setLoading(true);
+    setError(null);
+    fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=50")
+      .then(r => r.json())
+      .then(d => { setArticles(d.articles || []); setLoading(false); })
+      .catch(() => { setError("Unable to load ESPN news. Check your connection."); setLoading(false); });
+  }, []);
+
+  const filtered = articles.filter(a =>
+    a.headline.toLowerCase().includes(search.toLowerCase()) ||
+    a.categories.some(c => c.description.toLowerCase().includes(search.toLowerCase()))
+  );
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated  = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
   return (
     <div>
@@ -800,38 +825,98 @@ function NewsFeed() {
         <div style={{ padding: "0.875rem 1.25rem", display: "flex", gap: "0.75rem", flexWrap: "wrap" as const, alignItems: "center" }}>
           <div style={{ position: "relative" as const, flex: 1, minWidth: 180 }}>
             <Search size={14} style={{ position: "absolute" as const, left: 10, top: "50%", transform: "translateY(-50%)", color: "oklch(0.55 0.04 150)" }} />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search players…" style={{ width: "100%", padding: "0.5rem 0.5rem 0.5rem 2rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 8, fontSize: "0.875rem", outline: "none", boxSizing: "border-box" as const }} />
+            <input
+              value={search}
+              onChange={e => { setSearch(e.target.value); setPage(0); }}
+              placeholder="Search headlines, teams, players…"
+              style={{ width: "100%", padding: "0.5rem 0.5rem 0.5rem 2rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 8, fontSize: "0.875rem", outline: "none", boxSizing: "border-box" as const }}
+            />
           </div>
-          <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} style={{ padding: "0.5rem 0.75rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 8, fontSize: "0.875rem", background: "white", cursor: "pointer", outline: "none" }}>
-            <option value="ALL">All Statuses</option>
-            <option value="Active">Active</option>
-            <option value="Q">Questionable</option>
-            <option value="OUT">Out</option>
-          </select>
+          <div style={{ fontSize: "0.72rem", color: "oklch(0.6 0.04 150)", whiteSpace: "nowrap" as const }}>
+            Powered by <strong>ESPN</strong> · Live
+          </div>
         </div>
       </div>
+
       <div className="wrc-card">
         <div className="wrc-card-gold-stripe" />
-        <div className="wrc-card-header"><Activity size={14} /> Latest Updates</div>
-        <div>
-          {filtered.map((item, i) => (
-            <div key={i} style={{ display: "flex", gap: "0.875rem", padding: "0.875rem 1.25rem", borderBottom: "1px solid oklch(0.92 0.005 150)", alignItems: "flex-start" }}>
-              <div style={{ flexShrink: 0, marginTop: 2 }}>
-                {item.status !== "Active" ? <AlertTriangle size={16} color={STATUS_COLORS[item.status]} /> : <Activity size={16} color="oklch(0.42 0.15 150)" />}
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" as const, marginBottom: "0.25rem" }}>
-                  <span style={{ fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.18 0.05 150)" }}>{item.player}</span>
-                  <span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)" }}>{item.pos} · {item.team}</span>
-                  <span style={{ fontSize: "0.72rem", fontWeight: 700, color: STATUS_COLORS[item.status] || "oklch(0.5 0.04 150)", background: `${STATUS_COLORS[item.status]}18`, borderRadius: 4, padding: "1px 6px" }}>{item.status}</span>
+        <div className="wrc-card-header"><Newspaper size={14} /> NFL News — ESPN</div>
+
+        {loading && (
+          <div style={{ padding: "3rem", textAlign: "center" as const, color: "oklch(0.6 0.04 150)" }}>
+            <div style={{ fontSize: "0.9rem" }}>Loading ESPN news…</div>
+          </div>
+        )}
+
+        {error && (
+          <div style={{ padding: "2rem", textAlign: "center" as const, color: "oklch(0.52 0.22 25)" }}>
+            <AlertTriangle size={20} style={{ marginBottom: 8 }} />
+            <div>{error}</div>
+          </div>
+        )}
+
+        {!loading && !error && paginated.map((article) => {
+          const tag = article.categories[1]?.description || article.categories[0]?.description || "NFL";
+          const img = article.images[0]?.url;
+          const url = article.links?.web?.href;
+          return (
+            <a
+              key={article.id}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ display: "flex", gap: "0.875rem", padding: "0.875rem 1.25rem", borderBottom: "1px solid oklch(0.92 0.005 150)", alignItems: "flex-start", textDecoration: "none", color: "inherit", transition: "background 0.15s" }}
+              onMouseEnter={e => (e.currentTarget.style.background = "oklch(0.97 0.01 150)")}
+              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
+            >
+              {img ? (
+                <div style={{ flexShrink: 0, width: 80, height: 56, borderRadius: 6, overflow: "hidden" as const, background: "oklch(0.92 0.005 150)" }}>
+                  <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" as const }} />
                 </div>
-                <p style={{ margin: 0, fontSize: "0.85rem", color: "oklch(0.35 0.04 150)", lineHeight: 1.5 }}>{item.headline}</p>
-                <div style={{ fontSize: "0.72rem", color: "oklch(0.6 0.04 150)", marginTop: "0.25rem" }}>{item.source} · {item.time}</div>
+              ) : (
+                <div style={{ flexShrink: 0, width: 80, height: 56, borderRadius: 6, background: "oklch(0.92 0.005 150)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <Newspaper size={20} color="oklch(0.7 0.02 150)" />
+                </div>
+              )}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", flexWrap: "wrap" as const, marginBottom: "0.25rem" }}>
+                  <span style={{ fontSize: "0.68rem", fontFamily: "Oswald, sans-serif", fontWeight: 700, letterSpacing: "0.05em", color: "oklch(0.42 0.15 150)", background: "oklch(0.92 0.04 150)", borderRadius: 4, padding: "1px 6px", textTransform: "uppercase" as const }}>{tag}</span>
+                  {article.premium && <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "oklch(0.55 0.16 85)", background: "oklch(0.96 0.06 85)", borderRadius: 4, padding: "1px 5px" }}>ESPN+</span>}
+                </div>
+                <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.18 0.05 150)", lineHeight: 1.35, marginBottom: "0.2rem" }}>{article.headline}</div>
+                {article.description && (
+                  <p style={{ margin: 0, fontSize: "0.78rem", color: "oklch(0.45 0.04 150)", lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const, overflow: "hidden" as const }}>
+                    {article.description}
+                  </p>
+                )}
+                <div style={{ fontSize: "0.68rem", color: "oklch(0.6 0.04 150)", marginTop: "0.3rem" }}>
+                  {article.byline && <span>{article.byline} · </span>}
+                  ESPN · {timeAgo(article.published)}
+                </div>
               </div>
-            </div>
-          ))}
-          {filtered.length === 0 && <div style={{ padding: "2rem", textAlign: "center" as const, color: "oklch(0.6 0.04 150)" }}>No news found</div>}
-        </div>
+            </a>
+          );
+        })}
+
+        {!loading && !error && filtered.length === 0 && (
+          <div style={{ padding: "2rem", textAlign: "center" as const, color: "oklch(0.6 0.04 150)" }}>No articles found</div>
+        )}
+
+        {!loading && !error && totalPages > 1 && (
+          <div style={{ display: "flex", justifyContent: "center" as const, gap: "0.5rem", padding: "1rem" }}>
+            <button
+              onClick={() => setPage(p => Math.max(0, p - 1))}
+              disabled={page === 0}
+              style={{ padding: "0.4rem 1rem", borderRadius: 6, border: "1.5px solid oklch(0.88 0.01 150)", background: page === 0 ? "oklch(0.95 0.005 150)" : "white", cursor: page === 0 ? "default" : "pointer", fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", fontWeight: 700, color: page === 0 ? "oklch(0.7 0.02 150)" : "oklch(0.22 0.08 150)" }}
+            >← Prev</button>
+            <span style={{ padding: "0.4rem 0.75rem", fontSize: "0.78rem", color: "oklch(0.5 0.04 150)" }}>{page + 1} / {totalPages}</span>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
+              disabled={page === totalPages - 1}
+              style={{ padding: "0.4rem 1rem", borderRadius: 6, border: "1.5px solid oklch(0.88 0.01 150)", background: page === totalPages - 1 ? "oklch(0.95 0.005 150)" : "white", cursor: page === totalPages - 1 ? "default" : "pointer", fontFamily: "Oswald, sans-serif", fontSize: "0.78rem", fontWeight: 700, color: page === totalPages - 1 ? "oklch(0.7 0.02 150)" : "oklch(0.22 0.08 150)" }}
+            >Next →</button>
+          </div>
+        )}
       </div>
     </div>
   );
