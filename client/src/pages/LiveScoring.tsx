@@ -134,107 +134,105 @@ function TeamBreakdown({ teamName, score, projected }: { teamName: string; score
 }
 
 function MatchupDrawer({ matchup, onClose }: { matchup: typeof MOCK_MATCHUPS[0]; onClose: () => void }) {
-  const [activeTab, setActiveTab] = useState<"home" | "away">("home");
-
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = ""; };
   }, []);
+
+  const homeWinning = matchup.home.score > matchup.away.score;
 
   return (
     <>
       {/* Backdrop */}
       <div
         onClick={onClose}
-        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 300, backdropFilter: "blur(2px)" }}
+        style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 300, backdropFilter: "blur(3px)" }}
       />
-      {/* Drawer */}
+      {/* Full-width bottom sheet / centered modal */}
       <div style={{
         position: "fixed",
         top: 0,
+        left: 0,
         right: 0,
         bottom: 0,
-        width: "min(520px, 100vw)",
-        background: "white",
         zIndex: 301,
         display: "flex",
-        flexDirection: "column",
-        boxShadow: "-8px 0 40px rgba(0,0,0,0.3)",
-        animation: "slideInRight 0.25s cubic-bezier(0.23, 1, 0.32, 1)",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "1rem",
+        pointerEvents: "none",
       }}>
-        {/* Drawer Header */}
-        <div style={{ background: "oklch(0.18 0.07 150)", padding: "1rem 1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
-          <div>
-            <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.95rem", color: "white", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-              Week {matchup.week} Matchup
+        <div style={{
+          background: "white",
+          borderRadius: 14,
+          width: "100%",
+          maxWidth: 1100,
+          maxHeight: "92vh",
+          display: "flex",
+          flexDirection: "column",
+          boxShadow: "0 24px 80px rgba(0,0,0,0.45)",
+          animation: "scaleIn 0.22s cubic-bezier(0.23, 1, 0.32, 1)",
+          pointerEvents: "all",
+          overflow: "hidden",
+        }}>
+          {/* Modal Header */}
+          <div style={{ background: "oklch(0.18 0.07 150)", padding: "0.875rem 1.25rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexShrink: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+              <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "1rem", color: "white", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                Week {matchup.week} · Player Breakdown
+              </div>
+              {matchup.isChallenge && (
+                <div style={{ fontSize: "0.7rem", color: "oklch(0.78 0.15 85)", fontFamily: "Oswald, sans-serif", fontWeight: 600, letterSpacing: "0.06em", background: "rgba(255,255,255,0.08)", padding: "2px 8px", borderRadius: 4 }}>⚔️ CHALLENGE GAME</div>
+              )}
             </div>
-            {matchup.isChallenge && (
-              <div style={{ fontSize: "0.7rem", color: "oklch(0.78 0.15 85)", fontFamily: "Oswald, sans-serif", fontWeight: 600, letterSpacing: "0.06em" }}>⚔️ CHALLENGE GAME</div>
-            )}
+            <button onClick={onClose} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.7)", cursor: "pointer", padding: 4, display: "flex", alignItems: "center" }}>
+              <X size={22} />
+            </button>
           </div>
-          <button onClick={onClose} style={{ background: "none", border: "none", color: "rgba(255,255,255,0.7)", cursor: "pointer", padding: 4, display: "flex", alignItems: "center" }}>
-            <X size={22} />
-          </button>
-        </div>
 
-        {/* Score Summary */}
-        <div style={{ background: "oklch(0.96 0.005 150)", padding: "0.875rem 1.25rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
-          <div style={{ textAlign: "center", flex: 1 }}>
-            <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.85rem", color: "oklch(0.22 0.08 150)" }}>{matchup.home.team}</div>
-            <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "1.8rem", color: matchup.home.score > matchup.away.score ? "oklch(0.22 0.08 150)" : "oklch(0.55 0.04 150)", lineHeight: 1 }}>{matchup.home.score.toFixed(1)}</div>
+          {/* Score Banner */}
+          <div style={{ background: "oklch(0.94 0.008 150)", padding: "0.75rem 1.5rem", display: "flex", alignItems: "center", justifyContent: "center", gap: "2rem", flexShrink: 0, borderBottom: "1px solid oklch(0.88 0.01 150)" }}>
+            <div style={{ textAlign: "right", flex: 1 }}>
+              <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "1rem", color: "oklch(0.22 0.08 150)" }}>{matchup.home.team}</div>
+              <div style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)" }}>{matchup.home.owner}</div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexShrink: 0 }}>
+              <span style={{ fontFamily: "Oswald, sans-serif", fontWeight: 800, fontSize: "2rem", color: homeWinning ? "oklch(0.22 0.08 150)" : "oklch(0.55 0.04 150)", lineHeight: 1 }}>{matchup.home.score.toFixed(1)}</span>
+              <span style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.6 0.04 150)" }}>VS</span>
+              <span style={{ fontFamily: "Oswald, sans-serif", fontWeight: 800, fontSize: "2rem", color: !homeWinning ? "oklch(0.22 0.08 150)" : "oklch(0.55 0.04 150)", lineHeight: 1 }}>{matchup.away.score.toFixed(1)}</span>
+            </div>
+            <div style={{ textAlign: "left", flex: 1 }}>
+              <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "1rem", color: "oklch(0.22 0.08 150)" }}>{matchup.away.team}</div>
+              <div style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)" }}>{matchup.away.owner}</div>
+            </div>
           </div>
-          <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.6 0.04 150)", padding: "0 0.75rem" }}>VS</div>
-          <div style={{ textAlign: "center", flex: 1 }}>
-            <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "0.85rem", color: "oklch(0.22 0.08 150)" }}>{matchup.away.team}</div>
-            <div style={{ fontFamily: "Oswald, sans-serif", fontWeight: 700, fontSize: "1.8rem", color: matchup.away.score > matchup.home.score ? "oklch(0.22 0.08 150)" : "oklch(0.55 0.04 150)", lineHeight: 1 }}>{matchup.away.score.toFixed(1)}</div>
+
+          {/* Side-by-Side Rosters */}
+          <div style={{ flex: 1, overflowY: "auto", display: "grid", gridTemplateColumns: "1fr 1fr", minHeight: 0 }}>
+            {/* Home Team */}
+            <div style={{ borderRight: "2px solid oklch(0.9 0.005 150)", overflowY: "auto" }}>
+              <TeamBreakdown teamName={matchup.home.team} score={matchup.home.score} projected={matchup.home.projected} />
+            </div>
+            {/* Away Team */}
+            <div style={{ overflowY: "auto" }}>
+              <TeamBreakdown teamName={matchup.away.team} score={matchup.away.score} projected={matchup.away.projected} />
+            </div>
           </div>
-        </div>
 
-        {/* Tab Switcher */}
-        <div style={{ display: "flex", borderBottom: "2px solid oklch(0.9 0.005 150)", flexShrink: 0 }}>
-          {(["home", "away"] as const).map(tab => {
-            const team = tab === "home" ? matchup.home : matchup.away;
-            return (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                style={{
-                  flex: 1,
-                  padding: "0.65rem 1rem",
-                  border: "none",
-                  background: "none",
-                  fontFamily: "Oswald, sans-serif",
-                  fontWeight: 700,
-                  fontSize: "0.82rem",
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  color: activeTab === tab ? "oklch(0.22 0.08 150)" : "oklch(0.55 0.04 150)",
-                  borderBottom: activeTab === tab ? "3px solid oklch(0.28 0.09 150)" : "3px solid transparent",
-                  cursor: "pointer",
-                  transition: "all 0.15s",
-                  marginBottom: -2,
-                }}
-              >
-                {team.team}
-                <span style={{ marginLeft: 6, color: "oklch(0.65 0.14 85)" }}>{team.score.toFixed(1)}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Player List */}
-        <div style={{ flex: 1, overflowY: "auto" }}>
-          {activeTab === "home"
-            ? <TeamBreakdown teamName={matchup.home.team} score={matchup.home.score} projected={matchup.home.projected} />
-            : <TeamBreakdown teamName={matchup.away.team} score={matchup.away.score} projected={matchup.away.projected} />
-          }
+          {/* Mobile note */}
+          <div style={{ background: "oklch(0.97 0.003 150)", padding: "0.4rem 1rem", textAlign: "center", flexShrink: 0, borderTop: "1px solid oklch(0.9 0.005 150)" }}>
+            <span style={{ fontSize: "0.68rem", color: "oklch(0.6 0.04 150)", fontFamily: "Oswald, sans-serif", letterSpacing: "0.04em" }}>SLOT · PLAYER · PTS · PROJ — TAP BACKDROP TO CLOSE</span>
+          </div>
         </div>
       </div>
 
       <style>{`
-        @keyframes slideInRight {
-          from { transform: translateX(100%); opacity: 0.8; }
-          to { transform: translateX(0); opacity: 1; }
+        @keyframes scaleIn {
+          from { transform: scale(0.96); opacity: 0; }
+          to { transform: scale(1); opacity: 1; }
+        }
+        @media (max-width: 640px) {
+          .matchup-side-by-side { grid-template-columns: 1fr !important; }
         }
       `}</style>
     </>
