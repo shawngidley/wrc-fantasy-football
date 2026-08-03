@@ -84,6 +84,7 @@ const MOCK_BENCH: Player[] = [
   { id: "b6", name: "Evan McPherson",      nflTeam: "CIN", pos: "K",   pts: 5.0,  proj: 7.0,  status: "Active", isBench: true },
   { id: "b7", name: "Pittsburgh Steelers", nflTeam: "PIT", pos: "DST", pts: 9.0,  proj: 8.5,  status: "Active", isBench: true },
   { id: "b8", name: "Tyjae Spears",        nflTeam: "TEN", pos: "RB",  pts: 3.6,  proj: 5.0,  status: "Active", isBench: true },
+  { id: "b9", name: "Christian McCaffrey", nflTeam: "SF",  pos: "RB",  pts: 0.0,  proj: 0.0,  status: "BYE",    isBench: true },
 ];
 
 const STATUS_COLORS: Record<string, string> = {
@@ -92,6 +93,7 @@ const STATUS_COLORS: Record<string, string> = {
   D:      "oklch(0.55 0.22 25)",
   OUT:    "oklch(0.50 0.22 25)",
   IR:     "oklch(0.50 0.22 25)",
+  BYE:    "oklch(0.50 0.02 150)",
 };
 
 const STATUS_BG: Record<string, string> = {
@@ -100,6 +102,7 @@ const STATUS_BG: Record<string, string> = {
   D:      "oklch(0.95 0.06 25)",
   OUT:    "oklch(0.95 0.06 25)",
   IR:     "oklch(0.95 0.06 25)",
+  BYE:    "oklch(0.93 0.005 150)",
 };
 
 const POS_COLORS: Record<string, string> = {
@@ -113,7 +116,20 @@ const POS_COLORS: Record<string, string> = {
 
 function GameInfo({ nflTeam }: { nflTeam: string }) {
   const game = NFL_GAMES[nflTeam];
-  if (!game) return <span style={{ fontSize: "0.68rem", color: "oklch(0.65 0.04 150)" }}>BYE</span>;
+  if (!game) return (
+    <span style={{
+      fontSize: "0.62rem",
+      fontFamily: "Oswald, sans-serif",
+      fontWeight: 700,
+      letterSpacing: "0.06em",
+      padding: "1px 7px",
+      borderRadius: 3,
+      background: "oklch(0.92 0.005 150)",
+      color: "oklch(0.52 0.02 150)",
+      border: "1px solid oklch(0.82 0.01 150)",
+      whiteSpace: "nowrap" as const,
+    }}>BYE</span>
+  );
   const dayColor = DAY_COLORS[game.day] || "oklch(0.5 0.04 150)";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", flexWrap: "wrap" as const }}>
