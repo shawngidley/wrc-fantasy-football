@@ -315,20 +315,20 @@ function buildRealRoster(teamName: string | undefined): { starters: Player[]; be
   return { starters, bench };
 }
 
-// team_id → team_name lookup (matches Supabase teams table)
+// team_id → team_name lookup (matches Supabase teams table & OWNER_TO_TEAM)
 const TEAM_ID_TO_NAME: Record<string, string> = {
   "team-jonas":   "The Super Snuffleupagus",
-  "team-davidr":  "Millertime",
+  "team-davidr":  "The Boys of Fall",
   "team-jason":   "Heiden's Hardtimes",
   "team-keith":   "HamSandwich",
-  "team-dan":     "Dan's Dynasty",
-  "team-jamie":   "Jamie's Team",
+  "team-dan":     "Legion of Doom",
+  "team-jamie":   "The Four Horsemen",
   "team-bill":    "Billy Goats Gruff",
-  "team-scottn":  "Scott N. FC",
+  "team-scottn":  "Millertime",
   "team-shawn":   "Vipers",
-  "team-davids":  "David S. United",
-  "team-greg":    "The Boys of Fall",
-  "team-scottm":  "Scott M. Squad",
+  "team-davids":  "Legends",
+  "team-greg":    'Larry "Bud" Melman123',
+  "team-scottm":  "Xavier Musketeers",
 };
 
 // Reverse map: team name → team id (for building links from other pages)
