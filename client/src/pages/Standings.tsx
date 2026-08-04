@@ -7,11 +7,10 @@
  *   3. Injury report for logged-in owner's players
  *   4. Player news for logged-in owner's players
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { TrendingUp, TrendingDown, AlertTriangle, Newspaper, RefreshCw } from "lucide-react";
-import { TEAMS } from "@/lib/wrcData";
 import { supabase } from "@/lib/supabase";
 import { SCHEDULE_2026, OWNER_TO_TEAM, getCurrentWeek } from "@/lib/scheduleData2026";
 import { Link } from "wouter";
@@ -48,34 +47,52 @@ interface ESPNArticle {
 
 // ── Standings helpers ────────────────────────────────────────────────────────
 
-function buildDivisions(): { name: string; teams: TeamRow[] }[] {
+type DbStanding = {
+  team_id: string;
+  team_name: string;
+  owner: string;
+  division: string;
+  wins: number;
+  losses: number;
+  ties: number;
+  pts_for: number;
+  pts_against: number;
+  h2h_wins: number;
+  h2h_losses: number;
+  median_wins: number;
+  median_losses: number;
+  div_wins: number;
+  div_losses: number;
+  streak: string;
+};
+
+function buildDivisionsFromDb(rows: DbStanding[]): { name: string; teams: TeamRow[] }[] {
   const divNames = ["East", "Central", "West"] as const;
   return divNames.map(div => {
-    const divTeams = TEAMS.filter(t => t.division === div)
-      .sort((a, b) => b.wins - a.wins || b.ptsFor - a.ptsFor);
+    const divTeams = rows
+      .filter(t => t.division === div)
+      .sort((a, b) => (b.wins - a.wins) || (b.pts_for - a.pts_for));
     return {
       name: `${div} Division`,
       teams: divTeams.map((t, i) => ({
         rank: i + 1,
-        team: t.teamName,
+        team: t.team_name,
         owner: t.owner,
         w: t.wins,
         l: t.losses,
-        h2hW: t.wins,
-        h2hL: t.losses,
-        medW: 0,
-        medL: 0,
-        divW: 0,
-        divL: 0,
-        pf: t.ptsFor,
-        pa: t.ptsAgainst,
-        streak: "—",
+        h2hW: t.h2h_wins,
+        h2hL: t.h2h_losses,
+        medW: t.median_wins,
+        medL: t.median_losses,
+        divW: t.div_wins,
+        divL: t.div_losses,
+        pf: t.pts_for,
+        pa: t.pts_against,
+        streak: t.streak || "—",
       })),
     };
   });
 }
-
-const DIVISIONS = buildDivisions();
 
 function gamesBack(leaderW: number, leaderL: number, teamW: number, teamL: number): string {
   const gb = ((leaderW - teamW) + (teamL - leaderL)) / 2;
@@ -95,13 +112,11 @@ function StreakBadge({ streak }: { streak: string }) {
 
 // ── Matchup Widget ────────────────────────────────────────────────────────────
 
-function MatchupWidget({ ownerKey }: { ownerKey: string }) {
+function MatchupWidget({ ownerKey, standings }: { ownerKey: string; standings: DbStanding[] }) {
   const currentWeek = getCurrentWeek();
-  // Find current week schedule
   const weekData = SCHEDULE_2026.find(w => w.week === currentWeek);
   if (!weekData) return null;
 
-  // Find this owner's matchup
   const matchup = weekData.matchups.find(m => m[0] === ownerKey || m[1] === ownerKey);
   if (!matchup) return null;
 
@@ -109,14 +124,14 @@ function MatchupWidget({ ownerKey }: { ownerKey: string }) {
   const oppKey = matchup[0] === ownerKey ? matchup[1] : matchup[0];
   const oppTeam = OWNER_TO_TEAM[oppKey] ?? oppKey;
 
-  // League median: average of all teams' ptsFor
-  const allPts = TEAMS.map(t => t.ptsFor);
+  // League median from live standings
+  const allPts = standings.map(t => t.pts_for);
   const sorted = [...allPts].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
   const median = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 
-  const myTeamData = TEAMS.find(t => t.teamName === myTeam);
-  const oppTeamData = TEAMS.find(t => t.teamName === oppTeam);
+  const myTeamData = standings.find(t => t.team_name === myTeam);
+  const oppTeamData = standings.find(t => t.team_name === oppTeam);
 
   return (
     <div className="wrc-card" style={{ marginBottom: "1.25rem" }}>
@@ -170,7 +185,12 @@ function InjuryReport({ ownerKey }: { ownerKey: string }) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const teamName = OWNER_TO_TEAM[ownerKey] ?? ownerKey;
-  const myPlayers = TEAMS.find(t => t.teamName === teamName)?.players ?? [];
+  const [myPlayers, setMyPlayers] = useState<{ name: string; pos: string; nflTeam: string }[]>([]);
+  useEffect(() => {
+    supabase.from("players").select("name,pos,nfl_team").eq("team_name", teamName).then(({ data }) => {
+      if (data) setMyPlayers(data.map(p => ({ name: p.name, pos: p.pos, nflTeam: p.nfl_team })));
+    });
+  }, [teamName]);
 
   const fetchInjuries = useCallback(async () => {
     setLoading(true);
@@ -287,7 +307,12 @@ function MyTeamNews({ ownerKey }: { ownerKey: string }) {
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const teamName = OWNER_TO_TEAM[ownerKey] ?? ownerKey;
-  const myPlayers = TEAMS.find(t => t.teamName === teamName)?.players ?? [];
+  const [myPlayers, setMyPlayers] = useState<{ name: string; pos: string; nflTeam: string }[]>([]);
+  useEffect(() => {
+    supabase.from("players").select("name,pos,nfl_team").eq("team_name", teamName).then(({ data }) => {
+      if (data) setMyPlayers(data.map(p => ({ name: p.name, pos: p.pos, nflTeam: p.nfl_team })));
+    });
+  }, [teamName]);
 
   const fetchNews = useCallback(async () => {
     setLoading(true);
@@ -385,6 +410,28 @@ function MyTeamNews({ ownerKey }: { ownerKey: string }) {
 
 export default function Standings() {
   const { franchise, authLoading } = useAuth();
+  const [dbStandings, setDbStandings] = useState<DbStanding[]>([]);
+  const [standingsLoading, setStandingsLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadStandings() {
+      setStandingsLoading(true);
+      const { data } = await supabase.from("team_standings").select("*");
+      if (data && data.length > 0) setDbStandings(data as DbStanding[]);
+      setStandingsLoading(false);
+    }
+    loadStandings();
+    // Subscribe to realtime updates
+    const channel = supabase.channel("standings-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "team_standings" }, () => loadStandings())
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, []);
+
+  const DIVISIONS = useMemo(() => {
+    if (dbStandings.length === 0) return [];
+    return buildDivisionsFromDb(dbStandings);
+  }, [dbStandings]);
 
   // Derive the schedule owner key from franchise owner name
   const ownerKey = franchise?.owner ?? null;
@@ -429,11 +476,17 @@ export default function Standings() {
 
         {/* Weekly Matchup Widget — only when logged in */}
         {!authLoading && ownerKey && (
-          <MatchupWidget ownerKey={ownerKey} />
+          <MatchupWidget ownerKey={ownerKey} standings={dbStandings} />
         )}
 
         {/* Division Standings Tables */}
-        {DIVISIONS.map((division) => {
+        {standingsLoading ? (
+          <div style={{ padding: "1rem 0" }}>
+            {[1,2,3].map(i => (
+              <div key={i} className="skeleton-shimmer" style={{ height: 180, borderRadius: 12, marginBottom: "1.25rem" }} />
+            ))}
+          </div>
+        ) : DIVISIONS.map((division) => {
           const leader = division.teams[0];
           return (
             <div key={division.name} className="wrc-card" style={{ marginBottom: "1.25rem" }}>

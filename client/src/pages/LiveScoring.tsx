@@ -725,17 +725,99 @@ function MatchupPill({ matchup, active, onClick }: { matchup: Matchup; active: b
   );
 }
 
+// ── Supabase matchup type ─────────────────────────────────────────────────────
+type DbResult = {
+  id: number;
+  week: number;
+  home_owner: string;
+  away_owner: string;
+  home_team_name: string;
+  away_team_name: string;
+  home_score: number | null;
+  away_score: number | null;
+  is_final: boolean;
+};
+
+function dbResultToMatchup(r: DbResult, idx: number): Matchup {
+  const homeScore = r.home_score ?? 0;
+  const awayScore = r.away_score ?? 0;
+  return {
+    id: r.id,
+    week: r.week,
+    isChallenge: false,
+    home: {
+      team: r.home_team_name,
+      owner: r.home_owner,
+      score: homeScore,
+      projected: homeScore,
+      playersPlayed: r.is_final ? 10 : 0,
+      playersTotal: 10,
+    },
+    away: {
+      team: r.away_team_name,
+      owner: r.away_owner,
+      score: awayScore,
+      projected: awayScore,
+      playersPlayed: r.is_final ? 10 : 0,
+      playersTotal: 10,
+    },
+    slots: [],
+    bench: { home: [], away: [] },
+  };
+}
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function LiveScoring() {
   const { franchise } = useAuth();
   const [countdown, setCountdown] = useState(REFRESH_SECONDS);
   const [lastRefresh, setLastRefresh] = useState(new Date());
-  const [activeId, setActiveId] = useState(1);
+  const [activeId, setActiveId] = useState<number | null>(null);
+  const [liveMatchups, setLiveMatchups] = useState<Matchup[]>([]);
+  const [currentWeek, setCurrentWeek] = useState(1);
+  const [loading, setLoading] = useState(true);
+
+  // Import supabase inline to avoid circular deps
+  const loadMatchups = useCallback(async () => {
+    const { supabase: sb } = await import("@/lib/supabase");
+    const { getCurrentWeek: gw } = await import("@/lib/scheduleData2026");
+    const week = gw();
+    setCurrentWeek(week);
+    const { data } = await sb
+      .from("weekly_results")
+      .select("id,week,home_owner,away_owner,home_team_name,away_team_name,home_score,away_score,is_final")
+      .eq("week", week)
+      .eq("season", 2026)
+      .order("id", { ascending: true });
+    if (data && data.length > 0) {
+      setLiveMatchups((data as DbResult[]).map((r, i) => dbResultToMatchup(r, i)));
+    } else {
+      // Fallback: show mock data so the UI isn't empty before season starts
+      setLiveMatchups(MOCK_MATCHUPS.slice(0, 6));
+    }
+    setLastRefresh(new Date());
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    loadMatchups();
+    // Realtime subscription
+    let channel: ReturnType<typeof import("@/lib/supabase")["supabase"]["channel"]>;
+    import("@/lib/supabase").then(({ supabase: sb }) => {
+      channel = sb.channel("live-scoring")
+        .on("postgres_changes", { event: "*", schema: "public", table: "weekly_results" }, loadMatchups)
+        .subscribe();
+    });
+    return () => {
+      import("@/lib/supabase").then(({ supabase: sb }) => {
+        if (channel) sb.removeChannel(channel);
+      });
+    };
+  }, [loadMatchups]);
 
   const refresh = useCallback(() => {
-    setLastRefresh(new Date());
+    loadMatchups();
     setCountdown(REFRESH_SECONDS);
-  }, []);
+  }, [loadMatchups]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -751,12 +833,26 @@ export default function LiveScoring() {
   const secs = countdown % 60;
   const timeStr = `${mins}:${secs.toString().padStart(2, "0")}`;
 
-  const activeMatchup = MOCK_MATCHUPS.find(m => m.id === activeId) ?? MOCK_MATCHUPS[0];
+  const displayMatchups = liveMatchups.length > 0 ? liveMatchups : MOCK_MATCHUPS;
+  const effectiveActiveId = activeId ?? (displayMatchups[0]?.id ?? 1);
+  const activeMatchup = displayMatchups.find(m => m.id === effectiveActiveId) ?? displayMatchups[0];
+
+  // Compute league median for ticker
+  const allScores = displayMatchups.flatMap(m => [
+    m.home.score > 0 ? m.home.score : null,
+    m.away.score > 0 ? m.away.score : null,
+  ]).filter((s): s is number => s !== null);
+  const sortedScores = [...allScores].sort((a, b) => a - b);
+  const mid = Math.floor(sortedScores.length / 2);
+  const median = sortedScores.length > 0
+    ? (sortedScores.length % 2 === 0 ? (sortedScores[mid - 1] + sortedScores[mid]) / 2 : sortedScores[mid])
+    : 0;
+  const aboveMedian = allScores.filter(s => s > median).length;
 
   const tickerMessages = [
-    "🔴 LIVE — Week 14 Scoring in Progress",
-    "⚔️ CHALLENGE GAME: Team Gidley 202.7 vs. Team Pattie 141.48",
-    "📊 LEAGUE MEDIAN: 90.3 pts — 6 teams above, 6 below",
+    `🔴 LIVE — Week ${currentWeek} Scoring in Progress`,
+    `📊 LEAGUE MEDIAN: ${median.toFixed(1)} pts — ${aboveMedian} teams above`,
+    "⚽ Scores update automatically via Supabase Realtime",
   ];
 
   return (
@@ -772,9 +868,13 @@ export default function LiveScoring() {
         display: "flex", alignItems: "center", gap: "0.5rem",
         overflowX: "auto",
       }}>
-        {MOCK_MATCHUPS.map(m => (
-          <MatchupPill key={m.id} matchup={m} active={m.id === activeId} onClick={() => setActiveId(m.id)} />
-        ))}
+        {loading ? (
+          <span style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.75rem", fontFamily: "Barlow Condensed, sans-serif" }}>Loading matchups…</span>
+        ) : (
+          displayMatchups.map(m => (
+            <MatchupPill key={m.id} matchup={m} active={m.id === effectiveActiveId} onClick={() => setActiveId(m.id)} />
+          ))
+        )}
         <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
           <div style={{
             display: "flex", alignItems: "center", gap: "0.35rem",
@@ -802,15 +902,21 @@ export default function LiveScoring() {
               LIVE SCORING
             </h1>
             <p style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.6)", margin: 0 }}>
-              Week 14 · Last updated {lastRefresh.toLocaleTimeString()}
+              Week {currentWeek} · Last updated {lastRefresh.toLocaleTimeString()}
             </p>
           </div>
         </div>
 
         {/* Active matchup detail */}
-        <MatchupDetail matchup={activeMatchup} />
+        {loading ? (
+          <div style={{ background: "white", borderRadius: 12, padding: "2rem", textAlign: "center" as const, color: "oklch(0.5 0.04 150)" }}>
+            Loading matchups…
+          </div>
+        ) : activeMatchup ? (
+          <MatchupDetail matchup={activeMatchup} />
+        ) : null}
 
-        <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.7rem", textAlign: "center", marginTop: "1rem", paddingBottom: "2rem" }}>
+        <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.7rem", textAlign: "center" as const, marginTop: "1rem", paddingBottom: "2rem" }}>
           Tap a matchup above to switch · Auto-refreshes every 5 minutes
         </p>
       </div>
