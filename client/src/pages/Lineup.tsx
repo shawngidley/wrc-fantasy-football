@@ -316,10 +316,10 @@ function buildRealRoster(teamName: string | undefined): { starters: Player[]; be
 
 // team_id → team_name lookup (matches Supabase teams table)
 const TEAM_ID_TO_NAME: Record<string, string> = {
-  "team-jonas":   "Jonas Pattie",
+  "team-jonas":   "The Super Snuffleupagus",
   "team-davidr":  "Millertime",
   "team-jason":   "Heiden's Hardtimes",
-  "team-keith":   "Keith Cromer",
+  "team-keith":   "HamSandwich",
   "team-dan":     "Dan's Dynasty",
   "team-jamie":   "Jamie's Team",
   "team-bill":    "Billy Goats Gruff",

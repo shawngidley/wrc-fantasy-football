@@ -37,8 +37,8 @@ const MY_ROSTER = [
 // All teams in the league
 const LEAGUE_TEAMS = [
   "Vipers",              "The Boys of Fall",   "Millertime",         "Legends",
-  "Jonas Pattie",       "Billy Goats Gruff",  "The Four Horsemen",  "Legion of Doom",
-  "Heiden's Hardtimes", 'Larry "Bud" Melman123', "Xavier Musketeers", "Keith Cromer",
+  "The Super Snuffleupagus",       "Billy Goats Gruff",  "The Four Horsemen",  "Legion of Doom",
+  "Heiden's Hardtimes", 'Larry "Bud" Melman123', "Xavier Musketeers", "HamSandwich",
 ];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -98,8 +98,8 @@ const PLAYERS: NFLPlayer[] = [
   { id: "p10", name: "Saquon Barkley",       pos: "RB",  nflTeam: "PHI", status: "Active", owned: true,  ownerTeam: "The Boys of Fall",   byeWeek: 5,  seasonFpts: 276.2, seasonStats: { gp: 13, rushYds: 1284, rushTd: 11, rushAtt: 218, rec: 34, recYds: 248, recTd: 2 } },
   { id: "p11", name: "Jahmyr Gibbs",         pos: "RB",  nflTeam: "DET", status: "Active", owned: true,  ownerTeam: "Vipers",  byeWeek: 5,  seasonFpts: 242.6, seasonStats: { gp: 13, rushYds: 924,  rushTd: 9,  rushAtt: 164, rec: 42, recYds: 348, recTd: 3 } },
   { id: "p12", name: "Christian McCaffrey",  pos: "RB",  nflTeam: "SF",  status: "BYE",    owned: true,  ownerTeam: "The Boys of Fall",   byeWeek: 9,  seasonFpts: 188.2, seasonStats: { gp: 10, rushYds: 748,  rushTd: 8,  rushAtt: 148, rec: 52, recYds: 384, recTd: 4 } },
-  { id: "p13", name: "Bijan Robinson",       pos: "RB",  nflTeam: "ATL", status: "Active", owned: true,  ownerTeam: "Jonas Pattie",  byeWeek: 12, seasonFpts: 224.8, seasonStats: { gp: 13, rushYds: 1048, rushTd: 9,  rushAtt: 188, rec: 38, recYds: 248, recTd: 2 } },
-  { id: "p14", name: "De'Von Achane",        pos: "RB",  nflTeam: "MIA", status: "Q",      owned: true,  ownerTeam: "Jonas Pattie",  byeWeek: 6,  seasonFpts: 198.4, seasonStats: { gp: 11, rushYds: 812,  rushTd: 7,  rushAtt: 142, rec: 44, recYds: 312, recTd: 3 }, injuryNote: "Questionable with ankle — limited practice Thursday" },
+  { id: "p13", name: "Bijan Robinson",       pos: "RB",  nflTeam: "ATL", status: "Active", owned: true,  ownerTeam: "The Super Snuffleupagus",  byeWeek: 12, seasonFpts: 224.8, seasonStats: { gp: 13, rushYds: 1048, rushTd: 9,  rushAtt: 188, rec: 38, recYds: 248, recTd: 2 } },
+  { id: "p14", name: "De'Von Achane",        pos: "RB",  nflTeam: "MIA", status: "Q",      owned: true,  ownerTeam: "The Super Snuffleupagus",  byeWeek: 6,  seasonFpts: 198.4, seasonStats: { gp: 11, rushYds: 812,  rushTd: 7,  rushAtt: 142, rec: 44, recYds: 312, recTd: 3 }, injuryNote: "Questionable with ankle — limited practice Thursday" },
   { id: "p15", name: "Tony Pollard",         pos: "RB",  nflTeam: "TEN", status: "Active", owned: false,                            byeWeek: 5,  seasonFpts: 138.6, seasonStats: { gp: 13, rushYds: 624,  rushTd: 5,  rushAtt: 148, rec: 22, recYds: 148 } },
   { id: "p16", name: "Gus Edwards",          pos: "RB",  nflTeam: "LAC", status: "Active", owned: false,                            byeWeek: 5,  seasonFpts: 88.4,  seasonStats: { gp: 12, rushYds: 448,  rushTd: 4,  rushAtt: 112 } },
   { id: "p17", name: "Tyjae Spears",         pos: "RB",  nflTeam: "TEN", status: "Active", owned: false,                            byeWeek: 5,  seasonFpts: 82.4,  seasonStats: { gp: 12, rushYds: 348,  rushTd: 3,  rushAtt: 88,  rec: 18, recYds: 112 } },
@@ -113,7 +113,7 @@ const PLAYERS: NFLPlayer[] = [
   { id: "p25", name: "Darnell Mooney",       pos: "WR",  nflTeam: "ATL", status: "Active", owned: false,                            byeWeek: 12, seasonFpts: 88.4,  seasonStats: { gp: 13, rec: 42, recYds: 488, recTd: 2 } },
   { id: "p26", name: "Travis Kelce",         pos: "TE",  nflTeam: "KC",  status: "Q",      owned: true,  ownerTeam: "The Boys of Fall",   byeWeek: 6,  seasonFpts: 198.4, seasonStats: { gp: 12, rec: 58, recYds: 648, recTd: 6 },  injuryNote: "Questionable with knee — limited practice Thursday" },
   { id: "p27", name: "Sam LaPorta",          pos: "TE",  nflTeam: "DET", status: "Q",      owned: true,  ownerTeam: "Vipers",  byeWeek: 5,  seasonFpts: 184.8, seasonStats: { gp: 13, rec: 58, recYds: 624, recTd: 7 },  injuryNote: "Questionable with shoulder — limited Wednesday" },
-  { id: "p28", name: "Mark Andrews",         pos: "TE",  nflTeam: "BAL", status: "Active", owned: true,  ownerTeam: "Jonas Pattie",  byeWeek: 14, seasonFpts: 172.4, seasonStats: { gp: 13, rec: 52, recYds: 572, recTd: 6 } },
+  { id: "p28", name: "Mark Andrews",         pos: "TE",  nflTeam: "BAL", status: "Active", owned: true,  ownerTeam: "The Super Snuffleupagus",  byeWeek: 14, seasonFpts: 172.4, seasonStats: { gp: 13, rec: 52, recYds: 572, recTd: 6 } },
   { id: "p29", name: "Dallas Goedert",       pos: "TE",  nflTeam: "PHI", status: "Active", owned: true,  ownerTeam: "Millertime",  byeWeek: 5,  seasonFpts: 148.6, seasonStats: { gp: 13, rec: 48, recYds: 524, recTd: 5 } },
   { id: "p30", name: "Kyle Pitts",           pos: "TE",  nflTeam: "ATL", status: "Q",      owned: false,                            byeWeek: 12, seasonFpts: 124.8, seasonStats: { gp: 11, rec: 42, recYds: 548, recTd: 3 }, injuryNote: "Questionable with hamstring — limited all week" },
   { id: "p31", name: "Evan Engram",          pos: "TE",  nflTeam: "JAX", status: "Active", owned: false,                            byeWeek: 13, seasonFpts: 112.4, seasonStats: { gp: 13, rec: 44, recYds: 484, recTd: 3 } },

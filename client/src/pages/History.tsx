@@ -4,7 +4,7 @@ import { Trophy } from "lucide-react";
 
 // Historical champions — using real team names
 const CHAMPIONS = [
-  { year: 2024, team: "Jonas Pattie",       owner: "Jonas",    record: "11-3", pts: "1,842.6" },
+  { year: 2024, team: "The Super Snuffleupagus",       owner: "Jonas",    record: "11-3", pts: "1,842.6" },
   { year: 2023, team: "Vipers",             owner: "Shawn",    record: "10-4", pts: "1,798.2" },
   { year: 2022, team: "The Boys of Fall",   owner: "David R.", record: "12-2", pts: "1,920.4" },
   { year: 2021, team: "Billy Goats Gruff",  owner: "Bill",     record: "9-5",  pts: "1,756.8" },
@@ -14,11 +14,11 @@ const CHAMPIONS = [
 // All-time records — all 12 franchises with correct names
 const ALL_TIME = [
   { team: "Vipers",                owner: "Shawn",    w: 68, l: 32, pct: ".680", titles: 1 },
-  { team: "Jonas Pattie",          owner: "Jonas",    w: 65, l: 35, pct: ".650", titles: 1 },
+  { team: "The Super Snuffleupagus",          owner: "Jonas",    w: 65, l: 35, pct: ".650", titles: 1 },
   { team: "The Boys of Fall",      owner: "David R.", w: 62, l: 38, pct: ".620", titles: 1 },
   { team: "Billy Goats Gruff",     owner: "Bill",     w: 58, l: 42, pct: ".580", titles: 1 },
   { team: "Heiden's Hardtimes",    owner: "Jason",    w: 55, l: 45, pct: ".550", titles: 1 },
-  { team: "Keith Cromer",          owner: "Keith",    w: 52, l: 48, pct: ".520", titles: 0 },
+  { team: "HamSandwich",          owner: "Keith",    w: 52, l: 48, pct: ".520", titles: 0 },
   { team: "Legion of Doom",        owner: "Dan",      w: 50, l: 50, pct: ".500", titles: 0 },
   { team: "Millertime",            owner: "Scott N.", w: 48, l: 52, pct: ".480", titles: 0 },
   { team: "The Four Horsemen",     owner: "Jamie",    w: 46, l: 54, pct: ".460", titles: 0 },

@@ -59,8 +59,8 @@ type Matchup = {
 const MOCK_MATCHUPS: Matchup[] = [
   {
     id: 1, week: 1, isChallenge: false,
-    home: { team: "Jonas Pattie", owner: "Jonas", score: 0, projected: 0, playersPlayed: 0, playersTotal: 10 },
-    away: { team: "Keith Cromer", owner: "Keith", score: 0, projected: 0, playersPlayed: 0, playersTotal: 10 },
+    home: { team: "The Super Snuffleupagus", owner: "Jonas", score: 0, projected: 0, playersPlayed: 0, playersTotal: 10 },
+    away: { team: "HamSandwich", owner: "Keith", score: 0, projected: 0, playersPlayed: 0, playersTotal: 10 },
     bench: {
       home: [
         { slot: "BN", name: "G. Edwards", fullName: "Gus Edwards", pos: "RB", nflTeam: "LAC", pts: 8.4, proj: 8.4, gameInfo: "LAC 27 @ DEN 14 F", stats: [{ label: "YDS", value: 54 }, { label: "REC", value: 1 }] },

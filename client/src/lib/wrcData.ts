@@ -45,7 +45,7 @@ export const TEAMS: TeamRecord[] = [
   {
     id: "jonas",
     owner: "Jonas",
-    teamName: "Jonas Pattie",
+    teamName: "The Super Snuffleupagus",
     division: "East",
     wins: 0, losses: 0, ptsFor: 0, ptsAgainst: 0,
     clinched: null,
@@ -136,7 +136,7 @@ export const TEAMS: TeamRecord[] = [
   {
     id: "keith",
     owner: "Keith",
-    teamName: "Keith Cromer",
+    teamName: "HamSandwich",
     division: "Central",
     wins: 0, losses: 0, ptsFor: 0, ptsAgainst: 0,
     clinched: null,

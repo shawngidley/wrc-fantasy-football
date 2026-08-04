@@ -42,10 +42,10 @@ export interface SupabaseRostersResult {
 
 // team_id → {team_name, owner} — matches the teams table
 const TEAM_META: Record<string, { team_name: string; owner: string }> = {
-  "team-jonas":   { team_name: "Jonas Pattie",       owner: "Jonas" },
+  "team-jonas":   { team_name: "The Super Snuffleupagus",       owner: "Jonas" },
   "team-davidr":  { team_name: "Millertime",          owner: "David R." },
   "team-jason":   { team_name: "Heiden's Hardtimes",  owner: "Jason" },
-  "team-keith":   { team_name: "Keith Cromer",        owner: "Keith" },
+  "team-keith":   { team_name: "HamSandwich",        owner: "Keith" },
   "team-dan":     { team_name: "Dan's Dynasty",       owner: "Dan" },
   "team-jamie":   { team_name: "Jamie's Team",        owner: "Jamie" },
   "team-bill":    { team_name: "Billy Goats Gruff",   owner: "Bill" },

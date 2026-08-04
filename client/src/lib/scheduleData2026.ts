@@ -4,10 +4,10 @@
  * Playoffs: Week 15 (Wild Card), Week 16 (Divisional), Week 17 (Super Bowl)
  *
  * Owner → Team Name mapping:
- *   Jonas     → Jonas Pattie
+ *   Jonas     → The Super Snuffleupagus
  *   David R.  → The Boys of Fall
  *   Jason     → Heiden's Hardtimes
- *   Keith     → Keith Cromer
+ *   Keith     → HamSandwich
  *   Dan       → Legion of Doom
  *   Scott N.  → Millertime
  *   Bill      → Billy Goats Gruff
@@ -101,10 +101,10 @@ export interface ScheduleWeek {
 
 /** Map owner first-name key → full team name */
 export const OWNER_TO_TEAM: Record<string, string> = {
-  "Jonas":    "Jonas Pattie",
+  "Jonas":    "The Super Snuffleupagus",
   "David R.": "The Boys of Fall",
   "Jason":    "Heiden's Hardtimes",
-  "Keith":    "Keith Cromer",
+  "Keith":    "HamSandwich",
   "Dan":      "Legion of Doom",
   "Scott N.": "Millertime",
   "Bill":     "Billy Goats Gruff",

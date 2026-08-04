@@ -3,7 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 
 // Pre-season placeholder — will be replaced with live Supabase data once Week 1 is complete
 const WEEK_MATCHUPS = [
-  { home: "Jonas Pattie",       hScore: 0, away: "Keith Cromer",          aScore: 0, isChallenge: false },
+  { home: "The Super Snuffleupagus",       hScore: 0, away: "HamSandwich",          aScore: 0, isChallenge: false },
   { home: "The Boys of Fall",   hScore: 0, away: "Millertime",            aScore: 0, isChallenge: false },
   { home: "Heiden's Hardtimes", hScore: 0, away: "Billy Goats Gruff",     aScore: 0, isChallenge: false },
   { home: "The Four Horsemen",  hScore: 0, away: "Legion of Doom",        aScore: 0, isChallenge: false },

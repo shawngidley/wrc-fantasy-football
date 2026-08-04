@@ -86,9 +86,9 @@ export default function Playoffs() {
               </div>
               <div>
                 <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: "oklch(0.35 0.06 150)", marginBottom: "0.35rem" }}>12 Teams — 3 Divisions</div>
-                <div style={{ fontSize: "0.82rem", color: "oklch(0.3 0.04 150)" }}>East: Jonas Pattie, The Boys of Fall,</div>
+                <div style={{ fontSize: "0.82rem", color: "oklch(0.3 0.04 150)" }}>East: The Super Snuffleupagus, The Boys of Fall,</div>
                 <div style={{ fontSize: "0.82rem", color: "oklch(0.3 0.04 150)" }}>&nbsp;&nbsp;Heiden's Hardtimes, The Four Horsemen</div>
-                <div style={{ fontSize: "0.82rem", color: "oklch(0.3 0.04 150)", marginTop: 4 }}>Central: Keith Cromer, Legion of Doom,</div>
+                <div style={{ fontSize: "0.82rem", color: "oklch(0.3 0.04 150)", marginTop: 4 }}>Central: HamSandwich, Legion of Doom,</div>
                 <div style={{ fontSize: "0.82rem", color: "oklch(0.3 0.04 150)" }}>&nbsp;&nbsp;Millertime, Billy Goats Gruff</div>
                 <div style={{ fontSize: "0.82rem", color: "oklch(0.3 0.04 150)", marginTop: 4 }}>West: Xavier Musketeers, Legends,</div>
                 <div style={{ fontSize: "0.82rem", color: "oklch(0.3 0.04 150)" }}>&nbsp;&nbsp;Vipers, Larry "Bud" Melman123</div>

@@ -30,7 +30,7 @@ type TradeSide = {
 const TRADE_HISTORY = [
   {
     date: "Dec 15, 2025",
-    team1: "Jonas Pattie", sends1: ["Justin Jefferson (WR)"],
+    team1: "The Super Snuffleupagus", sends1: ["Justin Jefferson (WR)"],
     team2: "Legion of Doom", sends2: ["George Pickens (WR)", `${CURRENT_YEAR} Rd 4 Pick`],
     status: "Completed",
   },
