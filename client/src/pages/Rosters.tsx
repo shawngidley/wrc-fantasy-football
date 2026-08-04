@@ -1,88 +1,26 @@
 /**
  * WRC Fantasy Football - Rosters Page
  * Background: Field turf
- * Shows all 12 franchise rosters at a glance — each team's 18 players
- * with position, NFL team, and starter/bench designation.
+ * Shows all 12 franchise rosters — data sourced from Supabase `players` table.
+ * Falls back to static wrcData only if Supabase is unavailable.
  */
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { TEAMS, type TeamRecord } from "@/lib/wrcData";
+import { TEAMS } from "@/lib/wrcData";
+import { useSupabaseRosters, type SupabasePlayer } from "@/hooks/useSupabaseRosters";
 import { useDraftedRoster } from "@/hooks/useDraftedRoster";
-import { PLAYER_DRAFT_ROUNDS } from "@/lib/playerDraftRounds";
 
-type Player = {
-  name: string;
-  pos: "QB" | "RB" | "WR" | "TE" | "K" | "DST";
-  nflTeam: string;
-  draftRound?: number | null; // actual draft round (1-18), null = FA
-  acq?: string;
-};
-
-type Franchise = {
-  id: string;
-  teamName: string;
-  owner: string;
-  division: "East" | "Central" | "West";
-  logo?: string;
-  faabRemaining?: number;
-  players: Player[];
-};
-
-// Convert wrcData TeamRecord → local Franchise shape
-function toFranchise(t: TeamRecord): Franchise {
-  const ownerRounds = PLAYER_DRAFT_ROUNDS[t.owner] ?? {};
-  return {
-    id: t.id,
-    teamName: t.teamName,
-    owner: t.owner,
-    division: t.division,
-    faabRemaining: t.faabRemaining,
-    players: t.players.map(p => {
-      const draftRound = ownerRounds[p.name.toLowerCase()] ?? null;
-      const isFa = p.acquisition === "FA" || draftRound === null;
-      return {
-        name: p.name,
-        pos: p.pos,
-        nflTeam: p.nflTeam,
-        draftRound: isFa ? null : draftRound,
-        acq: isFa ? "FA" : `Rd ${draftRound}`,
-      };
-    }),
-  };
-}
-
-// Static fallback — used before draft starts
-const STATIC_ROSTERS: Franchise[] = TEAMS.map(toFranchise);
-
-// ── Sort helpers ─────────────────────────────────────────────────────────────
+// ── Sort helpers ──────────────────────────────────────────────────────────────
 const POS_ORDER: Record<string, number> = { QB: 0, RB: 1, WR: 2, TE: 3, K: 4, DST: 5 };
 
-/**
- * Parse acquisition string into a numeric sort key:
- *   "Rd 3"  → 3          (draft round — lower is earlier / better)
- *   "FA $28" → -28        (FAAB — higher dollar = earlier pick, so negate)
- *   undefined → 9999      (no acq data — sort last)
- */
-function acqSortKey(acq?: string): number {
-  if (!acq) return 9999;
-  if (acq.startsWith("Rd ")) {
-    const round = parseInt(acq.replace("Rd ", ""), 10);
-    return isNaN(round) ? 9999 : round;
-  }
-  if (acq.startsWith("FA $")) {
-    const dollars = parseInt(acq.replace("FA $", ""), 10);
-    // Negate so higher FAAB sorts first (lower sort key)
-    return isNaN(dollars) ? 9999 : -dollars;
-  }
-  return 9999;
-}
-
-function sortPlayers(players: Player[]): Player[] {
+function sortPlayers(players: SupabasePlayer[]): SupabasePlayer[] {
   return [...players].sort((a, b) => {
-    const posDiff = (POS_ORDER[a.pos] ?? 99) - (POS_ORDER[b.pos] ?? 99);
+    const posDiff = (POS_ORDER[a.position] ?? 99) - (POS_ORDER[b.position] ?? 99);
     if (posDiff !== 0) return posDiff;
-    return acqSortKey(a.acq) - acqSortKey(b.acq);
+    const ra = a.draft_round ?? 999;
+    const rb = b.draft_round ?? 999;
+    return ra - rb;
   });
 }
 
@@ -95,38 +33,39 @@ const POS_COLORS: Record<string, { bg: string; text: string }> = {
   DST: { bg: "oklch(0.92 0.04 0)",   text: "oklch(0.35 0.08 0)"   },
 };
 
+// Division membership from wrcData (source of truth for division assignment)
+const TEAM_DIVISION: Record<string, "East" | "Central" | "West"> = {};
+for (const t of TEAMS) TEAM_DIVISION[t.id] = t.division;
+
+// team_id → division
+const TEAM_ID_DIVISION: Record<string, "East" | "Central" | "West"> = {
+  "team-jonas":   "East",
+  "team-davidr":  "East",
+  "team-jason":   "East",
+  "team-jamie":   "East",
+  "team-keith":   "Central",
+  "team-dan":     "Central",
+  "team-bill":    "Central",
+  "team-scottn":  "Central",
+  "team-shawn":   "West",
+  "team-davids":  "West",
+  "team-greg":    "West",
+  "team-scottm":  "West",
+};
+
 const DIVISIONS = ["East", "Central", "West"] as const;
 
 export default function Rosters() {
   const { franchise } = useAuth();
   const [selectedDivision, setSelectedDivision] = useState<"All" | "East" | "Central" | "West">("All");
-  const { rostersByTeam, loading: draftLoading, hasPicks } = useDraftedRoster();
 
-  // Build live rosters from draft picks (or fall back to static)
-  const ROSTERS: Franchise[] = useMemo(() => {
-    if (!hasPicks) return STATIC_ROSTERS;
-    return TEAMS.map(t => {
-      const draftedPlayers = rostersByTeam[t.teamName] ?? [];
-      return {
-        id: t.id,
-        teamName: t.teamName,
-        owner: t.owner,
-        division: t.division,
-        faabRemaining: t.faabRemaining,
-        players: draftedPlayers.map(p => ({
-          name: p.name,
-          pos: p.pos as Player["pos"],
-          nflTeam: p.nflTeam,
-          draftRound: (p as unknown as { round?: number }).round ?? null,
-          acq: p.acquisition === "Draft" ? `Rd ${(p as unknown as { round?: number }).round ?? ""}` : "FA",
-        })),
-      };
-    });
-  }, [rostersByTeam, hasPicks]);
+  // Primary: Supabase players table
+  const { rosters, loading: sbLoading, error: sbError } = useSupabaseRosters();
 
-  const filtered = selectedDivision === "All"
-    ? ROSTERS
-    : ROSTERS.filter(f => f.division === selectedDivision);
+  // Secondary: if draft has started, live draft picks override the players table
+  const { rostersByTeam, hasPicks, loading: draftLoading } = useDraftedRoster();
+
+  const loading = sbLoading || draftLoading;
 
   return (
     <div className="bg-turf bg-overlay" style={{ minHeight: "100vh" }}>
@@ -138,12 +77,13 @@ export default function Rosters() {
           <h1>WRC Rosters</h1>
           <p style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
             2026 Season — All 12 Franchises
-            {draftLoading && <span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.08em" }}>Loading rosters…</span>}
-            {!draftLoading && hasPicks && (
+            {loading && <span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.08em" }}>Loading…</span>}
+            {!loading && hasPicks && (
               <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", background: "oklch(0.93 0.06 85)", color: "oklch(0.35 0.14 85)", borderRadius: 6, padding: "2px 8px", fontSize: "0.7rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.08em" }}>
                 ⚡ LIVE DRAFT ROSTERS
               </span>
             )}
+            {sbError && <span style={{ fontSize: "0.72rem", color: "oklch(0.52 0.22 25)" }}>⚠ {sbError}</span>}
           </p>
         </div>
 
@@ -173,137 +113,138 @@ export default function Rosters() {
           ))}
         </div>
 
+        {/* Loading skeleton */}
+        {loading && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: "1rem" }}>
+            {Array.from({ length: 12 }).map((_, i) => (
+              <div key={i} className="wrc-card" style={{ padding: "1rem" }}>
+                <div className="wrc-skeleton" style={{ width: "60%", height: 16, borderRadius: 4, marginBottom: 8 }} />
+                <div className="wrc-skeleton" style={{ width: "40%", height: 12, borderRadius: 4, marginBottom: 16 }} />
+                {Array.from({ length: 6 }).map((_, j) => (
+                  <div key={j} className="wrc-skeleton" style={{ width: "100%", height: 28, borderRadius: 4, marginBottom: 4 }} />
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Roster Cards Grid */}
-        {DIVISIONS.filter(d => selectedDivision === "All" || selectedDivision === d).map(div => (
-          <div key={div} style={{ marginBottom: "2rem" }}>
-            {/* Division Label */}
-            <div style={{
-              fontFamily: "Barlow Condensed, sans-serif",
-              fontWeight: 700,
-              fontSize: "0.82rem",
-              letterSpacing: "0.12em",
-              textTransform: "uppercase",
-              color: "oklch(0.78 0.15 85)",
-              marginBottom: "0.75rem",
-              paddingLeft: "0.25rem",
-            }}>
-              {div} Division
-            </div>
+        {!loading && DIVISIONS.filter(d => selectedDivision === "All" || selectedDivision === d).map(div => {
+          const divRosters = rosters.filter(r => TEAM_ID_DIVISION[r.team_id] === div);
+          return (
+            <div key={div} style={{ marginBottom: "2rem" }}>
+              <div style={{
+                fontFamily: "Barlow Condensed, sans-serif",
+                fontWeight: 700,
+                fontSize: "0.82rem",
+                letterSpacing: "0.12em",
+                textTransform: "uppercase",
+                color: "oklch(0.78 0.15 85)",
+                marginBottom: "0.75rem",
+                paddingLeft: "0.25rem",
+              }}>
+                {div} Division
+              </div>
 
-            <div style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
-              gap: "1rem",
-            }}>
-              {ROSTERS.filter(f => f.division === div).map(team => {
-                const isMyTeam = team.teamName === franchise?.team_name;
-                const allPlayers = sortPlayers(team.players);
+              <div style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))",
+                gap: "1rem",
+              }}>
+                {divRosters.map(team => {
+                  const isMyTeam = team.team_name === franchise?.team_name;
 
-                return (
-                  <div
-                    key={team.id}
-                    className="wrc-card wrc-card-hover wrc-fade-in"
-                    style={{
-                      outline: isMyTeam ? "2px solid oklch(0.78 0.15 85)" : "none",
-                    }}
-                  >
-                    <div className="wrc-card-gold-stripe" />
+                  // If draft has started, use live draft picks; else use Supabase players table
+                  let displayPlayers: SupabasePlayer[];
+                  if (hasPicks) {
+                    const liveRoster = rostersByTeam[team.team_name] ?? [];
+                    displayPlayers = liveRoster.map(p => ({
+                      id: p.id,
+                      team_id: team.team_id,
+                      name: p.name,
+                      position: p.pos,
+                      nfl_team: p.nflTeam,
+                      acquisition: p.round ? `Rd ${p.round}` : "FA",
+                      draft_round: p.round ?? null,
+                      bye_week: p.byeWeek ?? 0,
+                      status: "Active",
+                      season_fpts: 0,
+                      fpg: 0,
+                    } as SupabasePlayer));
+                  } else {
+                    displayPlayers = team.players;
+                  }
 
-                    {/* Team Header */}
-                    <div style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "0.75rem",
-                      padding: "0.85rem 1rem 0.6rem",
-                    }}>
-                      {/* Logo slot */}
-                      <div style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 6,
-                        background: "oklch(0.92 0.02 150)",
-                        border: "1.5px dashed oklch(0.75 0.06 150)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        flexShrink: 0,
-                        fontSize: "0.55rem",
-                        color: "oklch(0.6 0.04 150)",
-                        fontFamily: "Barlow Condensed, sans-serif",
-                        letterSpacing: "0.04em",
-                        fontWeight: 600,
-                      }}>
-                        {team.logo ? <img src={team.logo} alt={team.teamName} style={{ width: 40, height: 40, objectFit: "contain" }} /> : "LOGO"}
-                      </div>
+                  const allPlayers = sortPlayers(displayPlayers);
 
-                      <div style={{ flex: 1, minWidth: 0 }}>
+                  return (
+                    <div
+                      key={team.team_id}
+                      className="wrc-card wrc-card-hover wrc-fade-in"
+                      style={{ outline: isMyTeam ? "2px solid oklch(0.78 0.15 85)" : "none" }}
+                    >
+                      <div className="wrc-card-gold-stripe" />
+
+                      {/* Team Header */}
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.85rem 1rem 0.6rem" }}>
                         <div style={{
-                          fontFamily: "Barlow Condensed, sans-serif",
-                          fontWeight: 700,
-                          fontSize: "0.95rem",
-                          color: "oklch(0.18 0.05 150)",
-                          letterSpacing: "0.02em",
-                        }}>
-                          {team.teamName}
-                          {isMyTeam && (
-                            <span style={{
-                              marginLeft: "0.5rem",
-                              fontSize: "0.6rem",
-                              background: "oklch(0.78 0.15 85)",
-                              color: "oklch(0.18 0.05 85)",
-                              borderRadius: 10,
-                              padding: "1px 6px",
-                              fontWeight: 700,
-                              letterSpacing: "0.06em",
-                              verticalAlign: "middle",
-                            }}>YOU</span>
-                          )}
-                        </div>
-                        <div style={{ fontSize: "0.75rem", color: "oklch(0.5 0.04 150)" }}>{team.owner}</div>
-                        {team.faabRemaining !== undefined && (
+                          width: 40, height: 40, borderRadius: 6,
+                          background: "oklch(0.92 0.02 150)",
+                          border: "1.5px dashed oklch(0.75 0.06 150)",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: "0.55rem", color: "oklch(0.6 0.04 150)",
+                          fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.04em", fontWeight: 600,
+                          flexShrink: 0,
+                        }}>LOGO</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{
-                            marginTop: "0.2rem",
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "0.25rem",
-                            fontSize: "0.68rem",
-                            fontFamily: "Barlow Condensed, sans-serif",
-                            fontWeight: 700,
-                            letterSpacing: "0.04em",
-                            color: team.faabRemaining > 100 ? "oklch(0.35 0.13 150)" : team.faabRemaining > 50 ? "oklch(0.5 0.12 85)" : "oklch(0.45 0.18 25)",
-                            background: team.faabRemaining > 100 ? "oklch(0.93 0.04 150)" : team.faabRemaining > 50 ? "oklch(0.95 0.06 85)" : "oklch(0.95 0.05 25)",
-                            borderRadius: 4,
-                            padding: "1px 6px",
-                          }}>
-                            {`FAAB: $${team.faabRemaining}`}
+                            fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700,
+                            fontSize: "0.92rem", letterSpacing: "0.04em",
+                            color: "oklch(0.18 0.05 150)", whiteSpace: "nowrap",
+                            overflow: "hidden", textOverflow: "ellipsis",
+                          }}>{team.team_name}</div>
+                          <div style={{ fontSize: "0.72rem", color: "oklch(0.5 0.04 150)" }}>
+                            {team.owner} · {allPlayers.length} players
                           </div>
+                        </div>
+                        {isMyTeam && (
+                          <span style={{
+                            fontSize: "0.6rem", fontFamily: "Barlow Condensed, sans-serif",
+                            fontWeight: 700, letterSpacing: "0.06em",
+                            background: "oklch(0.78 0.15 85)", color: "oklch(0.18 0.05 85)",
+                            borderRadius: 4, padding: "2px 6px",
+                          }}>MY TEAM</span>
                         )}
                       </div>
 
-
-                    </div>
-
-                    {/* Full roster — flat list, no bench split */}
+                      {/* Player List */}
                       <div style={{ padding: "0 0 0.5rem", borderTop: "1px solid oklch(0.9 0.01 150)" }}>
-                        {allPlayers.map((p, i) => (
-                          <PlayerRow key={i} player={p} alt={i % 2 !== 0} />
-                        ))}
+                        {allPlayers.length === 0 ? (
+                          <div style={{ padding: "1.5rem", textAlign: "center", color: "oklch(0.6 0.03 150)", fontSize: "0.8rem" }}>
+                            No players yet
+                          </div>
+                        ) : (
+                          allPlayers.map((p, i) => (
+                            <PlayerRow key={p.id || i} player={p} alt={i % 2 !== 0} />
+                          ))
+                        )}
                       </div>
-                  </div>
-                );
-              })}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
 }
 
-function PlayerRow({ player, alt }: { player: Player; alt: boolean }) {
-  const c = POS_COLORS[player.pos];
-  const isFa = !player.draftRound;
-  const roundLabel = player.draftRound ? `Rd ${player.draftRound}` : "FA";
+function PlayerRow({ player, alt }: { player: SupabasePlayer; alt: boolean }) {
+  const c = POS_COLORS[player.position] ?? { bg: "oklch(0.93 0.02 150)", text: "oklch(0.4 0.04 150)" };
+  const isFa = !player.draft_round;
+  const roundLabel = player.draft_round ? `Rd ${player.draft_round}` : "FA";
   return (
     <div className="wrc-row-hover" style={{
       display: "flex",
@@ -313,43 +254,26 @@ function PlayerRow({ player, alt }: { player: Player; alt: boolean }) {
       background: alt ? "oklch(0.975 0.003 150)" : "white",
     }}>
       <span style={{
-        background: c.bg,
-        color: c.text,
-        borderRadius: 3,
-        padding: "1px 5px",
-        fontSize: "0.62rem",
-        fontWeight: 700,
-        fontFamily: "Barlow Condensed, sans-serif",
-        letterSpacing: "0.04em",
-        minWidth: 28,
-        textAlign: "center",
-        flexShrink: 0,
-      }}>{player.pos}</span>
+        background: c.bg, color: c.text,
+        borderRadius: 3, padding: "1px 5px",
+        fontSize: "0.62rem", fontWeight: 700,
+        fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.04em",
+        minWidth: 28, textAlign: "center", flexShrink: 0,
+      }}>{player.position}</span>
       <span style={{
-        flex: 1,
-        fontSize: "0.8rem",
-        fontWeight: 600,
+        flex: 1, fontSize: "0.8rem", fontWeight: 600,
         color: "oklch(0.18 0.05 150)",
-        whiteSpace: "nowrap",
-        overflow: "hidden",
-        textOverflow: "ellipsis",
+        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
       }}>{player.name}</span>
       <span style={{
-        fontSize: "0.68rem",
-        color: "oklch(0.55 0.06 150)",
-        fontWeight: 600,
-        fontFamily: "Barlow Condensed, sans-serif",
-        letterSpacing: "0.04em",
-        flexShrink: 0,
-      }}>{player.nflTeam}</span>
+        fontSize: "0.68rem", color: "oklch(0.55 0.06 150)",
+        fontWeight: 600, fontFamily: "Barlow Condensed, sans-serif",
+        letterSpacing: "0.04em", flexShrink: 0,
+      }}>{player.nfl_team}</span>
       <span style={{
-        fontSize: "0.6rem",
-        fontFamily: "Barlow Condensed, sans-serif",
-        fontWeight: 700,
-        letterSpacing: "0.04em",
-        padding: "1px 5px",
-        borderRadius: 3,
-        flexShrink: 0,
+        fontSize: "0.6rem", fontFamily: "Barlow Condensed, sans-serif",
+        fontWeight: 700, letterSpacing: "0.04em",
+        padding: "1px 5px", borderRadius: 3, flexShrink: 0,
         background: isFa ? "oklch(0.93 0.06 250)" : "oklch(0.93 0.03 150)",
         color: isFa ? "oklch(0.32 0.14 250)" : "oklch(0.35 0.08 150)",
       }}>{roundLabel}</span>

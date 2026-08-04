@@ -30,8 +30,9 @@ import {
   ChevronDown, ChevronUp, X, ArrowUpDown
 } from "lucide-react";
 // AlertTriangle already imported above — used in Submit button validation
-import { TEAMS } from "@/lib/wrcData";
+import { TEAMS, type RosterPlayer } from "@/lib/wrcData";
 import { supabase } from "@/lib/supabase";
+import { useDraftedRoster } from "@/hooks/useDraftedRoster";
 
 // ── Deadline ─────────────────────────────────────────────────────────────────
 const DEADLINE = new Date("2026-08-24T20:00:00-04:00");
@@ -168,18 +169,23 @@ async function saveToSupabase(teamId: string, slots: ProtectionSlot[], roster: R
 export default function Protections() {
   const { franchise, authLoading } = useAuth();
   const cd = useDeadlineCountdown();
+  const { rostersByTeam, loading: rosterLoading } = useDraftedRoster();
 
-  const team = TEAMS.find(t => t.id === franchise?.id);
   const pickStatus = getPickStatus(franchise?.id ?? "");
 
-  const roster: RosterEntry[] = (team?.players ?? []).map(pl => {
-    const draftRound = pl.acquisition === "Draft" ? (pl.byeWeek ?? null) : null;
+  // Get the logged-in owner's players from Supabase (via useDraftedRoster)
+  const teamName = franchise?.team_name;
+  const livePlayers = teamName ? (rostersByTeam[teamName] ?? []) : [];
+
+  const roster: RosterEntry[] = livePlayers.map((pl, i) => {
+    const rp = pl as typeof pl & { round?: number };
+    const draftRound = rp.round ?? (pl.acquisition === "Draft" ? null : null);
     return {
-      id: pl.id,
+      id: pl.id || `p-${i}`,
       name: pl.name,
       pos: pl.pos,
       nflTeam: pl.nflTeam,
-      byeWeek: pl.byeWeek,
+      byeWeek: pl.byeWeek ?? null,
       acquisition: pl.acquisition,
       draftRound,
       tier: getTier(draftRound),

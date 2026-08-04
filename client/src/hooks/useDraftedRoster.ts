@@ -1,13 +1,13 @@
 /**
  * useDraftedRoster
- * Fetches all completed draft picks from Supabase and builds per-team rosters.
- * Falls back to static wrcData rosters when no picks exist (pre-draft).
+ * Single source of truth for all roster data.
  *
- * Returns:
- *   - rostersByTeam: Record<teamName, RosterPlayer[]>
- *   - loading: boolean
- *   - draftComplete: boolean  (true when draft_state.complete = true)
- *   - hasPicks: boolean       (true when at least one pick exists)
+ * Priority order:
+ *   1. If draft has started (picks exist): draft_picks table (live picks)
+ *   2. Else: Supabase `players` table (seeded from Excel, editable by commissioner)
+ *   3. Waiver moves from roster_moves are applied on top of either source
+ *
+ * Falls back to static wrcData ONLY if Supabase is completely unreachable.
  */
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
@@ -37,12 +37,40 @@ interface DbDraftPick {
   player_nfl_team: string;
 }
 
+interface DbPlayer {
+  id: string;
+  team_id: string;
+  name: string;
+  position: string;
+  nfl_team: string;
+  acquisition: string;
+  draft_round: number | null;
+  bye_week: number;
+  status: string;
+}
+
 export interface DraftedRosterResult {
   rostersByTeam: Record<string, RosterPlayer[]>;
   loading: boolean;
   hasPicks: boolean;
   draftComplete: boolean;
 }
+
+// team_id → team_name (matches teams table)
+const TEAM_ID_TO_NAME: Record<string, string> = {
+  "team-jonas":   "Jonas Pattie",
+  "team-davidr":  "Millertime",
+  "team-jason":   "Heiden's Hardtimes",
+  "team-keith":   "Keith Cromer",
+  "team-dan":     "Dan's Dynasty",
+  "team-jamie":   "Jamie's Team",
+  "team-bill":    "Billy Goats Gruff",
+  "team-scottn":  "Scott N. FC",
+  "team-shawn":   "Vipers",
+  "team-davids":  "David S. United",
+  "team-greg":    "The Boys of Fall",
+  "team-scottm":  "Scott M. Squad",
+};
 
 let _pid = 10000;
 function makeId() { return `dp${++_pid}`; }
@@ -56,7 +84,6 @@ function applyMoves(byTeam: Record<string, RosterPlayer[]>, moves: DbRosterMove[
   for (const move of moves) {
     if (!byTeam[move.team_name]) byTeam[move.team_name] = [];
     if (move.move_type === "ADD") {
-      // Avoid duplicates
       const alreadyOn = byTeam[move.team_name].some(
         p => p.name.toLowerCase() === move.player_name.toLowerCase()
       );
@@ -78,7 +105,6 @@ function applyMoves(byTeam: Record<string, RosterPlayer[]>, moves: DbRosterMove[
         p => p.name.toLowerCase() !== move.player_name.toLowerCase()
       );
     }
-    // TRADE moves are display-only in Transactions; roster impact handled via ADD+DROP pairs
   }
 }
 
@@ -92,62 +118,104 @@ export function useDraftedRoster(): DraftedRosterResult {
     let mounted = true;
 
     async function load() {
-      const [{ data: picks }, { data: stateData }, { data: moves }] = await Promise.all([
+      const [
+        { data: picks },
+        { data: stateData },
+        { data: moves },
+        { data: dbPlayers, error: playersError },
+      ] = await Promise.all([
         supabase.from("draft_picks").select("*").order("overall", { ascending: true }),
         supabase.from("draft_state").select("complete").eq("id", 1).single(),
         supabase.from("roster_moves").select("*").order("created_at", { ascending: true }),
+        supabase.from("players").select("*"),
       ]);
 
       if (!mounted) return;
 
       if (!picks || picks.length === 0) {
-        // No picks yet — use static rosters, still apply any waiver moves
-        const staticMap: Record<string, RosterPlayer[]> = {};
-        for (const team of TEAMS) {
-          staticMap[team.teamName] = [...team.players];
+        // No draft picks yet — use Supabase players table as base
+        const baseMap: Record<string, RosterPlayer[]> = {};
+
+        if (dbPlayers && !playersError) {
+          // Build from Supabase players table
+          for (const p of dbPlayers as DbPlayer[]) {
+            const teamName = TEAM_ID_TO_NAME[p.team_id];
+            if (!teamName) continue;
+            if (!baseMap[teamName]) baseMap[teamName] = [];
+            baseMap[teamName].push({
+              id: p.id,
+              name: p.name,
+              pos: p.position as RosterPlayer["pos"],
+              nflTeam: p.nfl_team,
+              byeWeek: p.bye_week || null,
+              acquisition: p.draft_round ? "Draft" : "FA",
+              round: p.draft_round ?? undefined,
+            } as RosterPlayer & { round?: number });
+          }
+        } else {
+          // Hard fallback to static wrcData if Supabase unreachable
+          for (const team of TEAMS) {
+            baseMap[team.teamName] = [...team.players];
+          }
         }
-        // Apply waiver moves to static rosters
+
+        // Apply any waiver moves on top
         if (moves && moves.length > 0) {
-          applyMoves(staticMap, moves as DbRosterMove[]);
+          applyMoves(baseMap, moves as DbRosterMove[]);
         }
-        setRostersByTeam(staticMap);
+
+        setRostersByTeam(baseMap);
         setHasPicks(false);
         setDraftComplete(stateData?.complete ?? false);
         setLoading(false);
         return;
       }
 
-      // Build rosters from draft picks
+      // Draft has started — build rosters from draft_picks
       const byTeam: Record<string, RosterPlayer[]> = {};
 
       for (const pick of picks as DbDraftPick[]) {
         if (!byTeam[pick.team_name]) byTeam[pick.team_name] = [];
-
-        // Try to find bye week from the NFL player pool
         const poolPlayer = NFL_PLAYERS_2026.find(
           p => p.name.toLowerCase() === pick.player_name.toLowerCase()
         );
-
-        const player: RosterPlayer = {
+        byTeam[pick.team_name].push({
           id: makeId(),
           name: pick.player_name,
           pos: pick.player_pos as RosterPlayer["pos"],
           nflTeam: pick.player_nfl_team,
           byeWeek: poolPlayer?.bye ?? null,
           acquisition: "Draft",
-        };
-
-        byTeam[pick.team_name].push(player);
+          round: pick.round,
+        } as RosterPlayer & { round?: number });
       }
 
-      // For teams with no picks yet, fall back to static roster
-      for (const team of TEAMS) {
-        if (!byTeam[team.teamName]) {
-          byTeam[team.teamName] = [...team.players];
+      // For teams with no picks yet, fall back to Supabase players table
+      if (dbPlayers && !playersError) {
+        for (const p of dbPlayers as DbPlayer[]) {
+          const teamName = TEAM_ID_TO_NAME[p.team_id];
+          if (!teamName || byTeam[teamName]) continue; // skip if team already has picks
+          if (!byTeam[teamName]) byTeam[teamName] = [];
+          byTeam[teamName].push({
+            id: p.id,
+            name: p.name,
+            pos: p.position as RosterPlayer["pos"],
+            nflTeam: p.nfl_team,
+            byeWeek: p.bye_week || null,
+            acquisition: p.draft_round ? "Draft" : "FA",
+            round: p.draft_round ?? undefined,
+          } as RosterPlayer & { round?: number });
+        }
+      } else {
+        // Hard fallback
+        for (const team of TEAMS) {
+          if (!byTeam[team.teamName]) {
+            byTeam[team.teamName] = [...team.players];
+          }
         }
       }
 
-      // Apply waiver adds/drops on top of draft rosters
+      // Apply waiver adds/drops on top
       if (moves && moves.length > 0) {
         applyMoves(byTeam, moves as DbRosterMove[]);
       }
@@ -160,7 +228,7 @@ export function useDraftedRoster(): DraftedRosterResult {
 
     load();
 
-    // Subscribe to new picks and roster moves in real time
+    // Subscribe to real-time changes
     const channel = supabase
       .channel("roster-sync")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "draft_picks" }, () => {
@@ -170,6 +238,9 @@ export function useDraftedRoster(): DraftedRosterResult {
         if (mounted) load();
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "roster_moves" }, () => {
+        if (mounted) load();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "players" }, () => {
         if (mounted) load();
       })
       .subscribe();
