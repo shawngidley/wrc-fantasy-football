@@ -12,6 +12,7 @@ import { TEAMS } from "@/lib/wrcData";
 import { getCurrentWeek } from "@/lib/scheduleData2026";
 import { useDraftedRoster } from "@/hooks/useDraftedRoster";
 import { useParams, Link } from "wouter";
+import TeamLogo from "@/components/TeamLogo";
 
 const STARTER_SLOTS = [
   { slot: "QB",    label: "Quarterback",   eligible: ["QB"] },
@@ -473,8 +474,11 @@ export default function Lineup() {
         {/* ── Header ── */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1.25rem" }}>
           <div className="wrc-page-title" style={{ padding: 0 }}>
-            <h1 style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <h1 style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
               {isReadOnly && <Eye size={18} style={{ opacity: 0.6 }} />}
+              {(isReadOnly ? viewTeamName : franchise?.team_name) && (
+                <TeamLogo teamName={(isReadOnly ? viewTeamName : franchise?.team_name) ?? ""} size={36} style={{ borderRadius: 6 }} />
+              )}
               {isReadOnly ? viewTeamName : "My Lineup"}
             </h1>
             <p>{isReadOnly ? "Read-only view" : (franchise?.team_name || "Select a team")} — Week {getCurrentWeek()} · Lock: Sun 1:00pm ET</p>

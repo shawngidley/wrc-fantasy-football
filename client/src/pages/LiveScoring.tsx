@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { RefreshCw, Clock } from "lucide-react";
+import TeamLogo from "@/components/TeamLogo";
 
 const REFRESH_SECONDS = 300;
 
@@ -535,7 +536,7 @@ function MatchupDetail({ matchup }: { matchup: Matchup }) {
         <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
           {/* Home side */}
           <div style={{ flex: 1, display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
-            <PlayerAvatar name={matchup.home.team} size={44} />
+            <TeamLogo teamName={matchup.home.team} size={44} style={{ borderRadius: 8, flexShrink: 0 }} />
             <div>
               <div style={{
                 fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "2rem",
@@ -565,7 +566,7 @@ function MatchupDetail({ matchup }: { matchup: Matchup }) {
 
           {/* Away side */}
           <div style={{ flex: 1, display: "flex", alignItems: "flex-start", gap: "0.5rem", flexDirection: "row-reverse" }}>
-            <PlayerAvatar name={matchup.away.team} size={44} />
+            <TeamLogo teamName={matchup.away.team} size={44} style={{ borderRadius: 8, flexShrink: 0 }} />
             <div style={{ textAlign: "right" }}>
               <div style={{
                 fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "2rem",
@@ -708,7 +709,7 @@ function MatchupPill({ matchup, active, onClick }: { matchup: Matchup; active: b
         flexShrink: 0,
       }}
     >
-      <PlayerAvatar name={matchup.home.team} size={22} />
+      <TeamLogo teamName={matchup.home.team} size={22} style={{ borderRadius: 4, flexShrink: 0 }} />
       <span style={{
         fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.82rem",
         color: active ? "#1a3a2a" : "white",
@@ -722,7 +723,7 @@ function MatchupPill({ matchup, active, onClick }: { matchup: Matchup; active: b
       }}>
         {matchup.away.score.toFixed(1)}
       </span>
-      <PlayerAvatar name={matchup.away.team} size={22} />
+      <TeamLogo teamName={matchup.away.team} size={22} style={{ borderRadius: 4, flexShrink: 0 }} />
       {matchup.isChallenge && (
         <span style={{ fontSize: "0.65rem" }}>⚔️</span>
       )}

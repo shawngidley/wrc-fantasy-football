@@ -13,6 +13,7 @@ import { supabase } from "@/lib/supabase";
 import { SCHEDULE_2026, OWNER_TO_TEAM } from "@/lib/scheduleData2026";
 import { CheckCircle2, Clock, Edit3, Trophy, X } from "lucide-react";
 import { toast } from "sonner";
+import TeamLogo from "@/components/TeamLogo";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -328,12 +329,15 @@ function WeekCard({
               onClick={() => isCommissioner && onEdit(r)}
             >
               {/* Home team */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: "0.78rem", fontWeight: homeWon ? 800 : 500, color: homeWon ? "oklch(0.28 0.12 150)" : awayWon ? "oklch(0.6 0.04 150)" : "oklch(0.28 0.06 150)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
-                  {homeWon && <Trophy size={11} style={{ display: "inline", marginRight: 3, color: "oklch(0.55 0.18 85)", verticalAlign: "middle" }} />}
-                  {homeTeam}
+              <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                <TeamLogo teamName={homeTeam} size={28} style={{ borderRadius: 5, flexShrink: 0 }} />
+                <div style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: "0.78rem", fontWeight: homeWon ? 800 : 500, color: homeWon ? "oklch(0.28 0.12 150)" : awayWon ? "oklch(0.6 0.04 150)" : "oklch(0.28 0.06 150)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
+                    {homeWon && <Trophy size={11} style={{ display: "inline", marginRight: 3, color: "oklch(0.55 0.18 85)", verticalAlign: "middle" }} />}
+                    {homeTeam}
+                  </div>
+                  <div style={{ fontSize: "0.62rem", color: "oklch(0.55 0.04 150)" }}>{r.home_owner}</div>
                 </div>
-                <div style={{ fontSize: "0.62rem", color: "oklch(0.55 0.04 150)" }}>{r.home_owner}</div>
               </div>
 
               {/* Score */}
@@ -355,12 +359,15 @@ function WeekCard({
               </div>
 
               {/* Away team */}
-              <div style={{ flex: 1, minWidth: 0, textAlign: "right" as const }}>
-                <div style={{ fontSize: "0.78rem", fontWeight: awayWon ? 800 : 500, color: awayWon ? "oklch(0.28 0.12 150)" : homeWon ? "oklch(0.6 0.04 150)" : "oklch(0.28 0.06 150)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
-                  {awayWon && <Trophy size={11} style={{ display: "inline", marginRight: 3, color: "oklch(0.55 0.18 85)", verticalAlign: "middle" }} />}
-                  {awayTeam}
+              <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "0.4rem", justifyContent: "flex-end" }}>
+                <div style={{ minWidth: 0, textAlign: "right" as const }}>
+                  <div style={{ fontSize: "0.78rem", fontWeight: awayWon ? 800 : 500, color: awayWon ? "oklch(0.28 0.12 150)" : homeWon ? "oklch(0.6 0.04 150)" : "oklch(0.28 0.06 150)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
+                    {awayWon && <Trophy size={11} style={{ display: "inline", marginRight: 3, color: "oklch(0.55 0.18 85)", verticalAlign: "middle" }} />}
+                    {awayTeam}
+                  </div>
+                  <div style={{ fontSize: "0.62rem", color: "oklch(0.55 0.04 150)" }}>{r.away_owner}</div>
                 </div>
-                <div style={{ fontSize: "0.62rem", color: "oklch(0.55 0.04 150)" }}>{r.away_owner}</div>
+                <TeamLogo teamName={awayTeam} size={28} style={{ borderRadius: 5, flexShrink: 0 }} />
               </div>
 
               {isCommissioner && (

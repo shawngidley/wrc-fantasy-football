@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Lock, ChevronDown, Trophy } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import type { LoggedInTeam } from "@/contexts/AuthContext";
+import TeamLogo from "@/components/TeamLogo";
 
 interface TeamRow {
   id: string;
@@ -159,6 +160,15 @@ export default function Login() {
                     <option key={t.id} value={t.id}>{t.name} — {t.owner}</option>
                   ))}
                 </select>
+                {/* Show selected team logo */}
+                {selectedId && (() => {
+                  const sel = teams.find(t => t.id === selectedId);
+                  return sel ? (
+                    <div style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+                      <TeamLogo teamName={sel.name} size={26} style={{ borderRadius: 4 }} />
+                    </div>
+                  ) : null;
+                })()}
                 <ChevronDown
                   size={16}
                   style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", color: "oklch(0.5 0.04 150)", pointerEvents: "none" }}

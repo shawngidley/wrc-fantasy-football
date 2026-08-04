@@ -11,6 +11,7 @@ import { TEAMS } from "@/lib/wrcData";
 import { useSupabaseRosters, type SupabasePlayer } from "@/hooks/useSupabaseRosters";
 import { useDraftedRoster } from "@/hooks/useDraftedRoster";
 import { Link } from "wouter";
+import TeamLogo from "@/components/TeamLogo";
 
 // ── Sort helpers ──────────────────────────────────────────────────────────────
 const POS_ORDER: Record<string, number> = { QB: 0, RB: 1, WR: 2, TE: 3, K: 4, DST: 5 };
@@ -188,15 +189,7 @@ export default function Rosters() {
 
                       {/* Team Header */}
                       <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.85rem 1rem 0.6rem" }}>
-                        <div style={{
-                          width: 40, height: 40, borderRadius: 6,
-                          background: "oklch(0.92 0.02 150)",
-                          border: "1.5px dashed oklch(0.75 0.06 150)",
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          fontSize: "0.55rem", color: "oklch(0.6 0.04 150)",
-                          fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.04em", fontWeight: 600,
-                          flexShrink: 0,
-                        }}>LOGO</div>
+                        <TeamLogo teamName={team.team_name} size={40} />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{
                             fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700,
