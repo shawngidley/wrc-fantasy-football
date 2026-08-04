@@ -14,6 +14,7 @@ export interface RosterPlayer {
   nflTeam: string;
   byeWeek: number | null;
   acquisition: "Draft" | "FA";
+  round?: number | null; // draft round (1-18), null/undefined = FA
 }
 
 export interface TeamRecord {

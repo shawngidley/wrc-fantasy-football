@@ -166,7 +166,7 @@ async function saveToSupabase(teamId: string, slots: ProtectionSlot[], roster: R
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Protections() {
-  const { franchise } = useAuth();
+  const { franchise, authLoading } = useAuth();
   const cd = useDeadlineCountdown();
 
   const team = TEAMS.find(t => t.id === franchise?.id);
@@ -317,7 +317,7 @@ export default function Protections() {
         )}
 
         {/* Not logged in */}
-        {!franchise && (
+        {!authLoading && !franchise && (
           <div style={{ background: "oklch(0.97 0.03 85)", border: "1.5px solid oklch(0.82 0.12 85)", borderRadius: 10, padding: "0.875rem 1.25rem", marginBottom: "1.25rem", display: "flex", alignItems: "center", gap: "0.75rem" }}>
             <Lock size={16} color="oklch(0.45 0.14 85)" />
             <span style={{ fontSize: "0.88rem", color: "oklch(0.35 0.14 85)", fontWeight: 600 }}>
@@ -420,7 +420,12 @@ export default function Protections() {
             Your Roster — {franchise?.team_name ?? "Sign in to view"}
           </div>
 
-          {!franchise || roster.length === 0 ? (
+          {authLoading ? (
+            <div style={{ padding: "2.5rem 1.5rem", textAlign: "center", color: "oklch(0.55 0.04 150)" }}>
+              <div className="wrc-skeleton" style={{ width: 120, height: 14, margin: "0 auto 0.5rem", borderRadius: 4 }} />
+              <div className="wrc-skeleton" style={{ width: 80, height: 14, margin: "0 auto", borderRadius: 4 }} />
+            </div>
+          ) : !franchise || roster.length === 0 ? (
             <div style={{ padding: "2.5rem 1.5rem", textAlign: "center", color: "oklch(0.55 0.04 150)" }}>
               <Shield size={32} style={{ margin: "0 auto 0.75rem", opacity: 0.3 }} />
               <p style={{ margin: 0, fontSize: "0.9rem" }}>Sign in to see your roster and select keepers.</p>

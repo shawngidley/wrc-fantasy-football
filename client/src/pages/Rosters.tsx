@@ -9,13 +9,13 @@ import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { TEAMS, type TeamRecord } from "@/lib/wrcData";
 import { useDraftedRoster } from "@/hooks/useDraftedRoster";
+import { PLAYER_DRAFT_ROUNDS } from "@/lib/playerDraftRounds";
 
 type Player = {
   name: string;
   pos: "QB" | "RB" | "WR" | "TE" | "K" | "DST";
   nflTeam: string;
-  isStarter?: boolean;
-  // acquisition: "Rd 3" for draft pick, "FA $45" for FAAB waiver
+  draftRound?: number | null; // actual draft round (1-18), null = FA
   acq?: string;
 };
 
@@ -31,20 +31,24 @@ type Franchise = {
 
 // Convert wrcData TeamRecord → local Franchise shape
 function toFranchise(t: TeamRecord): Franchise {
+  const ownerRounds = PLAYER_DRAFT_ROUNDS[t.owner] ?? {};
   return {
     id: t.id,
     teamName: t.teamName,
     owner: t.owner,
     division: t.division,
     faabRemaining: t.faabRemaining,
-    players: t.players.map((p, i) => ({
-      name: p.name,
-      pos: p.pos,
-      nflTeam: p.nflTeam,
-      // First 11 players are starters, rest are bench
-      isStarter: i < 11,
-      acq: p.acquisition === "Draft" ? "Draft" : "FA",
-    })),
+    players: t.players.map(p => {
+      const draftRound = ownerRounds[p.name.toLowerCase()] ?? null;
+      const isFa = p.acquisition === "FA" || draftRound === null;
+      return {
+        name: p.name,
+        pos: p.pos,
+        nflTeam: p.nflTeam,
+        draftRound: isFa ? null : draftRound,
+        acq: isFa ? "FA" : `Rd ${draftRound}`,
+      };
+    }),
   };
 }
 
@@ -109,12 +113,12 @@ export default function Rosters() {
         owner: t.owner,
         division: t.division,
         faabRemaining: t.faabRemaining,
-        players: draftedPlayers.map((p, i) => ({
+        players: draftedPlayers.map(p => ({
           name: p.name,
-          pos: p.pos,
+          pos: p.pos as Player["pos"],
           nflTeam: p.nflTeam,
-          isStarter: i < 11,
-          acq: p.acquisition === "Draft" ? "Draft" : "FA",
+          draftRound: (p as unknown as { round?: number }).round ?? null,
+          acq: p.acquisition === "Draft" ? `Rd ${(p as unknown as { round?: number }).round ?? ""}` : "FA",
         })),
       };
     });
@@ -193,8 +197,7 @@ export default function Rosters() {
             }}>
               {ROSTERS.filter(f => f.division === div).map(team => {
                 const isMyTeam = team.teamName === franchise?.team_name;
-                const starters = sortPlayers(team.players.filter(p => p.isStarter));
-                const bench = sortPlayers(team.players.filter(p => !p.isStarter));
+                const allPlayers = sortPlayers(team.players);
 
                 return (
                   <div
@@ -280,42 +283,10 @@ export default function Rosters() {
 
                     </div>
 
-                    {/* Full roster — always open */}
-                      <div style={{ padding: "0 0 0.5rem" }}>
-                        {/* Starters */}
-                        <div style={{
-                          padding: "0.3rem 1rem 0.2rem",
-                          fontSize: "0.65rem",
-                          fontFamily: "Barlow Condensed, sans-serif",
-                          fontWeight: 700,
-                          letterSpacing: "0.1em",
-                          textTransform: "uppercase",
-                          color: "oklch(0.38 0.09 150)",
-                          background: "oklch(0.96 0.01 150)",
-                          borderTop: "1px solid oklch(0.9 0.01 150)",
-                        }}>
-                          Starters ({starters.length})
-                        </div>
-                        {starters.map((p, i) => (
+                    {/* Full roster — flat list, no bench split */}
+                      <div style={{ padding: "0 0 0.5rem", borderTop: "1px solid oklch(0.9 0.01 150)" }}>
+                        {allPlayers.map((p, i) => (
                           <PlayerRow key={i} player={p} alt={i % 2 !== 0} />
-                        ))}
-
-                        {/* Bench */}
-                        <div style={{
-                          padding: "0.3rem 1rem 0.2rem",
-                          fontSize: "0.65rem",
-                          fontFamily: "Barlow Condensed, sans-serif",
-                          fontWeight: 700,
-                          letterSpacing: "0.1em",
-                          textTransform: "uppercase",
-                          color: "oklch(0.5 0.04 150)",
-                          background: "oklch(0.97 0.005 150)",
-                          borderTop: "1px solid oklch(0.9 0.01 150)",
-                        }}>
-                          Bench ({bench.length})
-                        </div>
-                        {bench.map((p, i) => (
-                          <PlayerRow key={i} player={p} alt={i % 2 !== 0} bench />
                         ))}
                       </div>
                   </div>
@@ -329,9 +300,10 @@ export default function Rosters() {
   );
 }
 
-function PlayerRow({ player, alt, bench }: { player: Player; alt: boolean; bench?: boolean }) {
+function PlayerRow({ player, alt }: { player: Player; alt: boolean }) {
   const c = POS_COLORS[player.pos];
-  const isFa = player.acq?.startsWith("FA");
+  const isFa = !player.draftRound;
+  const roundLabel = player.draftRound ? `Rd ${player.draftRound}` : "FA";
   return (
     <div className="wrc-row-hover" style={{
       display: "flex",
@@ -339,7 +311,6 @@ function PlayerRow({ player, alt, bench }: { player: Player; alt: boolean; bench
       gap: "0.6rem",
       padding: "0.35rem 1rem",
       background: alt ? "oklch(0.975 0.003 150)" : "white",
-      opacity: bench ? 0.85 : 1,
     }}>
       <span style={{
         background: c.bg,
@@ -357,8 +328,8 @@ function PlayerRow({ player, alt, bench }: { player: Player; alt: boolean; bench
       <span style={{
         flex: 1,
         fontSize: "0.8rem",
-        fontWeight: bench ? 400 : 600,
-        color: bench ? "oklch(0.5 0.04 150)" : "oklch(0.18 0.05 150)",
+        fontWeight: 600,
+        color: "oklch(0.18 0.05 150)",
         whiteSpace: "nowrap",
         overflow: "hidden",
         textOverflow: "ellipsis",
@@ -371,20 +342,17 @@ function PlayerRow({ player, alt, bench }: { player: Player; alt: boolean; bench
         letterSpacing: "0.04em",
         flexShrink: 0,
       }}>{player.nflTeam}</span>
-
-      {player.acq && (
-        <span style={{
-          fontSize: "0.6rem",
-          fontFamily: "Barlow Condensed, sans-serif",
-          fontWeight: 700,
-          letterSpacing: "0.04em",
-          padding: "1px 5px",
-          borderRadius: 3,
-          flexShrink: 0,
-          background: isFa ? "oklch(0.93 0.06 250)" : "oklch(0.93 0.03 150)",
-          color: isFa ? "oklch(0.32 0.14 250)" : "oklch(0.35 0.08 150)",
-        }}>{player.acq}</span>
-      )}
+      <span style={{
+        fontSize: "0.6rem",
+        fontFamily: "Barlow Condensed, sans-serif",
+        fontWeight: 700,
+        letterSpacing: "0.04em",
+        padding: "1px 5px",
+        borderRadius: 3,
+        flexShrink: 0,
+        background: isFa ? "oklch(0.93 0.06 250)" : "oklch(0.93 0.03 150)",
+        color: isFa ? "oklch(0.32 0.14 250)" : "oklch(0.35 0.08 150)",
+      }}>{roundLabel}</span>
     </div>
   );
 }

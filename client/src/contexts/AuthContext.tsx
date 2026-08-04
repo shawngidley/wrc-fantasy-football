@@ -31,6 +31,7 @@ interface AuthContextType {
   login: (team: LoggedInTeam) => void;
   logout: () => void;
   isCommissioner: boolean;
+  authLoading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -39,6 +40,7 @@ const AuthContext = createContext<AuthContextType>({
   login: () => {},
   logout: () => {},
   isCommissioner: false,
+  authLoading: true,
 });
 
 /** Normalise a raw team record so both old and new field names exist */
@@ -68,10 +70,12 @@ function normalise(raw: Record<string, unknown>): LoggedInTeam {
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [team, setTeam] = useState<LoggedInTeam | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
     const stored = getStoredTeam();
     if (stored) setTeam(normalise(stored));
+    setAuthLoading(false);
   }, []);
 
   const login = (t: LoggedInTeam) => {
@@ -92,6 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       logout,
       isCommissioner: team?.is_commissioner === true,
+      authLoading,
     }}>
       {children}
     </AuthContext.Provider>
