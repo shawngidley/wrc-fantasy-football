@@ -382,6 +382,16 @@
 }
 
 /* Responsive */
+/* Hide on mobile */
+.hide-mobile {
+  display: none !important;
+}
+@media (min-width: 640px) {
+  .hide-mobile {
+    display: table-cell !important;
+  }
+}
+
 @media (max-width: 768px) {
   .wrc-hamburger { display: flex; }
   .wrc-desktop-nav { display: none !important; }
