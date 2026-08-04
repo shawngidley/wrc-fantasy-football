@@ -9,7 +9,7 @@
  * - "Bid" button opens FAABBidModal for signed-in users
  * - Commissioner sees all pending bids in a separate tab
  */
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Link } from "wouter";
 import { NFL_PLAYERS_2026, type NFLPlayer } from "@/lib/nflPlayers2026";
 import { TEAMS } from "@/lib/wrcData";
@@ -22,9 +22,9 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, DollarSign, ChevronRight, Trophy, Clock } from "lucide-react";
-import { useEffect } from "react";
+import { Search, DollarSign, ChevronRight, Trophy, Clock, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import Navigation from "@/components/Navigation";
 
 // ── Position badge colors ────────────────────────────────────────────────────
 const POS_COLORS: Record<string, string> = {
@@ -222,9 +222,15 @@ export default function FreeAgents() {
 
   return (
     <div className="min-h-screen bg-slate-50">
+      <Navigation teamName={franchise?.team_name} />
       {/* ── Header ── */}
       <div className="bg-white border-b border-slate-200">
         <div className="max-w-5xl mx-auto px-4 py-5">
+          {/* Back link */}
+          <Link href="/standings" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors mb-3 group">
+            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+            Back to Standings
+          </Link>
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div>
               <h1 className="text-2xl font-extrabold text-slate-900">Free Agents</h1>

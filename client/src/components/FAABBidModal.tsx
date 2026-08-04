@@ -66,7 +66,6 @@ export default function FAABBidModal({ player, onClose }: FAABBidModalProps) {
         player_pos: player.pos,
         player_nfl_team: player.nflTeam,
         bid_amount: amount,
-        drop_player_id: dropPlayer?.id ?? null,
         drop_player_name: dropPlayer?.name ?? null,
         status: "pending",
         week,
