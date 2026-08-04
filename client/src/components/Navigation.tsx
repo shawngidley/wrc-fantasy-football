@@ -20,6 +20,7 @@ const navLinks = [
   { label: "Trades", path: "/trades" },
   { label: "History", path: "/history" },
   { label: "Draft", path: "/draft" },
+  { label: "Draft Recap", path: "/draft-recap" },
   { label: "Protections", path: "/protections" },
   { label: "Schedule", path: "/schedule" },
   { label: "Rules", path: "/rules" },
