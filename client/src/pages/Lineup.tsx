@@ -7,9 +7,10 @@
 import { useState, useMemo, useEffect } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { Lock, CheckCircle2, ChevronDown, ArrowLeftRight, X, Zap } from "lucide-react";
+import { Lock, CheckCircle2, ChevronDown, ArrowLeftRight, X, Zap, Eye, ArrowLeft } from "lucide-react";
 import { TEAMS } from "@/lib/wrcData";
 import { useDraftedRoster } from "@/hooks/useDraftedRoster";
+import { useParams, Link } from "wouter";
 
 const STARTER_SLOTS = [
   { slot: "QB",    label: "Quarterback",   eligible: ["QB"] },
@@ -312,14 +313,36 @@ function buildRealRoster(teamName: string | undefined): { starters: Player[]; be
   return { starters, bench };
 }
 
+// team_id → team_name lookup (matches Supabase teams table)
+const TEAM_ID_TO_NAME: Record<string, string> = {
+  "team-jonas":   "Jonas Pattie",
+  "team-davidr":  "Millertime",
+  "team-jason":   "Heiden's Hardtimes",
+  "team-keith":   "Keith Cromer",
+  "team-dan":     "Dan's Dynasty",
+  "team-jamie":   "Jamie's Team",
+  "team-bill":    "Billy Goats Gruff",
+  "team-scottn":  "Scott N. FC",
+  "team-shawn":   "Vipers",
+  "team-davids":  "David S. United",
+  "team-greg":    "The Boys of Fall",
+  "team-scottm":  "Scott M. Squad",
+};
+
 export default function Lineup() {
   const { franchise } = useAuth();
+  const { teamId } = useParams<{ teamId?: string }>();
   const { rostersByTeam, hasPicks, loading: draftLoading } = useDraftedRoster();
+
+  // Determine which team to show and whether we are in read-only mode
+  const viewTeamName = teamId ? (TEAM_ID_TO_NAME[teamId] ?? null) : franchise?.team_name;
+  const isReadOnly = !!(teamId && franchise?.team_name !== viewTeamName);
+  const isOwnerView = !teamId; // true when on /lineup (owner's own page)
 
   // Build roster from live draft picks or fall back to static
   const liveRoster = useMemo(() => {
-    if (!hasPicks || !franchise?.team_name) return null;
-    const players = rostersByTeam[franchise.team_name];
+    if (!hasPicks || !viewTeamName) return null;
+    const players = rostersByTeam[viewTeamName];
     if (!players || players.length === 0) return null;
     const allPlayers: Player[] = players.map((rp, i) => ({
       id: rp.id,
@@ -345,11 +368,11 @@ export default function Lineup() {
     }
     const bench = pool.map(p => ({ ...p, isBench: true }));
     return { starters, bench };
-  }, [rostersByTeam, hasPicks, franchise?.team_name]);
+  }, [rostersByTeam, hasPicks, viewTeamName]);
 
   const { starters: initialStarters, bench: initialBench } = useMemo(
-    () => liveRoster ?? buildRealRoster(franchise?.team_name),
-    [liveRoster, franchise?.team_name]
+    () => liveRoster ?? buildRealRoster(viewTeamName ?? undefined),
+    [liveRoster, viewTeamName]
   );
 
   const [starters, setStarters] = useState<Player[]>(initialStarters);
@@ -434,52 +457,65 @@ export default function Lineup() {
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "1.5rem 1rem 3rem" }}>
 
+        {/* ── Back link (read-only mode) ── */}
+        {isReadOnly && (
+          <Link href="/rosters" style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", marginBottom: "0.75rem", fontSize: "0.78rem", color: "oklch(0.78 0.15 85)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600, letterSpacing: "0.05em", textDecoration: "none" }}>
+            <ArrowLeft size={13} /> Back to Rosters
+          </Link>
+        )}
+
         {/* ── Header ── */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1.25rem" }}>
           <div className="wrc-page-title" style={{ padding: 0 }}>
-            <h1>My Lineup</h1>
-            <p>{franchise?.team_name || "Select a team"} — Week 14 · Lock: Sun 1:00pm ET</p>
+            <h1 style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              {isReadOnly && <Eye size={18} style={{ opacity: 0.6 }} />}
+              {isReadOnly ? viewTeamName : "My Lineup"}
+            </h1>
+            <p>{isReadOnly ? "Read-only view" : (franchise?.team_name || "Select a team")} — Week 14 · Lock: Sun 1:00pm ET</p>
           </div>
-          <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" as const }}>
-            {/* Best Lineup button */}
-            {!lineupLocked && (
-              <button
-                onClick={runOptimizer}
-                style={{
-                  background: optimized ? "oklch(0.55 0.16 85)" : "oklch(0.55 0.18 85)",
+          {/* Controls — only shown to the owner of this lineup */}
+          {!isReadOnly && (
+            <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" as const }}>
+              {/* Best Lineup button */}
+              {!lineupLocked && (
+                <button
+                  onClick={runOptimizer}
+                  style={{
+                    background: optimized ? "oklch(0.55 0.16 85)" : "oklch(0.55 0.18 85)",
+                    color: "white", border: "none", borderRadius: 8,
+                    padding: "0.5rem 1.1rem",
+                    fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: 600,
+                    letterSpacing: "0.06em", textTransform: "uppercase" as const,
+                    cursor: "pointer", display: "flex", alignItems: "center", gap: "0.35rem",
+                    transition: "background 0.2s",
+                    boxShadow: "0 2px 8px oklch(0.55 0.16 85 / 0.35)",
+                  }}
+                >
+                  <Zap size={13} />
+                  {optimized ? "Optimized!" : "Best Lineup"}
+                </button>
+              )}
+              {/* Save button */}
+              {lineupLocked ? (
+                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "0.4rem 0.875rem" }}>
+                  <Lock size={14} color="#ef4444" />
+                  <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.8rem", color: "#ef4444", letterSpacing: "0.04em" }}>LINEUP LOCKED</span>
+                </div>
+              ) : (
+                <button onClick={handleSave} style={{
+                  background: saved ? "oklch(0.42 0.15 150)" : "oklch(0.28 0.09 150)",
                   color: "white", border: "none", borderRadius: 8,
-                  padding: "0.5rem 1.1rem",
+                  padding: "0.5rem 1.25rem",
                   fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: 600,
                   letterSpacing: "0.06em", textTransform: "uppercase" as const,
-                  cursor: "pointer", display: "flex", alignItems: "center", gap: "0.35rem",
+                  cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem",
                   transition: "background 0.2s",
-                  boxShadow: "0 2px 8px oklch(0.55 0.16 85 / 0.35)",
-                }}
-              >
-                <Zap size={13} />
-                {optimized ? "Optimized!" : "Best Lineup"}
-              </button>
-            )}
-            {/* Save button */}
-            {lineupLocked ? (
-              <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, padding: "0.4rem 0.875rem" }}>
-                <Lock size={14} color="#ef4444" />
-                <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.8rem", color: "#ef4444", letterSpacing: "0.04em" }}>LINEUP LOCKED</span>
-              </div>
-            ) : (
-              <button onClick={handleSave} style={{
-                background: saved ? "oklch(0.42 0.15 150)" : "oklch(0.28 0.09 150)",
-                color: "white", border: "none", borderRadius: 8,
-                padding: "0.5rem 1.25rem",
-                fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: 600,
-                letterSpacing: "0.06em", textTransform: "uppercase" as const,
-                cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem",
-                transition: "background 0.2s",
-              }}>
-                {saved ? <><CheckCircle2 size={14} /> Saved!</> : "Save Lineup"}
-              </button>
-            )}
-          </div>
+                }}>
+                  {saved ? <><CheckCircle2 size={14} /> Saved!</> : "Save Lineup"}
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ── Points summary bar ── */}
@@ -519,13 +555,13 @@ export default function Lineup() {
             return (
               <div key={slot}>
                 <div
-                  onClick={() => { if (lineupLocked || !player) return; setSelectedId(isSelected ? null : player.id); }}
-                  className={!lineupLocked && player ? "wrc-row-hover" : ""}
+                  onClick={() => { if (isReadOnly || lineupLocked || !player) return; setSelectedId(isSelected ? null : player.id); }}
+                  className={!isReadOnly && !lineupLocked && player ? "wrc-row-hover" : ""}
                   style={{
                     display: "flex", alignItems: "center", gap: "0.75rem",
                     padding: "0.6rem 1rem",
                     borderBottom: isSelected ? "none" : "1px solid oklch(0.93 0.005 150)",
-                    cursor: lineupLocked ? "default" : "pointer",
+                    cursor: (isReadOnly || lineupLocked) ? "default" : "pointer",
                     background: isSelected ? "oklch(0.94 0.04 150)" : "white",
                     transition: "background 0.12s",
                   }}
@@ -567,7 +603,7 @@ export default function Lineup() {
                           <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1rem", color: "oklch(0.22 0.08 150)" }}>{player.pts.toFixed(1)}</div>
                           <div style={{ fontSize: "0.62rem", color: "oklch(0.6 0.04 150)" }}>Proj {player.proj.toFixed(1)}</div>
                         </div>
-                        {!lineupLocked && (isSelected ? <X size={14} color="oklch(0.5 0.04 150)" /> : <ChevronDown size={14} color="oklch(0.7 0.04 150)" />)}
+                        {!isReadOnly && !lineupLocked && (isSelected ? <X size={14} color="oklch(0.5 0.04 150)" /> : <ChevronDown size={14} color="oklch(0.7 0.04 150)" />)}
                       </div>
                     </>
                   ) : (
@@ -576,7 +612,7 @@ export default function Lineup() {
                 </div>
 
                 {/* Inline swap panel — starter selected */}
-                {isSelected && !lineupLocked && (
+                {isSelected && !isReadOnly && !lineupLocked && (
                   <div style={{ background: "oklch(0.96 0.02 150)", borderBottom: "1px solid oklch(0.88 0.01 150)", padding: "0.5rem 1rem 0.75rem" }}>
                     <div style={{ fontSize: "0.65rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.08em", color: "oklch(0.45 0.06 150)", textTransform: "uppercase" as const, marginBottom: "0.5rem" }}>
                       Replace with bench player:
@@ -635,13 +671,13 @@ export default function Lineup() {
             return (
               <div key={player.id}>
                 <div
-                  onClick={() => { if (lineupLocked) return; setSelectedId(isSelected ? null : player.id); }}
-                  className={!lineupLocked ? "wrc-row-hover" : ""}
+                  onClick={() => { if (isReadOnly || lineupLocked) return; setSelectedId(isSelected ? null : player.id); }}
+                  className={!isReadOnly && !lineupLocked ? "wrc-row-hover" : ""}
                   style={{
                     display: "flex", alignItems: "center", gap: "0.75rem",
                     padding: "0.6rem 1rem",
                     borderBottom: isSelected ? "none" : "1px solid oklch(0.93 0.005 150)",
-                    cursor: lineupLocked ? "default" : "pointer",
+                    cursor: (isReadOnly || lineupLocked) ? "default" : "pointer",
                     background: isSelected ? "oklch(0.94 0.04 150)" : "white",
                     transition: "background 0.12s",
                   }}
@@ -662,12 +698,12 @@ export default function Lineup() {
                       <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1rem", color: "oklch(0.22 0.08 150)" }}>{player.pts.toFixed(1)}</div>
                       <div style={{ fontSize: "0.62rem", color: "oklch(0.6 0.04 150)" }}>Proj {player.proj.toFixed(1)}</div>
                     </div>
-                    {!lineupLocked && (isSelected ? <X size={14} color="oklch(0.5 0.04 150)" /> : <ChevronDown size={14} color="oklch(0.7 0.04 150)" />)}
+                    {!isReadOnly && !lineupLocked && (isSelected ? <X size={14} color="oklch(0.5 0.04 150)" /> : <ChevronDown size={14} color="oklch(0.7 0.04 150)" />)}
                   </div>
                 </div>
 
                 {/* Inline swap panel — bench player selected */}
-                {isSelected && !lineupLocked && (
+                {isSelected && !isReadOnly && !lineupLocked && (
                   <div style={{ background: "oklch(0.96 0.02 150)", borderBottom: "1px solid oklch(0.88 0.01 150)", padding: "0.5rem 1rem 0.75rem" }}>
                     <div style={{ fontSize: "0.65rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.08em", color: "oklch(0.45 0.06 150)", textTransform: "uppercase" as const, marginBottom: "0.5rem" }}>
                       Move to starting slot:

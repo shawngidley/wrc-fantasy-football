@@ -43,6 +43,7 @@ function Router() {
       <Route path="/standings" component={Standings} />
       <Route path="/live" component={LiveScoring} />
       <Route path="/lineup">{() => <ProtectedRoute component={Lineup} />}</Route>
+      <Route path="/lineup/:teamId" component={Lineup} />
       <Route path="/draft" component={DraftBoard} />
       <Route path="/protections" component={Protections} />
       <Route path="/rundown" component={Rundown} />

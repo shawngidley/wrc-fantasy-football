@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { TEAMS } from "@/lib/wrcData";
 import { useSupabaseRosters, type SupabasePlayer } from "@/hooks/useSupabaseRosters";
 import { useDraftedRoster } from "@/hooks/useDraftedRoster";
+import { Link } from "wouter";
 
 // ── Sort helpers ──────────────────────────────────────────────────────────────
 const POS_ORDER: Record<string, number> = { QB: 0, RB: 1, WR: 2, TE: 3, K: 4, DST: 5 };
@@ -215,6 +216,19 @@ export default function Rosters() {
                             borderRadius: 4, padding: "2px 6px",
                           }}>MY TEAM</span>
                         )}
+                        <Link
+                          href={`/lineup/${team.team_id}`}
+                          style={{
+                            fontSize: "0.6rem", fontFamily: "Barlow Condensed, sans-serif",
+                            fontWeight: 700, letterSpacing: "0.06em",
+                            background: "oklch(0.28 0.09 150)", color: "white",
+                            borderRadius: 4, padding: "3px 7px",
+                            textDecoration: "none", flexShrink: 0,
+                            transition: "background 0.15s",
+                          }}
+                          onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = "oklch(0.38 0.12 150)"}
+                          onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = "oklch(0.28 0.09 150)"}
+                        >VIEW LINEUP</Link>
                       </div>
 
                       {/* Player List */}
