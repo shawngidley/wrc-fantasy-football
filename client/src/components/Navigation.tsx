@@ -15,6 +15,7 @@ const navLinks = [
   { label: "Rosters", path: "/rosters" },
   { label: "Rundown", path: "/rundown" },
   { label: "News", path: "/news" },
+  { label: "Free Agents", path: "/free-agents" },
   { label: "Transactions", path: "/transactions" },
   { label: "Results", path: "/results" },
   { label: "Trades", path: "/trades" },

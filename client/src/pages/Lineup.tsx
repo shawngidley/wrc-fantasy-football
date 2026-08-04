@@ -585,7 +585,12 @@ export default function Lineup() {
                     <>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.18 0.05 150)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {player.name}
+                          <a
+                            href={`/player/${encodeURIComponent(player.name)}`}
+                            style={{ color: "inherit", textDecoration: "none" }}
+                            onMouseEnter={(e) => (e.currentTarget.style.color = "oklch(0.38 0.18 260)")}
+                            onMouseLeave={(e) => (e.currentTarget.style.color = "oklch(0.18 0.05 150)")}
+                          >{player.name}</a>
                           {player.pos === "TE" && (
                             <span style={{ marginLeft: 6, fontSize: "0.58rem", background: "oklch(0.92 0.1 85)", color: "oklch(0.35 0.15 85)", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>1.5x</span>
                           )}
@@ -690,7 +695,15 @@ export default function Lineup() {
                 >
                   <div style={{ width: 52, textAlign: "center", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", color: "white", background: POS_COLORS[player.pos] || "oklch(0.5 0.04 150)", borderRadius: 4, padding: "2px 0", flexShrink: 0 }}>{player.pos}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.18 0.05 150)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{player.name}</div>
+                    <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.18 0.05 150)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                      <a
+                        href={`/player/${encodeURIComponent(player.name)}`}
+                        style={{ color: "inherit", textDecoration: "none" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = "oklch(0.38 0.18 260)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = "oklch(0.18 0.05 150)")}
+                        onClick={(e) => e.stopPropagation()}
+                      >{player.name}</a>
+                    </div>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "2px", flexWrap: "wrap" as const }}>
                       <span style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)" }}>{player.pos} · {player.nflTeam}</span>
                       <GameInfo nflTeam={player.nflTeam} />

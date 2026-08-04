@@ -407,7 +407,12 @@ function PlayerCell({ player, side }: { player: SlotPlayer | null; side: "home" 
             fontSize: "0.82rem", color: "#1a3a2a",
             whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
           }}>
-            {player.name}
+            <a
+              href={`/player/${encodeURIComponent(player.name)}`}
+              style={{ color: "inherit", textDecoration: "none" }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "oklch(0.38 0.18 260)")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "#1a3a2a")}
+            >{player.name}</a>
           </div>
           <div style={{
             fontSize: "0.65rem", color: "oklch(0.5 0.04 150)",

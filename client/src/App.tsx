@@ -28,6 +28,8 @@ import Rosters from "./pages/Rosters";
 import Money from "./pages/Money";
 import Settings from "./pages/Settings";
 import DraftRecap from "./pages/DraftRecap";
+import PlayerPage from "./pages/PlayerPage";
+import FreeAgents from "./pages/FreeAgents";
 
 // Route guard — redirects to login if no team is authenticated
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
@@ -60,6 +62,8 @@ function Router() {
       <Route path="/money" component={Money} />
       <Route path="/settings">{() => <ProtectedRoute component={Settings} />}</Route>
       <Route path="/draft-recap" component={DraftRecap} />
+      <Route path="/player/:playerName" component={PlayerPage} />
+      <Route path="/free-agents" component={FreeAgents} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

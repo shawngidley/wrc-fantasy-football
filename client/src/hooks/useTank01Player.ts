@@ -1,0 +1,245 @@
+/**
+ * WRC Fantasy Football — Tank01 Player Data Hook
+ * Fetches player info + current season stats from Tank01 NFL API.
+ * Caches results in sessionStorage to avoid redundant API calls.
+ */
+import { useState, useEffect } from "react";
+import type { Tank01Stats } from "@/lib/scoringEngine";
+
+const RAPIDAPI_KEY = "7e46b980d9mshee27c75e8b169f3p17558bjsnc4344991f4d3";
+const RAPIDAPI_HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
+const BASE_URL = `https://${RAPIDAPI_HOST}`;
+
+const HEADERS = {
+  "x-rapidapi-host": RAPIDAPI_HOST,
+  "x-rapidapi-key": RAPIDAPI_KEY,
+};
+
+export interface Tank01Player {
+  playerID: string;
+  longName: string;
+  firstName: string;
+  lastName: string;
+  pos: string;
+  team: string;
+  teamID: string;
+  jerseyNum: string;
+  height: string;
+  weight: string;
+  age: string;
+  exp: string;
+  school: string;
+  espnHeadshot: string;
+  espnLink: string;
+  isFreeAgent: string;
+  injury: {
+    designation: string;
+    description: string;
+    injDate: string;
+    injReturnDate: string;
+  };
+  stats?: Tank01Stats;
+}
+
+export interface Tank01TeamInfo {
+  teamAbv: string;
+  teamID: string;
+  teamCity: string;
+  teamName: string;
+  espnLogo1: string;
+  nflComLogo1: string;
+  byeWeeks: Record<string, string[]>;
+}
+
+// ── Session cache ────────────────────────────────────────────────────────────
+function cacheGet<T>(key: string): T | null {
+  try {
+    const raw = sessionStorage.getItem(`tank01_${key}`);
+    if (!raw) return null;
+    const { data, ts } = JSON.parse(raw);
+    // 10-minute TTL
+    if (Date.now() - ts > 10 * 60 * 1000) return null;
+    return data as T;
+  } catch {
+    return null;
+  }
+}
+
+function cacheSet(key: string, data: unknown) {
+  try {
+    sessionStorage.setItem(`tank01_${key}`, JSON.stringify({ data, ts: Date.now() }));
+  } catch {
+    // sessionStorage full — ignore
+  }
+}
+
+// ── Fetch player by ESPN playerID ────────────────────────────────────────────
+export async function fetchPlayerById(playerID: string): Promise<Tank01Player | null> {
+  const cacheKey = `player_${playerID}`;
+  const cached = cacheGet<Tank01Player>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const res = await fetch(
+      `${BASE_URL}/getNFLPlayerInfo?playerID=${playerID}&getStats=true`,
+      { headers: HEADERS }
+    );
+    if (!res.ok) return null;
+    const json = await res.json();
+    const player: Tank01Player = json.body;
+    if (!player || !player.playerID) return null;
+    cacheSet(cacheKey, player);
+    return player;
+  } catch {
+    return null;
+  }
+}
+
+// ── Fetch player by name ─────────────────────────────────────────────────────
+export async function fetchPlayerByName(name: string): Promise<Tank01Player | null> {
+  const cacheKey = `name_${name.toLowerCase().replace(/\s+/g, "_")}`;
+  const cached = cacheGet<Tank01Player>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const res = await fetch(
+      `${BASE_URL}/getNFLPlayerInfo?playerName=${encodeURIComponent(name)}&getStats=true`,
+      { headers: HEADERS }
+    );
+    if (!res.ok) return null;
+    const json = await res.json();
+    // getNFLPlayerInfo by name returns an array
+    const list: Tank01Player[] = Array.isArray(json.body) ? json.body : [json.body];
+    const player = list[0];
+    if (!player || !player.playerID) return null;
+    cacheSet(cacheKey, player);
+    return player;
+  } catch {
+    return null;
+  }
+}
+
+// ── Fetch all NFL teams (for logos, bye weeks) ───────────────────────────────
+export async function fetchNFLTeams(): Promise<Tank01TeamInfo[]> {
+  const cacheKey = "nfl_teams";
+  const cached = cacheGet<Tank01TeamInfo[]>(cacheKey);
+  if (cached) return cached;
+
+  try {
+    const res = await fetch(`${BASE_URL}/getNFLTeams`, { headers: HEADERS });
+    if (!res.ok) return [];
+    const json = await res.json();
+    const teams: Tank01TeamInfo[] = json.body ?? [];
+    cacheSet(cacheKey, teams);
+    return teams;
+  } catch {
+    return [];
+  }
+}
+
+// ── React hook: fetch player by ID ───────────────────────────────────────────
+export function useTank01Player(playerID: string | null) {
+  const [player, setPlayer] = useState<Tank01Player | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!playerID) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetchPlayerById(playerID).then((p) => {
+      if (cancelled) return;
+      setPlayer(p);
+      setLoading(false);
+      if (!p) setError("Player not found");
+    });
+    return () => { cancelled = true; };
+  }, [playerID]);
+
+  return { player, loading, error };
+}
+
+// ── React hook: fetch player by name ─────────────────────────────────────────
+export function useTank01PlayerByName(name: string | null) {
+  const [player, setPlayer] = useState<Tank01Player | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!name) return;
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetchPlayerByName(name).then((p) => {
+      if (cancelled) return;
+      setPlayer(p);
+      setLoading(false);
+      if (!p) setError("Player not found");
+    });
+    return () => { cancelled = true; };
+  }, [name]);
+
+  return { player, loading, error };
+}
+
+// ── React hook: NFL teams ─────────────────────────────────────────────────────
+export function useNFLTeams() {
+  const [teams, setTeams] = useState<Tank01TeamInfo[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    fetchNFLTeams().then((t) => {
+      if (cancelled) return;
+      setTeams(t);
+      setLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
+
+  return { teams, loading };
+}
+
+// ── Helper: get ESPN team logo URL ───────────────────────────────────────────
+export function getTeamLogoUrl(teamAbv: string): string {
+  const abv = teamAbv?.toLowerCase();
+  // Map common abbreviation differences
+  const abvMap: Record<string, string> = {
+    wsh: "wsh", was: "wsh", wsn: "wsh",
+    lv: "lv", oak: "lv",
+    lac: "lac",
+    lar: "lar",
+    kc: "kc", kan: "kc",
+    tb: "tb", tam: "tb",
+    no: "no",
+    ne: "ne",
+    gb: "gb",
+    sf: "sf",
+    sea: "sea",
+    ari: "ari", arZ: "ari", arz: "ari",
+    atl: "atl",
+    bal: "bal",
+    buf: "buf",
+    car: "car",
+    chi: "chi",
+    cin: "cin",
+    cle: "cle",
+    dal: "dal",
+    den: "den",
+    det: "det",
+    hou: "hou",
+    ind: "ind",
+    jac: "jac", jax: "jac",
+    min: "min",
+    mia: "mia",
+    nyg: "nyg",
+    nyj: "nyj",
+    phi: "phi",
+    pit: "pit",
+    ten: "ten",
+  };
+  const mapped = abvMap[abv] ?? abv;
+  return `https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${mapped}.png`;
+}

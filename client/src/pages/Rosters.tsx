@@ -274,11 +274,17 @@ function PlayerRow({ player, alt }: { player: SupabasePlayer; alt: boolean }) {
         fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.04em",
         minWidth: 28, textAlign: "center", flexShrink: 0,
       }}>{player.position}</span>
-      <span style={{
-        flex: 1, fontSize: "0.8rem", fontWeight: 600,
-        color: "oklch(0.18 0.05 150)",
-        whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-      }}>{player.name}</span>
+      <a
+        href={`/player/${encodeURIComponent(player.name)}`}
+        style={{
+          flex: 1, fontSize: "0.8rem", fontWeight: 600,
+          color: "oklch(0.18 0.05 150)",
+          whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+          textDecoration: "none",
+        }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = "oklch(0.38 0.18 260)")}
+        onMouseLeave={(e) => (e.currentTarget.style.color = "oklch(0.18 0.05 150)")}
+      >{player.name}</a>
       <span style={{
         fontSize: "0.68rem", color: "oklch(0.55 0.06 150)",
         fontWeight: 600, fontFamily: "Barlow Condensed, sans-serif",

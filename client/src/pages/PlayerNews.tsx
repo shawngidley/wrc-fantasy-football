@@ -548,11 +548,11 @@ function PlayerBrowser() {
                 {/* Main info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap" as const }}>
-                    <button
-                      onClick={() => openPlayerNews(p)}
-                      style={{ fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.22 0.12 260)", background: "none", border: "none", cursor: "pointer", padding: 0, textDecoration: "underline", textDecorationColor: "oklch(0.22 0.12 260 / 0.3)", textUnderlineOffset: 2 }}
-                      title={`View ESPN news for ${p.name}`}
-                    >{p.name}</button>
+                    <a
+                      href={`/player/${encodeURIComponent(p.name)}`}
+                      style={{ fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.22 0.12 260)", textDecoration: "underline", textDecorationColor: "oklch(0.22 0.12 260 / 0.3)", textUnderlineOffset: 2, cursor: "pointer" }}
+                      title={`View player page for ${p.name}`}
+                    >{p.name}</a>
                     <span style={{ fontSize: "0.7rem", color: "oklch(0.55 0.04 150)" }}>{p.nflTeam}</span>
                     {p.status !== "Active" && (
                       <span style={{
