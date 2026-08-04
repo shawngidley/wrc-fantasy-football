@@ -28,7 +28,14 @@ interface TeamRow {
 
 export default function Login() {
   const [, navigate] = useLocation();
-  const { login } = useAuth();
+  const { login, franchise, authLoading } = useAuth();
+
+  // Auto-redirect if already logged in — skip login screen entirely
+  useEffect(() => {
+    if (!authLoading && franchise) {
+      navigate("/standings");
+    }
+  }, [authLoading, franchise, navigate]);
   const [teams, setTeams] = useState<TeamRow[]>([]);
   const [selectedId, setSelectedId] = useState("");
   const [pin, setPin] = useState("");
