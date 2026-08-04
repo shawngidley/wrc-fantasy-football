@@ -437,9 +437,9 @@ export default function Standings() {
   const ownerKey = franchise?.owner ?? null;
 
   const tickerMessages = [
-    "⚔️ CHALLENGE GAME — Week 14: Team Gidley vs. Team Pattie",
+    "🏈 2026 WRC FANTASY FOOTBALL — Season kicks off September 9th!",
     "🏆 PLAYOFF PICTURE: Top 6 teams qualify — Division winners + 3 Wild Cards",
-    "📅 REGULAR SEASON FINAL — Through Week 14",
+    "📅 REGULAR SEASON — 14 weeks across 3 divisions, Sept. 9 – Dec. 15",
   ];
 
   // Compact table styles (smaller font for mobile)
@@ -471,7 +471,7 @@ export default function Standings() {
         {/* Page Title */}
         <div className="wrc-page-title" style={{ padding: "1rem 0 1.25rem" }}>
           <h1>WRC Fantasy Football 2026</h1>
-          <p>Regular Season Standings — Through Week 14</p>
+          <p>Regular Season Standings — 2026 Pre-Season</p>
         </div>
 
         {/* Weekly Matchup Widget — only when logged in */}

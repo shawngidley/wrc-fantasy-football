@@ -58,9 +58,9 @@ type Matchup = {
 // ── Mock Data ──────────────────────────────────────────────────────────────────
 const MOCK_MATCHUPS: Matchup[] = [
   {
-    id: 1, week: 14, isChallenge: true,
-    home: { team: "Team Gidley", owner: "Shawn Gidley", score: 202.7, projected: 218.4, playersPlayed: 10, playersTotal: 10 },
-    away: { team: "Team Pattie", owner: "Jonas Pattie", score: 141.48, projected: 168.2, playersPlayed: 10, playersTotal: 10 },
+    id: 1, week: 1, isChallenge: false,
+    home: { team: "Jonas Pattie", owner: "Jonas", score: 0, projected: 0, playersPlayed: 0, playersTotal: 10 },
+    away: { team: "Keith Cromer", owner: "Keith", score: 0, projected: 0, playersPlayed: 0, playersTotal: 10 },
     bench: {
       home: [
         { slot: "BN", name: "G. Edwards", fullName: "Gus Edwards", pos: "RB", nflTeam: "LAC", pts: 8.4, proj: 8.4, gameInfo: "LAC 27 @ DEN 14 F", stats: [{ label: "YDS", value: 54 }, { label: "REC", value: 1 }] },
@@ -137,9 +137,9 @@ const MOCK_MATCHUPS: Matchup[] = [
     ],
   },
   {
-    id: 2, week: 14, isChallenge: false,
-    home: { team: "Team Sotka", owner: "David Sotka", score: 112.8, projected: 131.2, playersPlayed: 10, playersTotal: 10 },
-    away: { team: "Team Krause", owner: "Bill Krause", score: 95.6, projected: 108.4, playersPlayed: 10, playersTotal: 10 },
+    id: 2, week: 1, isChallenge: false,
+    home: { team: "The Boys of Fall", owner: "David R.", score: 0, projected: 0, playersPlayed: 0, playersTotal: 10 },
+    away: { team: "Millertime", owner: "Scott N.", score: 0, projected: 0, playersPlayed: 0, playersTotal: 10 },
     bench: {
       home: [
         { slot: "BN", name: "R. White", fullName: "Rachaad White", pos: "RB", nflTeam: "TB", pts: 6.4, proj: 6.4, gameInfo: "NO 24 @ TB 17 F", stats: [{ label: "YDS", value: 44 }] },
@@ -176,9 +176,9 @@ const MOCK_MATCHUPS: Matchup[] = [
     ],
   },
   {
-    id: 3, week: 14, isChallenge: false,
-    home: { team: "Team Heiden", owner: "Jason Heiden", score: 78.2, projected: 119.8, playersPlayed: 7, playersTotal: 10 },
-    away: { team: "Team Nelson", owner: "Scott Nelson", score: 84.6, projected: 112.2, playersPlayed: 8, playersTotal: 10 },
+    id: 3, week: 1, isChallenge: false,
+    home: { team: "Heiden's Hardtimes", owner: "Jason", score: 0, projected: 0, playersPlayed: 0, playersTotal: 10 },
+    away: { team: "Billy Goats Gruff", owner: "Bill", score: 0, projected: 0, playersPlayed: 0, playersTotal: 10 },
     bench: {
       home: [
         { slot: "BN", name: "S. Perine", fullName: "Samaje Perine", pos: "RB", nflTeam: "DEN", pts: 4.2, proj: 4.2, gameInfo: "LAC 27 @ DEN 14 F", stats: [{ label: "YDS", value: 28 }] },
@@ -215,9 +215,9 @@ const MOCK_MATCHUPS: Matchup[] = [
     ],
   },
   {
-    id: 4, week: 14, isChallenge: false,
-    home: { team: "Team Akagi", owner: "Greg Akagi", score: 105.4, projected: 122.6, playersPlayed: 10, playersTotal: 10 },
-    away: { team: "Team Yane", owner: "James Yane", score: 88.8, projected: 98.4, playersPlayed: 10, playersTotal: 10 },
+    id: 4, week: 1, isChallenge: false,
+    home: { team: "The Four Horsemen", owner: "Jamie", score: 0, projected: 0, playersPlayed: 0, playersTotal: 10 },
+    away: { team: "Legion of Doom", owner: "Dan", score: 0, projected: 0, playersPlayed: 0, playersTotal: 10 },
     bench: {
       home: [
         { slot: "BN", name: "D. Pierce", fullName: "Dameon Pierce", pos: "RB", nflTeam: "HOU", pts: 5.4, proj: 5.4, gameInfo: "HOU 24 @ PIT 20 F", stats: [{ label: "YDS", value: 34 }] },
@@ -254,9 +254,9 @@ const MOCK_MATCHUPS: Matchup[] = [
     ],
   },
   {
-    id: 5, week: 14, isChallenge: false,
-    home: { team: "Team Mackar", owner: "Scott Mackar", score: 92.2, projected: 115.4, playersPlayed: 9, playersTotal: 10 },
-    away: { team: "Team Ryks", owner: "David Ryks", score: 101.6, projected: 120.8, playersPlayed: 10, playersTotal: 10 },
+    id: 5, week: 1, isChallenge: false,
+    home: { team: "Xavier Musketeers", owner: "Scott M.", score: 0, projected: 0, playersPlayed: 0, playersTotal: 10 },
+    away: { team: "Legends", owner: "David S.", score: 0, projected: 0, playersPlayed: 0, playersTotal: 10 },
     bench: {
       home: [
         { slot: "BN", name: "J. Waddle", fullName: "Jaylen Waddle", pos: "WR", nflTeam: "MIA", pts: 6.2, proj: 6.2, gameInfo: "MIA 28 @ NE 10 F", stats: [{ label: "REC", value: 4 }, { label: "YDS", value: 42 }] },
@@ -293,9 +293,9 @@ const MOCK_MATCHUPS: Matchup[] = [
     ],
   },
   {
-    id: 6, week: 14, isChallenge: false,
-    home: { team: "Team Cromer", owner: "Keith Cromer", score: 76.4, projected: 104.2, playersPlayed: 8, playersTotal: 10 },
-    away: { team: "Team Osicki", owner: "Dan Osicki", score: 68.8, projected: 92.6, playersPlayed: 8, playersTotal: 10 },
+    id: 6, week: 1, isChallenge: false,
+    home: { team: "Vipers", owner: "Shawn", score: 0, projected: 0, playersPlayed: 0, playersTotal: 10 },
+    away: { team: 'Larry "Bud" Melman123', owner: "Greg", score: 0, projected: 0, playersPlayed: 0, playersTotal: 10 },
     bench: {
       home: [
         { slot: "BN", name: "R. White", fullName: "Rachaad White", pos: "RB", nflTeam: "TB", pts: 6.4, proj: 6.4, gameInfo: "NO 24 @ TB 17 F", stats: [{ label: "YDS", value: 44 }] },

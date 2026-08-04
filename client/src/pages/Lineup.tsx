@@ -9,6 +9,7 @@ import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Lock, CheckCircle2, ChevronDown, ArrowLeftRight, X, Zap, Eye, ArrowLeft } from "lucide-react";
 import { TEAMS } from "@/lib/wrcData";
+import { getCurrentWeek } from "@/lib/scheduleData2026";
 import { useDraftedRoster } from "@/hooks/useDraftedRoster";
 import { useParams, Link } from "wouter";
 
@@ -476,7 +477,7 @@ export default function Lineup() {
               {isReadOnly && <Eye size={18} style={{ opacity: 0.6 }} />}
               {isReadOnly ? viewTeamName : "My Lineup"}
             </h1>
-            <p>{isReadOnly ? "Read-only view" : (franchise?.team_name || "Select a team")} — Week 14 · Lock: Sun 1:00pm ET</p>
+            <p>{isReadOnly ? "Read-only view" : (franchise?.team_name || "Select a team")} — Week {getCurrentWeek()} · Lock: Sun 1:00pm ET</p>
           </div>
           {/* Controls — only shown to the owner of this lineup */}
           {!isReadOnly && (
