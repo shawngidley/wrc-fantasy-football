@@ -14,6 +14,8 @@ import { TrendingUp, TrendingDown, AlertTriangle, Newspaper, RefreshCw } from "l
 import { TEAMS } from "@/lib/wrcData";
 import { supabase } from "@/lib/supabase";
 import { SCHEDULE_2026, OWNER_TO_TEAM, getCurrentWeek } from "@/lib/scheduleData2026";
+import { Link } from "wouter";
+import { TEAM_NAME_TO_ID } from "@/pages/Lineup";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -475,9 +477,15 @@ export default function Standings() {
                         }}>
                           {/* Rank */}
                           <td style={{ textAlign: "center", padding: "0.35rem 0.25rem", fontSize: "0.7rem", color: "oklch(0.55 0.04 150)", fontWeight: 600 }}>{team.rank}</td>
-                          {/* Team name */}
+                          {/* Team name — links to lineup page */}
                           <td style={{ padding: "0.4rem 0.5rem" }}>
-                            <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "oklch(0.18 0.05 150)", lineHeight: 1.2 }}>{team.team}</div>
+                            {TEAM_NAME_TO_ID[team.team] ? (
+                              <Link href={`/lineup/${TEAM_NAME_TO_ID[team.team]}`}>
+                                <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "oklch(0.25 0.12 220)", lineHeight: 1.2, cursor: "pointer", textDecoration: "underline", textDecorationColor: "oklch(0.65 0.08 220)" }}>{team.team}</div>
+                              </Link>
+                            ) : (
+                              <div style={{ fontWeight: 700, fontSize: "0.8rem", color: "oklch(0.18 0.05 150)", lineHeight: 1.2 }}>{team.team}</div>
+                            )}
                             <div style={{ fontSize: "0.62rem", color: "oklch(0.5 0.04 150)" }}>{team.owner}</div>
                           </td>
                           {/* W-L */}

@@ -329,6 +329,11 @@ const TEAM_ID_TO_NAME: Record<string, string> = {
   "team-scottm":  "Scott M. Squad",
 };
 
+// Reverse map: team name → team id (for building links from other pages)
+export const TEAM_NAME_TO_ID: Record<string, string> = Object.fromEntries(
+  Object.entries(TEAM_ID_TO_NAME).map(([id, name]) => [name, id])
+);
+
 export default function Lineup() {
   const { franchise } = useAuth();
   const { teamId } = useParams<{ teamId?: string }>();
