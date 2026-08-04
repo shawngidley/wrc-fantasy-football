@@ -23,6 +23,12 @@ type TeamRow = {
   owner: string;
   w: number;
   l: number;
+  h2hW: number;
+  h2hL: number;
+  medW: number;
+  medL: number;
+  divW: number;
+  divL: number;
   pf: number;
   pa: number;
   streak: string;
@@ -53,6 +59,12 @@ function buildDivisions(): { name: string; teams: TeamRow[] }[] {
         owner: t.owner,
         w: t.wins,
         l: t.losses,
+        h2hW: t.wins,
+        h2hL: t.losses,
+        medW: 0,
+        medL: 0,
+        divW: 0,
+        divL: 0,
         pf: t.ptsFor,
         pa: t.ptsAgainst,
         streak: "—",
@@ -381,7 +393,7 @@ export default function Standings() {
     "📅 REGULAR SEASON FINAL — Through Week 14",
   ];
 
-  // Mobile-first compact table styles
+  // Compact table styles (smaller font for mobile)
   const TH_COMPACT: React.CSSProperties = {
     textAlign: "center",
     whiteSpace: "nowrap",
@@ -395,6 +407,11 @@ export default function Standings() {
     textAlign: "center",
     padding: "0.4rem 0.35rem",
     fontSize: "0.75rem",
+  };
+  const TH_GROUP: React.CSSProperties = {
+    ...TH_COMPACT,
+    borderLeft: "2px solid oklch(0.82 0.06 150)",
+    borderBottom: "2px solid oklch(0.82 0.06 150)",
   };
 
   return (
@@ -421,15 +438,28 @@ export default function Standings() {
               <div className="wrc-card-gold-stripe" />
               <div className="wrc-division-header">{division.name}</div>
               <div style={{ overflowX: "auto" }}>
-                <table className="wrc-table" style={{ width: "100%", minWidth: 0 }}>
+                <table className="wrc-table" style={{ minWidth: 680 }}>
                   <thead>
                     <tr>
                       <th style={{ width: 28, padding: "0.4rem 0.25rem", fontSize: "0.65rem" }}></th>
-                      <th style={{ textAlign: "left", padding: "0.4rem 0.5rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", letterSpacing: "0.06em", fontWeight: 700 }}>Team</th>
+                      <th style={{ textAlign: "left", minWidth: 140, padding: "0.4rem 0.5rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", letterSpacing: "0.06em", fontWeight: 700 }}>Team</th>
                       <th style={TH_COMPACT}>W-L</th>
                       <th style={TH_COMPACT}>GB</th>
                       <th style={{ ...TH_COMPACT, color: "oklch(0.42 0.18 85)" }}>FPts</th>
-                      <th style={{ ...TH_COMPACT, display: "none" as const }} className="hide-mobile">Streak</th>
+                      <th style={{ ...TH_GROUP }} colSpan={2}>
+                        <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", marginBottom: 2 }}>Head to Head</div>
+                        <div style={{ display: "flex", justifyContent: "space-around", fontSize: "0.62rem", fontWeight: 400, color: "oklch(0.45 0.04 150)" }}><span>W</span><span>L</span></div>
+                      </th>
+                      <th style={{ ...TH_GROUP }} colSpan={2}>
+                        <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", marginBottom: 2 }}>Median</div>
+                        <div style={{ display: "flex", justifyContent: "space-around", fontSize: "0.62rem", fontWeight: 400, color: "oklch(0.45 0.04 150)" }}><span>W</span><span>L</span></div>
+                      </th>
+                      <th style={{ ...TH_GROUP }} colSpan={2}>
+                        <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", marginBottom: 2 }}>Division</div>
+                        <div style={{ display: "flex", justifyContent: "space-around", fontSize: "0.62rem", fontWeight: 400, color: "oklch(0.45 0.04 150)" }}><span>W</span><span>L</span></div>
+                      </th>
+                      <th style={{ ...TH_COMPACT, textAlign: "right" }}>PA</th>
+                      <th style={TH_COMPACT}>Streak</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -457,11 +487,22 @@ export default function Standings() {
                             <span style={{ color: "oklch(0.45 0.04 150)", fontSize: "0.78rem" }}>{team.l}</span>
                           </td>
                           {/* GB */}
-                          <td style={{ ...TD_COMPACT, fontWeight: gb === "—" ? 400 : 600, color: gb === "—" ? "oklch(0.65 0.03 150)" : "oklch(0.35 0.06 150)", fontSize: "0.75rem" }}>{gb}</td>
+                          <td style={{ ...TD_COMPACT, fontWeight: gb === "—" ? 400 : 600, color: gb === "—" ? "oklch(0.65 0.03 150)" : "oklch(0.35 0.06 150)" }}>{gb}</td>
                           {/* FPts */}
-                          <td style={{ ...TD_COMPACT, fontWeight: 700, color: "oklch(0.38 0.16 85)", fontSize: "0.78rem" }}>{team.pf.toFixed(1)}</td>
-                          {/* Streak — hidden on mobile via CSS */}
-                          <td style={{ ...TD_COMPACT }} className="hide-mobile"><StreakBadge streak={team.streak} /></td>
+                          <td style={{ ...TD_COMPACT, fontWeight: 700, color: "oklch(0.38 0.16 85)" }}>{team.pf.toFixed(1)}</td>
+                          {/* H2H */}
+                          <td style={{ ...TD_COMPACT, borderLeft: "2px solid oklch(0.82 0.06 150)", color: "oklch(0.38 0.15 150)", fontWeight: 700 }}>{team.h2hW}</td>
+                          <td style={{ ...TD_COMPACT, color: "oklch(0.52 0.22 25)" }}>{team.h2hL}</td>
+                          {/* Median */}
+                          <td style={{ ...TD_COMPACT, borderLeft: "2px solid oklch(0.82 0.06 150)", color: "oklch(0.38 0.15 150)", fontWeight: 700 }}>{team.medW}</td>
+                          <td style={{ ...TD_COMPACT, color: "oklch(0.52 0.22 25)" }}>{team.medL}</td>
+                          {/* Division */}
+                          <td style={{ ...TD_COMPACT, borderLeft: "2px solid oklch(0.82 0.06 150)", color: "oklch(0.38 0.15 150)", fontWeight: 700 }}>{team.divW}</td>
+                          <td style={{ ...TD_COMPACT, color: "oklch(0.52 0.22 25)" }}>{team.divL}</td>
+                          {/* PA */}
+                          <td style={{ ...TD_COMPACT, borderLeft: "1px solid oklch(0.92 0.005 150)", textAlign: "right", color: "oklch(0.5 0.04 150)" }}>{team.pa.toFixed(1)}</td>
+                          {/* Streak */}
+                          <td style={TD_COMPACT}><StreakBadge streak={team.streak} /></td>
                         </tr>
                       );
                     })}
