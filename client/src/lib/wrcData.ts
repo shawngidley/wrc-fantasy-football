@@ -257,7 +257,7 @@ export const TEAMS: TeamRecord[] = [
     id: "jamie",
     owner: "Jamie",
     teamName: "The Four Horsemen",
-    division: "West",
+    division: "East",
     wins: 0, losses: 0, ptsFor: 0, ptsAgainst: 0,
     clinched: null,
     pin: "1234",

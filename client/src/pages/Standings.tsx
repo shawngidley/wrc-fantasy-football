@@ -248,7 +248,6 @@ export default function Standings() {
                       <th style={{ width: 48, padding: "0.55rem 0.4rem" }}></th>
                       <th style={{ textAlign: "left", minWidth: 160, padding: "0.55rem 0.75rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", letterSpacing: "0.06em" }}>Team</th>
                       <th style={TH}>W-L</th>
-                      <th style={TH}>PCT</th>
                       <th style={TH}>GB</th>
                       <th style={{ ...TH, borderLeft: "2px solid oklch(0.82 0.06 150)", borderBottom: "2px solid oklch(0.82 0.06 150)" }} colSpan={2}>
                         <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.06em", marginBottom: 2 }}>Head to Head</div>
@@ -315,8 +314,6 @@ export default function Standings() {
                             <span style={{ color: "oklch(0.65 0.03 150)", margin: "0 2px" }}>-</span>
                             <span style={{ color: "oklch(0.45 0.04 150)" }}>{team.l}</span>
                           </td>
-                          {/* PCT */}
-                          <td style={{ ...TD_CENTER, color: "oklch(0.45 0.04 150)" }}>{pct}</td>
                           {/* GB */}
                           <td style={{ ...TD_CENTER, fontWeight: gb === "—" ? 400 : 600, color: gb === "—" ? "oklch(0.65 0.03 150)" : "oklch(0.35 0.06 150)" }}>{gb}</td>
                           {/* H2H */}
