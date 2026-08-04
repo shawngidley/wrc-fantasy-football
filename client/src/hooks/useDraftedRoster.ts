@@ -56,20 +56,20 @@ export interface DraftedRosterResult {
   draftComplete: boolean;
 }
 
-// team_id → team_name (matches teams table)
+// team_id → team_name (matches teams table — updated to correct 2026 names)
 const TEAM_ID_TO_NAME: Record<string, string> = {
   "team-jonas":   "The Super Snuffleupagus",
-  "team-davidr":  "Millertime",
+  "team-davidr":  "The Boys of Fall",
   "team-jason":   "Heiden's Hardtimes",
   "team-keith":   "HamSandwich",
-  "team-dan":     "Dan's Dynasty",
-  "team-jamie":   "Jamie's Team",
+  "team-dan":     "Legion of Doom",
+  "team-jamie":   "The Four Horsemen",
   "team-bill":    "Billy Goats Gruff",
-  "team-scottn":  "Scott N. FC",
+  "team-scottn":  "Millertime",
   "team-shawn":   "Vipers",
-  "team-davids":  "David S. United",
-  "team-greg":    "The Boys of Fall",
-  "team-scottm":  "Scott M. Squad",
+  "team-davids":  "Legends",
+  "team-greg":    'Larry "Bud" Melman123',
+  "team-scottm":  "Xavier Musketeers",
 };
 
 let _pid = 10000;

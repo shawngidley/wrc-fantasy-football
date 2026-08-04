@@ -14,6 +14,7 @@ import { useDraftedRoster } from "@/hooks/useDraftedRoster";
 import { useParams, Link } from "wouter";
 import TeamLogo from "@/components/TeamLogo";
 import { useNFLMatchups, formatMatchup, formatGameTime, type NFLMatchupMap } from "@/hooks/useNFLMatchups";
+import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections";
 
 const STARTER_SLOTS = [
   { slot: "QB",    label: "Quarterback",   eligible: ["QB"] },
@@ -36,6 +37,47 @@ const DAY_COLORS: Record<string, string> = {
   Mon: "oklch(0.55 0.18 25)",
   Sat: "oklch(0.55 0.16 85)",
 };
+
+// ── NFL team abbreviation normalizer (KAN→KC, TAM→TB, ARZ→ARI, JAX→JAC) ────────
+function normalizeNFLTeam(abv: string): string {
+  const map: Record<string, string> = {
+    KAN: "KC", TAM: "TB", ARZ: "ARI", JAX: "JAC", WAS: "WSH",
+  };
+  return map[abv.toUpperCase()] ?? abv.toUpperCase();
+}
+
+/**
+ * Returns true if the player's NFL game has already started (ET).
+ * A player locks the moment their game kicks off — not at a global Sunday 1pm.
+ */
+function isPlayerLocked(nflTeam: string, matchupMap: NFLMatchupMap): boolean {
+  const normTeam = normalizeNFLTeam(nflTeam);
+  const matchup = matchupMap[normTeam];
+  if (!matchup) return false; // no game this week → not locked (bye)
+  const { gameDate, gameTime } = matchup;
+  if (!gameDate || !gameTime) return false;
+
+  // Parse gameDate: "20260913" → "2026-09-13"
+  const d = gameDate;
+  const datePart = `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`;
+
+  // Parse gameTime: "1:00p" or "8:20p" (Eastern)
+  const timeMatch = gameTime.match(/(\d+):(\d+)([ap])/i);
+  if (!timeMatch) return false;
+  let hours = parseInt(timeMatch[1], 10);
+  const mins = parseInt(timeMatch[2], 10);
+  const ampm = timeMatch[3].toLowerCase();
+  if (ampm === "p" && hours !== 12) hours += 12;
+  if (ampm === "a" && hours === 12) hours = 0;
+
+  // Build an ISO string in ET (UTC-4 during EDT, UTC-5 during EST)
+  // September games are EDT (UTC-4)
+  const offsetHours = 4; // EDT
+  const utcHours = hours + offsetHours;
+  const kickoffUTC = new Date(`${datePart}T${String(utcHours).padStart(2,"0")}:${String(mins).padStart(2,"0")}:00Z`);
+
+  return Date.now() >= kickoffUTC.getTime();
+}
 
 // ── GameInfo now accepts the live matchup map passed from the parent ──────────
 
@@ -332,18 +374,23 @@ export default function Lineup() {
   const isReadOnly = !!(teamId && franchise?.team_name !== viewTeamName);
   const isOwnerView = !teamId; // true when on /lineup (owner's own page)
 
-  // Build roster from live draft picks or fall back to static
+  // Live NFL matchup + projection data from Tank01
+  const currentWeek = getCurrentWeek() || 1;
+  const { matchups: matchupMap } = useNFLMatchups(currentWeek);
+  const { projections } = useNFLProjections(currentWeek);
+
+  // Build roster from Supabase (players table or draft_picks, whichever is populated)
   const liveRoster = useMemo(() => {
-    if (!hasPicks || !viewTeamName) return null;
+    if (!viewTeamName) return null;
     const players = rostersByTeam[viewTeamName];
     if (!players || players.length === 0) return null;
-    const allPlayers: Player[] = players.map((rp, i) => ({
+    const allPlayers: Player[] = players.map((rp) => ({
       id: rp.id,
       name: rp.name,
       pos: rp.pos,
-      nflTeam: rp.nflTeam,
+      nflTeam: normalizeNFLTeam(rp.nflTeam),
       pts: 0,
-      proj: 0,
+      proj: 0,   // filled in below once projections arrive
       status: "Active",
       byeWeek: rp.byeWeek ?? undefined,
       seasonFpts: undefined,
@@ -361,7 +408,7 @@ export default function Lineup() {
     }
     const bench = pool.map(p => ({ ...p, isBench: true }));
     return { starters, bench };
-  }, [rostersByTeam, hasPicks, viewTeamName]);
+  }, [rostersByTeam, viewTeamName]);
 
   const { starters: initialStarters, bench: initialBench } = useMemo(
     () => liveRoster ?? buildRealRoster(viewTeamName ?? undefined),
@@ -371,20 +418,45 @@ export default function Lineup() {
   const [starters, setStarters] = useState<Player[]>(initialStarters);
   const [bench, setBench] = useState<Player[]>(initialBench);
 
-  // Re-seed when live roster arrives (draft picks come in after initial mount)
+  // Helper: apply projections to a player array (avoids race condition)
+  const withProj = (players: Player[]) => {
+    if (!projections || Object.keys(projections).length === 0) return players;
+    return players.map(p => ({
+      ...p,
+      proj: getProjectedPoints(projections, p.name, p.pos, p.nflTeam),
+    }));
+  };
+
+  // Re-seed when live roster arrives (Supabase data loads after initial mount)
+  // Also inject projections immediately if they've already loaded
   useEffect(() => {
     if (liveRoster) {
-      setStarters(liveRoster.starters);
-      setBench(liveRoster.bench);
+      setStarters(withProj(liveRoster.starters));
+      setBench(withProj(liveRoster.bench));
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveRoster]);
+
+  // Inject projected points once projections load (or when they update)
+  useEffect(() => {
+    if (!projections || Object.keys(projections).length === 0) return;
+    setStarters(prev => prev.map(p => ({
+      ...p,
+      proj: getProjectedPoints(projections, p.name, p.pos, p.nflTeam),
+    })));
+    setBench(prev => prev.map(p => ({
+      ...p,
+      proj: getProjectedPoints(projections, p.name, p.pos, p.nflTeam),
+    })));
+  }, [projections]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [optimized, setOptimized] = useState(false);
-  const lineupLocked = false;
 
-  // Live NFL Week 1 matchup data from Tank01
-  const { matchups: matchupMap } = useNFLMatchups(getCurrentWeek() || 1);
+  // Per-player locking: a player is locked once their NFL game has kicked off
+  // The global lineupLocked flag is true only when ALL starters are locked
+  const lineupLocked = starters.every(p => isPlayerLocked(p.nflTeam, matchupMap));
 
   const totalPts  = starters.reduce((s, p) => s + p.pts,  0);
   const totalProj = starters.reduce((s, p) => s + p.proj, 0);
@@ -470,7 +542,7 @@ export default function Lineup() {
               )}
               {isReadOnly ? viewTeamName : "My Lineup"}
             </h1>
-            <p>{isReadOnly ? "Read-only view" : (franchise?.team_name || "Select a team")} — Week {getCurrentWeek()} · Lock: Sun 1:00pm ET</p>
+            <p>{isReadOnly ? "Read-only view" : (franchise?.team_name || "Select a team")} — Week {currentWeek} · Lock: players lock at kickoff</p>
           </div>
           {/* Controls — only shown to the owner of this lineup */}
           {!isReadOnly && (
@@ -533,7 +605,7 @@ export default function Lineup() {
           </div>
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center" }}>
             <span style={{ fontSize: "0.72rem", color: "oklch(0.75 0.06 150)" }}>
-              {lineupLocked ? "Lineup is locked" : "Tap a player to swap · ⚡ Best Lineup auto-optimizes"}
+              {lineupLocked ? "All starters locked — games in progress" : "Players lock at kickoff · ⚡ Best Lineup auto-optimizes"}
             </span>
           </div>
         </div>
@@ -550,18 +622,20 @@ export default function Lineup() {
             const player    = starters.find(p => p.slot === slot);
             const isSelected = selectedId === player?.id;
             const eligibleBench = getEligibleBench(slot);
+            // Per-player lock: this starter is locked if their game has started
+            const playerLocked = player ? isPlayerLocked(player.nflTeam, matchupMap) : false;
 
             return (
               <div key={slot}>
                 <div
-                  onClick={() => { if (isReadOnly || lineupLocked || !player) return; setSelectedId(isSelected ? null : player.id); }}
-                  className={!isReadOnly && !lineupLocked && player ? "wrc-row-hover" : ""}
+                  onClick={() => { if (isReadOnly || playerLocked || !player) return; setSelectedId(isSelected ? null : player.id); }}
+                  className={!isReadOnly && !playerLocked && player ? "wrc-row-hover" : ""}
                   style={{
                     display: "flex", alignItems: "center", gap: "0.75rem",
                     padding: "0.6rem 1rem",
                     borderBottom: isSelected ? "none" : "1px solid oklch(0.93 0.005 150)",
-                    cursor: (isReadOnly || lineupLocked) ? "default" : "pointer",
-                    background: isSelected ? "oklch(0.94 0.04 150)" : "white",
+                    cursor: (isReadOnly || playerLocked) ? "default" : "pointer",
+                    background: isSelected ? "oklch(0.94 0.04 150)" : playerLocked ? "oklch(0.97 0.005 0)" : "white",
                     transition: "background 0.12s",
                   }}
                 >
@@ -607,7 +681,11 @@ export default function Lineup() {
                           <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1rem", color: "oklch(0.22 0.08 150)" }}>{player.pts.toFixed(1)}</div>
                           <div style={{ fontSize: "0.62rem", color: "oklch(0.6 0.04 150)" }}>Proj {player.proj.toFixed(1)}</div>
                         </div>
-                        {!isReadOnly && !lineupLocked && (isSelected ? <X size={14} color="oklch(0.5 0.04 150)" /> : <ChevronDown size={14} color="oklch(0.7 0.04 150)" />)}
+                        {!isReadOnly && (
+                          playerLocked
+                            ? <Lock size={12} color="oklch(0.55 0.04 0)" style={{ opacity: 0.5 }} />
+                            : (isSelected ? <X size={14} color="oklch(0.5 0.04 150)" /> : <ChevronDown size={14} color="oklch(0.7 0.04 150)" />)
+                        )}
                       </div>
                     </>
                   ) : (
@@ -616,7 +694,7 @@ export default function Lineup() {
                 </div>
 
                 {/* Inline swap panel — starter selected */}
-                {isSelected && !isReadOnly && !lineupLocked && (
+                {isSelected && !isReadOnly && !playerLocked && (
                   <div style={{ background: "oklch(0.96 0.02 150)", borderBottom: "1px solid oklch(0.88 0.01 150)", padding: "0.5rem 1rem 0.75rem" }}>
                     <div style={{ fontSize: "0.65rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.08em", color: "oklch(0.45 0.06 150)", textTransform: "uppercase" as const, marginBottom: "0.5rem" }}>
                       Replace with bench player:
@@ -670,18 +748,24 @@ export default function Lineup() {
 
           {bench.map((player) => {
             const isSelected    = selectedId === player.id;
-            const eligibleSlots = getEligibleSlots(player);
+            // For bench: eligible slots that are NOT yet locked (starter's game hasn't started)
+            const eligibleSlots = getEligibleSlots(player).filter(slotDef => {
+              const currentStarter = starters.find(s => s.slot === slotDef.slot);
+              return !currentStarter || !isPlayerLocked(currentStarter.nflTeam, matchupMap);
+            });
+            // Bench player is clickable if at least one eligible unlocked slot exists
+            const benchCanSwap = !isReadOnly && eligibleSlots.length > 0;
 
             return (
               <div key={player.id}>
                 <div
-                  onClick={() => { if (isReadOnly || lineupLocked) return; setSelectedId(isSelected ? null : player.id); }}
-                  className={!isReadOnly && !lineupLocked ? "wrc-row-hover" : ""}
+                  onClick={() => { if (!benchCanSwap) return; setSelectedId(isSelected ? null : player.id); }}
+                  className={benchCanSwap ? "wrc-row-hover" : ""}
                   style={{
                     display: "flex", alignItems: "center", gap: "0.75rem",
                     padding: "0.6rem 1rem",
                     borderBottom: isSelected ? "none" : "1px solid oklch(0.93 0.005 150)",
-                    cursor: (isReadOnly || lineupLocked) ? "default" : "pointer",
+                    cursor: benchCanSwap ? "pointer" : "default",
                     background: isSelected ? "oklch(0.94 0.04 150)" : "white",
                     transition: "background 0.12s",
                   }}
@@ -710,12 +794,12 @@ export default function Lineup() {
                       <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1rem", color: "oklch(0.22 0.08 150)" }}>{player.pts.toFixed(1)}</div>
                       <div style={{ fontSize: "0.62rem", color: "oklch(0.6 0.04 150)" }}>Proj {player.proj.toFixed(1)}</div>
                     </div>
-                    {!isReadOnly && !lineupLocked && (isSelected ? <X size={14} color="oklch(0.5 0.04 150)" /> : <ChevronDown size={14} color="oklch(0.7 0.04 150)" />)}
+                    {benchCanSwap && (isSelected ? <X size={14} color="oklch(0.5 0.04 150)" /> : <ChevronDown size={14} color="oklch(0.7 0.04 150)" />)}
                   </div>
                 </div>
 
                 {/* Inline swap panel — bench player selected */}
-                {isSelected && !isReadOnly && !lineupLocked && (
+                {isSelected && benchCanSwap && (
                   <div style={{ background: "oklch(0.96 0.02 150)", borderBottom: "1px solid oklch(0.88 0.01 150)", padding: "0.5rem 1rem 0.75rem" }}>
                     <div style={{ fontSize: "0.65rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.08em", color: "oklch(0.45 0.06 150)", textTransform: "uppercase" as const, marginBottom: "0.5rem" }}>
                       Move to starting slot:
