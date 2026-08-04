@@ -177,20 +177,27 @@ export default function Protections() {
   const teamName = franchise?.team_name;
   const livePlayers = teamName ? (rostersByTeam[teamName] ?? []) : [];
 
-  const roster: RosterEntry[] = livePlayers.map((pl, i) => {
-    const rp = pl as typeof pl & { round?: number };
-    const draftRound = rp.round ?? (pl.acquisition === "Draft" ? null : null);
-    return {
-      id: pl.id || `p-${i}`,
-      name: pl.name,
-      pos: pl.pos,
-      nflTeam: pl.nflTeam,
-      byeWeek: pl.byeWeek ?? null,
-      acquisition: pl.acquisition,
-      draftRound,
-      tier: getTier(draftRound),
-    };
-  });
+  const roster: RosterEntry[] = livePlayers
+    .map((pl, i) => {
+      const rp = pl as typeof pl & { round?: number };
+      const draftRound = rp.round ?? (pl.acquisition === "Draft" ? null : null);
+      return {
+        id: pl.id || `p-${i}`,
+        name: pl.name,
+        pos: pl.pos,
+        nflTeam: pl.nflTeam,
+        byeWeek: pl.byeWeek ?? null,
+        acquisition: pl.acquisition,
+        draftRound,
+        tier: getTier(draftRound),
+      };
+    })
+    .sort((a, b) => {
+      // Drafted players sorted by round ascending; FA players go to the end
+      const ra = a.draftRound ?? 999;
+      const rb = b.draftRound ?? 999;
+      return ra - rb;
+    });
 
   const [slots, setSlots] = useState<ProtectionSlot[]>([]);
   const [saved, setSaved] = useState(false);
