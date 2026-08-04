@@ -13,6 +13,7 @@ import { getCurrentWeek } from "@/lib/scheduleData2026";
 import { useDraftedRoster } from "@/hooks/useDraftedRoster";
 import { useParams, Link } from "wouter";
 import TeamLogo from "@/components/TeamLogo";
+import { useNFLMatchups, formatMatchup, formatGameTime, type NFLMatchupMap } from "@/hooks/useNFLMatchups";
 
 const STARTER_SLOTS = [
   { slot: "QB",    label: "Quarterback",   eligible: ["QB"] },
@@ -27,26 +28,7 @@ const STARTER_SLOTS = [
   { slot: "DST",   label: "Defense / ST",  eligible: ["DST"] },
 ];
 
-// NFL game schedule data keyed by team abbreviation
-// Format: { day, time (ET), opp, home: true = playing at home }
-const NFL_GAMES: Record<string, { day: string; time: string; opp: string; home: boolean }> = {
-  BUF: { day: "Sun", time: "1:00pm", opp: "NYJ", home: true },
-  BAL: { day: "Sun", time: "1:00pm", opp: "CLE", home: false },
-  PHI: { day: "Sun", time: "4:25pm", opp: "NYG", home: true },
-  MIA: { day: "Sun", time: "1:00pm", opp: "NE",  home: false },
-  DAL: { day: "Sun", time: "4:25pm", opp: "WSH", home: true },
-  DET: { day: "Sun", time: "1:00pm", opp: "CHI", home: true },
-  KC:  { day: "Sun", time: "4:25pm", opp: "LV",  home: true },
-  SF:  { day: "Sun", time: "4:25pm", opp: "LAR", home: false },
-  TEN: { day: "Sun", time: "1:00pm", opp: "IND", home: true },
-  ATL: { day: "Sun", time: "1:00pm", opp: "CAR", home: true },
-  LAC: { day: "Sun", time: "4:25pm", opp: "DEN", home: false },
-  CLE: { day: "Sun", time: "1:00pm", opp: "BAL", home: true },
-  CIN: { day: "Mon", time: "8:15pm", opp: "PIT", home: true },
-  PIT: { day: "Mon", time: "8:15pm", opp: "CIN", home: false },
-  GB:  { day: "Thu", time: "8:20pm", opp: "MIN", home: true },
-  MIN: { day: "Thu", time: "8:20pm", opp: "GB",  home: false },
-};
+// NFL_GAMES static table removed — replaced by live useNFLMatchups hook
 
 const DAY_COLORS: Record<string, string> = {
   Thu: "oklch(0.55 0.18 260)",
@@ -54,6 +36,8 @@ const DAY_COLORS: Record<string, string> = {
   Mon: "oklch(0.55 0.18 25)",
   Sat: "oklch(0.55 0.16 85)",
 };
+
+// ── GameInfo now accepts the live matchup map passed from the parent ──────────
 
 interface SeasonStats {
   // Common
@@ -248,9 +232,9 @@ function SeasonStatsRow({ player }: { player: Player }) {
   );
 }
 
-function GameInfo({ nflTeam }: { nflTeam: string }) {
-  const game = NFL_GAMES[nflTeam];
-  if (!game) return (
+function GameInfo({ nflTeam, matchupMap }: { nflTeam: string; matchupMap: NFLMatchupMap }) {
+  const m = matchupMap[nflTeam];
+  if (!m) return (
     <span style={{
       fontSize: "0.62rem",
       fontFamily: "Barlow Condensed, sans-serif",
@@ -264,7 +248,9 @@ function GameInfo({ nflTeam }: { nflTeam: string }) {
       whiteSpace: "nowrap" as const,
     }}>BYE</span>
   );
-  const dayColor = DAY_COLORS[game.day] || "oklch(0.5 0.04 150)";
+  const timeStr = formatGameTime(m);   // e.g. "Sun 1:00p ET"
+  const day = timeStr.split(" ")[0];   // "Sun", "Mon", "Thu", etc.
+  const dayColor = DAY_COLORS[day] || "oklch(0.5 0.04 150)";
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", flexWrap: "wrap" as const }}>
       <span style={{
@@ -274,9 +260,9 @@ function GameInfo({ nflTeam }: { nflTeam: string }) {
         color: dayColor,
         border: `1px solid ${dayColor}44`,
         whiteSpace: "nowrap" as const,
-      }}>{game.day} {game.time}</span>
+      }}>{timeStr}</span>
       <span style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)", whiteSpace: "nowrap" as const }}>
-        {game.home ? "vs" : "@"} <strong style={{ color: "oklch(0.35 0.06 150)" }}>{game.opp}</strong>
+        {m.isHome ? "vs" : "@"} <strong style={{ color: "oklch(0.35 0.06 150)" }}>{m.opponent}</strong>
       </span>
     </div>
   );
@@ -396,6 +382,9 @@ export default function Lineup() {
   const [saved, setSaved] = useState(false);
   const [optimized, setOptimized] = useState(false);
   const lineupLocked = false;
+
+  // Live NFL Week 1 matchup data from Tank01
+  const { matchups: matchupMap } = useNFLMatchups(getCurrentWeek() || 1);
 
   const totalPts  = starters.reduce((s, p) => s + p.pts,  0);
   const totalProj = starters.reduce((s, p) => s + p.proj, 0);
@@ -602,7 +591,7 @@ export default function Lineup() {
                         {/* Game info line */}
                         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "2px", flexWrap: "wrap" as const }}>
                           <span style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)" }}>{player.pos} · {player.nflTeam}</span>
-                          <GameInfo nflTeam={player.nflTeam} />
+                          <GameInfo nflTeam={player.nflTeam} matchupMap={matchupMap} />
                         </div>
                         {/* Season stats row */}
                         <SeasonStatsRow player={player} />
@@ -649,7 +638,7 @@ export default function Lineup() {
                               <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "oklch(0.18 0.05 150)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{bp.name}</div>
                               <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginTop: "2px", flexWrap: "wrap" as const }}>
                                 <span style={{ fontSize: "0.65rem", color: "oklch(0.55 0.04 150)" }}>{bp.nflTeam}</span>
-                                <GameInfo nflTeam={bp.nflTeam} />
+                                <GameInfo nflTeam={bp.nflTeam} matchupMap={matchupMap} />
                               </div>
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexShrink: 0 }}>
@@ -710,7 +699,7 @@ export default function Lineup() {
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "2px", flexWrap: "wrap" as const }}>
                       <span style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)" }}>{player.pos} · {player.nflTeam}</span>
-                      <GameInfo nflTeam={player.nflTeam} />
+                      <GameInfo nflTeam={player.nflTeam} matchupMap={matchupMap} />
                     </div>
                     {/* Season stats row */}
                     <SeasonStatsRow player={player} />

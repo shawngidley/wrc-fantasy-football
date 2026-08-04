@@ -19,6 +19,7 @@ import { ArrowLeft, Star, TrendingUp, Shield, Zap, AlertCircle, Calendar, User }
 import { useState } from "react";
 import FAABBidModal from "@/components/FAABBidModal";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNFLMatchups, formatMatchup, formatGameTime } from "@/hooks/useNFLMatchups";
 
 // ── Position badge colors ────────────────────────────────────────────────────
 const POS_COLORS: Record<string, string> = {
@@ -52,13 +53,7 @@ function findOwner(playerName: string) {
   return null;
 }
 
-// ── This week's NFL matchup ──────────────────────────────────────────────────
-interface NFLMatchup { opponent: string; isHome: boolean; week: number; }
-function getThisWeekMatchup(_nflTeamAbv: string): NFLMatchup | null {
-  // SCHEDULE_2026 tracks WRC fantasy matchups, not NFL game schedules.
-  // NFL game schedule lookup requires a separate API call — return null for now.
-  return null;
-}
+// getThisWeekMatchup stub removed — replaced by live useNFLMatchups hook
 
 // ── Stat rows by position ────────────────────────────────────────────────────
 function StatsSection({ player }: { player: { pos: string; stats?: Tank01Stats; longName: string } }) {
@@ -194,13 +189,17 @@ export default function PlayerPage() {
   const ownership = playerName ? findOwner(playerName) : null;
   const isFreeAgent = !ownership;
 
-  // NFL matchup this week
-  const matchup = player ? getThisWeekMatchup(player.team) : null;
+  // Live NFL matchup data for the current week
   const currentWeek = getCurrentWeek();
+  const nflWeek = currentWeek > 0 ? currentWeek : 1; // default to week 1 pre-season
+  const { matchups: matchupMap, loading: matchupLoading } = useNFLMatchups(nflWeek);
+  const matchup = player?.team ? matchupMap[player.team] : undefined;
 
   // Injury info
   const injury = player?.injury;
   const hasInjury = injury && (injury.designation || injury.description);
+  // suppress unused-var warning for matchupLoading
+  void matchupLoading;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -406,10 +405,9 @@ export default function PlayerPage() {
                     <img src={getTeamLogoUrl(player.team)} alt={player.team} className="w-10 h-10 object-contain" />
                     <div>
                       <p className="font-semibold text-slate-900">
-                        {matchup.isHome ? "vs." : "@"}{" "}
-                        <span className="text-blue-700">{matchup.opponent.toUpperCase()}</span>
+                        {formatMatchup(matchup)}
                       </p>
-                      <p className="text-xs text-slate-500">{matchup.isHome ? "Home" : "Away"} game</p>
+                      <p className="text-xs text-slate-500">{formatGameTime(matchup)}</p>
                     </div>
                     <div className="flex-1" />
                     <img src={getTeamLogoUrl(matchup.opponent)} alt={matchup.opponent} className="w-10 h-10 object-contain" />
@@ -417,7 +415,7 @@ export default function PlayerPage() {
                 ) : (
                   <p className="text-slate-500 text-sm">
                     {currentWeek === 0
-                      ? "Season starts September 9, 2026"
+                      ? "Season starts September 9, 2026 — Week 1 schedule loading..."
                       : `${player.team} has a bye this week`}
                   </p>
                 )}
