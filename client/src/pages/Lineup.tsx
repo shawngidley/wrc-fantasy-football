@@ -17,6 +17,7 @@ import { useNFLMatchups, formatMatchup, formatGameTime, type NFLMatchupMap } fro
 import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections";
 import { useLineupPersistence } from "@/hooks/useLineupPersistence";
 import { useNFLLiveScores, getLivePoints } from "@/hooks/useNFLLiveScores";
+import { useWeeklyResultsWriter } from "@/hooks/useWeeklyResultsWriter";
 
 const STARTER_SLOTS = [
   { slot: "QB",    label: "Quarterback",   eligible: ["QB"] },
@@ -391,6 +392,10 @@ export default function Lineup() {
   const { liveScores, isPolling, lastUpdated } = useNFLLiveScores(
     currentWeek, 2026, matchupMap
   );
+
+  // Auto-write results once last game of week goes final (runs silently)
+  // Only active on owner's own lineup page (not read-only views)
+  useWeeklyResultsWriter(currentWeek, 2026, matchupMap, isOwnerView);
 
   // Build roster from Supabase (players table or draft_picks, whichever is populated)
   const liveRoster = useMemo(() => {
