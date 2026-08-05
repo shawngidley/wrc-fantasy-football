@@ -7,7 +7,7 @@
 import { useState, useMemo, useEffect } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { Lock, CheckCircle2, ChevronDown, ArrowLeftRight, X, Zap, Eye, ArrowLeft } from "lucide-react";
+import { Lock, CheckCircle2, ChevronDown, ArrowLeftRight, X, Zap, Eye, ArrowLeft, Wifi, WifiOff } from "lucide-react";
 import { TEAMS } from "@/lib/wrcData";
 import { getCurrentWeek } from "@/lib/scheduleData2026";
 import { useDraftedRoster } from "@/hooks/useDraftedRoster";
@@ -15,6 +15,8 @@ import { useParams, Link } from "wouter";
 import TeamLogo from "@/components/TeamLogo";
 import { useNFLMatchups, formatMatchup, formatGameTime, type NFLMatchupMap } from "@/hooks/useNFLMatchups";
 import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections";
+import { useLineupPersistence } from "@/hooks/useLineupPersistence";
+import { useNFLLiveScores, getLivePoints } from "@/hooks/useNFLLiveScores";
 
 const STARTER_SLOTS = [
   { slot: "QB",    label: "Quarterback",   eligible: ["QB"] },
@@ -379,6 +381,17 @@ export default function Lineup() {
   const { matchups: matchupMap } = useNFLMatchups(currentWeek);
   const { projections } = useNFLProjections(currentWeek);
 
+  // Lineup persistence (Supabase) — only for owner's own lineup
+  const ownerTeamId = !teamId ? (franchise?.id ?? null) : null;
+  const { savedLineup, saveLineup, saving, saveError } = useLineupPersistence(
+    ownerTeamId, currentWeek
+  );
+
+  // Live in-game score polling (Tank01 box scores)
+  const { liveScores, isPolling, lastUpdated } = useNFLLiveScores(
+    currentWeek, 2026, matchupMap
+  );
+
   // Build roster from Supabase (players table or draft_picks, whichever is populated)
   const liveRoster = useMemo(() => {
     if (!viewTeamName) return null;
@@ -450,6 +463,41 @@ export default function Lineup() {
     })));
   }, [projections]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Apply saved lineup order when it loads from Supabase
+  // savedLineup is a map of slot → playerName
+  useEffect(() => {
+    if (!savedLineup || Object.keys(savedLineup).length === 0) return;
+    setStarters(prev => {
+      const allPlayers = [...prev, ...bench];
+      const pool = [...allPlayers];
+      const newStarters: typeof prev = [];
+      for (const slotDef of STARTER_SLOTS) {
+        const savedName = savedLineup[slotDef.slot];
+        const idx = savedName
+          ? pool.findIndex(p => p.name === savedName)
+          : pool.findIndex(p => slotDef.eligible.includes(p.pos));
+        if (idx !== -1) {
+          const [player] = pool.splice(idx, 1);
+          newStarters.push({ ...player, slot: slotDef.slot, isBench: false });
+        }
+      }
+      setBench(pool.map(p => ({ ...p, slot: undefined, isBench: true })));
+      return newStarters;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [savedLineup]);
+
+  // Inject live in-game scores once polling data arrives
+  useEffect(() => {
+    if (!liveScores || Object.keys(liveScores).length === 0) return;
+    const applyLive = (players: Player[]) => players.map(p => {
+      const live = getLivePoints(liveScores, p.name, p.pos, p.nflTeam);
+      return live !== null ? { ...p, pts: live } : p;
+    });
+    setStarters(prev => applyLive(prev));
+    setBench(prev => applyLive(prev));
+  }, [liveScores]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [optimized, setOptimized] = useState(false);
@@ -517,7 +565,26 @@ export default function Lineup() {
     setSelectedId(null);
   };
 
-  const handleSave = () => { setSaved(true); setTimeout(() => setSaved(false), 2000); };
+  const handleSave = async () => {
+    // Build rows for all starters and bench players
+    const rows = [
+      ...starters.map((p, i) => ({
+        slot: p.slot ?? `STARTER_${i}`,
+        player_id: p.id,
+        player_name: p.name,
+        is_bench: false,
+      })),
+      ...bench.map((p, i) => ({
+        slot: `BENCH_${i}`,
+        player_id: p.id,
+        player_name: p.name,
+        is_bench: true,
+      })),
+    ];
+    await saveLineup(rows);
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
 
   return (
     <div className="bg-turf bg-overlay" style={{ minHeight: "100vh" }}>
@@ -573,16 +640,17 @@ export default function Lineup() {
                   <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.8rem", color: "#ef4444", letterSpacing: "0.04em" }}>LINEUP LOCKED</span>
                 </div>
               ) : (
-                <button onClick={handleSave} style={{
-                  background: saved ? "oklch(0.42 0.15 150)" : "oklch(0.28 0.09 150)",
+                <button onClick={handleSave} disabled={saving} style={{
+                  background: saved ? "oklch(0.42 0.15 150)" : saving ? "oklch(0.4 0.06 150)" : "oklch(0.28 0.09 150)",
                   color: "white", border: "none", borderRadius: 8,
                   padding: "0.5rem 1.25rem",
                   fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: 600,
                   letterSpacing: "0.06em", textTransform: "uppercase" as const,
-                  cursor: "pointer", display: "flex", alignItems: "center", gap: "0.4rem",
+                  cursor: saving ? "wait" : "pointer", display: "flex", alignItems: "center", gap: "0.4rem",
                   transition: "background 0.2s",
+                  opacity: saving ? 0.7 : 1,
                 }}>
-                  {saved ? <><CheckCircle2 size={14} /> Saved!</> : "Save Lineup"}
+                  {saving ? "Saving..." : saved ? <><CheckCircle2 size={14} /> Saved!</> : "Save Lineup"}
                 </button>
               )}
             </div>
@@ -603,7 +671,14 @@ export default function Lineup() {
             <div style={{ fontSize: "0.62rem", color: "oklch(0.75 0.06 150)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.08em", textTransform: "uppercase" as const }}>Projected</div>
             <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1.4rem", fontWeight: 700, color: "white", lineHeight: 1 }}>{totalProj.toFixed(1)}</div>
           </div>
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center" }}>
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "0.75rem" }}>
+            {isPolling && (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", background: "oklch(0.35 0.15 150 / 0.6)", borderRadius: 5, padding: "2px 7px" }}>
+                <Wifi size={10} color="oklch(0.78 0.15 85)" />
+                <span style={{ fontSize: "0.6rem", color: "oklch(0.78 0.15 85)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.06em" }}>LIVE</span>
+                {lastUpdated && <span style={{ fontSize: "0.58rem", color: "oklch(0.65 0.06 150)" }}>{lastUpdated.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>}
+              </div>
+            )}
             <span style={{ fontSize: "0.72rem", color: "oklch(0.75 0.06 150)" }}>
               {lineupLocked ? "All starters locked — games in progress" : "Players lock at kickoff · ⚡ Best Lineup auto-optimizes"}
             </span>
