@@ -11,7 +11,7 @@ import { Lock, CheckCircle2, ChevronDown, ArrowLeftRight, X, Zap, Eye, ArrowLeft
 import { TEAMS } from "@/lib/wrcData";
 import { getCurrentWeek } from "@/lib/scheduleData2026";
 import { useDraftedRoster } from "@/hooks/useDraftedRoster";
-import { useParams, Link } from "wouter";
+import { useParams, Link, useLocation } from "wouter";
 import TeamLogo from "@/components/TeamLogo";
 import { useNFLMatchups, formatMatchup, formatGameTime, type NFLMatchupMap } from "@/hooks/useNFLMatchups";
 import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections";
@@ -370,6 +370,7 @@ export const TEAM_NAME_TO_ID: Record<string, string> = Object.fromEntries(
 
 export default function Lineup() {
   const { franchise } = useAuth();
+  const [, navigate] = useLocation();
   const { teamId } = useParams<{ teamId?: string }>();
   const { rostersByTeam, hasPicks, loading: draftLoading } = useDraftedRoster();
 
@@ -712,36 +713,45 @@ export default function Lineup() {
             return (
               <div key={slot}>
                 <div
-                  onClick={() => { if (isReadOnly || playerLocked || !player) return; setSelectedId(isSelected ? null : player.id); }}
-                  className={!isReadOnly && !playerLocked && player ? "wrc-row-hover" : ""}
+                  onClick={() => { if (!player) return; navigate(`/player/${encodeURIComponent(player.name)}`); }}
+                  className={player ? "wrc-row-hover" : ""}
                   style={{
                     display: "flex", alignItems: "center", gap: "0.75rem",
                     padding: "0.6rem 1rem",
                     borderBottom: isSelected ? "none" : "1px solid oklch(0.93 0.005 150)",
-                    cursor: (isReadOnly || playerLocked) ? "default" : "pointer",
+                    cursor: player ? "pointer" : "default",
                     background: isSelected ? "oklch(0.94 0.04 150)" : playerLocked ? "oklch(0.97 0.005 0)" : "white",
                     transition: "background 0.12s",
                   }}
                 >
-                  {/* Slot badge */}
-                  <div style={{
-                    width: 52, textAlign: "center",
-                    fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 700,
-                    letterSpacing: "0.06em", color: "white",
-                    background: player ? POS_COLORS[player.pos] || "oklch(0.5 0.04 150)" : "oklch(0.75 0.02 150)",
-                    borderRadius: 4, padding: "2px 0", flexShrink: 0,
-                  }}>{slot}</div>
+                  {/* Slot badge — clicking opens swap panel (stopPropagation prevents row nav) */}
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isReadOnly || playerLocked || !player) return;
+                      setSelectedId(isSelected ? null : player.id);
+                    }}
+                    style={{
+                      width: 52, textAlign: "center",
+                      fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 700,
+                      letterSpacing: "0.06em", color: "white",
+                      background: player ? POS_COLORS[player.pos] || "oklch(0.5 0.04 150)" : "oklch(0.75 0.02 150)",
+                      borderRadius: 4, padding: "2px 0", flexShrink: 0,
+                      cursor: (!isReadOnly && !playerLocked && player) ? "pointer" : "default",
+                      outline: (!isReadOnly && !playerLocked && player) ? "2px solid transparent" : "none",
+                      transition: "filter 0.12s",
+                      filter: (!isReadOnly && !playerLocked && player) ? undefined : undefined,
+                    }}
+                    onMouseEnter={(e) => { if (!isReadOnly && !playerLocked && player) (e.currentTarget as HTMLElement).style.filter = "brightness(1.2)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}
+                    title={(!isReadOnly && !playerLocked && player) ? "Tap to swap" : undefined}
+                  >{slot}</div>
 
                   {player ? (
                     <>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.18 0.05 150)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          <a
-                            href={`/player/${encodeURIComponent(player.name)}`}
-                            style={{ color: "inherit", textDecoration: "none" }}
-                            onMouseEnter={(e) => (e.currentTarget.style.color = "oklch(0.38 0.18 260)")}
-                            onMouseLeave={(e) => (e.currentTarget.style.color = "oklch(0.18 0.05 150)")}
-                          >{player.name}</a>
+                          {player.name}
                           {player.pos === "TE" && (
                             <span style={{ marginLeft: 6, fontSize: "0.58rem", background: "oklch(0.92 0.1 85)", color: "oklch(0.35 0.15 85)", borderRadius: 3, padding: "1px 4px", fontWeight: 700 }}>1.5x</span>
                           )}
@@ -776,7 +786,9 @@ export default function Lineup() {
                         {!isReadOnly && (
                           playerLocked
                             ? <Lock size={12} color="oklch(0.55 0.04 0)" style={{ opacity: 0.5 }} />
-                            : (isSelected ? <X size={14} color="oklch(0.5 0.04 150)" /> : <ChevronDown size={14} color="oklch(0.7 0.04 150)" />)
+                            : isSelected
+                              ? <X size={14} color="oklch(0.5 0.04 150)" onClick={(e) => { e.stopPropagation(); setSelectedId(null); }} style={{ cursor: "pointer" }} />
+                              : null
                         )}
                       </div>
                     </>
@@ -851,27 +863,38 @@ export default function Lineup() {
             return (
               <div key={player.id}>
                 <div
-                  onClick={() => { if (!benchCanSwap) return; setSelectedId(isSelected ? null : player.id); }}
-                  className={benchCanSwap ? "wrc-row-hover" : ""}
+                  onClick={() => navigate(`/player/${encodeURIComponent(player.name)}`)}
+                  className="wrc-row-hover"
                   style={{
                     display: "flex", alignItems: "center", gap: "0.75rem",
                     padding: "0.6rem 1rem",
                     borderBottom: isSelected ? "none" : "1px solid oklch(0.93 0.005 150)",
-                    cursor: benchCanSwap ? "pointer" : "default",
+                    cursor: "pointer",
                     background: isSelected ? "oklch(0.94 0.04 150)" : "white",
                     transition: "background 0.12s",
                   }}
                 >
-                  <div style={{ width: 52, textAlign: "center", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", color: "white", background: POS_COLORS[player.pos] || "oklch(0.5 0.04 150)", borderRadius: 4, padding: "2px 0", flexShrink: 0 }}>{player.pos}</div>
+                  {/* Position badge — clicking opens swap panel */}
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!benchCanSwap) return;
+                      setSelectedId(isSelected ? null : player.id);
+                    }}
+                    style={{
+                      width: 52, textAlign: "center", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 700,
+                      letterSpacing: "0.06em", color: "white", background: POS_COLORS[player.pos] || "oklch(0.5 0.04 150)",
+                      borderRadius: 4, padding: "2px 0", flexShrink: 0,
+                      cursor: benchCanSwap ? "pointer" : "default",
+                      transition: "filter 0.12s",
+                    }}
+                    onMouseEnter={(e) => { if (benchCanSwap) (e.currentTarget as HTMLElement).style.filter = "brightness(1.2)"; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}
+                    title={benchCanSwap ? "Tap to swap" : undefined}
+                  >{player.pos}</div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.18 0.05 150)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                      <a
-                        href={`/player/${encodeURIComponent(player.name)}`}
-                        style={{ color: "inherit", textDecoration: "none" }}
-                        onMouseEnter={(e) => (e.currentTarget.style.color = "oklch(0.38 0.18 260)")}
-                        onMouseLeave={(e) => (e.currentTarget.style.color = "oklch(0.18 0.05 150)")}
-                        onClick={(e) => e.stopPropagation()}
-                      >{player.name}</a>
+                      {player.name}
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "2px", flexWrap: "wrap" as const }}>
                       <span style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)" }}>{player.pos} · {player.nflTeam}</span>
@@ -899,7 +922,9 @@ export default function Lineup() {
                       <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1rem", color: "oklch(0.22 0.08 150)" }}>{player.pts.toFixed(1)}</div>
                       <div style={{ fontSize: "0.62rem", color: "oklch(0.6 0.04 150)" }}>Proj {player.proj.toFixed(1)}</div>
                     </div>
-                    {benchCanSwap && (isSelected ? <X size={14} color="oklch(0.5 0.04 150)" /> : <ChevronDown size={14} color="oklch(0.7 0.04 150)" />)}
+                    {benchCanSwap && isSelected && (
+                      <X size={14} color="oklch(0.5 0.04 150)" onClick={(e) => { e.stopPropagation(); setSelectedId(null); }} style={{ cursor: "pointer" }} />
+                    )}
                   </div>
                 </div>
 
