@@ -9,7 +9,8 @@
  */
 import { useParams, useLocation } from "wouter";
 import { useTank01PlayerByName, getTeamLogoUrl } from "@/hooks/useTank01Player";
-import { calcFantasyPoints, getStatLine, getPerGameAvg, injuryColor, injuryLabel, type Tank01Stats } from "@/lib/scoringEngine";
+import { calcFantasyPoints, getStatLine, getPerGameAvg, injuryColor, injuryLabel } from "@/lib/scoringEngine";
+import type { Tank01Stats } from "@/lib/scoringEngine";
 import { TEAMS } from "@/lib/wrcData";
 import { getCurrentWeek } from "@/lib/scheduleData2026";
 import { Badge } from "@/components/ui/badge";
@@ -186,9 +187,9 @@ function MultiSeasonStatsTable({
 }: {
   pos: string;
   espnId: string;
-  currentStats?: import("@/lib/scoringEngine").Tank01Stats;
+  currentStats?: Tank01Stats;
 }) {
-  const { seasons, loading } = useESPNSeasonStats(espnId);
+  const { seasons, loading } = useESPNSeasonStats(espnId, pos);
 
   // Build current season row from Tank01 data
   const currentRow: SeasonStatRow | null = currentStats
@@ -217,13 +218,20 @@ function MultiSeasonStatsTable({
       }
     : null;
 
+  // Compute WRC pts for the current season row
+  if (currentRow && currentRow.gp > 0 && currentStats) {
+    const wrcPts = calcFantasyPoints(currentStats, pos);
+    currentRow.wrcPts = wrcPts;
+    currentRow.wrcPtsPerGame = Math.round((wrcPts / currentRow.gp) * 10) / 10;
+  }
+
   const allRows: SeasonStatRow[] = [
     ...(currentRow && currentRow.gp > 0 ? [currentRow] : []),
     ...seasons,
   ];
 
   // Define columns per position
-  type Col = { label: string; key: keyof SeasonStatRow; dec?: number; highlight?: boolean };
+  type Col = { label: string; key: keyof SeasonStatRow; dec?: number; highlight?: boolean; gold?: boolean };
 
   const getColumns = (): Col[] => {
     const base: Col[] = [{ label: "GP", key: "gp" }];
@@ -240,6 +248,8 @@ function MultiSeasonStatsTable({
           { label: "RUSH YDS", key: "rushYds" },
           { label: "RUSH TD", key: "rushTD" },
           { label: "FUM", key: "fumbles" },
+          { label: "WRC PTS", key: "wrcPts", dec: 1, gold: true },
+          { label: "PTS/G", key: "wrcPtsPerGame", dec: 1, gold: true },
         ];
       case "RB":
         return [
@@ -253,6 +263,8 @@ function MultiSeasonStatsTable({
           { label: "REC YDS", key: "recYds" },
           { label: "REC TD", key: "recTD" },
           { label: "FUM", key: "fumbles" },
+          { label: "WRC PTS", key: "wrcPts", dec: 1, gold: true },
+          { label: "PTS/G", key: "wrcPtsPerGame", dec: 1, gold: true },
         ];
       case "WR":
       case "TE":
@@ -264,6 +276,8 @@ function MultiSeasonStatsTable({
           { label: "AVG", key: "recAvg", dec: 1 },
           { label: "TD", key: "recTD", highlight: true },
           { label: "FUM", key: "fumbles" },
+          { label: "WRC PTS", key: "wrcPts", dec: 1, gold: true },
+          { label: "PTS/G", key: "wrcPtsPerGame", dec: 1, gold: true },
         ];
       case "K":
         return [
@@ -273,6 +287,8 @@ function MultiSeasonStatsTable({
           { label: "FG%", key: "fgPct", dec: 1 },
           { label: "XPM", key: "xpMade" },
           { label: "XPA", key: "xpAtt" },
+          { label: "WRC PTS", key: "wrcPts", dec: 1, gold: true },
+          { label: "PTS/G", key: "wrcPtsPerGame", dec: 1, gold: true },
         ];
       case "DST":
         return [
@@ -281,6 +297,8 @@ function MultiSeasonStatsTable({
           { label: "INT", key: "defInt", highlight: true },
           { label: "FR", key: "fumblesRecovered" },
           { label: "TD", key: "defTD", highlight: true },
+          { label: "WRC PTS", key: "wrcPts", dec: 1, gold: true },
+          { label: "PTS/G", key: "wrcPtsPerGame", dec: 1, gold: true },
         ];
       default:
         return base;
@@ -313,7 +331,7 @@ function MultiSeasonStatsTable({
                   <th
                     key={col.key}
                     className={`px-3 py-2.5 text-right text-xs font-bold uppercase tracking-wide whitespace-nowrap ${
-                      col.highlight ? "text-emerald-700" : "text-slate-500"
+                      col.gold ? "text-amber-600 bg-amber-50/60" : col.highlight ? "text-emerald-700" : "text-slate-500"
                     }`}
                   >
                     {col.label}
@@ -339,7 +357,11 @@ function MultiSeasonStatsTable({
                     <td
                       key={col.key}
                       className={`px-3 py-2.5 text-right tabular-nums ${
-                        col.highlight ? "font-bold text-slate-900" : "text-slate-600"
+                        col.gold
+                          ? "font-bold text-amber-700 bg-amber-50/40"
+                          : col.highlight
+                          ? "font-bold text-slate-900"
+                          : "text-slate-600"
                       }`}
                     >
                       {n(row[col.key] as number | undefined, col.dec)}

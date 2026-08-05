@@ -9,6 +9,7 @@
  * Fetches the last 5 seasons in parallel and caches in sessionStorage (24h TTL).
  */
 import { useState, useEffect } from "react";
+import { calcFantasyPoints } from "@/lib/scoringEngine";
 
 const ESPN_BASE = "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl";
 const CACHE_PREFIX = "wrc_espn_stats_v1_";
@@ -50,6 +51,9 @@ export interface SeasonStatRow {
   // Fumbles (all positions)
   fumbles?: number;
   fumblesLost?: number;
+  // WRC fantasy points (calculated via scoring engine)
+  wrcPts?: number;
+  wrcPtsPerGame?: number;
 }
 
 export interface UseESPNSeasonStatsResult {
@@ -108,7 +112,44 @@ function extractStats(cats: Array<Record<string, unknown>>): Partial<SeasonStatR
   return result;
 }
 
-async function fetchSeasonStats(espnId: string, year: number): Promise<SeasonStatRow | null> {
+function rowToTank01Stats(row: Partial<SeasonStatRow>) {
+  return {
+    gamesPlayed: row.gp ?? 0,
+    Passing: {
+      passYds:   row.passYds ?? 0,
+      passTD:    row.passTD ?? 0,
+      int:       row.passInt ?? 0,
+      passCompletions: row.passCmp ?? 0,
+      passAttempts:    row.passAtt ?? 0,
+    },
+    Rushing: {
+      rushYds: row.rushYds ?? 0,
+      rushTD:  row.rushTD ?? 0,
+      carries: row.rushAtt ?? 0,
+    },
+    Receiving: {
+      receptions: row.rec ?? 0,
+      recYds:     row.recYds ?? 0,
+      recTD:      row.recTD ?? 0,
+      targets:    row.recTargets ?? 0,
+    },
+    Kicking: {
+      fgMade:     row.fgMade ?? 0,
+      fgAttempts: row.fgAtt ?? 0,
+      xpMade:     row.xpMade ?? 0,
+      xpAttempts: row.xpAtt ?? 0,
+    },
+    Defense: {
+      sacks:                  row.sacks ?? 0,
+      defensiveInterceptions: row.defInt ?? 0,
+      fumblesRecovered:       row.fumblesRecovered ?? 0,
+      defTD:                  row.defTD ?? 0,
+      fumblesLost:            row.fumblesLost ?? 0,
+    },
+  };
+}
+
+async function fetchSeasonStats(espnId: string, year: number, pos: string): Promise<SeasonStatRow | null> {
   const cacheKey = `${CACHE_PREFIX}${espnId}_${year}`;
   try {
     const cached = sessionStorage.getItem(cacheKey);
@@ -137,6 +178,14 @@ async function fetchSeasonStats(espnId: string, year: number): Promise<SeasonSta
     const extracted = extractStats(cats);
     const row: SeasonStatRow = { season: year, gp, ...extracted };
 
+    // Calculate WRC fantasy points for this season
+    if (gp > 0) {
+      const tank01Stats = rowToTank01Stats(row);
+      const wrcPts = calcFantasyPoints(tank01Stats, pos);
+      row.wrcPts = wrcPts;
+      row.wrcPtsPerGame = gp > 0 ? Math.round((wrcPts / gp) * 10) / 10 : 0;
+    }
+
     try {
       sessionStorage.setItem(cacheKey, JSON.stringify({ data: row, timestamp: Date.now() }));
     } catch { /* ignore */ }
@@ -147,7 +196,7 @@ async function fetchSeasonStats(espnId: string, year: number): Promise<SeasonSta
   }
 }
 
-export function useESPNSeasonStats(espnId: string | null | undefined): UseESPNSeasonStatsResult {
+export function useESPNSeasonStats(espnId: string | null | undefined, pos = ""): UseESPNSeasonStatsResult {
   const [seasons, setSeasons] = useState<SeasonStatRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -163,7 +212,7 @@ export function useESPNSeasonStats(espnId: string | null | undefined): UseESPNSe
     // Fetch last 5 seasons (excluding current year since season hasn't started)
     const years = [currentYear - 1, currentYear - 2, currentYear - 3, currentYear - 4, currentYear - 5];
 
-    Promise.all(years.map((y) => fetchSeasonStats(espnId, y))).then((results) => {
+    Promise.all(years.map((y) => fetchSeasonStats(espnId, y, pos))).then((results) => {
       if (cancelled) return;
       const valid = results.filter((r): r is SeasonStatRow => r !== null && r.gp > 0);
       setSeasons(valid);
@@ -176,7 +225,7 @@ export function useESPNSeasonStats(espnId: string | null | undefined): UseESPNSe
     });
 
     return () => { cancelled = true; };
-  }, [espnId]);
+  }, [espnId, pos]);
 
   return { seasons, loading, error };
 }
