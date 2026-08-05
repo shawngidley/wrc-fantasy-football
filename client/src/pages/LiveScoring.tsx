@@ -4,11 +4,16 @@
  * progress bars → slot-by-slot player comparison with position label in center divider.
  * Player headshot placeholder, large orange fantasy pts, stat chips below each player.
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { RefreshCw, Clock } from "lucide-react";
+import { RefreshCw, Clock, Wifi } from "lucide-react";
 import TeamLogo from "@/components/TeamLogo";
+import { supabase } from "@/lib/supabase";
+import { SCHEDULE_2026, OWNER_TO_TEAM, getCurrentWeek } from "@/lib/scheduleData2026";
+import { useNFLMatchups } from "@/hooks/useNFLMatchups";
+import { useNFLLiveScores, getLivePoints } from "@/hooks/useNFLLiveScores";
+import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections";
 
 const REFRESH_SECONDS = 300;
 
@@ -731,45 +736,236 @@ function MatchupPill({ matchup, active, onClick }: { matchup: Matchup; active: b
   );
 }
 
-// ── Supabase matchup type ─────────────────────────────────────────────────────
-type DbResult = {
-  id: number;
-  week: number;
-  home_owner: string;
-  away_owner: string;
-  home_team_name: string;
-  away_team_name: string;
-  home_score: number | null;
-  away_score: number | null;
-  is_final: boolean;
+// ── Owner → Supabase team_id ──────────────────────────────────────────────────
+const OWNER_TO_TEAM_ID: Record<string, string> = {
+  "Jonas":    "team-jonas",
+  "David R.": "team-davidr",
+  "Jason":    "team-jason",
+  "Jamie":    "team-jamie",
+  "Keith":    "team-keith",
+  "Dan":      "team-dan",
+  "Scott N.": "team-scottn",
+  "Bill":     "team-bill",
+  "Scott M.": "team-scottm",
+  "David S.": "team-davids",
+  "Shawn":    "team-shawn",
+  "Greg":     "team-greg",
 };
 
-function dbResultToMatchup(r: DbResult, idx: number): Matchup {
-  const homeScore = r.home_score ?? 0;
-  const awayScore = r.away_score ?? 0;
+// ── Slot ordering for default lineup ─────────────────────────────────────────
+const SLOT_ORDER = ["QB", "RB", "RB", "WR", "WR", "TE", "SFLEX", "FLEX", "K", "DST"] as const;
+type SlotLabel = typeof SLOT_ORDER[number];
+
+function abbrevName(full: string): string {
+  const parts = full.trim().split(" ");
+  if (parts.length < 2) return full;
+  return `${parts[0][0]}. ${parts.slice(1).join(" ")}`;
+}
+
+type DbPlayer = {
+  id: string;
+  name: string;
+  position: string;
+  nfl_team: string;
+  team_id: string;
+  is_starter: boolean;
+};
+
+type LineupRow = {
+  slot: string;
+  player_name: string;
+  is_bench: boolean;
+};
+
+/**
+ * Build a SlotPlayer from player metadata + live/projected points.
+ */
+function makeSlotPlayer(
+  player: DbPlayer,
+  pts: number,
+  proj: number,
+  matchupMap: import("@/hooks/useNFLMatchups").NFLMatchupMap,
+): SlotPlayer {
+  const matchup = matchupMap[player.nfl_team?.toUpperCase()] ?? null;
+  const gameInfo = matchup
+    ? `${matchup.isHome ? "vs" : "@"} ${matchup.opponent} ${matchup.gameTime}`
+    : "";
   return {
-    id: r.id,
-    week: r.week,
-    isChallenge: false,
-    home: {
-      team: r.home_team_name,
-      owner: r.home_owner,
-      score: homeScore,
-      projected: homeScore,
-      playersPlayed: r.is_final ? 10 : 0,
-      playersTotal: 10,
-    },
-    away: {
-      team: r.away_team_name,
-      owner: r.away_owner,
-      score: awayScore,
-      projected: awayScore,
-      playersPlayed: r.is_final ? 10 : 0,
-      playersTotal: 10,
-    },
-    slots: [],
-    bench: { home: [], away: [] },
+    name: abbrevName(player.name),
+    fullName: player.name,
+    pos: player.position,
+    nflTeam: player.nfl_team,
+    pts,
+    proj,
+    gameInfo,
+    stats: [],
+    isTE: player.position === "TE",
+    status: "active",
   };
+}
+
+/**
+ * Build Matchup objects from schedule + lineups + players + live scores.
+ */
+async function buildMatchupsFromLineups(
+  week: number,
+  liveScores: import("@/hooks/useNFLLiveScores").LiveScoreMap,
+  projections: import("@/hooks/useNFLProjections").ProjectionMap,
+  matchupMap: import("@/hooks/useNFLMatchups").NFLMatchupMap,
+): Promise<Matchup[]> {
+  const scheduleWeek = SCHEDULE_2026.find(w => w.week === week);
+  if (!scheduleWeek) return [];
+
+  // Load all players from Supabase (metadata)
+  const { data: allPlayers } = await supabase
+    .from("players")
+    .select("id,name,position,nfl_team,team_id,is_starter");
+  const playersByTeam: Record<string, DbPlayer[]> = {};
+  for (const p of (allPlayers ?? []) as DbPlayer[]) {
+    if (!playersByTeam[p.team_id]) playersByTeam[p.team_id] = [];
+    playersByTeam[p.team_id].push(p);
+  }
+
+  // Load saved lineups for this week
+  const { data: lineupRows } = await supabase
+    .from("lineups")
+    .select("team_id,slot,player_name,is_bench")
+    .eq("week", week)
+    .eq("season", 2026);
+  const lineupsByTeam: Record<string, LineupRow[]> = {};
+  for (const row of (lineupRows ?? []) as (LineupRow & { team_id: string })[]) {
+    if (!lineupsByTeam[row.team_id]) lineupsByTeam[row.team_id] = [];
+    lineupsByTeam[row.team_id].push(row);
+  }
+
+  const matchups: Matchup[] = [];
+
+  for (let idx = 0; idx < scheduleWeek.matchups.length; idx++) {
+    const [homeOwner, awayOwner] = scheduleWeek.matchups[idx];
+    const homeTeamId = OWNER_TO_TEAM_ID[homeOwner];
+    const awayTeamId = OWNER_TO_TEAM_ID[awayOwner];
+
+    const buildSide = (teamId: string, owner: string): { side: TeamSide; slots: SlotRow[]; bench: BenchPlayer[] } => {
+      const teamPlayers = playersByTeam[teamId] ?? [];
+      const savedLineup = lineupsByTeam[teamId] ?? [];
+      const playerByName: Record<string, DbPlayer> = {};
+      for (const p of teamPlayers) playerByName[p.name.toLowerCase()] = p;
+
+      let starters: Array<{ slot: string; player: DbPlayer }> = [];
+      let benchPlayers: DbPlayer[] = [];
+
+      if (savedLineup.length > 0) {
+        // Use saved lineup
+        for (const row of savedLineup) {
+          const p = playerByName[row.player_name.toLowerCase()];
+          if (!p) continue;
+          if (row.is_bench) benchPlayers.push(p);
+          else starters.push({ slot: row.slot, player: p });
+        }
+      } else {
+        // Default: use is_starter flag or first by position
+        const posCount: Record<string, number> = {};
+        const slotDef: Array<{ slot: string; pos: string }> = [
+          { slot: "QB", pos: "QB" },
+          { slot: "RB", pos: "RB" },
+          { slot: "RB", pos: "RB" },
+          { slot: "WR", pos: "WR" },
+          { slot: "WR", pos: "WR" },
+          { slot: "TE", pos: "TE" },
+          { slot: "SFLEX", pos: "QB" },
+          { slot: "FLEX", pos: "RB" },
+          { slot: "K", pos: "K" },
+          { slot: "DST", pos: "DST" },
+        ];
+        const used = new Set<string>();
+        for (const { slot, pos } of slotDef) {
+          const candidate = teamPlayers.find(p => p.position === pos && !used.has(p.id));
+          if (candidate) {
+            starters.push({ slot, player: candidate });
+            used.add(candidate.id);
+          }
+        }
+        benchPlayers = teamPlayers.filter(p => !used.has(p.id));
+        void posCount;
+      }
+
+      // Build slot rows
+      const slotRows: SlotRow[] = SLOT_ORDER.map((slotLabel) => {
+        const match = starters.find(s => s.slot === slotLabel && !starters.some((s2, i2) => s2.slot === slotLabel && starters.indexOf(s) > i2 && starters.indexOf(s2) < starters.indexOf(s)));
+        const player = match?.player ?? null;
+        const pts = player ? (getLivePoints(liveScores, player.name, player.position, player.nfl_team) ?? 0) : 0;
+        const proj = player ? getProjectedPoints(projections, player.name, player.position, player.nfl_team) : 0;
+        return {
+          slotLabel,
+          home: null,
+          away: null,
+          _player: player ? makeSlotPlayer(player, pts, proj, matchupMap) : null,
+        } as SlotRow & { _player: SlotPlayer | null };
+      });
+
+      // Pair starters into slots (handle duplicate slot labels like RB, WR)
+      const slotCounts: Record<string, number> = {};
+      const pairedSlots: SlotRow[] = SLOT_ORDER.map((slotLabel) => {
+        const count = slotCounts[slotLabel] ?? 0;
+        slotCounts[slotLabel] = count + 1;
+        const matches = starters.filter(s => s.slot === slotLabel);
+        const player = matches[count]?.player ?? null;
+        const pts = player ? (getLivePoints(liveScores, player.name, player.position, player.nfl_team) ?? 0) : 0;
+        const proj = player ? getProjectedPoints(projections, player.name, player.position, player.nfl_team) : 0;
+        return {
+          slotLabel,
+          home: null,
+          away: null,
+          _player: player ? makeSlotPlayer(player, pts, proj, matchupMap) : null,
+        } as SlotRow & { _player: SlotPlayer | null };
+      });
+
+      void slotRows;
+
+      const totalPts = pairedSlots.reduce((sum, s) => sum + ((s as SlotRow & { _player: SlotPlayer | null })._player?.pts ?? 0), 0);
+      const totalProj = pairedSlots.reduce((sum, s) => sum + ((s as SlotRow & { _player: SlotPlayer | null })._player?.proj ?? 0), 0);
+      const playersPlayed = pairedSlots.filter(s => ((s as SlotRow & { _player: SlotPlayer | null })._player?.pts ?? 0) > 0).length;
+
+      const side: TeamSide = {
+        team: OWNER_TO_TEAM[owner] ?? owner,
+        owner,
+        score: Math.round(totalPts * 100) / 100,
+        projected: Math.round(totalProj * 100) / 100,
+        playersPlayed,
+        playersTotal: pairedSlots.length,
+      };
+
+      const bench: BenchPlayer[] = benchPlayers.slice(0, 8).map(p => {
+        const pts = getLivePoints(liveScores, p.name, p.position, p.nfl_team) ?? 0;
+        const proj = getProjectedPoints(projections, p.name, p.position, p.nfl_team);
+        return { ...makeSlotPlayer(p, pts, proj, matchupMap), slot: "BN" as const };
+      });
+
+      return { side, slots: pairedSlots as SlotRow[], bench };
+    };
+
+    const home = buildSide(homeTeamId, homeOwner);
+    const away = buildSide(awayTeamId, awayOwner);
+
+    // Merge home/away into paired slot rows
+    const mergedSlots: SlotRow[] = SLOT_ORDER.map((slotLabel, i) => ({
+      slotLabel,
+      home: (home.slots[i] as SlotRow & { _player: SlotPlayer | null })._player,
+      away: (away.slots[i] as SlotRow & { _player: SlotPlayer | null })._player,
+    }));
+
+    matchups.push({
+      id: idx + 1,
+      week,
+      isChallenge: false,
+      home: home.side,
+      away: away.side,
+      slots: mergedSlots,
+      bench: { home: home.bench, away: away.bench },
+    });
+  }
+
+  return matchups;
 }
 
 // ── Main page ─────────────────────────────────────────────────────────────────
@@ -779,45 +975,39 @@ export default function LiveScoring() {
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [activeId, setActiveId] = useState<number | null>(null);
   const [liveMatchups, setLiveMatchups] = useState<Matchup[]>([]);
-  const [currentWeek, setCurrentWeek] = useState(1);
   const [loading, setLoading] = useState(true);
 
-  // Import supabase inline to avoid circular deps
+  const currentWeek = useMemo(() => {
+    const w = getCurrentWeek();
+    return w > 0 ? w : 1;
+  }, []);
+
+  // Live NFL matchup map (for game info + polling)
+  const { matchups: nflMatchupMap } = useNFLMatchups(currentWeek);
+  // Live scores (polls during active games)
+  const { liveScores, isPolling } = useNFLLiveScores(currentWeek, 2026, nflMatchupMap);
+  // Projected points
+  const { projections } = useNFLProjections(currentWeek);
+
   const loadMatchups = useCallback(async () => {
-    const { supabase: sb } = await import("@/lib/supabase");
-    const { getCurrentWeek: gw } = await import("@/lib/scheduleData2026");
-    const week = gw();
-    setCurrentWeek(week);
-    const { data } = await sb
-      .from("weekly_results")
-      .select("id,week,home_owner,away_owner,home_team_name,away_team_name,home_score,away_score,is_final")
-      .eq("week", week)
-      .eq("season", 2026)
-      .order("id", { ascending: true });
-    if (data && data.length > 0) {
-      setLiveMatchups((data as DbResult[]).map((r, i) => dbResultToMatchup(r, i)));
-    } else {
-      // Fallback: show mock data so the UI isn't empty before season starts
+    setLoading(true);
+    try {
+      const matchups = await buildMatchupsFromLineups(currentWeek, liveScores, projections, nflMatchupMap);
+      if (matchups.length > 0) {
+        setLiveMatchups(matchups);
+      } else {
+        setLiveMatchups(MOCK_MATCHUPS.slice(0, 6));
+      }
+    } catch {
       setLiveMatchups(MOCK_MATCHUPS.slice(0, 6));
     }
     setLastRefresh(new Date());
     setLoading(false);
-  }, []);
+  }, [currentWeek, liveScores, projections, nflMatchupMap]);
 
+  // Reload matchups whenever live scores or projections update
   useEffect(() => {
     loadMatchups();
-    // Realtime subscription
-    let channel: ReturnType<typeof import("@/lib/supabase")["supabase"]["channel"]>;
-    import("@/lib/supabase").then(({ supabase: sb }) => {
-      channel = sb.channel("live-scoring")
-        .on("postgres_changes", { event: "*", schema: "public", table: "weekly_results" }, loadMatchups)
-        .subscribe();
-    });
-    return () => {
-      import("@/lib/supabase").then(({ supabase: sb }) => {
-        if (channel) sb.removeChannel(channel);
-      });
-    };
   }, [loadMatchups]);
 
   const refresh = useCallback(() => {
@@ -856,9 +1046,9 @@ export default function LiveScoring() {
   const aboveMedian = allScores.filter(s => s > median).length;
 
   const tickerMessages = [
-    `🔴 LIVE — Week ${currentWeek} Scoring in Progress`,
+    isPolling ? `🔴 LIVE — Week ${currentWeek} Scoring in Progress` : `📅 Week ${currentWeek} — Pre-Game Projections`,
     `📊 LEAGUE MEDIAN: ${median.toFixed(1)} pts — ${aboveMedian} teams above`,
-    "⚽ Scores update automatically via Supabase Realtime",
+    isPolling ? "⚡ Live scores updating every 30 seconds from Tank01" : "📋 Lineups loaded from Supabase · Save your lineup to lock in starters",
   ];
 
   return (
@@ -904,8 +1094,14 @@ export default function LiveScoring() {
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "1rem 1rem 0" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.75rem" }}>
           <div>
-            <h1 style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1.3rem", color: "white", letterSpacing: "0.04em", margin: 0 }}>
+            <h1 style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1.3rem", color: "white", letterSpacing: "0.04em", margin: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
               LIVE SCORING
+              {isPolling && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", background: "rgba(255,60,60,0.2)", border: "1px solid rgba(255,60,60,0.4)", borderRadius: 6, padding: "0.1rem 0.5rem", fontSize: "0.65rem", color: "#ff8080", letterSpacing: "0.08em" }}>
+                  <Wifi size={10} />
+                  LIVE
+                </span>
+              )}
             </h1>
             <p style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.6)", margin: 0 }}>
               Week {currentWeek} · Last updated {lastRefresh.toLocaleTimeString()}

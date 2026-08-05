@@ -1,10 +1,11 @@
 /**
- * WRC Fantasy Football — Free Agents / FAAB Page
- * Design: Clean data-table layout with position filter tabs and FAAB bid flow
+ * WRC Fantasy Football — Free Agents / FAAB Waiver Wire
+ * Design: WRC dark-green/gold aesthetic matching the rest of the app
  *
- * - Shows all NFL_PLAYERS_2026 players NOT on any WRC roster
+ * - Loads all WRC-owned players from Supabase `players` table (team_id != null)
+ * - Free agents = NFL_PLAYERS_2026 players NOT in the owned set
  * - Position filter tabs: ALL | QB | RB | WR | TE | K | DST
- * - Sort by: ADP (default), Name, Position
+ * - Sort by: Projected Pts (default), ADP, Name
  * - Each row links to /player/:name for the full player page
  * - "Bid" button opens FAABBidModal for signed-in users
  * - Commissioner sees all pending bids in a separate tab
@@ -12,39 +13,36 @@
 import { useState, useMemo, useEffect } from "react";
 import { Link } from "wouter";
 import { NFL_PLAYERS_2026, type NFLPlayer } from "@/lib/nflPlayers2026";
-import { TEAMS } from "@/lib/wrcData";
 import { getTeamLogoUrl } from "@/hooks/useTank01Player";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentWeek } from "@/lib/scheduleData2026";
+import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections";
 import FAABBidModal from "@/components/FAABBidModal";
 import { supabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, DollarSign, ChevronRight, Trophy, Clock, ArrowLeft } from "lucide-react";
+import { Search, DollarSign, ChevronRight, Trophy, Clock, ArrowUpDown, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import Navigation from "@/components/Navigation";
 
 // ── Position badge colors ────────────────────────────────────────────────────
-const POS_COLORS: Record<string, string> = {
-  QB:  "bg-red-100 text-red-700 border-red-200",
-  RB:  "bg-green-100 text-green-700 border-green-200",
-  WR:  "bg-blue-100 text-blue-700 border-blue-200",
-  TE:  "bg-orange-100 text-orange-700 border-orange-200",
-  K:   "bg-purple-100 text-purple-700 border-purple-200",
-  DST: "bg-slate-100 text-slate-700 border-slate-200",
+const POS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
+  QB:  { bg: "oklch(0.95 0.04 25)",  text: "oklch(0.45 0.18 25)",  border: "oklch(0.82 0.1 25)" },
+  RB:  { bg: "oklch(0.95 0.04 150)", text: "oklch(0.38 0.14 150)", border: "oklch(0.80 0.1 150)" },
+  WR:  { bg: "oklch(0.94 0.04 240)", text: "oklch(0.40 0.14 240)", border: "oklch(0.78 0.1 240)" },
+  TE:  { bg: "oklch(0.95 0.04 60)",  text: "oklch(0.45 0.16 60)",  border: "oklch(0.82 0.1 60)" },
+  K:   { bg: "oklch(0.94 0.04 300)", text: "oklch(0.42 0.14 300)", border: "oklch(0.80 0.1 300)" },
+  DST: { bg: "oklch(0.94 0.02 200)", text: "oklch(0.40 0.08 200)", border: "oklch(0.78 0.06 200)" },
 };
 
-// ── Build the set of owned player names ─────────────────────────────────────
-function buildOwnedSet(): Map<string, { teamName: string; owner: string }> {
-  const owned = new Map<string, { teamName: string; owner: string }>();
-  for (const team of TEAMS) {
-    for (const player of team.players) {
-      owned.set(player.name.toLowerCase(), { teamName: team.teamName, owner: team.owner });
-    }
-  }
-  return owned;
+function PosBadge({ pos }: { pos: string }) {
+  const c = POS_COLORS[pos] ?? { bg: "oklch(0.94 0.02 200)", text: "oklch(0.4 0.06 200)", border: "oklch(0.78 0.04 200)" };
+  return (
+    <span style={{
+      background: c.bg, color: c.text, border: `1px solid ${c.border}`,
+      borderRadius: 5, padding: "1px 6px", fontFamily: "Barlow Condensed, sans-serif",
+      fontSize: "0.72rem", fontWeight: 800, letterSpacing: "0.06em",
+    }}>{pos}</span>
+  );
 }
 
 // ── Pending bid interface ────────────────────────────────────────────────────
@@ -64,11 +62,9 @@ interface FaabBid {
 }
 
 // ── Commissioner bid management ──────────────────────────────────────────────
-function CommissionerBids() {
+function CommissionerBids({ week }: { week: number }) {
   const [bids, setBids] = useState<FaabBid[]>([]);
   const [loading, setLoading] = useState(true);
-  const currentWeek = getCurrentWeek();
-  const week = currentWeek > 0 ? currentWeek : 1;
 
   useEffect(() => {
     supabase
@@ -84,7 +80,6 @@ function CommissionerBids() {
   }, [week]);
 
   const handleAward = async (bid: FaabBid) => {
-    // Mark this bid as won, all others for same player as lost
     const { error: winErr } = await supabase
       .from("faab_bids")
       .update({ status: "won", resolved_at: new Date().toISOString() })
@@ -97,7 +92,36 @@ function CommissionerBids() {
       .eq("week", week)
       .neq("id", bid.id);
 
-    if (winErr || loseErr) {
+    // Deduct FAAB from winning team
+    const { data: teamData } = await supabase
+      .from("teams")
+      .select("faab")
+      .eq("id", bid.team_id)
+      .single();
+
+    if (teamData) {
+      await supabase
+        .from("teams")
+        .update({ faab: Math.max(0, (teamData.faab ?? 1000) - bid.bid_amount) })
+        .eq("id", bid.team_id);
+    }
+
+    // Add player to team's roster in players table
+    const { error: addErr } = await supabase
+      .from("players")
+      .update({ team_id: bid.team_id, acquisition: "FA" })
+      .eq("name", bid.player_name);
+
+    // Drop player if specified
+    if (bid.drop_player_name) {
+      await supabase
+        .from("players")
+        .update({ team_id: null, acquisition: "FA" })
+        .eq("name", bid.drop_player_name)
+        .eq("team_id", bid.team_id);
+    }
+
+    if (winErr || loseErr || addErr) {
       toast.error("Failed to process bid.");
     } else {
       toast.success(`${bid.player_name} awarded to ${bid.team_name}!`);
@@ -114,15 +138,20 @@ function CommissionerBids() {
   };
 
   if (loading) {
-    return <div className="text-center py-12 text-slate-500">Loading bids...</div>;
+    return (
+      <div className="wrc-card" style={{ padding: "2rem", textAlign: "center" as const }}>
+        <div style={{ fontFamily: "Barlow Condensed, sans-serif", color: "oklch(0.55 0.08 150)" }}>Loading bids...</div>
+      </div>
+    );
   }
 
   if (bids.length === 0) {
     return (
-      <div className="text-center py-16">
-        <Clock className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-        <p className="text-slate-500 font-medium">No FAAB bids for Week {week} yet.</p>
-        <p className="text-slate-400 text-sm mt-1">Bids will appear here as managers submit them.</p>
+      <div className="wrc-card" style={{ padding: "3rem 2rem", textAlign: "center" as const }}>
+        <div className="wrc-card-gold-stripe" />
+        <Clock size={36} color="oklch(0.75 0.08 150)" style={{ margin: "0 auto 0.75rem" }} />
+        <p style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1rem", color: "oklch(0.35 0.08 150)" }}>No FAAB bids for Week {week} yet.</p>
+        <p style={{ fontSize: "0.8rem", color: "oklch(0.55 0.06 150)", marginTop: "0.25rem" }}>Bids will appear here as managers submit them.</p>
       </div>
     );
   }
@@ -135,44 +164,52 @@ function CommissionerBids() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
-        <strong>Commissioner View</strong> — All bids are visible. Click "Award" to assign a player to the winning bidder. Other bids for the same player will be automatically marked as lost.
+    <div style={{ display: "flex", flexDirection: "column" as const, gap: "1rem" }}>
+      <div style={{ background: "oklch(0.96 0.04 85)", border: "1.5px solid oklch(0.82 0.12 85)", borderRadius: 10, padding: "0.75rem 1rem", fontSize: "0.8rem", color: "oklch(0.38 0.14 85)", fontFamily: "Barlow Condensed, sans-serif" }}>
+        <strong>COMMISSIONER VIEW</strong> — All bids are visible. Click "Award" to assign a player. Other bids for the same player will be marked as lost and FAAB deducted from the winner.
       </div>
       {Object.entries(byPlayer).map(([playerName, playerBids]) => (
-        <div key={playerName} className="bg-white rounded-xl border border-slate-200 overflow-hidden">
-          <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Badge className={`text-xs ${POS_COLORS[playerBids[0].player_pos] ?? "bg-slate-100 text-slate-700"}`}>
-                {playerBids[0].player_pos}
-              </Badge>
-              <span className="font-semibold text-slate-900">{playerName}</span>
-              <span className="text-slate-400 text-sm">· {playerBids[0].player_nfl_team}</span>
+        <div key={playerName} className="wrc-card" style={{ overflow: "hidden" }}>
+          <div className="wrc-card-gold-stripe" />
+          <div style={{ background: "oklch(0.96 0.02 150)", padding: "0.6rem 1rem", borderBottom: "1px solid oklch(0.9 0.04 150)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <PosBadge pos={playerBids[0].player_pos} />
+              <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "1rem", color: "oklch(0.22 0.08 150)" }}>{playerName}</span>
+              <span style={{ fontSize: "0.75rem", color: "oklch(0.55 0.06 150)" }}>· {playerBids[0].player_nfl_team}</span>
             </div>
-            <span className="text-xs text-slate-500">{playerBids.length} bid{playerBids.length !== 1 ? "s" : ""}</span>
+            <span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.06 150)", fontFamily: "Barlow Condensed, sans-serif" }}>{playerBids.length} bid{playerBids.length !== 1 ? "s" : ""}</span>
           </div>
-          <div className="divide-y divide-slate-100">
+          <div>
             {playerBids.map((bid) => (
-              <div key={bid.id} className={`px-4 py-3 flex items-center gap-3 ${bid.status === "won" ? "bg-green-50" : bid.status === "lost" ? "bg-red-50 opacity-60" : ""}`}>
-                <div className="flex-1">
-                  <p className="font-medium text-slate-900 text-sm">{bid.team_name}</p>
+              <div key={bid.id} style={{
+                padding: "0.6rem 1rem", display: "flex", alignItems: "center", gap: "0.75rem",
+                borderBottom: "1px solid oklch(0.94 0.02 150)",
+                background: bid.status === "won" ? "oklch(0.96 0.04 150)" : bid.status === "lost" ? "oklch(0.97 0.01 25)" : "white",
+                opacity: bid.status === "lost" ? 0.6 : 1,
+              }}>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.22 0.08 150)", margin: 0 }}>{bid.team_name}</p>
                   {bid.drop_player_name && (
-                    <p className="text-xs text-slate-500">Drops: {bid.drop_player_name}</p>
+                    <p style={{ fontSize: "0.72rem", color: "oklch(0.55 0.06 150)", margin: 0 }}>Drops: {bid.drop_player_name}</p>
                   )}
                 </div>
-                <span className="text-lg font-bold text-emerald-700">${bid.bid_amount}</span>
+                <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "1.1rem", color: "oklch(0.42 0.15 150)" }}>${bid.bid_amount}</span>
                 {bid.status === "pending" ? (
-                  <Button
-                    size="sm"
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs"
+                  <button
                     onClick={() => handleAward(bid)}
+                    style={{ background: "oklch(0.42 0.15 150)", color: "white", border: "none", borderRadius: 7, padding: "0.3rem 0.75rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer", letterSpacing: "0.04em" }}
                   >
                     Award
-                  </Button>
+                  </button>
                 ) : (
-                  <Badge className={bid.status === "won" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}>
-                    {bid.status === "won" ? "Won" : "Lost"}
-                  </Badge>
+                  <span style={{
+                    fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem",
+                    padding: "0.2rem 0.5rem", borderRadius: 5,
+                    background: bid.status === "won" ? "oklch(0.88 0.1 150)" : "oklch(0.92 0.04 25)",
+                    color: bid.status === "won" ? "oklch(0.35 0.12 150)" : "oklch(0.45 0.1 25)",
+                  }}>
+                    {bid.status === "won" ? "WON" : "LOST"}
+                  </span>
                 )}
               </div>
             ))}
@@ -183,22 +220,47 @@ function CommissionerBids() {
   );
 }
 
+// ── Sort options ─────────────────────────────────────────────────────────────
+type SortKey = "proj" | "adp" | "name";
+
 // ── Main FreeAgents page ─────────────────────────────────────────────────────
 export default function FreeAgents() {
   const { franchise } = useAuth();
   const [posFilter, setPosFilter] = useState<string>("ALL");
   const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("proj");
   const [bidPlayer, setBidPlayer] = useState<NFLPlayer | null>(null);
   const [activeTab, setActiveTab] = useState<"pool" | "bids">("pool");
+  const [ownedNames, setOwnedNames] = useState<Set<string>>(new Set());
+  const [loadingOwned, setLoadingOwned] = useState(true);
 
-  const ownedMap = useMemo(() => buildOwnedSet(), []);
+  const currentWeek = getCurrentWeek();
+  const week = currentWeek > 0 ? currentWeek : 1;
 
-  // Free agents = players in NFL_PLAYERS_2026 not in any WRC roster
+  // Load owned player names from Supabase
+  useEffect(() => {
+    supabase
+      .from("players")
+      .select("name")
+      .not("team_id", "is", null)
+      .then(({ data }) => {
+        if (data) {
+          setOwnedNames(new Set(data.map((p: { name: string }) => p.name.toLowerCase())));
+        }
+        setLoadingOwned(false);
+      });
+  }, []);
+
+  // Live projections for sorting
+  const { projections } = useNFLProjections(week);
+
+  // Free agents = players in NFL_PLAYERS_2026 not owned
   const freeAgents = useMemo(() => {
-    return NFL_PLAYERS_2026.filter((p) => !ownedMap.has(p.name.toLowerCase()));
-  }, [ownedMap]);
+    if (loadingOwned) return [];
+    return NFL_PLAYERS_2026.filter((p) => !ownedNames.has(p.name.toLowerCase()));
+  }, [ownedNames, loadingOwned]);
 
-  // Filter + search
+  // Filter + search + sort
   const filtered = useMemo(() => {
     let list = freeAgents;
     if (posFilter !== "ALL") {
@@ -207,46 +269,46 @@ export default function FreeAgents() {
     if (search.trim()) {
       const q = search.toLowerCase();
       list = list.filter(
-        (p) =>
-          p.name.toLowerCase().includes(q) ||
-          p.nflTeam.toLowerCase().includes(q)
+        (p) => p.name.toLowerCase().includes(q) || p.nflTeam.toLowerCase().includes(q)
       );
     }
-    // Sort by ADP ascending (lower ADP = higher ranked)
-    return [...list].sort((a, b) => a.adp - b.adp);
-  }, [freeAgents, posFilter, search]);
+    return [...list].sort((a, b) => {
+      if (sortKey === "proj") {
+        const pa = getProjectedPoints(projections, a.name, a.pos, a.nflTeam);
+        const pb = getProjectedPoints(projections, b.name, b.pos, b.nflTeam);
+        return pb - pa;
+      }
+      if (sortKey === "adp") return a.adp - b.adp;
+      return a.name.localeCompare(b.name);
+    });
+  }, [freeAgents, posFilter, search, sortKey, projections]);
 
   const positions = ["ALL", "QB", "RB", "WR", "TE", "K", "DST"];
   const isCommissioner = franchise?.is_commissioner;
-  const currentWeek = getCurrentWeek();
+  const faabBalance = franchise?.faab ?? 1000;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="bg-turf bg-overlay" style={{ minHeight: "100vh" }}>
       <Navigation teamName={franchise?.team_name} />
+
       {/* ── Header ── */}
-      <div className="bg-white border-b border-slate-200">
-        <div className="max-w-5xl mx-auto px-4 py-5">
-          {/* Back link */}
-          <Link href="/standings" className="inline-flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors mb-3 group">
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-            Back to Standings
-          </Link>
-          <div className="flex items-center justify-between flex-wrap gap-3">
+      <div style={{ maxWidth: 900, margin: "0 auto", padding: "1.5rem 0.75rem 0" }}>
+        <div className="wrc-page-title" style={{ padding: "1rem 0 1rem" }}>
+          <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap" as const, gap: "0.75rem" }}>
             <div>
-              <h1 className="text-2xl font-extrabold text-slate-900">Free Agents</h1>
-              <p className="text-sm text-slate-500 mt-0.5">
-                {freeAgents.length} available players · FAAB blind auction
+              <h1>Free Agents</h1>
+              <p>
+                {loadingOwned ? "Loading..." : `${freeAgents.length} available`}
+                {" · "}FAAB blind auction
                 {currentWeek > 0 ? ` · Week ${currentWeek}` : " · Pre-Season"}
               </p>
             </div>
             {franchise && (
-              <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2">
-                <DollarSign className="w-4 h-4 text-emerald-600" />
+              <div style={{ background: "oklch(0.22 0.08 150)", border: "1.5px solid oklch(0.55 0.16 85)", borderRadius: 12, padding: "0.6rem 1rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <DollarSign size={16} color="oklch(0.75 0.18 85)" />
                 <div>
-                  <p className="text-xs text-emerald-700 font-medium">FAAB Balance</p>
-                  <p className="text-lg font-bold text-emerald-800">
-                    ${TEAMS.find((t) => t.id === franchise.id)?.faabRemaining ?? 1000}
-                  </p>
+                  <p style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.08em", color: "oklch(0.65 0.1 85)", margin: 0 }}>FAAB BALANCE</p>
+                  <p style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1.2rem", fontWeight: 800, color: "oklch(0.85 0.18 85)", margin: 0 }}>${faabBalance}</p>
                 </div>
               </div>
             )}
@@ -254,55 +316,83 @@ export default function FreeAgents() {
 
           {/* Tab switcher (commissioner sees bids tab) */}
           {isCommissioner && (
-            <div className="flex gap-1 mt-4">
-              <button
-                onClick={() => setActiveTab("pool")}
-                className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${activeTab === "pool" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}
-              >
-                Player Pool
-              </button>
-              <button
-                onClick={() => setActiveTab("bids")}
-                className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${activeTab === "bids" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}
-              >
-                <span className="flex items-center gap-1.5">
-                  <Trophy className="w-3.5 h-3.5" />
-                  Manage Bids
-                </span>
-              </button>
+            <div style={{ display: "flex", gap: "0.35rem", marginTop: "0.75rem" }}>
+              {[
+                { key: "pool", label: "Player Pool" },
+                { key: "bids", label: "Manage Bids" },
+              ].map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => setActiveTab(key as "pool" | "bids")}
+                  style={{
+                    padding: "0.4rem 0.875rem", borderRadius: 8,
+                    border: activeTab === key ? "2px solid oklch(0.55 0.16 85)" : "2px solid oklch(0.88 0.04 150)",
+                    background: activeTab === key ? "oklch(0.22 0.08 150)" : "white",
+                    color: activeTab === key ? "white" : "oklch(0.4 0.04 150)",
+                    fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700,
+                    letterSpacing: "0.04em", cursor: "pointer",
+                  }}
+                >
+                  {key === "bids" && <Trophy size={11} style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} />}
+                  {label}
+                </button>
+              ))}
             </div>
           )}
         </div>
-      </div>
 
-      <div className="max-w-5xl mx-auto px-4 py-5">
         {activeTab === "bids" && isCommissioner ? (
-          <CommissionerBids />
+          <CommissionerBids week={week} />
         ) : (
           <>
             {/* ── Filters ── */}
-            <div className="flex flex-col sm:flex-row gap-3 mb-5">
-              {/* Search */}
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <Input
-                  placeholder="Search players or teams..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9"
-                />
+            <div style={{ display: "flex", flexDirection: "column" as const, gap: "0.6rem", marginBottom: "1rem" }}>
+              {/* Search + sort row */}
+              <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" as const }}>
+                <div style={{ position: "relative" as const, flex: 1, minWidth: 200 }}>
+                  <Search size={14} color="oklch(0.55 0.06 150)" style={{ position: "absolute" as const, left: 10, top: "50%", transform: "translateY(-50%)" }} />
+                  <Input
+                    placeholder="Search players or teams..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    style={{ paddingLeft: "2rem", background: "white", borderColor: "oklch(0.85 0.04 150)" }}
+                  />
+                </div>
+                {/* Sort selector */}
+                <div style={{ display: "flex", gap: "0.3rem", alignItems: "center" }}>
+                  <ArrowUpDown size={13} color="rgba(255,255,255,0.6)" />
+                  {([["proj", "Projected"], ["adp", "ADP"], ["name", "Name"]] as [SortKey, string][]).map(([key, label]) => (
+                    <button
+                      key={key}
+                      onClick={() => setSortKey(key)}
+                      style={{
+                        padding: "0.35rem 0.65rem", borderRadius: 7,
+                        border: sortKey === key ? "2px solid oklch(0.55 0.16 85)" : "2px solid rgba(255,255,255,0.2)",
+                        background: sortKey === key ? "oklch(0.55 0.16 85)" : "rgba(255,255,255,0.1)",
+                        color: sortKey === key ? "white" : "rgba(255,255,255,0.75)",
+                        fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700,
+                        letterSpacing: "0.04em", cursor: "pointer",
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
               </div>
               {/* Position tabs */}
-              <div className="flex gap-1 flex-wrap">
+              <div style={{ display: "flex", gap: "0.3rem", flexWrap: "wrap" as const }}>
                 {positions.map((pos) => (
                   <button
                     key={pos}
                     onClick={() => setPosFilter(pos)}
-                    className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-colors ${
-                      posFilter === pos
-                        ? "bg-slate-900 text-white border-slate-900"
-                        : "bg-white text-slate-600 border-slate-200 hover:border-slate-400"
-                    }`}
+                    style={{
+                      padding: "0.3rem 0.65rem", borderRadius: 7,
+                      border: posFilter === pos ? "2px solid oklch(0.55 0.16 85)" : "2px solid rgba(255,255,255,0.2)",
+                      background: posFilter === pos ? "oklch(0.22 0.08 150)" : "rgba(255,255,255,0.08)",
+                      color: posFilter === pos ? "white" : "rgba(255,255,255,0.7)",
+                      fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700,
+                      letterSpacing: "0.04em", cursor: "pointer",
+                    }}
                   >
                     {pos}
                   </button>
@@ -312,94 +402,108 @@ export default function FreeAgents() {
 
             {/* ── Pre-season notice ── */}
             {currentWeek === 0 && (
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-5 text-sm text-blue-800">
-                <strong>Pre-Season:</strong> Player pool shows 2026 ADP rankings. FAAB bidding opens when the season starts on September 9, 2026. You can submit bids now and they will be held until the first waiver period.
+              <div style={{ background: "oklch(0.94 0.04 240)", border: "1.5px solid oklch(0.78 0.1 240)", borderRadius: 10, padding: "0.75rem 1rem", marginBottom: "0.75rem", fontSize: "0.8rem", color: "oklch(0.35 0.12 240)", fontFamily: "Barlow Condensed, sans-serif" }}>
+                <strong>PRE-SEASON:</strong> Player pool shows 2026 ADP rankings. FAAB bidding opens when the season starts on September 9, 2026.
               </div>
             )}
 
             {/* ── Player count ── */}
-            <p className="text-sm text-slate-500 mb-3">
-              Showing <strong>{filtered.length}</strong> free agent{filtered.length !== 1 ? "s" : ""}
+            <p style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.55)", marginBottom: "0.5rem" }}>
+              Showing <strong style={{ color: "rgba(255,255,255,0.85)" }}>{filtered.length}</strong> free agent{filtered.length !== 1 ? "s" : ""}
               {posFilter !== "ALL" ? ` at ${posFilter}` : ""}
               {search ? ` matching "${search}"` : ""}
             </p>
 
             {/* ── Player list ── */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-              {filtered.length === 0 ? (
-                <div className="text-center py-16">
-                  <Search className="w-10 h-10 text-slate-300 mx-auto mb-3" />
-                  <p className="text-slate-500 font-medium">No players found</p>
-                  <p className="text-slate-400 text-sm mt-1">Try a different search or position filter</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-slate-100">
-                  {/* Header row */}
-                  <div className="grid grid-cols-[1fr_auto_auto_auto] sm:grid-cols-[2fr_1fr_1fr_auto] gap-3 px-4 py-2.5 bg-slate-50 border-b border-slate-200">
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Player</span>
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide text-center hidden sm:block">Bye</span>
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide text-center">ADP</span>
-                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide text-right">Action</span>
-                  </div>
-
-                  {filtered.map((player) => (
-                    <div
-                      key={player.id}
-                      className="grid grid-cols-[1fr_auto_auto_auto] sm:grid-cols-[2fr_1fr_1fr_auto] gap-3 px-4 py-3 items-center hover:bg-slate-50 transition-colors"
-                    >
-                      {/* Player info */}
-                      <Link
-                        href={`/player/${encodeURIComponent(player.name)}`}
-                        className="flex items-center gap-3 min-w-0 group"
-                      >
-                        {/* Team logo */}
-                        <img
-                          src={getTeamLogoUrl(player.nflTeam)}
-                          alt={player.nflTeam}
-                          className="w-8 h-8 object-contain flex-shrink-0"
-                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                        />
-                        <div className="min-w-0">
-                          <p className="font-semibold text-slate-900 truncate group-hover:text-blue-700 transition-colors">
-                            {player.name}
-                          </p>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className={`text-xs font-bold px-1.5 py-0.5 rounded border ${POS_COLORS[player.pos] ?? "bg-slate-100 text-slate-700"}`}>
-                              {player.pos}
-                            </span>
-                            <span className="text-xs text-slate-500">{player.nflTeam}</span>
-                          </div>
-                        </div>
-                        <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-blue-500 flex-shrink-0 ml-auto hidden sm:block" />
-                      </Link>
-
-                      {/* Bye week */}
-                      <span className="text-sm text-slate-500 text-center hidden sm:block">
-                        {player.bye ?? "—"}
-                      </span>
-
-                      {/* ADP */}
-                      <span className="text-sm font-medium text-slate-700 text-center">
-                        {player.adp.toFixed(1)}
-                      </span>
-
-                      {/* Bid button */}
-                      {franchise ? (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="text-xs font-semibold border-amber-300 text-amber-700 hover:bg-amber-50 hover:border-amber-500"
-                          onClick={() => setBidPlayer(player)}
-                        >
-                          <DollarSign className="w-3 h-3 mr-0.5" />
-                          Bid
-                        </Button>
-                      ) : (
-                        <span className="text-xs text-slate-400 text-right">Sign in to bid</span>
-                      )}
-                    </div>
+            <div className="wrc-card" style={{ overflow: "hidden", marginBottom: "2rem" }}>
+              <div className="wrc-card-gold-stripe" />
+              {loadingOwned ? (
+                <div style={{ padding: "2rem", textAlign: "center" as const }}>
+                  {[1,2,3,4,5].map(i => (
+                    <div key={i} className="skeleton-shimmer" style={{ height: 52, borderRadius: 8, marginBottom: 6 }} />
                   ))}
                 </div>
+              ) : filtered.length === 0 ? (
+                <div style={{ padding: "3rem 2rem", textAlign: "center" as const }}>
+                  <Search size={36} color="oklch(0.75 0.06 150)" style={{ margin: "0 auto 0.75rem" }} />
+                  <p style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: "oklch(0.4 0.08 150)" }}>No players found</p>
+                  <p style={{ fontSize: "0.8rem", color: "oklch(0.55 0.06 150)", marginTop: "0.25rem" }}>Try a different search or position filter</p>
+                </div>
+              ) : (
+                <>
+                  {/* Header row */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 70px", gap: "0.5rem", padding: "0.5rem 1rem", background: "oklch(0.96 0.02 150)", borderBottom: "1px solid oklch(0.9 0.04 150)" }}>
+                    {["Player", "Bye", sortKey === "proj" ? "Proj" : "ADP", ""].map((h, i) => (
+                      <span key={i} style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: "oklch(0.55 0.06 150)", textAlign: i > 0 ? "center" as const : "left" as const }}>{h}</span>
+                    ))}
+                  </div>
+
+                  {filtered.map((player) => {
+                    const proj = getProjectedPoints(projections, player.name, player.pos, player.nflTeam);
+                    return (
+                      <div
+                        key={player.id}
+                        style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 70px", gap: "0.5rem", padding: "0.6rem 1rem", alignItems: "center", borderBottom: "1px solid oklch(0.94 0.02 150)", transition: "background 0.15s" }}
+                        onMouseEnter={e => (e.currentTarget.style.background = "oklch(0.97 0.02 150)")}
+                        onMouseLeave={e => (e.currentTarget.style.background = "white")}
+                      >
+                        {/* Player info */}
+                        <Link
+                          href={`/player/${encodeURIComponent(player.name)}`}
+                          style={{ display: "flex", alignItems: "center", gap: "0.6rem", textDecoration: "none", minWidth: 0 }}
+                        >
+                          <img
+                            src={getTeamLogoUrl(player.nflTeam)}
+                            alt={player.nflTeam}
+                            style={{ width: 30, height: 30, objectFit: "contain", flexShrink: 0 }}
+                            onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                          />
+                          <div style={{ minWidth: 0 }}>
+                            <p style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.95rem", color: "oklch(0.22 0.08 150)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
+                              {player.name}
+                            </p>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", marginTop: 1 }}>
+                              <PosBadge pos={player.pos} />
+                              <span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.06 150)" }}>{player.nflTeam}</span>
+                            </div>
+                          </div>
+                          <ChevronRight size={14} color="oklch(0.75 0.06 150)" style={{ marginLeft: "auto", flexShrink: 0 }} />
+                        </Link>
+
+                        {/* Bye week */}
+                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", color: "oklch(0.5 0.06 150)", textAlign: "center" as const }}>
+                          {player.bye ?? "—"}
+                        </span>
+
+                        {/* Proj / ADP */}
+                        <div style={{ textAlign: "center" as const }}>
+                          {sortKey === "proj" ? (
+                            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.95rem", color: proj > 0 ? "oklch(0.38 0.14 150)" : "oklch(0.65 0.06 150)" }}>
+                              {proj > 0 ? proj.toFixed(1) : "—"}
+                            </span>
+                          ) : (
+                            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.85rem", color: "oklch(0.5 0.06 150)" }}>
+                              {player.adp.toFixed(1)}
+                            </span>
+                          )}
+                        </div>
+
+                        {/* Bid button */}
+                        {franchise ? (
+                          <button
+                            onClick={() => setBidPlayer(player)}
+                            style={{ background: "oklch(0.55 0.16 85)", color: "white", border: "none", borderRadius: 7, padding: "0.3rem 0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem", letterSpacing: "0.04em", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem", justifyContent: "center" }}
+                          >
+                            <DollarSign size={11} />
+                            Bid
+                          </button>
+                        ) : (
+                          <span style={{ fontSize: "0.68rem", color: "oklch(0.6 0.06 150)", textAlign: "center" as const }}>Sign in</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </>
               )}
             </div>
           </>
