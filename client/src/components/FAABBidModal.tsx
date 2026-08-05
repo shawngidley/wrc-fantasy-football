@@ -2,8 +2,12 @@
  * WRC Fantasy Football — FAAB Bid Modal
  * Blind auction bid submission. Bids are stored in Supabase faab_bids table.
  * Commissioner sees all bids and awards the player.
+ *
+ * Uses live Supabase data for:
+ *  - Roster (drop selector) — from `players` table filtered by team_id
+ *  - FAAB balance — from `teams.faab` via auth context
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,10 +15,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
-import { TEAMS } from "@/lib/wrcData";
 import { getCurrentWeek } from "@/lib/scheduleData2026";
 import { toast } from "sonner";
-import { DollarSign, X } from "lucide-react";
+import { DollarSign, X, Loader2 } from "lucide-react";
 
 interface FAABBidModalProps {
   player: {
@@ -26,20 +29,42 @@ interface FAABBidModalProps {
   onClose: () => void;
 }
 
+type RosterPlayer = {
+  id: string;
+  name: string;
+  position: string;
+  nfl_team: string;
+};
+
 export default function FAABBidModal({ player, onClose }: FAABBidModalProps) {
   const { franchise } = useAuth();
   const [bidAmount, setBidAmount] = useState("");
   const [dropPlayerId, setDropPlayerId] = useState<string>("__none__");
   const [submitting, setSubmitting] = useState(false);
+  const [myRoster, setMyRoster] = useState<RosterPlayer[]>([]);
+  const [loadingRoster, setLoadingRoster] = useState(true);
 
-  if (!franchise) return null;
-
-  // Find the current team's roster for the "drop" selector
-  const myTeam = TEAMS.find((t) => t.id === franchise.id);
-  const myRoster = myTeam?.players ?? [];
-  const faabRemaining = myTeam?.faabRemaining ?? 1000;
   const currentWeek = getCurrentWeek();
   const week = currentWeek > 0 ? currentWeek : 1;
+
+  // FAAB balance from auth context (live from Supabase teams table)
+  const faabRemaining = franchise?.faab ?? 1000;
+
+  // Load live roster from Supabase
+  useEffect(() => {
+    if (!franchise?.id) return;
+    supabase
+      .from("players")
+      .select("id,name,position,nfl_team")
+      .eq("team_id", franchise.id)
+      .order("position")
+      .then(({ data }) => {
+        setMyRoster((data as RosterPlayer[]) ?? []);
+        setLoadingRoster(false);
+      });
+  }, [franchise?.id]);
+
+  if (!franchise) return null;
 
   const handleSubmit = async () => {
     const amount = parseInt(bidAmount, 10);
@@ -66,13 +91,14 @@ export default function FAABBidModal({ player, onClose }: FAABBidModalProps) {
         player_pos: player.pos,
         player_nfl_team: player.nflTeam,
         bid_amount: amount,
+        drop_player_id: dropPlayer?.id ?? null,
         drop_player_name: dropPlayer?.name ?? null,
         status: "pending",
         week,
+        season: 2026,
       });
 
       if (error) {
-        // Table may not exist yet — show friendly message
         if (error.message?.includes("does not exist") || error.code === "42P01") {
           toast.error("FAAB bidding is not yet enabled. Ask the commissioner to set up the bids table.");
         } else {
@@ -83,12 +109,14 @@ export default function FAABBidModal({ player, onClose }: FAABBidModalProps) {
 
       toast.success(`Bid of $${amount} submitted for ${player.name}! The commissioner will process bids after the waiver deadline.`);
       onClose();
-    } catch (err) {
+    } catch {
       toast.error("Failed to submit bid. Please try again.");
     } finally {
       setSubmitting(false);
     }
   };
+
+  const rosterFull = myRoster.length >= 18;
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -145,23 +173,31 @@ export default function FAABBidModal({ player, onClose }: FAABBidModalProps) {
           {/* Drop player */}
           <div className="space-y-2">
             <Label className="text-sm font-semibold">
-              Drop Player (optional)
+              Drop Player {rosterFull ? <span className="text-red-500">(required — roster full)</span> : "(optional)"}
             </Label>
-            <Select value={dropPlayerId} onValueChange={setDropPlayerId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a player to drop (if roster is full)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">— No drop needed —</SelectItem>
-                {myRoster.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name} ({p.pos} · {p.nflTeam})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {loadingRoster ? (
+              <div className="flex items-center gap-2 text-sm text-slate-500 py-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading your roster…
+              </div>
+            ) : (
+              <Select value={dropPlayerId} onValueChange={setDropPlayerId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a player to drop (if roster is full)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— No drop needed —</SelectItem>
+                  {myRoster.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name} ({p.position} · {p.nfl_team})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <p className="text-xs text-slate-500">
-              Your roster has {myRoster.length}/18 players. {myRoster.length >= 18 ? "You must drop a player to add one." : "You have room to add without dropping."}
+              Your roster has {myRoster.length}/18 players.{" "}
+              {rosterFull ? "You must drop a player to add one." : "You have room to add without dropping."}
             </p>
           </div>
 
@@ -179,9 +215,13 @@ export default function FAABBidModal({ player, onClose }: FAABBidModalProps) {
             <Button
               className="flex-1 bg-amber-600 hover:bg-amber-700 text-white font-semibold"
               onClick={handleSubmit}
-              disabled={submitting || !bidAmount}
+              disabled={submitting || !bidAmount || (rosterFull && dropPlayerId === "__none__")}
             >
-              {submitting ? "Submitting..." : `Submit $${bidAmount || 0} Bid`}
+              {submitting ? (
+                <><Loader2 className="w-4 h-4 mr-1 animate-spin" /> Submitting…</>
+              ) : (
+                `Submit $${bidAmount || 0} Bid`
+              )}
             </Button>
           </div>
         </div>

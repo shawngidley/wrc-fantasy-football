@@ -17,6 +17,7 @@ import { getTeamLogoUrl } from "@/hooks/useTank01Player";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentWeek } from "@/lib/scheduleData2026";
 import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections";
+import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } from "@/hooks/useNFLInjuries";
 import FAABBidModal from "@/components/FAABBidModal";
 import { supabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
@@ -252,7 +253,10 @@ export default function FreeAgents() {
   }, []);
 
   // Live projections for sorting
-  const { projections } = useNFLProjections(week);
+  const { projections, loading: projectionsLoading } = useNFLProjections(week);
+
+  // Injury designations
+  const { injuries } = useNFLInjuries();
 
   // Free agents = players in NFL_PLAYERS_2026 not owned
   const freeAgents = useMemo(() => {
@@ -459,9 +463,23 @@ export default function FreeAgents() {
                             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                           />
                           <div style={{ minWidth: 0 }}>
-                            <p style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.95rem", color: "oklch(0.22 0.08 150)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
-                              {player.name}
-                            </p>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                              <p style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.95rem", color: "oklch(0.22 0.08 150)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
+                                {player.name}
+                              </p>
+                              {(() => {
+                                const designation = getInjuryDesignation(injuries, player.name);
+                                const injColor = designation ? getInjuryColor(designation) : null;
+                                if (!injColor) return null;
+                                return (
+                                  <span style={{
+                                    fontSize: "0.6rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif",
+                                    padding: "1px 4px", borderRadius: 3, flexShrink: 0,
+                                    background: injColor.bg, color: injColor.text, border: `1px solid ${injColor.border}`,
+                                  }} title={designation}>{getInjuryLabel(designation)}</span>
+                                );
+                              })()}
+                            </div>
                             <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", marginTop: 1 }}>
                               <PosBadge pos={player.pos} />
                               <span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.06 150)" }}>{player.nflTeam}</span>
@@ -478,9 +496,13 @@ export default function FreeAgents() {
                         {/* Proj / ADP */}
                         <div style={{ textAlign: "center" as const }}>
                           {sortKey === "proj" ? (
-                            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.95rem", color: proj > 0 ? "oklch(0.38 0.14 150)" : "oklch(0.65 0.06 150)" }}>
-                              {proj > 0 ? proj.toFixed(1) : "—"}
-                            </span>
+                            projectionsLoading ? (
+                              <span className="skeleton-shimmer" style={{ display: "inline-block", width: 36, height: 16, borderRadius: 4 }} />
+                            ) : (
+                              <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.95rem", color: proj > 0 ? "oklch(0.38 0.14 150)" : "oklch(0.65 0.06 150)" }}>
+                                {proj > 0 ? proj.toFixed(1) : "—"}
+                              </span>
+                            )
                           ) : (
                             <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.85rem", color: "oklch(0.5 0.06 150)" }}>
                               {player.adp.toFixed(1)}

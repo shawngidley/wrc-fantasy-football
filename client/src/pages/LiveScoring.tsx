@@ -14,6 +14,7 @@ import { SCHEDULE_2026, OWNER_TO_TEAM, getCurrentWeek } from "@/lib/scheduleData
 import { useNFLMatchups } from "@/hooks/useNFLMatchups";
 import { useNFLLiveScores, getLivePoints } from "@/hooks/useNFLLiveScores";
 import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections";
+import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } from "@/hooks/useNFLInjuries";
 
 const REFRESH_SECONDS = 300;
 
@@ -376,7 +377,7 @@ function Chip({ label, value }: StatChip) {
 }
 
 // ── Single player cell (left or right side) ───────────────────────────────────
-function PlayerCell({ player, side }: { player: SlotPlayer | null; side: "home" | "away" }) {
+function PlayerCell({ player, side, injuries = {} }: { player: SlotPlayer | null; side: "home" | "away"; injuries?: import("@/hooks/useNFLInjuries").InjuryMap }) {
   if (!player) {
     return (
       <div style={{ flex: 1, padding: "0.6rem 0.5rem", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -407,19 +408,32 @@ function PlayerCell({ player, side }: { player: SlotPlayer | null; side: "home" 
         flexDirection: isHome ? "row" : "row-reverse",
       }}>
         <PlayerAvatar name={player.fullName} size={34} />
-        <div style={{ flex: 1, minWidth: 0, textAlign: isHome ? "left" : "right" }}>
-          <div style={{
-            fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700,
-            fontSize: "0.82rem", color: "#1a3a2a",
-            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-          }}>
-            <a
-              href={`/player/${encodeURIComponent(player.name)}`}
-              style={{ color: "inherit", textDecoration: "none" }}
-              onMouseEnter={(e) => (e.currentTarget.style.color = "oklch(0.38 0.18 260)")}
-              onMouseLeave={(e) => (e.currentTarget.style.color = "#1a3a2a")}
-            >{player.name}</a>
-          </div>
+          <div style={{ flex: 1, minWidth: 0, textAlign: isHome ? "left" : "right" }}>
+            <div style={{
+              fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700,
+              fontSize: "0.82rem", color: "#1a3a2a",
+              display: "flex", alignItems: "center", gap: "0.3rem",
+              flexDirection: isHome ? "row" : "row-reverse",
+            }}>
+              <a
+                href={`/player/${encodeURIComponent(player.name)}`}
+                style={{ color: "inherit", textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "oklch(0.38 0.18 260)")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "#1a3a2a")}
+              >{player.name}</a>
+              {(() => {
+                const designation = getInjuryDesignation(injuries, player.fullName);
+                const injColor = designation ? getInjuryColor(designation) : null;
+                if (!injColor) return null;
+                return (
+                  <span style={{
+                    fontSize: "0.55rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif",
+                    padding: "1px 3px", borderRadius: 2, flexShrink: 0,
+                    background: injColor.bg, color: injColor.text, border: `1px solid ${injColor.border}`,
+                  }} title={designation}>{getInjuryLabel(designation)}</span>
+                );
+              })()}
+            </div>
           <div style={{
             fontSize: "0.65rem", color: "oklch(0.5 0.04 150)",
             fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.03em",
@@ -480,7 +494,7 @@ function PlayerCell({ player, side }: { player: SlotPlayer | null; side: "home" 
 }
 
 // ── Slot row (one row in the comparison grid) ─────────────────────────────────
-function SlotRowComp({ row }: { row: SlotRow }) {
+function SlotRowComp({ row, injuries }: { row: SlotRow; injuries?: import("@/hooks/useNFLInjuries").InjuryMap }) {
   return (
     <div style={{
       display: "flex",
@@ -488,7 +502,7 @@ function SlotRowComp({ row }: { row: SlotRow }) {
       borderBottom: "1px solid oklch(0.92 0.005 150)",
       background: "white",
     }}>
-      <PlayerCell player={row.home} side="home" />
+      <PlayerCell player={row.home} side="home" injuries={injuries} />
 
       {/* Center position label */}
       <div style={{
@@ -510,13 +524,13 @@ function SlotRowComp({ row }: { row: SlotRow }) {
         </span>
       </div>
 
-      <PlayerCell player={row.away} side="away" />
+      <PlayerCell player={row.away} side="away" injuries={injuries} />
     </div>
   );
 }
 
 // ── Matchup detail view (the main expanded view) ──────────────────────────────
-function MatchupDetail({ matchup }: { matchup: Matchup }) {
+function MatchupDetail({ matchup, injuries }: { matchup: Matchup; injuries?: import("@/hooks/useNFLInjuries").InjuryMap }) {
   const homeWinning = matchup.home.score > matchup.away.score;
   const homeTotal = matchup.home.score + matchup.away.score;
   const homePct = homeTotal > 0 ? (matchup.home.score / homeTotal) * 100 : 50;
@@ -638,8 +652,8 @@ function MatchupDetail({ matchup }: { matchup: Matchup }) {
 
       {/* Slot-by-slot comparison */}
       <div>
-        {matchup.slots.map((row, i) => (
-          <SlotRowComp key={i} row={row} />
+          {matchup.slots.map((row, i) => (
+            <SlotRowComp key={i} row={row} injuries={injuries} />
         ))}
       </div>
 
@@ -670,7 +684,7 @@ function MatchupDetail({ matchup }: { matchup: Matchup }) {
                 background: "oklch(0.975 0.003 150)",
                 opacity: 0.88,
               }}>
-                <PlayerCell player={hp} side="home" />
+                <PlayerCell player={hp} side="home" injuries={injuries} />
                 {/* Center BN label */}
                 <div style={{
                   width: 32, flexShrink: 0,
@@ -688,7 +702,7 @@ function MatchupDetail({ matchup }: { matchup: Matchup }) {
                     transform: "rotate(180deg)",
                   }}>BN</span>
                 </div>
-                <PlayerCell player={ap} side="away" />
+                <PlayerCell player={ap} side="away" injuries={injuries} />
               </div>
             );
           })}
@@ -989,6 +1003,9 @@ export default function LiveScoring() {
   // Projected points
   const { projections } = useNFLProjections(currentWeek);
 
+  // Injury designations
+  const { injuries } = useNFLInjuries();
+
   const loadMatchups = useCallback(async () => {
     setLoading(true);
     try {
@@ -1115,7 +1132,7 @@ export default function LiveScoring() {
             Loading matchups…
           </div>
         ) : activeMatchup ? (
-          <MatchupDetail matchup={activeMatchup} />
+          <MatchupDetail matchup={activeMatchup} injuries={injuries} />
         ) : null}
 
         <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.7rem", textAlign: "center" as const, marginTop: "1rem", paddingBottom: "2rem" }}>

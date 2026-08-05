@@ -18,6 +18,7 @@ import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections
 import { useLineupPersistence } from "@/hooks/useLineupPersistence";
 import { useNFLLiveScores, getLivePoints } from "@/hooks/useNFLLiveScores";
 import { useWeeklyResultsWriter } from "@/hooks/useWeeklyResultsWriter";
+import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } from "@/hooks/useNFLInjuries";
 
 const STARTER_SLOTS = [
   { slot: "QB",    label: "Quarterback",   eligible: ["QB"] },
@@ -397,6 +398,9 @@ export default function Lineup() {
   // Only active on owner's own lineup page (not read-only views)
   useWeeklyResultsWriter(currentWeek, 2026, matchupMap, isOwnerView);
 
+  // Injury designations from Tank01 (cached 3h in sessionStorage)
+  const { injuries } = useNFLInjuries();
+
   // Build roster from Supabase (players table or draft_picks, whichever is populated)
   const liveRoster = useMemo(() => {
     if (!viewTeamName) return null;
@@ -751,12 +755,20 @@ export default function Lineup() {
                         <SeasonStatsRow player={player} />
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
-                        <span style={{
-                          fontSize: "0.62rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif",
-                          padding: "1px 5px", borderRadius: 3,
-                          background: STATUS_BG[player.status] || "oklch(0.94 0.02 150)",
-                          color: STATUS_COLORS[player.status] || "oklch(0.5 0.04 150)",
-                        }}>{player.status}</span>
+                        {(() => {
+                          const designation = getInjuryDesignation(injuries, player.name);
+                          const injColor = designation ? getInjuryColor(designation) : null;
+                          if (injColor) {
+                            return (
+                              <span style={{
+                                fontSize: "0.62rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif",
+                                padding: "1px 5px", borderRadius: 3,
+                                background: injColor.bg, color: injColor.text, border: `1px solid ${injColor.border}`,
+                              }} title={designation}>{getInjuryLabel(designation)}</span>
+                            );
+                          }
+                          return null;
+                        })()}
                         <div style={{ textAlign: "right" }}>
                           <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1rem", color: "oklch(0.22 0.08 150)" }}>{player.pts.toFixed(1)}</div>
                           <div style={{ fontSize: "0.62rem", color: "oklch(0.6 0.04 150)" }}>Proj {player.proj.toFixed(1)}</div>
@@ -869,7 +881,20 @@ export default function Lineup() {
                     <SeasonStatsRow player={player} />
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
-                    <span style={{ fontSize: "0.62rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif", padding: "1px 5px", borderRadius: 3, background: STATUS_BG[player.status] || "oklch(0.94 0.02 150)", color: STATUS_COLORS[player.status] || "oklch(0.5 0.04 150)" }}>{player.status}</span>
+                    {(() => {
+                      const designation = getInjuryDesignation(injuries, player.name);
+                      const injColor = designation ? getInjuryColor(designation) : null;
+                      if (injColor) {
+                        return (
+                          <span style={{
+                            fontSize: "0.62rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif",
+                            padding: "1px 5px", borderRadius: 3,
+                            background: injColor.bg, color: injColor.text, border: `1px solid ${injColor.border}`,
+                          }} title={designation}>{getInjuryLabel(designation)}</span>
+                        );
+                      }
+                      return null;
+                    })()}
                     <div style={{ textAlign: "right" }}>
                       <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1rem", color: "oklch(0.22 0.08 150)" }}>{player.pts.toFixed(1)}</div>
                       <div style={{ fontSize: "0.62rem", color: "oklch(0.6 0.04 150)" }}>Proj {player.proj.toFixed(1)}</div>
