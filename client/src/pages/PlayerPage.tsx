@@ -16,12 +16,14 @@ import { getCurrentWeek } from "@/lib/scheduleData2026";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Star, TrendingUp, Shield, Zap, AlertCircle, Calendar, User } from "lucide-react";
+import { ArrowLeft, Star, TrendingUp, Shield, Zap, AlertCircle, Calendar, User, ListOrdered, BarChart2 } from "lucide-react";
 import { useState } from "react";
 import FAABBidModal from "@/components/FAABBidModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNFLMatchups, formatMatchup, formatGameTime } from "@/hooks/useNFLMatchups";
 import { useESPNSeasonStats, type SeasonStatRow } from "@/hooks/useESPNSeasonStats";
+import { useNFLTeamSchedule, parseDate, type ScheduleGame } from "@/hooks/useNFLTeamSchedule";
+import { useNFLGameLog, type GameLogEntry } from "@/hooks/useNFLGameLog";
 
 // ── Position badge colors ────────────────────────────────────────────────────
 const POS_COLORS: Record<string, string> = {
@@ -388,12 +390,123 @@ function MultiSeasonStatsTable({
   );
 }
 
+// ── Game Log Table component ─────────────────────────────────────────────────
+function GameLogTable({ games, pos }: { games: GameLogEntry[]; pos: string }) {
+  function fmt(v: number | undefined, dec = 0): string {
+    if (!v) return "—";
+    return dec > 0 ? v.toFixed(dec) : String(Math.round(v));
+  }
+
+  type GCol = { label: string; render: (g: GameLogEntry) => string; gold?: boolean; highlight?: boolean };
+
+  const getCols = (): GCol[] => {
+    const base: GCol[] = [
+      { label: "WK",   render: (g) => { const m = g.gameDate.slice(4,6); const d = g.gameDate.slice(6,8); const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; return `${months[parseInt(m,10)-1]} ${parseInt(d,10)}`; } },
+      { label: "OPP",  render: (g) => `${g.isHome ? "vs" : "@"} ${g.opponent}` },
+      { label: "RESULT", render: (g) => g.result ?? "—" },
+    ];
+    switch (pos) {
+      case "QB": return [...base,
+        { label: "CMP/ATT", render: (g) => g.passAtt ? `${g.passCmp}/${g.passAtt}` : "—" },
+        { label: "YDS",     render: (g) => fmt(g.passYds), highlight: true },
+        { label: "TD",      render: (g) => fmt(g.passTD),  highlight: true },
+        { label: "INT",     render: (g) => fmt(g.passInt) },
+        { label: "RUSH",    render: (g) => fmt(g.rushYds) },
+        { label: "RTD",     render: (g) => fmt(g.rushTD) },
+        { label: "WRC PTS", render: (g) => fmt(g.wrcPts, 1), gold: true },
+      ];
+      case "RB": return [...base,
+        { label: "CAR",     render: (g) => fmt(g.rushAtt) },
+        { label: "YDS",     render: (g) => fmt(g.rushYds), highlight: true },
+        { label: "TD",      render: (g) => fmt(g.rushTD),  highlight: true },
+        { label: "REC",     render: (g) => fmt(g.rec) },
+        { label: "REC YDS", render: (g) => fmt(g.recYds) },
+        { label: "REC TD",  render: (g) => fmt(g.recTD) },
+        { label: "WRC PTS", render: (g) => fmt(g.wrcPts, 1), gold: true },
+      ];
+      case "WR":
+      case "TE": return [...base,
+        { label: "REC",     render: (g) => fmt(g.rec),    highlight: true },
+        { label: "TGTS",    render: (g) => fmt(g.targets) },
+        { label: "YDS",     render: (g) => fmt(g.recYds), highlight: true },
+        { label: "TD",      render: (g) => fmt(g.recTD),  highlight: true },
+        { label: "WRC PTS", render: (g) => fmt(g.wrcPts, 1), gold: true },
+      ];
+      case "K": return [...base,
+        { label: "FGM/A",   render: (g) => g.fgAtt ? `${g.fgMade}/${g.fgAtt}` : "—" },
+        { label: "XPM/A",   render: (g) => g.xpAtt ? `${g.xpMade}/${g.xpAtt}` : "—" },
+        { label: "WRC PTS", render: (g) => fmt(g.wrcPts, 1), gold: true },
+      ];
+      case "DST": return [...base,
+        { label: "SACK",    render: (g) => fmt(g.sacks),  highlight: true },
+        { label: "INT",     render: (g) => fmt(g.defInt), highlight: true },
+        { label: "TD",      render: (g) => fmt(g.defTD),  highlight: true },
+        { label: "WRC PTS", render: (g) => fmt(g.wrcPts, 1), gold: true },
+      ];
+      default: return [...base, { label: "WRC PTS", render: (g) => fmt(g.wrcPts, 1), gold: true }];
+    }
+  };
+
+  const cols = getCols();
+
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="bg-slate-50 border-b border-slate-100">
+          {cols.map((col) => (
+            <th
+              key={col.label}
+              className={`px-3 py-2.5 text-left text-xs font-bold uppercase tracking-wide whitespace-nowrap ${
+                col.gold ? "text-amber-600 bg-amber-50/60" : col.highlight ? "text-emerald-700" : "text-slate-500"
+              }`}
+            >
+              {col.label}
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {games.map((game, i) => (
+          <tr
+            key={game.gameID}
+            className={`border-b border-slate-50 ${
+              i % 2 === 0 ? "bg-white" : "bg-slate-50/40"
+            }`}
+          >
+            {cols.map((col) => {
+              const val = col.render(game);
+              const isResult = col.label === "RESULT";
+              const isW = isResult && val.startsWith("W");
+              const isL = isResult && val.startsWith("L");
+              return (
+                <td
+                  key={col.label}
+                  className={`px-3 py-2.5 tabular-nums ${
+                    col.gold ? "font-bold text-amber-700 bg-amber-50/40" :
+                    col.highlight ? "font-bold text-slate-900" :
+                    isW ? "font-semibold text-emerald-700" :
+                    isL ? "font-semibold text-red-600" :
+                    "text-slate-600"
+                  }`}
+                >
+                  {val}
+                </td>
+              );
+            })}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
 // ── Main PlayerPage ──────────────────────────────────────────────────────────
 export default function PlayerPage() {
   const params = useParams<{ playerName: string }>();
   const [, navigate] = useLocation();
   const { franchise } = useAuth();
   const [bidModalOpen, setBidModalOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"stats" | "schedule" | "gamelog">("stats");
 
   // Decode the player name from the URL
   const rawName = params.playerName ?? "";
@@ -411,11 +524,21 @@ export default function PlayerPage() {
   const { matchups: matchupMap, loading: matchupLoading } = useNFLMatchups(nflWeek);
   const matchup = player?.team ? matchupMap[player.team] : undefined;
 
+  // Schedule and game log
+  const { schedule, loading: scheduleLoading } = useNFLTeamSchedule(player?.team ?? null, 2026);
+  const { games: gameLog, loading: gameLogLoading } = useNFLGameLog(
+    player?.playerID ?? null,
+    player?.pos ?? "",
+    2026
+  );
+
   // Injury info
   const injury = player?.injury;
   const hasInjury = injury && (injury.designation || injury.description);
-  // suppress unused-var warning for matchupLoading
+  // suppress unused-var warnings
   void matchupLoading;
+  void scheduleLoading;
+  void gameLogLoading;
 
   return (
     <div className="min-h-screen bg-slate-50">
@@ -606,14 +729,137 @@ export default function PlayerPage() {
               </div>
             </div>
 
-            {/* ── Season stats (multi-season horizontal table) ── */}
-            <MultiSeasonStatsTable
-              pos={player.pos}
-              espnId={player.espnID || player.playerID}
-              currentStats={player.stats}
-            />
+            {/* ── Tab bar ── */}
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+              {/* Tab buttons */}
+              <div className="flex border-b border-slate-100">
+                {([
+                  { id: "stats",    label: "Stats",    icon: <BarChart2 className="w-4 h-4" /> },
+                  { id: "schedule", label: "Schedule", icon: <Calendar className="w-4 h-4" /> },
+                  { id: "gamelog",  label: "Game Log", icon: <ListOrdered className="w-4 h-4" /> },
+                ] as const).map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id)}
+                    className={`flex items-center gap-1.5 px-5 py-3 text-sm font-semibold transition-colors border-b-2 ${
+                      activeTab === tab.id
+                        ? "border-emerald-600 text-emerald-700 bg-emerald-50/50"
+                        : "border-transparent text-slate-500 hover:text-slate-700 hover:bg-slate-50"
+                    }`}
+                  >
+                    {tab.icon}
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
 
-            {/* ── This week's matchup ── */}
+              {/* ── Stats tab ── */}
+              {activeTab === "stats" && (
+                <div className="p-0">
+                  <MultiSeasonStatsTable
+                    pos={player.pos}
+                    espnId={player.espnID || player.playerID}
+                    currentStats={player.stats}
+                  />
+                </div>
+              )}
+
+              {/* ── Schedule tab ── */}
+              {activeTab === "schedule" && (
+                <div className="overflow-x-auto">
+                  {schedule.length === 0 ? (
+                    <div className="px-6 py-8 text-center text-slate-400 text-sm">
+                      {scheduleLoading ? "Loading schedule…" : "Schedule not available"}
+                    </div>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-100">
+                          <th className="px-4 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Wk</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Date</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Opponent</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Time</th>
+                          <th className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Result</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {schedule.map((game, i) => {
+                          const isBye = false; // bye weeks show as missing rows
+                          const isCurrentWeek = game.weekNum === currentWeek;
+                          const isFinal = game.gameStatus === "Final" || game.gameStatus === "Completed";
+                          const result = isFinal && game.homeScore !== undefined
+                            ? (() => {
+                                const myScore = game.isHome ? Number(game.homeScore) : Number(game.awayScore);
+                                const oppScore = game.isHome ? Number(game.awayScore) : Number(game.homeScore);
+                                const outcome = myScore > oppScore ? "W" : myScore < oppScore ? "L" : "T";
+                                return { outcome, myScore, oppScore };
+                              })()
+                            : null;
+                          return (
+                            <tr
+                              key={game.gameID}
+                              className={`border-b border-slate-50 ${
+                                isCurrentWeek ? "bg-emerald-50/60" : i % 2 === 0 ? "bg-white" : "bg-slate-50/40"
+                              }`}
+                            >
+                              <td className="px-4 py-2.5 font-bold text-slate-700 text-sm">
+                                {game.weekNum}
+                                {isCurrentWeek && <span className="ml-1.5 text-xs text-emerald-600 font-semibold">▶</span>}
+                              </td>
+                              <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{parseDate(game.gameDate)}</td>
+                              <td className="px-3 py-2.5">
+                                <div className="flex items-center gap-2">
+                                  <img
+                                    src={getTeamLogoUrl(game.opponent)}
+                                    alt={game.opponent}
+                                    className="w-5 h-5 object-contain"
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                  />
+                                  <span className="font-semibold text-slate-800">
+                                    {game.isHome ? "vs" : "@"} {game.opponent}
+                                  </span>
+                                </div>
+                              </td>
+                              <td className="px-3 py-2.5 text-slate-500 text-xs whitespace-nowrap">{game.gameTime}</td>
+                              <td className="px-3 py-2.5">
+                                {result ? (
+                                  <span className={`text-xs font-bold px-2 py-0.5 rounded ${
+                                    result.outcome === "W" ? "bg-emerald-100 text-emerald-700" :
+                                    result.outcome === "L" ? "bg-red-100 text-red-700" :
+                                    "bg-slate-100 text-slate-600"
+                                  }`}>
+                                    {result.outcome} {result.myScore}–{result.oppScore}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400 text-xs">{game.gameStatus === "Scheduled" ? "—" : game.gameStatus}</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              )}
+
+              {/* ── Game Log tab ── */}
+              {activeTab === "gamelog" && (
+                <div className="overflow-x-auto">
+                  {gameLog.length === 0 ? (
+                    <div className="px-6 py-8 text-center text-slate-400 text-sm">
+                      {gameLogLoading
+                        ? "Loading game log…"
+                        : "No 2026 game log yet — check back once the season starts on September 9, 2026."}
+                    </div>
+                  ) : (
+                    <GameLogTable games={gameLog} pos={player.pos} />
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* ── This week's matchup (outside tabs, always visible) ── */}
             {currentWeek >= 1 && currentWeek <= 17 && (
               <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
                 <div className="flex items-center gap-2 mb-3">
