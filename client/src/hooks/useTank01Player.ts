@@ -31,6 +31,7 @@ export interface Tank01Player {
   school: string;
   espnHeadshot: string;
   espnLink: string;
+  espnID: string;
   isFreeAgent: string;
   injury: {
     designation: string;
