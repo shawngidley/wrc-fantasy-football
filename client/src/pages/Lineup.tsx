@@ -745,7 +745,12 @@ export default function Lineup() {
                     onMouseEnter={(e) => { if (!isReadOnly && !playerLocked && player) (e.currentTarget as HTMLElement).style.filter = "brightness(1.2)"; }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}
                     title={(!isReadOnly && !playerLocked && player) ? "Tap to swap" : undefined}
-                  >{slot}</div>
+                  >
+                    <div>{slot}</div>
+                    {(!isReadOnly && !playerLocked && player) && (
+                      <div style={{ fontSize: "0.5rem", opacity: 0.75, lineHeight: 1, marginTop: "1px" }}>⇄</div>
+                    )}
+                  </div>
 
                   {player ? (
                     <>
@@ -891,7 +896,12 @@ export default function Lineup() {
                     onMouseEnter={(e) => { if (benchCanSwap) (e.currentTarget as HTMLElement).style.filter = "brightness(1.2)"; }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}
                     title={benchCanSwap ? "Tap to swap" : undefined}
-                  >{player.pos}</div>
+                  >
+                    <div>{player.pos}</div>
+                    {benchCanSwap && (
+                      <div style={{ fontSize: "0.5rem", opacity: 0.75, lineHeight: 1, marginTop: "1px" }}>⇄</div>
+                    )}
+                  </div>
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.18 0.05 150)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                       {player.name}

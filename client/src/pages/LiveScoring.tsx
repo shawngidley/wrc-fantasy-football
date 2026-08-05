@@ -7,6 +7,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocation } from "wouter";
 import { RefreshCw, Clock, Wifi } from "lucide-react";
 import TeamLogo from "@/components/TeamLogo";
 import { supabase } from "@/lib/supabase";
@@ -985,16 +986,25 @@ async function buildMatchupsFromLineups(
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function LiveScoring() {
   const { franchise } = useAuth();
+  const [location] = useLocation();
   const [countdown, setCountdown] = useState(REFRESH_SECONDS);
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [activeId, setActiveId] = useState<number | null>(null);
   const [liveMatchups, setLiveMatchups] = useState<Matchup[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Read ?week=N from the URL; fall back to the current real week
   const currentWeek = useMemo(() => {
+    const search = typeof window !== "undefined" ? window.location.search : "";
+    const params = new URLSearchParams(search);
+    const weekParam = params.get("week");
+    if (weekParam) {
+      const parsed = parseInt(weekParam, 10);
+      if (!isNaN(parsed) && parsed >= 1 && parsed <= 18) return parsed;
+    }
     const w = getCurrentWeek();
     return w > 0 ? w : 1;
-  }, []);
+  }, [location]); // re-compute when URL changes
 
   // Live NFL matchup map (for game info + polling)
   const { matchups: nflMatchupMap } = useNFLMatchups(currentWeek);
@@ -1026,6 +1036,16 @@ export default function LiveScoring() {
   useEffect(() => {
     loadMatchups();
   }, [loadMatchups]);
+
+  // Auto-select the franchise's matchup when matchups load or week changes
+  useEffect(() => {
+    if (!franchise || liveMatchups.length === 0) return;
+    const myTeam = franchise.team_name;
+    const myMatchup = liveMatchups.find(
+      m => m.home.team === myTeam || m.away.team === myTeam
+    );
+    if (myMatchup) setActiveId(myMatchup.id);
+  }, [liveMatchups, franchise]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refresh = useCallback(() => {
     loadMatchups();
@@ -1081,6 +1101,13 @@ export default function LiveScoring() {
         display: "flex", alignItems: "center", gap: "0.5rem",
         overflowX: "auto",
       }}>
+        {/* Week label */}
+        <span style={{
+          fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem",
+          letterSpacing: "0.08em", color: "oklch(0.78 0.15 85)",
+          background: "oklch(0.78 0.15 85 / 0.15)", border: "1px solid oklch(0.78 0.15 85 / 0.3)",
+          borderRadius: 5, padding: "2px 8px", flexShrink: 0, whiteSpace: "nowrap",
+        }}>WK {currentWeek}</span>
         {loading ? (
           <span style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.75rem", fontFamily: "Barlow Condensed, sans-serif" }}>Loading matchups…</span>
         ) : (
