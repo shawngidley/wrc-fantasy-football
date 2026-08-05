@@ -507,6 +507,7 @@ export default function PlayerPage() {
   const { franchise } = useAuth();
   const [bidModalOpen, setBidModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"stats" | "schedule" | "gamelog">("stats");
+  const [gameLogSeason, setGameLogSeason] = useState(2026);
 
   // Decode the player name from the URL
   const rawName = params.playerName ?? "";
@@ -529,7 +530,7 @@ export default function PlayerPage() {
   const { games: gameLog, loading: gameLogLoading } = useNFLGameLog(
     player?.playerID ?? null,
     player?.pos ?? "",
-    2026
+    gameLogSeason
   );
 
   // Injury info
@@ -771,90 +772,130 @@ export default function PlayerPage() {
                     <div className="px-6 py-8 text-center text-slate-400 text-sm">
                       {scheduleLoading ? "Loading schedule…" : "Schedule not available"}
                     </div>
-                  ) : (
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-slate-50 border-b border-slate-100">
-                          <th className="px-4 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Wk</th>
-                          <th className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Date</th>
-                          <th className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Opponent</th>
-                          <th className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Time</th>
-                          <th className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Result</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {schedule.map((game, i) => {
-                          const isBye = false; // bye weeks show as missing rows
-                          const isCurrentWeek = game.weekNum === currentWeek;
-                          const isFinal = game.gameStatus === "Final" || game.gameStatus === "Completed";
-                          const result = isFinal && game.homeScore !== undefined
-                            ? (() => {
-                                const myScore = game.isHome ? Number(game.homeScore) : Number(game.awayScore);
-                                const oppScore = game.isHome ? Number(game.awayScore) : Number(game.homeScore);
-                                const outcome = myScore > oppScore ? "W" : myScore < oppScore ? "L" : "T";
-                                return { outcome, myScore, oppScore };
-                              })()
-                            : null;
-                          return (
-                            <tr
-                              key={game.gameID}
-                              className={`border-b border-slate-50 ${
-                                isCurrentWeek ? "bg-emerald-50/60" : i % 2 === 0 ? "bg-white" : "bg-slate-50/40"
-                              }`}
-                            >
-                              <td className="px-4 py-2.5 font-bold text-slate-700 text-sm">
-                                {game.weekNum}
-                                {isCurrentWeek && <span className="ml-1.5 text-xs text-emerald-600 font-semibold">▶</span>}
-                              </td>
-                              <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{parseDate(game.gameDate)}</td>
-                              <td className="px-3 py-2.5">
-                                <div className="flex items-center gap-2">
-                                  <img
-                                    src={getTeamLogoUrl(game.opponent)}
-                                    alt={game.opponent}
-                                    className="w-5 h-5 object-contain"
-                                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                                  />
-                                  <span className="font-semibold text-slate-800">
-                                    {game.isHome ? "vs" : "@"} {game.opponent}
-                                  </span>
-                                </div>
-                              </td>
-                              <td className="px-3 py-2.5 text-slate-500 text-xs whitespace-nowrap">{game.gameTime}</td>
-                              <td className="px-3 py-2.5">
-                                {result ? (
-                                  <span className={`text-xs font-bold px-2 py-0.5 rounded ${
-                                    result.outcome === "W" ? "bg-emerald-100 text-emerald-700" :
-                                    result.outcome === "L" ? "bg-red-100 text-red-700" :
-                                    "bg-slate-100 text-slate-600"
-                                  }`}>
-                                    {result.outcome} {result.myScore}–{result.oppScore}
-                                  </span>
-                                ) : (
-                                  <span className="text-slate-400 text-xs">{game.gameStatus === "Scheduled" ? "—" : game.gameStatus}</span>
-                                )}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  )}
+                  ) : (() => {
+                    // Build a full 18-week list, inserting BYE rows for missing weeks
+                    const gameByWeek = new Map(schedule.map((g) => [g.weekNum, g]));
+                    const allWeeks = Array.from({ length: 18 }, (_, i) => i + 1);
+                    return (
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-100">
+                            <th className="px-4 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Wk</th>
+                            <th className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Date</th>
+                            <th className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Opponent</th>
+                            <th className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Time</th>
+                            <th className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide">Result</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {allWeeks.map((wk) => {
+                            const game = gameByWeek.get(wk);
+                            const isCurrentWeek = wk === currentWeek;
+                            // BYE row
+                            if (!game) {
+                              return (
+                                <tr key={`bye-${wk}`} className="border-b border-slate-50 bg-amber-50/40">
+                                  <td className="px-4 py-2.5 font-bold text-amber-700 text-sm">{wk}</td>
+                                  <td colSpan={4} className="px-3 py-2.5">
+                                    <span className="text-xs font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded">BYE WEEK</span>
+                                  </td>
+                                </tr>
+                              );
+                            }
+                            const isFinal = game.gameStatus === "Final" || game.gameStatus === "Completed";
+                            const result = isFinal && game.homeScore !== undefined
+                              ? (() => {
+                                  const myScore = game.isHome ? Number(game.homeScore) : Number(game.awayScore);
+                                  const oppScore = game.isHome ? Number(game.awayScore) : Number(game.homeScore);
+                                  const outcome = myScore > oppScore ? "W" : myScore < oppScore ? "L" : "T";
+                                  return { outcome, myScore, oppScore };
+                                })()
+                              : null;
+                            return (
+                              <tr
+                                key={game.gameID}
+                                onClick={() => navigate(`/live?week=${wk}`)}
+                                className={`border-b border-slate-50 cursor-pointer hover:bg-blue-50/60 transition-colors ${
+                                  isCurrentWeek ? "bg-emerald-50/60" : wk % 2 === 0 ? "bg-white" : "bg-slate-50/40"
+                                }`}
+                              >
+                                <td className="px-4 py-2.5 font-bold text-slate-700 text-sm">
+                                  {wk}
+                                  {isCurrentWeek && <span className="ml-1.5 text-xs text-emerald-600 font-semibold">▶</span>}
+                                </td>
+                                <td className="px-3 py-2.5 text-slate-600 whitespace-nowrap">{parseDate(game.gameDate)}</td>
+                                <td className="px-3 py-2.5">
+                                  <div className="flex items-center gap-2">
+                                    <img
+                                      src={getTeamLogoUrl(game.opponent)}
+                                      alt={game.opponent}
+                                      className="w-5 h-5 object-contain"
+                                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                    />
+                                    <span className="font-semibold text-slate-800">
+                                      {game.isHome ? "vs" : "@"} {game.opponent}
+                                    </span>
+                                  </div>
+                                </td>
+                                <td className="px-3 py-2.5 text-slate-500 text-xs whitespace-nowrap">{game.gameTime}</td>
+                                <td className="px-3 py-2.5">
+                                  {result ? (
+                                    <span className={`text-xs font-bold px-2 py-0.5 rounded ${
+                                      result.outcome === "W" ? "bg-emerald-100 text-emerald-700" :
+                                      result.outcome === "L" ? "bg-red-100 text-red-700" :
+                                      "bg-slate-100 text-slate-600"
+                                    }`}>
+                                      {result.outcome} {result.myScore}–{result.oppScore}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400 text-xs">{game.gameStatus === "Scheduled" ? "—" : game.gameStatus}</span>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    );
+                  })()}
                 </div>
               )}
 
               {/* ── Game Log tab ── */}
               {activeTab === "gamelog" && (
-                <div className="overflow-x-auto">
-                  {gameLog.length === 0 ? (
-                    <div className="px-6 py-8 text-center text-slate-400 text-sm">
-                      {gameLogLoading
-                        ? "Loading game log…"
-                        : "No 2026 game log yet — check back once the season starts on September 9, 2026."}
+                <div>
+                  {/* Season selector */}
+                  <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100 bg-slate-50/60">
+                    <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Season</span>
+                    <div className="flex gap-1">
+                      {[2026, 2025, 2024, 2023, 2022].map((yr) => (
+                        <button
+                          key={yr}
+                          onClick={() => setGameLogSeason(yr)}
+                          className={`px-3 py-1 text-xs font-bold rounded-full transition-colors ${
+                            gameLogSeason === yr
+                              ? "bg-emerald-600 text-white"
+                              : "bg-white border border-slate-200 text-slate-600 hover:border-emerald-400 hover:text-emerald-700"
+                          }`}
+                        >
+                          {yr}
+                        </button>
+                      ))}
                     </div>
-                  ) : (
-                    <GameLogTable games={gameLog} pos={player.pos} />
-                  )}
+                  </div>
+                  <div className="overflow-x-auto">
+                    {gameLog.length === 0 ? (
+                      <div className="px-6 py-8 text-center text-slate-400 text-sm">
+                        {gameLogLoading
+                          ? `Loading ${gameLogSeason} game log…`
+                          : gameLogSeason === 2026
+                          ? "No 2026 game log yet — check back once the season starts on September 9, 2026."
+                          : `No game log found for ${gameLogSeason}.`}
+                      </div>
+                    ) : (
+                      <GameLogTable games={gameLog} pos={player.pos} />
+                    )}
+                  </div>
                 </div>
               )}
             </div>
