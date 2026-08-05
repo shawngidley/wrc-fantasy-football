@@ -1,7 +1,8 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
-import { Route, Switch, Redirect } from "wouter";
+import { Route, Switch, Redirect, useLocation } from "wouter";
+import { useEffect } from "react";
 import { useAuth } from "./contexts/AuthContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -31,6 +32,15 @@ import DraftRecap from "./pages/DraftRecap";
 import PlayerPage from "./pages/PlayerPage";
 import FreeAgents from "./pages/FreeAgents";
 
+// Scroll to top on every route change
+function ScrollToTop() {
+  const [location] = useLocation();
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [location]);
+  return null;
+}
+
 // Route guard — redirects to login if no team is authenticated
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { franchise } = useAuth();
@@ -40,7 +50,9 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
 
 function Router() {
   return (
-    <Switch>
+    <>
+      <ScrollToTop />
+      <Switch>
       <Route path="/" component={Login} />
       <Route path="/standings" component={Standings} />
       <Route path="/live" component={LiveScoring} />
@@ -67,6 +79,7 @@ function Router() {
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
+    </>
   );
 }
 
