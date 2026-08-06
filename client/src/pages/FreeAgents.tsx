@@ -435,8 +435,8 @@ export default function FreeAgents() {
                 </div>
               ) : (
                 <>
-                  {/* Header row */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 70px", gap: "0.5rem", padding: "0.5rem 1rem", background: "oklch(0.96 0.02 150)", borderBottom: "1px solid oklch(0.9 0.04 150)" }}>
+                 {/* Header row */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 48px 60px 64px", gap: "0.25rem", padding: "0.5rem 0.75rem", background: "oklch(0.96 0.02 150)", borderBottom: "1px solid oklch(0.9 0.04 150)" }}>
                     {["Player", "Bye", sortKey === "proj" ? "Proj" : "ADP", ""].map((h, i) => (
                       <span key={i} style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: "oklch(0.55 0.06 150)", textAlign: i > 0 ? "center" as const : "left" as const }}>{h}</span>
                     ))}
@@ -447,24 +447,24 @@ export default function FreeAgents() {
                     return (
                       <div
                         key={player.id}
-                        style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 70px", gap: "0.5rem", padding: "0.6rem 1rem", alignItems: "center", borderBottom: "1px solid oklch(0.94 0.02 150)", transition: "background 0.15s" }}
+                        style={{ display: "grid", gridTemplateColumns: "1fr 48px 60px 64px", gap: "0.25rem", padding: "0.5rem 0.75rem", alignItems: "center", borderBottom: "1px solid oklch(0.94 0.02 150)", transition: "background 0.15s" }}
                         onMouseEnter={e => (e.currentTarget.style.background = "oklch(0.97 0.02 150)")}
                         onMouseLeave={e => (e.currentTarget.style.background = "white")}
                       >
                         {/* Player info */}
                         <Link
                           href={`/player/${encodeURIComponent(player.name)}`}
-                          style={{ display: "flex", alignItems: "center", gap: "0.6rem", textDecoration: "none", minWidth: 0 }}
+                          style={{ display: "flex", alignItems: "center", gap: "0.4rem", textDecoration: "none", minWidth: 0, overflow: "hidden" }}
                         >
                           <img
                             src={getTeamLogoUrl(player.nflTeam)}
                             alt={player.nflTeam}
-                            style={{ width: 30, height: 30, objectFit: "contain", flexShrink: 0 }}
+                            style={{ width: 24, height: 24, objectFit: "contain", flexShrink: 0 }}
                             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                           />
-                          <div style={{ minWidth: 0 }}>
+                          <div style={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
                             <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                              <p style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.95rem", color: "oklch(0.22 0.08 150)", margin: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
+                              <p style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.22 0.08 150)", margin: 0, flex: 1, minWidth: 0, lineHeight: 1.2 }}>
                                 {player.name}
                               </p>
                               {(() => {
@@ -485,7 +485,7 @@ export default function FreeAgents() {
                               <span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.06 150)" }}>{player.nflTeam}</span>
                             </div>
                           </div>
-                          <ChevronRight size={14} color="oklch(0.75 0.06 150)" style={{ marginLeft: "auto", flexShrink: 0 }} />
+                          <ChevronRight size={12} color="oklch(0.75 0.06 150)" style={{ flexShrink: 0 }} />
                         </Link>
 
                         {/* Bye week */}
