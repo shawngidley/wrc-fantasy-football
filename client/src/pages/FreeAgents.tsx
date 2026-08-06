@@ -10,7 +10,7 @@
  * - "Bid" button opens FAABBidModal for signed-in users
  * - Commissioner sees all pending bids in a separate tab
  */
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { Link } from "wouter";
 import { NFL_PLAYERS_2026, type NFLPlayer } from "@/lib/nflPlayers2026";
 import { getTeamLogoUrl } from "@/hooks/useTank01Player";
@@ -21,7 +21,7 @@ import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } 
 import FAABBidModal from "@/components/FAABBidModal";
 import { supabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
-import { Search, DollarSign, ChevronRight, Trophy, Clock, ArrowUpDown, TrendingUp } from "lucide-react";
+import { Search, DollarSign, ChevronRight, Trophy, Clock, ArrowUpDown, Users, ArrowLeftRight } from "lucide-react";
 import { toast } from "sonner";
 import Navigation from "@/components/Navigation";
 
@@ -234,6 +234,8 @@ export default function FreeAgents() {
   const [activeTab, setActiveTab] = useState<"pool" | "bids">("pool");
   const [ownedNames, setOwnedNames] = useState<Set<string>>(new Set());
   const [loadingOwned, setLoadingOwned] = useState(true);
+  const [playerScope, setPlayerScope] = useState<"fa" | "all">("fa");
+  const [ownershipMap, setOwnershipMap] = useState<Record<string, string>>({});
 
   const currentWeek = getCurrentWeek();
   const week = currentWeek > 0 ? currentWeek : 1;
@@ -242,11 +244,19 @@ export default function FreeAgents() {
   useEffect(() => {
     supabase
       .from("players")
-      .select("name")
+      .select("name, team_id, teams(name)")
       .not("team_id", "is", null)
       .then(({ data }) => {
         if (data) {
-          setOwnedNames(new Set(data.map((p: { name: string }) => p.name.toLowerCase())));
+          const names = new Set<string>();
+          const ownerMap: Record<string, string> = {};
+          for (const p of (data as unknown) as Array<{ name: string; team_id: string; teams: { name: string } | { name: string }[] | null }>) {
+            names.add(p.name.toLowerCase());
+            const teamName = Array.isArray(p.teams) ? (p.teams[0]?.name ?? p.team_id) : (p.teams?.name ?? p.team_id);
+            ownerMap[p.name.toLowerCase()] = teamName;
+          }
+          setOwnedNames(names);
+          setOwnershipMap(ownerMap);
         }
         setLoadingOwned(false);
       });
@@ -264,9 +274,11 @@ export default function FreeAgents() {
     return NFL_PLAYERS_2026.filter((p) => !ownedNames.has(p.name.toLowerCase()));
   }, [ownedNames, loadingOwned]);
 
+  const allPlayers = useMemo(() => NFL_PLAYERS_2026, []);
+
   // Filter + search + sort
   const filtered = useMemo(() => {
-    let list = freeAgents;
+    let list = playerScope === "fa" ? freeAgents : allPlayers;
     if (posFilter !== "ALL") {
       list = list.filter((p) => p.pos === posFilter);
     }
@@ -285,7 +297,7 @@ export default function FreeAgents() {
       if (sortKey === "adp") return a.adp - b.adp;
       return a.name.localeCompare(b.name);
     });
-  }, [freeAgents, posFilter, search, sortKey, projections]);
+  }, [freeAgents, allPlayers, playerScope, posFilter, search, sortKey, projections]);
 
   const positions = ["ALL", "QB", "RB", "WR", "TE", "K", "DST"];
   const isCommissioner = franchise?.is_commissioner;
@@ -319,30 +331,44 @@ export default function FreeAgents() {
           </div>
 
           {/* Tab switcher (commissioner sees bids tab) */}
-          {isCommissioner && (
-            <div style={{ display: "flex", gap: "0.35rem", marginTop: "0.75rem" }}>
-              {[
-                { key: "pool", label: "Player Pool" },
-                { key: "bids", label: "Manage Bids" },
-              ].map(({ key, label }) => (
-                <button
-                  key={key}
-                  onClick={() => setActiveTab(key as "pool" | "bids")}
-                  style={{
-                    padding: "0.4rem 0.875rem", borderRadius: 8,
-                    border: activeTab === key ? "2px solid oklch(0.55 0.16 85)" : "2px solid oklch(0.88 0.04 150)",
-                    background: activeTab === key ? "oklch(0.22 0.08 150)" : "white",
-                    color: activeTab === key ? "white" : "oklch(0.4 0.04 150)",
-                    fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700,
-                    letterSpacing: "0.04em", cursor: "pointer",
-                  }}
-                >
-                  {key === "bids" && <Trophy size={11} style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} />}
-                  {label}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* Scope toggle: Free Agents / All Players — always visible */}
+          <div style={{ display: "flex", gap: "0.35rem", marginTop: "0.75rem", flexWrap: "wrap" as const }}>
+            {([
+              { key: "fa", label: "Free Agents", icon: null },
+              { key: "all", label: "All Players", icon: <Users size={11} style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} /> },
+            ] as { key: "fa" | "all"; label: string; icon: React.ReactNode }[]).map(({ key, label, icon }) => (
+              <button
+                key={key}
+                onClick={() => setPlayerScope(key)}
+                style={{
+                  padding: "0.4rem 0.875rem", borderRadius: 8,
+                  border: playerScope === key ? "2px solid oklch(0.55 0.16 85)" : "2px solid oklch(0.88 0.04 150)",
+                  background: playerScope === key ? "oklch(0.22 0.08 150)" : "white",
+                  color: playerScope === key ? "white" : "oklch(0.4 0.04 150)",
+                  fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700,
+                  letterSpacing: "0.04em", cursor: "pointer",
+                }}
+              >
+                {icon}{label}
+              </button>
+            ))}
+            {isCommissioner && (
+              <button
+                onClick={() => setActiveTab(activeTab === "bids" ? "pool" : "bids")}
+                style={{
+                  padding: "0.4rem 0.875rem", borderRadius: 8,
+                  border: activeTab === "bids" ? "2px solid oklch(0.55 0.16 85)" : "2px solid oklch(0.88 0.04 150)",
+                  background: activeTab === "bids" ? "oklch(0.22 0.08 150)" : "white",
+                  color: activeTab === "bids" ? "white" : "oklch(0.4 0.04 150)",
+                  fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700,
+                  letterSpacing: "0.04em", cursor: "pointer",
+                }}
+              >
+                <Trophy size={11} style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} />
+                Manage Bids
+              </button>
+            )}
+          </div>
         </div>
 
         {activeTab === "bids" && isCommissioner ? (
@@ -413,7 +439,7 @@ export default function FreeAgents() {
 
             {/* ── Player count ── */}
             <p style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.55)", marginBottom: "0.5rem" }}>
-              Showing <strong style={{ color: "rgba(255,255,255,0.85)" }}>{filtered.length}</strong> free agent{filtered.length !== 1 ? "s" : ""}
+              Showing <strong style={{ color: "rgba(255,255,255,0.85)" }}>{filtered.length}</strong> {playerScope === "all" ? "player" : "free agent"}{filtered.length !== 1 ? "s" : ""}
               {posFilter !== "ALL" ? ` at ${posFilter}` : ""}
               {search ? ` matching "${search}"` : ""}
             </p>
@@ -444,12 +470,14 @@ export default function FreeAgents() {
 
                   {filtered.map((player) => {
                     const proj = getProjectedPoints(projections, player.name, player.pos, player.nflTeam);
+                    const ownerTeam = ownershipMap[player.name.toLowerCase()];
+                    const isOwned = !!ownerTeam;
                     return (
                       <div
                         key={player.id}
-                        style={{ display: "grid", gridTemplateColumns: "1fr 48px 60px 64px", gap: "0.25rem", padding: "0.5rem 0.75rem", alignItems: "center", borderBottom: "1px solid oklch(0.94 0.02 150)", transition: "background 0.15s" }}
-                        onMouseEnter={e => (e.currentTarget.style.background = "oklch(0.97 0.02 150)")}
-                        onMouseLeave={e => (e.currentTarget.style.background = "white")}
+                        onMouseEnter={e => (e.currentTarget.style.background = isOwned ? "oklch(0.96 0.03 240)" : "oklch(0.97 0.02 150)")}
+                        onMouseLeave={e => (e.currentTarget.style.background = isOwned ? "oklch(0.97 0.02 240)" : "white")}
+                        style={{ display: "grid", gridTemplateColumns: "1fr 48px 60px 64px", gap: "0.25rem", padding: "0.5rem 0.75rem", alignItems: "center", borderBottom: "1px solid oklch(0.94 0.02 150)", transition: "background 0.15s", background: isOwned ? "oklch(0.97 0.02 240)" : "white" }}
                       >
                         {/* Player info */}
                         <Link
@@ -483,6 +511,11 @@ export default function FreeAgents() {
                             <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", marginTop: 1 }}>
                               <PosBadge pos={player.pos} />
                               <span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.06 150)" }}>{player.nflTeam}</span>
+                              {isOwned && (
+                                <span style={{ fontSize: "0.65rem", color: "oklch(0.42 0.1 240)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.03em", background: "oklch(0.92 0.04 240)", border: "1px solid oklch(0.78 0.08 240)", borderRadius: 4, padding: "0px 4px" }}>
+                                  {ownerTeam}
+                                </span>
+                              )}
                             </div>
                           </div>
                           <ChevronRight size={12} color="oklch(0.75 0.06 150)" style={{ flexShrink: 0 }} />
@@ -511,7 +544,19 @@ export default function FreeAgents() {
                         </div>
 
                         {/* Bid button */}
-                        {franchise ? (
+                        {isOwned ? (
+                          franchise ? (
+                            <Link
+                              href={`/trades`}
+                              style={{ background: "oklch(0.42 0.1 240)", color: "white", border: "none", borderRadius: 7, padding: "0.3rem 0.5rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.68rem", letterSpacing: "0.03em", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.2rem", justifyContent: "center", textDecoration: "none" }}
+                            >
+                              <ArrowLeftRight size={10} />
+                              Trade
+                            </Link>
+                          ) : (
+                            <span style={{ fontSize: "0.65rem", color: "oklch(0.55 0.08 240)", textAlign: "center" as const, fontFamily: "Barlow Condensed, sans-serif" }}>Owned</span>
+                          )
+                        ) : franchise ? (
                           <button
                             onClick={() => setBidPlayer(player)}
                             style={{ background: "oklch(0.55 0.16 85)", color: "white", border: "none", borderRadius: 7, padding: "0.3rem 0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem", letterSpacing: "0.04em", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem", justifyContent: "center" }}
