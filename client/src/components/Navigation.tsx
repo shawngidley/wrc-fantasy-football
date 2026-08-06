@@ -270,7 +270,7 @@ export default function Navigation({
         ))}
       </div>
 
-      {/* Overlay */}
+      {/* Overlay — z-index must be BELOW the mobile nav (999) */}
       {mobileOpen && (
         <div
           onClick={() => setMobileOpen(false)}
