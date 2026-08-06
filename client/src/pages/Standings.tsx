@@ -221,11 +221,16 @@ function InjuryReport({ ownerKey }: { ownerKey: string }) {
 
       const found: InjuryItem[] = [];
       for (const player of myPlayers) {
+        const fullName = player.name.toLowerCase();
         const lastName = player.name.split(" ").slice(1).join(" ").toLowerCase();
         const firstName = player.name.split(" ")[0].toLowerCase();
         const related = articles.filter(a => {
           const text = (a.headline + " " + (a.description ?? "")).toLowerCase();
-          return (text.includes(lastName) || text.includes(firstName)) &&
+          const categoryText = (a.categories ?? []).map((c: { description: string }) => c.description).join(" ").toLowerCase();
+          const allText = text + " " + categoryText;
+          // Prefer full-name match; fall back to last name (avoid short first-name false positives)
+          const nameMatch = allText.includes(fullName) || (lastName.length > 3 && allText.includes(lastName));
+          return nameMatch &&
             injuryKeywords.some(kw => text.includes(kw));
         });
         for (const a of related.slice(0, 2)) {
@@ -340,10 +345,14 @@ function MyTeamNews({ ownerKey }: { ownerKey: string }) {
 
       const found: (ESPNArticle & { playerName: string })[] = [];
       for (const player of myPlayers) {
+        const fullName = player.name.toLowerCase();
         const lastName = player.name.split(" ").slice(1).join(" ").toLowerCase();
         const related = allArticles.filter(a => {
           const text = (a.headline + " " + (a.description ?? "")).toLowerCase();
-          return text.includes(lastName);
+          const categoryText = (a.categories ?? []).map((c: { description: string }) => c.description).join(" ").toLowerCase();
+          const allText = text + " " + categoryText;
+          // Full-name match preferred; last name only if it's distinctive (>4 chars)
+          return allText.includes(fullName) || (lastName.length > 4 && allText.includes(lastName));
         });
         for (const a of related.slice(0, 3)) {
           found.push({ ...a, playerName: player.name });
