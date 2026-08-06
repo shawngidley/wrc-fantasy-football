@@ -11,13 +11,13 @@ import { useParams, useLocation } from "wouter";
 import { useTank01PlayerByName, getTeamLogoUrl } from "@/hooks/useTank01Player";
 import { calcFantasyPoints, getStatLine, getPerGameAvg, injuryColor, injuryLabel } from "@/lib/scoringEngine";
 import type { Tank01Stats } from "@/lib/scoringEngine";
-import { TEAMS } from "@/lib/wrcData";
 import { getCurrentWeek } from "@/lib/scheduleData2026";
+import { supabase } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Star, TrendingUp, Shield, Zap, AlertCircle, Calendar, User, ListOrdered, BarChart2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import FAABBidModal from "@/components/FAABBidModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNFLMatchups, formatMatchup, formatGameTime } from "@/hooks/useNFLMatchups";
@@ -46,15 +46,44 @@ function StatCard({ label, value, sub }: { label: string; value: string | number
   );
 }
 
-// ── Ownership lookup ─────────────────────────────────────────────────────────
-function findOwner(playerName: string) {
-  for (const team of TEAMS) {
-    const found = team.players.find(
-      (p) => p.name.toLowerCase() === playerName.toLowerCase()
-    );
-    if (found) return { team, player: found };
-  }
-  return null;
+// ── Live ownership lookup via Supabase ──────────────────────────────────────
+type OwnershipResult = {
+  teamName: string;
+  owner: string;
+  acquisition: string;
+  round: number | null;
+} | null;
+
+function usePlayerOwnership(playerName: string | null): { ownership: OwnershipResult; ownerLoading: boolean } {
+  const [ownership, setOwnership] = useState<OwnershipResult>(null);
+  const [ownerLoading, setOwnerLoading] = useState(true);
+
+  useEffect(() => {
+    if (!playerName) { setOwnerLoading(false); return; }
+    setOwnerLoading(true);
+    supabase
+      .from("players")
+      .select("team_id, acquisition, round, teams(team_name, owner)")
+      .ilike("name", playerName)
+      .limit(1)
+      .single()
+      .then(({ data }) => {
+        if (data && data.team_id) {
+          const t = Array.isArray(data.teams) ? data.teams[0] as { team_name: string; owner: string } | undefined : data.teams as { team_name: string; owner: string } | null;
+          setOwnership({
+            teamName: t?.team_name ?? data.team_id,
+            owner: t?.owner ?? "",
+            acquisition: data.acquisition ?? "Draft",
+            round: data.round ?? null,
+          });
+        } else {
+          setOwnership(null);
+        }
+        setOwnerLoading(false);
+      });
+  }, [playerName]);
+
+  return { ownership, ownerLoading };
 }
 
 // getThisWeekMatchup stub removed — replaced by live useNFLMatchups hook
@@ -518,8 +547,8 @@ export default function PlayerPage() {
 
   const { player, loading, error } = useTank01PlayerByName(playerName || null);
 
-  // Find WRC ownership
-  const ownership = playerName ? findOwner(playerName) : null;
+  // Find WRC ownership via live Supabase query
+  const { ownership, ownerLoading: _ownerLoading } = usePlayerOwnership(playerName || null);
   const isFreeAgent = !ownership;
 
   // Live NFL matchup data for the current week
@@ -710,10 +739,10 @@ export default function PlayerPage() {
                     ) : (
                       <>
                         <p className="text-sm font-bold text-emerald-800">
-                          {ownership!.team.teamName}
+                          {ownership!.teamName}
                         </p>
                         <p className="text-xs text-emerald-700">
-                          Owner: {ownership!.team.owner} · {ownership!.player.acquisition === "Draft" ? `Round ${ownership!.player.round ?? "?"}` : "FA Pickup"}
+                          Owner: {ownership!.owner} · {ownership!.acquisition === "Draft" ? `Round ${ownership!.round ?? "?"}` : "FA Pickup"}
                         </p>
                       </>
                     )}

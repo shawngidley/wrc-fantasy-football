@@ -17,29 +17,8 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
-
-// ── Current week ──────────────────────────────────────────────────────────────
-const CURRENT_WEEK = 14;
-// myFaab and myTeamName are replaced by useAuth franchise data below
-
-// My roster — players owned by myTeamName (for drop selector and trade give-side)
-const MY_ROSTER = [
-  { id: "p1",  name: "Josh Allen",         pos: "QB" },
-  { id: "p2",  name: "Lamar Jackson",       pos: "QB" },
-  { id: "p9",  name: "Derrick Henry",       pos: "RB" },
-  { id: "p11", name: "Jahmyr Gibbs",        pos: "RB" },
-  { id: "p21", name: "Ja'Marr Chase",       pos: "WR" },
-  { id: "p27", name: "Sam LaPorta",         pos: "TE" },
-  { id: "p32", name: "Harrison Butker",     pos: "K"  },
-  { id: "p35", name: "San Francisco 49ers", pos: "DST"},
-];
-
-// All teams in the league
-const LEAGUE_TEAMS = [
-  "Vipers",              "The Boys of Fall",   "Millertime",         "Legends",
-  "The Super Snuffleupagus",       "Billy Goats Gruff",  "The Four Horsemen",  "Legion of Doom",
-  "Heiden's Hardtimes", 'Larry "Bud" Melman123', "Xavier Musketeers", "HamSandwich",
-];
+import { NFL_PLAYERS_2026 } from "@/lib/nflPlayers2026";
+import { getCurrentWeek } from "@/lib/scheduleData2026";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface SeasonStats {
@@ -184,12 +163,62 @@ interface ESPNArticle {
 // ── Player Browser ────────────────────────────────────────────────────────────
 function PlayerBrowser() {
   const { franchise } = useAuth();
+  const CURRENT_WEEK = getCurrentWeek() || 1;
   const [search, setSearch]           = useState("");
   const [posFilter, setPosFilter]     = useState("ALL");
   const [ownFilter, setOwnFilter]     = useState("ALL");
   const [sortBy, setSortBy]           = useState<"fpts"|"fpg"|"name">("fpts");
   const [watchlist, setWatchlist]     = useState<Set<string>>(new Set());
   const [watchOnly, setWatchOnly]     = useState(false);
+  // Live player pool from Supabase + nflPlayers2026
+  const [PLAYERS, setPlayers]         = useState<NFLPlayer[]>([]);
+  const [MY_ROSTER, setMyRoster]      = useState<{ id: string; name: string; pos: string }[]>([]);
+
+  useEffect(() => {
+    // Load all owned players from Supabase with team info
+    supabase
+      .from("players")
+      .select("id, name, position, nfl_team, bye_week, acquisition, round, team_id, teams(team_name)")
+      .then(({ data: ownedRows }) => {
+        const ownedMap = new Map<string, { teamName: string; teamId: string; acquisition: string; round: number | null }>();
+        (ownedRows ?? []).forEach((r: { id: string; name: string; position: string; nfl_team: string; bye_week: number; acquisition: string; round: number | null; team_id: string; teams: unknown }) => {
+          if (r.team_id) {
+            ownedMap.set(r.name.toLowerCase(), {
+              teamName: (r.teams as { team_name: string } | null)?.team_name ?? r.team_id,
+              teamId: r.team_id,
+              acquisition: r.acquisition ?? "Draft",
+              round: r.round ?? null,
+            });
+          }
+        });
+
+        // Build full player pool from nflPlayers2026 + ownership data
+        const pool: NFLPlayer[] = NFL_PLAYERS_2026.map(np => {
+          const owned = ownedMap.get(np.name.toLowerCase());
+          return {
+            id: np.name.toLowerCase().replace(/\s+/g, "-"),
+            name: np.name,
+            pos: np.pos as NFLPlayer["pos"],
+            nflTeam: np.nflTeam,
+            status: "Active",
+            owned: !!owned,
+            ownerTeam: owned?.teamName,
+            seasonFpts: 0,
+            byeWeek: np.bye ?? 0,
+            seasonStats: { gp: 0 },
+          };
+        });
+        setPlayers(pool);
+
+        // My roster = players owned by my team
+        if (franchise?.id) {
+          const myRoster = (ownedRows ?? [])
+            .filter((r: { team_id: string }) => r.team_id === franchise.id)
+            .map((r: { id: string; name: string; position: string }) => ({ id: r.id, name: r.name, pos: r.position }));
+          setMyRoster(myRoster);
+        }
+      });
+  }, [franchise?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   // bidPlayerId: which FA row has the bid panel open
   const [bidPlayerId, setBidPlayerId] = useState<string | null>(null);
   const [bidAmount, setBidAmount]     = useState("");
@@ -1098,7 +1127,7 @@ export default function PlayerNews() {
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "1.5rem 1rem 3rem" }}>
         <div className="wrc-page-title" style={{ padding: "1rem 0 1rem" }}>
           <h1>Players</h1>
-          <p>Browse all players, free agents, and injury news — Week {CURRENT_WEEK}</p>
+          <p>Browse all players, free agents, and injury news — Week {getCurrentWeek() || 1}</p>
         </div>
         <div style={{ display: "flex", gap: 0, borderBottom: "1px solid oklch(0.88 0.01 150)", marginBottom: "1.25rem" }}>
           <button style={tabStyle(tab === "players")} onClick={() => setTab("players")}>

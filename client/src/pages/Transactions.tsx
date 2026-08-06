@@ -10,7 +10,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { ArrowUpCircle, ArrowDownCircle, ArrowLeftRight, Plus, X, RefreshCw, Search } from "lucide-react";
 import { NFL_PLAYERS_2026 } from "@/lib/nflPlayers2026";
-import { TEAMS } from "@/lib/wrcData";
 import { toast } from "sonner";
 
 interface RosterMove {
@@ -62,6 +61,12 @@ function AddDropModal({ onClose, onSubmit, franchise, isCommissioner }: {
   const [submitting, setSubmitting] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState(franchise?.team_name ?? "");
   const [selectedOwner, setSelectedOwner] = useState(franchise?.owner ?? "");
+  // Live teams from Supabase (for commissioner team selector)
+  const [liveTeams, setLiveTeams] = useState<{ id: string; team_name: string; owner: string }[]>([]);
+  useEffect(() => {
+    supabase.from("teams").select("id, team_name, owner").order("team_name")
+      .then(({ data }) => { if (data) setLiveTeams(data); });
+  }, []);
 
   const addResults = addSearch.length >= 2
     ? NFL_PLAYERS_2026.filter(p =>
@@ -72,7 +77,7 @@ function AddDropModal({ onClose, onSubmit, franchise, isCommissioner }: {
 
   const handleTeamChange = (teamName: string) => {
     setSelectedTeam(teamName);
-    const team = TEAMS.find(t => t.teamName === teamName);
+    const team = liveTeams.find(t => t.team_name === teamName);
     setSelectedOwner(team?.owner ?? "");
   };
 
@@ -116,7 +121,7 @@ function AddDropModal({ onClose, onSubmit, franchise, isCommissioner }: {
               <label style={labelStyle}>Team</label>
               <select value={selectedTeam} onChange={e => handleTeamChange(e.target.value)} style={inputStyle}>
                 <option value="">Select team…</option>
-                {TEAMS.map(t => <option key={t.id} value={t.teamName}>{t.teamName} ({t.owner})</option>)}
+                {liveTeams.map(t => <option key={t.id} value={t.team_name}>{t.team_name} ({t.owner})</option>)}
               </select>
             </div>
           )}
@@ -269,13 +274,11 @@ export default function Transactions() {
     });
     if (dropErr) { toast.error("Failed to submit drop: " + dropErr.message); return; }
 
-    // Deduct FAAB from teams table
+    // Deduct FAAB from teams table (read current balance first, then decrement)
     if (faab > 0) {
-      const team = TEAMS.find(t => t.teamName === teamName);
-      if (team) {
-        const currentFaab = team.faabRemaining ?? 1000;
-        await supabase.from("teams").update({ faab_remaining: Math.max(0, currentFaab - faab) }).eq("teamName", teamName);
-      }
+      const { data: teamRow } = await supabase.from("teams").select("faab").eq("team_name", teamName).single();
+      const currentFaab = (teamRow as { faab?: number } | null)?.faab ?? 1000;
+      await supabase.from("teams").update({ faab: Math.max(0, currentFaab - faab) }).eq("team_name", teamName);
     }
 
     toast.success(`${addPlayer.name} added, ${dropPlayerName} dropped!`);

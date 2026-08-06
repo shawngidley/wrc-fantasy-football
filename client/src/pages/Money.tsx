@@ -151,33 +151,29 @@ export default function Money() {
 
   // ── Load from Supabase ──────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
-    // Money Owed
-    const { data: owedData } = await supabase.from("money_owed").select("*");
+    // Money Owed — columns: id, name, owed
+    const { data: owedData } = await supabase.from("money_owed").select("id, name, owed");
     if (owedData && owedData.length > 0) {
-      setOwners(prev => prev.map(o => {
-        const row = owedData.find((r: { owner_id: string }) => r.owner_id === o.id);
-        return row ? { ...o, owed: row.amount } : o;
-      }));
+      setOwners(owedData.map((r: { id: string; name: string; owed: number }) => ({
+        id: r.id, name: r.name, owed: r.owed ?? 0,
+      })));
     }
 
-    // GOW History
+    // GOW History — columns: id, week, winner, team, opponent, score, amount, season
     const { data: gowData } = await supabase.from("gow_history").select("*").order("week");
     if (gowData && gowData.length > 0) setGowHistory(gowData);
 
-    // Earnings
+    // Earnings — columns: id, name, gow, wild_card, divisional, super_bowl, champ, season
     const { data: earnData } = await supabase.from("earnings").select("*");
     if (earnData && earnData.length > 0) {
-      setEarnings(prev => prev.map(e => {
-        const row = earnData.find((r: { owner_name: string }) => r.owner_name === e.name);
-        return row ? {
-          ...e,
-          gow: row.gow ?? null,
-          wildCard: row.wild_card ?? null,
-          divisional: row.divisional ?? null,
-          superBowl: row.super_bowl ?? null,
-          champ: row.champ ?? null,
-        } : e;
-      }));
+      setEarnings(earnData.map((r: { id: string; name: string; gow: number | null; wild_card: number | null; divisional: number | null; super_bowl: number | null; champ: number | null }) => ({
+        name: r.name,
+        gow: r.gow ?? null,
+        wildCard: r.wild_card ?? null,
+        divisional: r.divisional ?? null,
+        superBowl: r.super_bowl ?? null,
+        champ: r.champ ?? null,
+      })));
     }
   }, []);
 
@@ -195,19 +191,17 @@ export default function Money() {
   const saveOwed = async () => {
     setSaving(true);
     const updates = owners.map(o => ({
-      owner_id: o.id,
-      owner_name: o.name,
-      amount: parseFloat(editOwed[o.id] ?? "0") || 0,
-      season: 2025,
+      id: o.id,
+      name: o.name,
+      owed: parseFloat(editOwed[o.id] ?? "0") || 0,
     }));
 
     // Try Supabase upsert; fall back to local state if not connected
-    const { error } = await supabase.from("money_owed").upsert(updates, { onConflict: "owner_id,season" });
+    const { error } = await supabase.from("money_owed").upsert(updates, { onConflict: "id" });
     if (!error) {
       setOwners(prev => prev.map(o => ({ ...o, owed: parseFloat(editOwed[o.id] ?? "0") || 0 })));
       setSaveMsg("Saved successfully.");
     } else {
-      // Offline fallback — update local state anyway
       setOwners(prev => prev.map(o => ({ ...o, owed: parseFloat(editOwed[o.id] ?? "0") || 0 })));
       setSaveMsg("Saved locally (Supabase not connected).");
     }
@@ -218,7 +212,7 @@ export default function Money() {
 
   // ── Commissioner: GOW entry ──────────────────────────────────────────────────
   const saveGowEntry = async (entry: GowEntry) => {
-    const { error } = await supabase.from("gow_history").upsert({ ...entry, season: 2025 }, { onConflict: "week,season" });
+    const { error } = await supabase.from("gow_history").upsert({ ...entry, season: 2026 }, { onConflict: "week,season" });
     if (!error) {
       setGowHistory(prev => {
         const idx = prev.findIndex(g => g.week === entry.week);
