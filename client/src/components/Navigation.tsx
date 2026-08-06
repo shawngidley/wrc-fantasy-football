@@ -162,7 +162,7 @@ export default function Navigation({
             </Link>
 
             {/* Desktop Nav Links */}
-            <div className="wrc-desktop-nav" style={{ display: "flex", alignItems: "center", gap: "0.1rem", flex: 1, flexWrap: "nowrap", overflow: "hidden" }}>
+            <div className="wrc-desktop-nav" style={{ display: "flex", alignItems: "center", gap: "0", flex: 1, flexWrap: "nowrap", overflow: "visible", minWidth: 0 }}>
               {primaryLinks.map((link) => (
                 <Link
                   key={link.path}
