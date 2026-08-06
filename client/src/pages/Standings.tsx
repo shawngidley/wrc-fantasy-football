@@ -180,18 +180,34 @@ interface InjuryItem {
   url?: string;
 }
 
+// ownerKey (e.g. "Shawn") → Supabase team_id (e.g. "team-shawn")
+const OWNER_TO_TEAM_ID: Record<string, string> = {
+  "Jonas":    "team-jonas",
+  "David R.": "team-davidr",
+  "Jason":    "team-jason",
+  "Keith":    "team-keith",
+  "Dan":      "team-dan",
+  "Scott N.": "team-scottn",
+  "Bill":     "team-bill",
+  "Jamie":    "team-jamie",
+  "Scott M.": "team-scottm",
+  "David S.": "team-davids",
+  "Shawn":    "team-shawn",
+  "Greg":     "team-greg",
+};
+
 function InjuryReport({ ownerKey }: { ownerKey: string }) {
   const [injuries, setInjuries] = useState<InjuryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  const teamName = OWNER_TO_TEAM[ownerKey] ?? ownerKey;
+  const teamId = OWNER_TO_TEAM_ID[ownerKey] ?? `team-${ownerKey.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
   const [myPlayers, setMyPlayers] = useState<{ name: string; pos: string; nflTeam: string }[]>([]);
   useEffect(() => {
-    supabase.from("players").select("name,pos,nfl_team").eq("team_name", teamName).then(({ data }) => {
-      if (data) setMyPlayers(data.map(p => ({ name: p.name, pos: p.pos, nflTeam: p.nfl_team })));
+    supabase.from("players").select("name,pos,nfl_team").eq("team_id", teamId).then(({ data }) => {
+      if (data) setMyPlayers(data.map((p: { name: string; pos: string; nfl_team: string }) => ({ name: p.name, pos: p.pos, nflTeam: p.nfl_team })));
     });
-  }, [teamName]);
+  }, [teamId]);
 
   const fetchInjuries = useCallback(async () => {
     setLoading(true);
@@ -307,13 +323,13 @@ function MyTeamNews({ ownerKey }: { ownerKey: string }) {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  const teamName = OWNER_TO_TEAM[ownerKey] ?? ownerKey;
+  const teamId = OWNER_TO_TEAM_ID[ownerKey] ?? `team-${ownerKey.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
   const [myPlayers, setMyPlayers] = useState<{ name: string; pos: string; nflTeam: string }[]>([]);
   useEffect(() => {
-    supabase.from("players").select("name,pos,nfl_team").eq("team_name", teamName).then(({ data }) => {
-      if (data) setMyPlayers(data.map(p => ({ name: p.name, pos: p.pos, nflTeam: p.nfl_team })));
+    supabase.from("players").select("name,pos,nfl_team").eq("team_id", teamId).then(({ data }) => {
+      if (data) setMyPlayers(data.map((p: { name: string; pos: string; nfl_team: string }) => ({ name: p.name, pos: p.pos, nflTeam: p.nfl_team })));
     });
-  }, [teamName]);
+  }, [teamId]);
 
   const fetchNews = useCallback(async () => {
     setLoading(true);

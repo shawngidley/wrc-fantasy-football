@@ -964,12 +964,27 @@ function timeAgo(iso: string): string {
 
 // ── News Feed (live ESPN API) ─────────────────────────────────────────────────
 function NewsFeed() {
-  const [search, setSearch]     = useState("");
-  const [articles, setArticles] = useState<ESPNArticle[]>([]);
-  const [loading, setLoading]   = useState(true);
-  const [error, setError]       = useState<string | null>(null);
-  const [page, setPage]         = useState(0);
+  const { franchise } = useAuth();
+  const [search, setSearch]         = useState("");
+  const [myTeamOnly, setMyTeamOnly] = useState(false);
+  const [articles, setArticles]     = useState<ESPNArticle[]>([]);
+  const [loading, setLoading]       = useState(true);
+  const [error, setError]           = useState<string | null>(null);
+  const [page, setPage]             = useState(0);
   const PAGE_SIZE = 10;
+  const [myPlayerNames, setMyPlayerNames] = useState<string[]>([]);
+
+  // Load my roster player names for filtering
+  useEffect(() => {
+    if (!franchise?.id) return;
+    supabase
+      .from("players")
+      .select("name")
+      .eq("team_id", franchise.id)
+      .then(({ data }) => {
+        if (data) setMyPlayerNames(data.map((r: { name: string }) => r.name.toLowerCase()));
+      });
+  }, [franchise?.id]);
 
   useEffect(() => {
     setLoading(true);
@@ -980,10 +995,16 @@ function NewsFeed() {
       .catch(() => { setError("Unable to load ESPN news. Check your connection."); setLoading(false); });
   }, []);
 
-  const filtered = articles.filter(a =>
-    a.headline.toLowerCase().includes(search.toLowerCase()) ||
-    a.categories.some(c => c.description.toLowerCase().includes(search.toLowerCase()))
-  );
+  // Filter by search text, then optionally by my roster players
+  const filtered = articles.filter(a => {
+    const text = (a.headline + " " + (a.description ?? "") + " " + a.categories.map(c => c.description).join(" ")).toLowerCase();
+    const matchSearch = !search || text.includes(search.toLowerCase());
+    const matchMyTeam = !myTeamOnly || myPlayerNames.some(name => {
+      const lastName = name.split(" ").slice(1).join(" ");
+      return lastName && text.includes(lastName);
+    });
+    return matchSearch && matchMyTeam;
+  });
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated  = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
 
@@ -1000,6 +1021,25 @@ function NewsFeed() {
               style={{ width: "100%", padding: "0.5rem 0.5rem 0.5rem 2rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 8, fontSize: "0.875rem", outline: "none", boxSizing: "border-box" as const }}
             />
           </div>
+          {/* My Team filter toggle */}
+          {franchise && myPlayerNames.length > 0 && (
+            <button
+              onClick={() => { setMyTeamOnly(v => !v); setPage(0); }}
+              style={{
+                display: "flex", alignItems: "center", gap: "0.35rem",
+                padding: "0.45rem 0.875rem", borderRadius: 8, cursor: "pointer",
+                fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700,
+                letterSpacing: "0.05em", border: "1.5px solid",
+                background: myTeamOnly ? "oklch(0.28 0.09 150)" : "white",
+                color: myTeamOnly ? "white" : "oklch(0.28 0.09 150)",
+                borderColor: "oklch(0.28 0.09 150)",
+                transition: "all 0.15s",
+                whiteSpace: "nowrap" as const,
+              }}
+            >
+              🏹 My Team Only
+            </button>
+          )}
           <div style={{ fontSize: "0.72rem", color: "oklch(0.6 0.04 150)", whiteSpace: "nowrap" as const }}>
             Powered by <strong>ESPN</strong> · Live
           </div>
@@ -1008,7 +1048,13 @@ function NewsFeed() {
 
       <div className="wrc-card">
         <div className="wrc-card-gold-stripe" />
-        <div className="wrc-card-header"><Newspaper size={14} /> NFL News — ESPN</div>
+        <div className="wrc-card-header">
+          <Newspaper size={14} />
+          {myTeamOnly ? `My Team News — ${franchise?.team_name ?? ""}` : "NFL News — ESPN"}
+          <span style={{ marginLeft: "auto", fontSize: "0.72rem", color: "oklch(0.6 0.04 150)" }}>
+            {filtered.length} article{filtered.length !== 1 ? "s" : ""}
+          </span>
+        </div>
 
         {loading && (
           <div style={{ padding: "1rem 1.25rem" }}>
