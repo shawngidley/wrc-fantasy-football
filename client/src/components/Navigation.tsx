@@ -12,31 +12,52 @@ type NavLink = { label: string; path: string; live?: boolean };
 // Primary links — always visible in desktop nav bar
 const primaryLinks: NavLink[] = [
   { label: "Standings", path: "/standings" },
-  { label: "Playoffs", path: "/playoffs" },
   { label: "Live", path: "/live", live: true },
   { label: "Lineup", path: "/lineup" },
   { label: "Rosters", path: "/rosters" },
-  { label: "Rundown", path: "/rundown" },
-  { label: "News", path: "/news" },
   { label: "Free Agents", path: "/free-agents" },
   { label: "Transactions", path: "/transactions" },
   { label: "Results", path: "/results" },
+  { label: "News", path: "/news" },
   { label: "Trades", path: "/trades" },
+  { label: "Playoffs", path: "/playoffs" },
+  { label: "Schedule", path: "/schedule" },
 ];
 
 // Secondary links — shown in "More ▾" dropdown on desktop, and inline on mobile
 const secondaryLinks: NavLink[] = [
-  { label: "Money", path: "/money" },
-  { label: "History", path: "/history" },
-  { label: "Schedule", path: "/schedule" },
   { label: "Protections", path: "/protections" },
   { label: "Draft", path: "/draft" },
   { label: "Draft Recap", path: "/draft-recap" },
+  { label: "Rundown", path: "/rundown" },
+  { label: "History", path: "/history" },
+  { label: "Money", path: "/money" },
   { label: "Rules", path: "/rules" },
   { label: "NFL Sites", path: "/nfl-sites" },
 ];
 
-const navLinks: NavLink[] = [...primaryLinks, ...secondaryLinks];
+// Full ordered list for mobile hamburger menu (user-specified order)
+const navLinks: NavLink[] = [
+  { label: "Standings", path: "/standings" },
+  { label: "Live", path: "/live", live: true },
+  { label: "Protections", path: "/protections" },
+  { label: "Draft", path: "/draft" },
+  { label: "Playoffs", path: "/playoffs" },
+  { label: "Lineup", path: "/lineup" },
+  { label: "Rosters", path: "/rosters" },
+  { label: "Free Agents", path: "/free-agents" },
+  { label: "Transactions", path: "/transactions" },
+  { label: "Schedule", path: "/schedule" },
+  { label: "Results", path: "/results" },
+  { label: "News", path: "/news" },
+  { label: "Trades", path: "/trades" },
+  { label: "Rundown", path: "/rundown" },
+  { label: "History", path: "/history" },
+  { label: "Money", path: "/money" },
+  { label: "Draft Recap", path: "/draft-recap" },
+  { label: "Rules", path: "/rules" },
+  { label: "NFL Sites", path: "/nfl-sites" },
+];
 
 // ── More ▾ Dropdown ───────────────────────────────────────────────────────────
 function MoreDropdown({ location }: { location: string }) {
