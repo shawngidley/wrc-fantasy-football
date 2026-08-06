@@ -227,10 +227,13 @@ function MultiSeasonStatsTable({
     currentRow.wrcPtsPerGame = Math.round((wrcPts / currentRow.gp) * 10) / 10;
   }
 
-  const allRows: SeasonStatRow[] = [
+  // Merge: Tank01 current row is authoritative for its season; ESPN fills prior years.
+  // Deduplicate by season (first occurrence wins = Tank01 row), then sort newest-first.
+  const merged: SeasonStatRow[] = [
     ...(currentRow && currentRow.gp > 0 ? [currentRow] : []),
-    ...seasons,
+    ...seasons.filter(s => !currentRow || s.season !== currentRow.season),
   ];
+  const allRows: SeasonStatRow[] = merged.sort((a, b) => b.season - a.season);
 
   // Define columns per position
   type Col = { label: string; key: keyof SeasonStatRow; dec?: number; highlight?: boolean; gold?: boolean };
