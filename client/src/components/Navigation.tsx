@@ -3,11 +3,14 @@
  * Dark green sticky nav with hamburger menu for mobile
  * Gold ticker bar below nav for live alerts
  */
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { X, Menu, Settings } from "lucide-react";
+import { X, Menu, Settings, ChevronDown } from "lucide-react";
 
-const navLinks = [
+type NavLink = { label: string; path: string; live?: boolean };
+
+// Primary links — always visible in desktop nav bar
+const primaryLinks: NavLink[] = [
   { label: "Standings", path: "/standings" },
   { label: "Playoffs", path: "/playoffs" },
   { label: "Live", path: "/live", live: true },
@@ -19,15 +22,89 @@ const navLinks = [
   { label: "Transactions", path: "/transactions" },
   { label: "Results", path: "/results" },
   { label: "Trades", path: "/trades" },
+];
+
+// Secondary links — shown in "More ▾" dropdown on desktop, and inline on mobile
+const secondaryLinks: NavLink[] = [
+  { label: "Money", path: "/money" },
   { label: "History", path: "/history" },
+  { label: "Schedule", path: "/schedule" },
+  { label: "Protections", path: "/protections" },
   { label: "Draft", path: "/draft" },
   { label: "Draft Recap", path: "/draft-recap" },
-  { label: "Protections", path: "/protections" },
-  { label: "Schedule", path: "/schedule" },
   { label: "Rules", path: "/rules" },
   { label: "NFL Sites", path: "/nfl-sites" },
-  { label: "Money", path: "/money" },
 ];
+
+const navLinks: NavLink[] = [...primaryLinks, ...secondaryLinks];
+
+// ── More ▾ Dropdown ───────────────────────────────────────────────────────────
+function MoreDropdown({ location }: { location: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const [, navigate] = useLocation();
+
+  // Close on outside click
+  useEffect(() => {
+    function handler(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const isActive = secondaryLinks.some(l => l.path === location);
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        className={`wrc-nav-link ${isActive ? "active" : ""}`}
+        style={{
+          display: "flex", alignItems: "center", gap: "3px",
+          background: "none", border: "none", cursor: "pointer",
+          fontFamily: "inherit", fontSize: "inherit",
+        }}
+      >
+        More <ChevronDown size={12} style={{ transition: "transform 0.15s", transform: open ? "rotate(180deg)" : "none" }} />
+      </button>
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 6px)", left: 0,
+          background: "oklch(0.18 0.06 150)",
+          border: "1px solid oklch(0.32 0.08 150)",
+          borderRadius: 8,
+          boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
+          minWidth: 160,
+          zIndex: 200,
+          overflow: "hidden",
+        }}>
+          {secondaryLinks.map(link => (
+            <button
+              key={link.path}
+              onClick={() => { navigate(link.path); setOpen(false); }}
+              style={{
+                display: "block", width: "100%", textAlign: "left",
+                padding: "0.55rem 1rem",
+                fontFamily: "Barlow Condensed, sans-serif",
+                fontSize: "0.82rem", fontWeight: 600, letterSpacing: "0.04em",
+                background: location === link.path ? "oklch(0.28 0.09 150)" : "none",
+                color: location === link.path ? "oklch(0.78 0.15 85)" : "rgba(255,255,255,0.85)",
+                border: "none", cursor: "pointer",
+                borderBottom: "1px solid oklch(0.25 0.06 150)",
+                transition: "background 0.1s",
+              }}
+              onMouseEnter={e => { if (location !== link.path) (e.currentTarget as HTMLButtonElement).style.background = "oklch(0.24 0.07 150)"; }}
+              onMouseLeave={e => { if (location !== link.path) (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
+            >
+              {link.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface NavigationProps {
   tickerMessages?: string[];
@@ -46,7 +123,7 @@ export default function Navigation({
   const defaultTicker = [
     "⚔️ CHALLENGE GAME IN PROGRESS: Vipers vs. Legends",
     "📅 LINEUP LOCK: Sunday 1:00pm ET",
-    "🏈 WRC FANTASY FOOTBALL 2025",
+    "🏈 WRC FANTASY FOOTBALL 2026",
   ];
   const messages = tickerMessages.length > 0 ? tickerMessages : defaultTicker;
   const tickerText = messages.join("   •   ");
@@ -86,7 +163,7 @@ export default function Navigation({
 
             {/* Desktop Nav Links */}
             <div className="wrc-desktop-nav" style={{ display: "flex", alignItems: "center", gap: "0.1rem", flex: 1, flexWrap: "nowrap", overflow: "hidden" }}>
-              {navLinks.map((link) => (
+              {primaryLinks.map((link) => (
                 <Link
                   key={link.path}
                   href={link.path}
@@ -106,6 +183,8 @@ export default function Navigation({
                   {link.label}
                 </Link>
               ))}
+              {/* More ▾ dropdown for secondary links */}
+              <MoreDropdown location={location} />
             </div>
 
             {/* Right side: team name + hamburger */}
@@ -181,43 +260,26 @@ export default function Navigation({
           >
             {link.live && (
               <span style={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                background: "#ef4444",
-                display: "inline-block",
+                width: 8, height: 8, borderRadius: "50%",
+                background: "#ef4444", display: "inline-block",
+                animation: "pulse 1.5s infinite",
               }} />
             )}
             {link.label}
           </Link>
         ))}
-        {teamName && (
-          <div style={{
-            marginTop: "1.5rem",
-            paddingTop: "1rem",
-            borderTop: "1px solid rgba(255,255,255,0.1)",
-          }}>
-            <div style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.8rem", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.06em", marginBottom: "0.75rem" }}>
-              LOGGED IN AS: {teamName}
-            </div>
-            <Link
-              href="/settings"
-              className={`wrc-mobile-nav-link ${location === "/settings" ? "active" : ""}`}
-              onClick={() => setMobileOpen(false)}
-              style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
-            >
-              <Settings size={15} /> Settings
-            </Link>
-          </div>
-        )}
       </div>
 
-      <style>{`
-        @keyframes pulse {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0.3; }
-        }
-      `}</style>
+      {/* Overlay */}
+      {mobileOpen && (
+        <div
+          onClick={() => setMobileOpen(false)}
+          style={{
+            position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)",
+            zIndex: 998,
+          }}
+        />
+      )}
     </>
   );
 }
