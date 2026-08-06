@@ -40,20 +40,20 @@ export interface SupabaseRostersResult {
   refresh: () => void;
 }
 
-// team_id → {team_name, owner} — matches the teams table
+// team_id → {team_name, owner} — must match Supabase teams table exactly
 const TEAM_META: Record<string, { team_name: string; owner: string }> = {
-  "team-jonas":   { team_name: "The Super Snuffleupagus",       owner: "Jonas" },
-  "team-davidr":  { team_name: "Millertime",          owner: "David R." },
-  "team-jason":   { team_name: "Heiden's Hardtimes",  owner: "Jason" },
-  "team-keith":   { team_name: "HamSandwich",        owner: "Keith" },
-  "team-dan":     { team_name: "Dan's Dynasty",       owner: "Dan" },
-  "team-jamie":   { team_name: "Jamie's Team",        owner: "Jamie" },
-  "team-bill":    { team_name: "Billy Goats Gruff",   owner: "Bill" },
-  "team-scottn":  { team_name: "Scott N. FC",         owner: "Scott N." },
-  "team-shawn":   { team_name: "Vipers",              owner: "Shawn" },
-  "team-davids":  { team_name: "David S. United",     owner: "David S." },
-  "team-greg":    { team_name: "The Boys of Fall",    owner: "Greg" },
-  "team-scottm":  { team_name: "Scott M. Squad",      owner: "Scott M." },
+  "team-jonas":   { team_name: "The Super Snuffleupagus",  owner: "Jonas" },
+  "team-davidr":  { team_name: "The Boys of Fall",         owner: "David R." },
+  "team-jason":   { team_name: "Heiden's Hardtimes",       owner: "Jason" },
+  "team-keith":   { team_name: "HamSandwich",              owner: "Keith" },
+  "team-dan":     { team_name: "Legion of Doom",           owner: "Dan" },
+  "team-jamie":   { team_name: "The Four Horsemen",        owner: "Jamie" },
+  "team-bill":    { team_name: "Billy Goats Gruff",        owner: "Bill" },
+  "team-scottn":  { team_name: "Millertime",               owner: "Scott N." },
+  "team-shawn":   { team_name: "Vipers",                   owner: "Shawn" },
+  "team-davids":  { team_name: "Legends",                  owner: "David S." },
+  "team-greg":    { team_name: 'Larry "Bud" Melman123',    owner: "Greg" },
+  "team-scottm":  { team_name: "Xavier Musketeers",        owner: "Scott M." },
 };
 
 export function useSupabaseRosters(): SupabaseRostersResult {
