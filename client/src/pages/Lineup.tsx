@@ -4,7 +4,7 @@
  * Features: Best Lineup optimizer, per-player game info (day/time/opp/location), inline swap panel
  * TE Premium: 1.5x PPR for TE position regardless of slot
  */
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import Navigation from "@/components/Navigation";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -388,8 +388,8 @@ export default function Lineup() {
   // Lineup persistence (Supabase) — only for owner's own lineup
   const ownerTeamId = !teamId ? (franchise?.id ?? null) : null;
   const { savedLineup, saveLineup, saving, saveError } = useLineupPersistence(
-    ownerTeamId, currentWeek
-  );
+  ownerTeamId, currentWeek
+);
 
   // Live in-game score polling (Tank01 box scores)
   const { liveScores, isPolling, lastUpdated } = useNFLLiveScores(
@@ -442,6 +442,14 @@ export default function Lineup() {
   const [starters, setStarters] = useState<Player[]>(initialStarters);
   const [bench, setBench] = useState<Player[]>(initialBench);
 
+  // Refs to always have latest starters/bench in effects without stale closures
+  const benchRef = useRef<Player[]>([]);
+  const startersRef = useRef<Player[]>([]);
+  const savedLineupRef = useRef<Record<string, string> | null>(null);
+  useEffect(() => { benchRef.current = bench; }, [bench]);
+  useEffect(() => { startersRef.current = starters; }, [starters]);
+  useEffect(() => { savedLineupRef.current = savedLineup; }, [savedLineup]);
+
   // Helper: apply projections to a player array (avoids race condition)
   const withProj = (players: Player[]) => {
     if (!projections || Object.keys(projections).length === 0) return players;
@@ -455,8 +463,31 @@ export default function Lineup() {
   // Also inject projections immediately if they've already loaded
   useEffect(() => {
     if (liveRoster) {
-      setStarters(withProj(liveRoster.starters));
-      setBench(withProj(liveRoster.bench));
+      const newStarters = withProj(liveRoster.starters);
+      const newBench = withProj(liveRoster.bench);
+
+      // If a saved lineup already loaded, apply it immediately instead of default order
+      const saved = savedLineupRef.current;
+      if (saved && Object.keys(saved).length > 0) {
+        const allPlayers = [...newStarters, ...newBench];
+        const pool = [...allPlayers];
+        const reorderedStarters: typeof newStarters = [];
+        for (const slotDef of STARTER_SLOTS) {
+          const savedName = saved[slotDef.slot];
+          const idx = savedName
+            ? pool.findIndex(p => p.name === savedName)
+            : pool.findIndex(p => slotDef.eligible.includes(p.pos));
+          if (idx !== -1) {
+            const [player] = pool.splice(idx, 1);
+            reorderedStarters.push({ ...player, slot: slotDef.slot, isBench: false });
+          }
+        }
+        setStarters(reorderedStarters);
+        setBench(pool.map(p => ({ ...p, slot: undefined, isBench: true })));
+      } else {
+        setStarters(newStarters);
+        setBench(newBench);
+      }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveRoster]);
@@ -478,8 +509,12 @@ export default function Lineup() {
   // savedLineup is a map of slot → playerName
   useEffect(() => {
     if (!savedLineup || Object.keys(savedLineup).length === 0) return;
+    // Use refs to get the latest starters and bench (avoids stale closure)
+    const currentStarters = startersRef.current;
+    const currentBench = benchRef.current;
+    if (currentStarters.length === 0 && currentBench.length === 0) return; // roster not loaded yet
     setStarters(prev => {
-      const allPlayers = [...prev, ...bench];
+      const allPlayers = [...currentStarters, ...currentBench];
       const pool = [...allPlayers];
       const newStarters: typeof prev = [];
       for (const slotDef of STARTER_SLOTS) {
@@ -495,8 +530,7 @@ export default function Lineup() {
       setBench(pool.map(p => ({ ...p, slot: undefined, isBench: true })));
       return newStarters;
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [savedLineup]);
+  }, [savedLineup]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Inject live in-game scores once polling data arrives
   useEffect(() => {
