@@ -459,38 +459,36 @@ export default function Lineup() {
     }));
   };
 
-  // Re-seed when live roster arrives (Supabase data loads after initial mount)
-  // Also inject projections immediately if they've already loaded
+  // Combined effect: re-seed roster and apply saved lineup order.
+  // Runs whenever liveRoster OR savedLineup changes so both load orders are handled.
   useEffect(() => {
-    if (liveRoster) {
-      const newStarters = withProj(liveRoster.starters);
-      const newBench = withProj(liveRoster.bench);
+    if (!liveRoster) return; // wait for roster to load
+    const newStarters = withProj(liveRoster.starters);
+    const newBench = withProj(liveRoster.bench);
+    const allPlayers = [...newStarters, ...newBench];
 
-      // If a saved lineup already loaded, apply it immediately instead of default order
-      const saved = savedLineupRef.current;
-      if (saved && Object.keys(saved).length > 0) {
-        const allPlayers = [...newStarters, ...newBench];
-        const pool = [...allPlayers];
-        const reorderedStarters: typeof newStarters = [];
-        for (const slotDef of STARTER_SLOTS) {
-          const savedName = saved[slotDef.slot];
-          const idx = savedName
-            ? pool.findIndex(p => p.name === savedName)
-            : pool.findIndex(p => slotDef.eligible.includes(p.pos));
-          if (idx !== -1) {
-            const [player] = pool.splice(idx, 1);
-            reorderedStarters.push({ ...player, slot: slotDef.slot, isBench: false });
-          }
+    // If we have a saved lineup, apply it; otherwise use default order
+    if (savedLineup && Object.keys(savedLineup).length > 0) {
+      const pool = [...allPlayers];
+      const reorderedStarters: typeof newStarters = [];
+      for (const slotDef of STARTER_SLOTS) {
+        const savedName = savedLineup[slotDef.slot];
+        const idx = savedName
+          ? pool.findIndex(p => p.name === savedName)
+          : pool.findIndex(p => slotDef.eligible.includes(p.pos));
+        if (idx !== -1) {
+          const [player] = pool.splice(idx, 1);
+          reorderedStarters.push({ ...player, slot: slotDef.slot, isBench: false });
         }
-        setStarters(reorderedStarters);
-        setBench(pool.map(p => ({ ...p, slot: undefined, isBench: true })));
-      } else {
-        setStarters(newStarters);
-        setBench(newBench);
       }
+      setStarters(reorderedStarters);
+      setBench(pool.map(p => ({ ...p, slot: undefined, isBench: true })));
+    } else {
+      setStarters(newStarters);
+      setBench(newBench);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveRoster]);
+  }, [liveRoster, savedLineup]);
 
   // Inject projected points once projections load (or when they update)
   useEffect(() => {
@@ -504,33 +502,6 @@ export default function Lineup() {
       proj: getProjectedPoints(projections, p.name, p.pos, p.nflTeam),
     })));
   }, [projections]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Apply saved lineup order when it loads from Supabase
-  // savedLineup is a map of slot → playerName
-  useEffect(() => {
-    if (!savedLineup || Object.keys(savedLineup).length === 0) return;
-    // Use refs to get the latest starters and bench (avoids stale closure)
-    const currentStarters = startersRef.current;
-    const currentBench = benchRef.current;
-    if (currentStarters.length === 0 && currentBench.length === 0) return; // roster not loaded yet
-    setStarters(prev => {
-      const allPlayers = [...currentStarters, ...currentBench];
-      const pool = [...allPlayers];
-      const newStarters: typeof prev = [];
-      for (const slotDef of STARTER_SLOTS) {
-        const savedName = savedLineup[slotDef.slot];
-        const idx = savedName
-          ? pool.findIndex(p => p.name === savedName)
-          : pool.findIndex(p => slotDef.eligible.includes(p.pos));
-        if (idx !== -1) {
-          const [player] = pool.splice(idx, 1);
-          newStarters.push({ ...player, slot: slotDef.slot, isBench: false });
-        }
-      }
-      setBench(pool.map(p => ({ ...p, slot: undefined, isBench: true })));
-      return newStarters;
-    });
-  }, [savedLineup]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Inject live in-game scores once polling data arrives
   useEffect(() => {
