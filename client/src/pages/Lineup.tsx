@@ -6,6 +6,7 @@
  */
 import { useState, useMemo, useEffect } from "react";
 import Navigation from "@/components/Navigation";
+import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { Lock, CheckCircle2, ChevronDown, ArrowLeftRight, X, Zap, Eye, ArrowLeft, Wifi, WifiOff } from "lucide-react";
 import { TEAMS } from "@/lib/wrcData";
@@ -514,7 +515,7 @@ export default function Lineup() {
 
   // Per-player locking: a player is locked once their NFL game has kicked off
   // The global lineupLocked flag is true only when ALL starters are locked
-  const lineupLocked = starters.every(p => isPlayerLocked(p.nflTeam, matchupMap));
+  const lineupLocked = starters.length > 0 && starters.every(p => isPlayerLocked(p.nflTeam, matchupMap));
 
   const totalPts  = starters.reduce((s, p) => s + p.pts,  0);
   const totalProj = starters.reduce((s, p) => s + p.proj, 0);
@@ -592,8 +593,13 @@ export default function Lineup() {
       })),
     ];
     await saveLineup(rows);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    if (saveError) {
+      toast.error(`Failed to save lineup: ${saveError}`);
+    } else {
+      toast.success("Lineup saved!");
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    }
   };
 
   return (
