@@ -17,11 +17,10 @@ const primaryLinks: NavLink[] = [
   { label: "Rosters", path: "/rosters" },
   { label: "Free Agents", path: "/free-agents" },
   { label: "Transactions", path: "/transactions" },
-  { label: "Results", path: "/results" },
+  { label: "Schedule", path: "/schedule" },
   { label: "News", path: "/news" },
   { label: "Trades", path: "/trades" },
   { label: "Playoffs", path: "/playoffs" },
-  { label: "Schedule", path: "/schedule" },
 ];
 
 // Secondary links — shown in "More ▾" dropdown on desktop, and inline on mobile
@@ -47,8 +46,7 @@ const navLinks: NavLink[] = [
   { label: "Rosters", path: "/rosters" },
   { label: "Free Agents", path: "/free-agents" },
   { label: "Transactions", path: "/transactions" },
-  { label: "Schedule", path: "/schedule" },
-  { label: "Results", path: "/results" },
+  { label: "Schedule & Results", path: "/schedule" },
   { label: "News", path: "/news" },
   { label: "Trades", path: "/trades" },
   { label: "Rundown", path: "/rundown" },

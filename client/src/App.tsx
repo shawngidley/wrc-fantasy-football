@@ -18,11 +18,10 @@ import Protections from "./pages/Protections";
 import Rundown from "./pages/Rundown";
 import PlayerNews from "./pages/PlayerNews";
 import Transactions from "./pages/Transactions";
-import Results from "./pages/Results";
+import ScheduleResults from "./pages/ScheduleResults";
 import Trades from "./pages/Trades";
 import History from "./pages/History";
 import Playoffs from "./pages/Playoffs";
-import Schedule from "./pages/Schedule";
 import Rules from "./pages/Rules";
 import NFLSites from "./pages/NFLSites";
 import Rosters from "./pages/Rosters";
@@ -63,11 +62,11 @@ function Router() {
       <Route path="/rundown" component={Rundown} />
       <Route path="/news" component={PlayerNews} />
       <Route path="/transactions" component={Transactions} />
-      <Route path="/results" component={Results} />
+      <Route path="/results" component={ScheduleResults} />
       <Route path="/trades" component={Trades} />
       <Route path="/history" component={History} />
       <Route path="/playoffs" component={Playoffs} />
-      <Route path="/schedule" component={Schedule} />
+      <Route path="/schedule" component={ScheduleResults} />
       <Route path="/rules" component={Rules} />
       <Route path="/nfl-sites" component={NFLSites} />
       <Route path="/rosters" component={Rosters} />
