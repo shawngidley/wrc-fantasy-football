@@ -25,7 +25,7 @@ export type SavedLineupMap = Record<string, string>;
 interface UseLineupPersistenceResult {
   savedLineup: SavedLineupMap | null;
   loadingLineup: boolean;
-  saveLineup: (rows: Omit<LineupRow, "team_id" | "week" | "season">[]) => Promise<void>;
+  saveLineup: (rows: Omit<LineupRow, "team_id" | "week" | "season">[]) => Promise<boolean>;
   saveError: string | null;
   saving: boolean;
 }
@@ -78,8 +78,11 @@ export function useLineupPersistence(
   }, [teamId, week, season]);
 
   const saveLineup = useCallback(
-    async (rows: Omit<LineupRow, "team_id" | "week" | "season">[]) => {
-      if (!teamId) return;
+    async (rows: Omit<LineupRow, "team_id" | "week" | "season">[]): Promise<boolean> => {
+      if (!teamId) {
+        console.error("[useLineupPersistence] saveLineup called with no teamId");
+        return false;
+      }
       setSaving(true);
       setSaveError(null);
       try {
@@ -90,13 +93,28 @@ export function useLineupPersistence(
           season,
         }));
 
-        const { error } = await supabase
+        console.log("[useLineupPersistence] upserting", upsertRows.length, "rows for", teamId, "week", week);
+        // Delete existing rows for this team/week/season, then insert fresh
+        const { error: delError } = await supabase
           .from("lineups")
-          .upsert(upsertRows, {
-            onConflict: "team_id,week,season,slot",
-          });
+          .delete()
+          .eq("team_id", teamId)
+          .eq("week", week)
+          .eq("season", season);
 
-        if (error) throw error;
+        if (delError) {
+          console.error("[useLineupPersistence] delete error:", delError);
+          throw delError;
+        }
+
+        const { error: insError } = await supabase
+          .from("lineups")
+          .insert(upsertRows);
+
+        if (insError) {
+          console.error("[useLineupPersistence] insert error:", insError);
+          throw insError;
+        }
 
         // Update local state so UI reflects saved state (keyed by player_name)
         const map: SavedLineupMap = {};
@@ -104,10 +122,13 @@ export function useLineupPersistence(
           map[r.slot] = r.player_name;
         }
         setSavedLineup(map);
+        console.log("[useLineupPersistence] saved successfully");
+        return true;
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Failed to save lineup";
         setSaveError(msg);
         console.error("Failed to save lineup:", err);
+        return false;
       } finally {
         setSaving(false);
       }

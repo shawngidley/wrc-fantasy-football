@@ -592,13 +592,14 @@ export default function Lineup() {
         is_bench: true,
       })),
     ];
-    await saveLineup(rows);
-    if (saveError) {
-      toast.error(`Failed to save lineup: ${saveError}`);
-    } else {
+    console.log("[Lineup] handleSave — ownerTeamId:", ownerTeamId, "starters:", starters.length, "bench:", bench.length);
+    const ok = await saveLineup(rows);
+    if (ok) {
       toast.success("Lineup saved!");
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
+    } else {
+      toast.error("Failed to save lineup — please try again");
     }
   };
 
