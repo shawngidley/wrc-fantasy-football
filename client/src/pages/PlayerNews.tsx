@@ -18,6 +18,7 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { NFL_PLAYERS_2026 } from "@/lib/nflPlayers2026";
+import { PlayerNewsRow, type PlayerNewsItem } from "@/components/PlayerNewsRow";
 import { getCurrentWeek } from "@/lib/scheduleData2026";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -973,16 +974,20 @@ function NewsFeed() {
   const [page, setPage]             = useState(0);
   const PAGE_SIZE = 10;
   const [myPlayerNames, setMyPlayerNames] = useState<string[]>([]);
+  const [myPlayers, setMyPlayers] = useState<{ name: string; pos: string; nflTeam: string }[]>([]);
 
   // Load my roster player names for filtering
   useEffect(() => {
     if (!franchise?.id) return;
     supabase
       .from("players")
-      .select("name")
+      .select("name,position,nfl_team")
       .eq("team_id", franchise.id)
       .then(({ data }) => {
-        if (data) setMyPlayerNames(data.map((r: { name: string }) => r.name.toLowerCase()));
+        if (data) {
+          setMyPlayerNames(data.map((r: { name: string }) => r.name.toLowerCase()));
+          setMyPlayers(data.map((r: { name: string; position: string; nfl_team: string }) => ({ name: r.name, pos: r.position, nflTeam: r.nfl_team })));
+        }
       });
   }, [franchise?.id]);
 
@@ -1007,6 +1012,24 @@ function NewsFeed() {
   });
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
   const paginated  = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+
+  // Convert filtered articles to PlayerNewsItem format
+  const newsItems: PlayerNewsItem[] = paginated.map(a => {
+    const athleteCat = (a.categories as { type?: string; athleteId?: number; description: string }[]).find(c => c.type === "athlete");
+    const playerName = athleteCat?.description ?? "";
+    const athleteId = athleteCat?.athleteId;
+    const myP = myPlayers.find(p => p.name.toLowerCase() === playerName.toLowerCase() || (playerName && playerName.toLowerCase().includes(p.name.split(" ").slice(-1)[0].toLowerCase())));
+    return {
+      playerName: playerName || a.categories[0]?.description || "NFL",
+      pos: myP?.pos ?? "",
+      nflTeam: myP?.nflTeam ?? "",
+      headline: a.headline,
+      description: a.description,
+      published: a.published,
+      url: a.links?.web?.href,
+      athleteId,
+    };
+  });
 
   return (
     <div>
@@ -1079,48 +1102,9 @@ function NewsFeed() {
           </div>
         )}
 
-        {!loading && !error && paginated.map((article) => {
-          const tag = article.categories[1]?.description || article.categories[0]?.description || "NFL";
-          const img = article.images[0]?.url;
-          const url = article.links?.web?.href;
-          return (
-            <a
-              key={article.id}
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ display: "flex", gap: "0.875rem", padding: "0.875rem 1.25rem", borderBottom: "1px solid oklch(0.92 0.005 150)", alignItems: "flex-start", textDecoration: "none", color: "inherit", transition: "background 0.15s" }}
-              onMouseEnter={e => (e.currentTarget.style.background = "oklch(0.97 0.01 150)")}
-              onMouseLeave={e => (e.currentTarget.style.background = "transparent")}
-            >
-              {img ? (
-                <div style={{ flexShrink: 0, width: 80, height: 56, borderRadius: 6, overflow: "hidden" as const, background: "oklch(0.92 0.005 150)" }}>
-                  <img src={img} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" as const }} />
-                </div>
-              ) : (
-                <div style={{ flexShrink: 0, width: 80, height: 56, borderRadius: 6, background: "oklch(0.92 0.005 150)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <Newspaper size={20} color="oklch(0.7 0.02 150)" />
-                </div>
-              )}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: "flex", gap: "0.4rem", alignItems: "center", flexWrap: "wrap" as const, marginBottom: "0.25rem" }}>
-                  <span style={{ fontSize: "0.68rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.05em", color: "oklch(0.42 0.15 150)", background: "oklch(0.92 0.04 150)", borderRadius: 4, padding: "1px 6px", textTransform: "uppercase" as const }}>{tag}</span>
-                  {article.premium && <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "oklch(0.55 0.16 85)", background: "oklch(0.96 0.06 85)", borderRadius: 4, padding: "1px 5px" }}>ESPN+</span>}
-                </div>
-                <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.18 0.05 150)", lineHeight: 1.35, marginBottom: "0.2rem" }}>{article.headline}</div>
-                {article.description && (
-                  <p style={{ margin: 0, fontSize: "0.78rem", color: "oklch(0.45 0.04 150)", lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const, overflow: "hidden" as const }}>
-                    {article.description}
-                  </p>
-                )}
-                <div style={{ fontSize: "0.68rem", color: "oklch(0.6 0.04 150)", marginTop: "0.3rem" }}>
-                  {article.byline && <span>{article.byline} · </span>}
-                  ESPN · {timeAgo(article.published)}
-                </div>
-              </div>
-            </a>
-          );
-        })}
+        {!loading && !error && newsItems.map((item, i) => (
+          <PlayerNewsRow key={i} item={item} isFirst={i === 0} />
+        ))}
 
         {!loading && !error && filtered.length === 0 && (
           <div style={{ padding: "2.5rem 1.25rem", textAlign: "center" as const, color: "oklch(0.6 0.04 150)" }}>

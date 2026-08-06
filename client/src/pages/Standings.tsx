@@ -10,7 +10,8 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { TrendingUp, TrendingDown, AlertTriangle, Newspaper, RefreshCw } from "lucide-react";
+import { TrendingUp, TrendingDown, AlertTriangle, Newspaper, RefreshCw, ChevronDown } from "lucide-react";
+import { PlayerNewsRow, type PlayerNewsItem } from "@/components/PlayerNewsRow";
 import { supabase } from "@/lib/supabase";
 import { SCHEDULE_2026, OWNER_TO_TEAM, getCurrentWeek } from "@/lib/scheduleData2026";
 import { Link } from "wouter";
@@ -42,8 +43,13 @@ interface ESPNArticle {
   published: string;
   links?: { web?: { href?: string } };
   images?: { url: string }[];
-  categories?: { description: string }[];
+  categories?: { description: string; type?: string; athleteId?: number }[];
   type?: string;
+}
+
+// Extract ESPN athlete ID from article categories for headshot URL
+function getAthleteId(categories?: { type?: string; athleteId?: number }[]): number | undefined {
+  return (categories ?? []).find(c => c.type === "athlete" && c.athleteId)?.athleteId;
 }
 
 // ── Standings helpers ────────────────────────────────────────────────────────
@@ -197,9 +203,9 @@ const OWNER_TO_TEAM_ID: Record<string, string> = {
 };
 
 function InjuryReport({ ownerKey }: { ownerKey: string }) {
-  const [injuries, setInjuries] = useState<InjuryItem[]>([]);
+  const [items, setItems] = useState<PlayerNewsItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [myTeamOnly, setMyTeamOnly] = useState(true);
 
   const teamId = OWNER_TO_TEAM_ID[ownerKey] ?? `team-${ownerKey.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
   const [myPlayers, setMyPlayers] = useState<{ name: string; pos: string; nflTeam: string }[]>([]);
@@ -212,50 +218,46 @@ function InjuryReport({ ownerKey }: { ownerKey: string }) {
   const fetchInjuries = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch ESPN NFL news and filter for injury-related items for my players
       const res = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=100");
       const json = await res.json();
-      const articles: ESPNArticle[] = json.articles ?? [];
+      const articles: (ESPNArticle & { categories?: { type?: string; athleteId?: number; description: string }[] })[] = json.articles ?? [];
 
       const injuryKeywords = ["injur", "questionable", "doubtful", "out ", "ir ", "placed on", "ruled out", "limited", "missed practice", "did not practice", "dnp", "hamstring", "knee", "ankle", "shoulder", "concussion", "rib", "surgery"];
 
-      const found: InjuryItem[] = [];
-      for (const player of myPlayers) {
-        const fullName = player.name.toLowerCase();
-        const lastName = player.name.split(" ").slice(1).join(" ").toLowerCase();
-        const firstName = player.name.split(" ")[0].toLowerCase();
-        const related = articles.filter(a => {
-          const text = (a.headline + " " + (a.description ?? "")).toLowerCase();
-          const categoryText = (a.categories ?? []).map((c: { description: string }) => c.description).join(" ").toLowerCase();
-          const allText = text + " " + categoryText;
-          // Prefer full-name match; fall back to last name (avoid short first-name false positives)
-          const nameMatch = allText.includes(fullName) || (lastName.length > 3 && allText.includes(lastName));
-          return nameMatch &&
-            injuryKeywords.some(kw => text.includes(kw));
+      // Build injury items for all NFL players (for "All League" view)
+      // and filter to myPlayers for "My Team" view
+      const found: PlayerNewsItem[] = [];
+      const seen = new Set<string>();
+
+      // Process articles that match injury keywords
+      for (const a of articles) {
+        const text = (a.headline + " " + (a.description ?? "")).toLowerCase();
+        if (!injuryKeywords.some(kw => text.includes(kw))) continue;
+        const athleteId = getAthleteId(a.categories);
+        // Try to match to a known player name from article categories
+        const athleteCat = (a.categories ?? []).find(c => c.type === "athlete");
+        const playerName = athleteCat?.description ?? "";
+        if (!playerName) continue;
+        if (seen.has(a.headline)) continue;
+        seen.add(a.headline);
+        // Find pos/team from myPlayers if available
+        const myP = myPlayers.find(p => p.name.toLowerCase() === playerName.toLowerCase() || playerName.toLowerCase().includes(p.name.split(" ").slice(-1)[0].toLowerCase()));
+        found.push({
+          playerName,
+          pos: myP?.pos ?? "",
+          nflTeam: myP?.nflTeam ?? "",
+          headline: a.headline,
+          description: a.description,
+          published: a.published,
+          url: a.links?.web?.href,
+          athleteId,
+          isInjury: true,
         });
-        for (const a of related.slice(0, 2)) {
-          found.push({
-            playerName: player.name,
-            pos: player.pos,
-            nflTeam: player.nflTeam,
-            headline: a.headline,
-            published: a.published,
-            url: a.links?.web?.href,
-          });
-        }
       }
 
-      // Deduplicate by headline
-      const seen = new Set<string>();
-      const deduped = found.filter(f => {
-        if (seen.has(f.headline)) return false;
-        seen.add(f.headline);
-        return true;
-      });
-
-      setInjuries(deduped.slice(0, 10));
+      setItems(found.slice(0, 30));
     } catch {
-      setInjuries([]);
+      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -263,20 +265,24 @@ function InjuryReport({ ownerKey }: { ownerKey: string }) {
 
   useEffect(() => { fetchInjuries(); }, [fetchInjuries]);
 
-  function timeAgo(iso: string) {
-    const diff = Date.now() - new Date(iso).getTime();
-    const h = Math.floor(diff / 3600000);
-    if (h < 1) return "Just now";
-    if (h < 24) return `${h}h ago`;
-    return `${Math.floor(h / 24)}d ago`;
-  }
+  // Filter to my team if toggle is on
+  const myPlayerNames = new Set(myPlayers.map(p => p.name.toLowerCase()));
+  const displayed = myTeamOnly
+    ? items.filter(it => myPlayerNames.has(it.playerName.toLowerCase()) || myPlayers.some(p => it.playerName.toLowerCase().includes(p.name.split(" ").slice(-1)[0].toLowerCase())))
+    : items;
 
   return (
     <div className="wrc-card" style={{ marginBottom: "1.25rem" }}>
       <div className="wrc-card-gold-stripe" />
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.875rem 1.25rem 0.5rem" }}>
-        <AlertTriangle size={15} color="oklch(0.55 0.22 40)" />
-        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: "oklch(0.35 0.06 150)", flex: 1 }}>Injury Report — My Team</span>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.875rem 1rem 0.6rem" }}>
+        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1rem", fontWeight: 800, color: "oklch(0.18 0.06 150)", flex: 1 }}>Injuries</span>
+        <button
+          onClick={() => setMyTeamOnly(v => !v)}
+          style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "0.3rem 0.75rem", borderRadius: 20, border: "1.5px solid oklch(0.82 0.04 150)", background: "white", color: "oklch(0.35 0.06 150)", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer", letterSpacing: "0.02em" }}
+        >
+          <ChevronDown size={12} />
+          {myTeamOnly ? "My Team" : "All League"}
+        </button>
         <button onClick={fetchInjuries} style={{ background: "none", border: "none", cursor: "pointer", color: "oklch(0.55 0.06 150)", padding: "0.2rem", borderRadius: 4, display: "flex", alignItems: "center" }} title="Refresh">
           <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
         </button>
@@ -288,32 +294,15 @@ function InjuryReport({ ownerKey }: { ownerKey: string }) {
             <div key={i} className="skeleton-shimmer" style={{ height: 44, borderRadius: 8, marginBottom: "0.5rem" }} />
           ))}
         </div>
-      ) : injuries.length === 0 ? (
+      ) : displayed.length === 0 ? (
         <div style={{ padding: "1.25rem 1.25rem 1rem", textAlign: "center" as const, color: "oklch(0.55 0.04 150)", fontSize: "0.82rem" }}>
           <AlertTriangle size={20} style={{ margin: "0 auto 0.4rem", display: "block", opacity: 0.35 }} />
-          No injury news found for your players
+          {myTeamOnly ? "No injury news found for your players" : "No injury news found"}
         </div>
       ) : (
-        <div style={{ padding: "0 0 0.5rem" }}>
-          {injuries.map((inj, i) => (
-            <div
-              key={i}
-              className="wrc-row-hover"
-              style={{ padding: "0.6rem 1.25rem", borderTop: i === 0 ? "1px solid oklch(0.92 0.01 150)" : "1px solid oklch(0.94 0.005 150)", cursor: inj.url ? "pointer" : "default" }}
-              onClick={() => inj.url ? window.open(inj.url, "_blank") : setExpanded(expanded === inj.headline ? null : inj.headline)}
-            >
-              <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
-                <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", gap: 2, flexShrink: 0 }}>
-                  <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.62rem", fontWeight: 700, background: "oklch(0.92 0.04 30)", color: "oklch(0.42 0.18 30)", borderRadius: 4, padding: "1px 5px", letterSpacing: "0.04em" }}>{inj.pos}</span>
-                  <span style={{ fontSize: "0.6rem", color: "oklch(0.55 0.04 150)", fontWeight: 600 }}>{inj.nflTeam}</span>
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "oklch(0.28 0.09 150)", marginBottom: 2 }}>{inj.playerName}</div>
-                  <div style={{ fontSize: "0.72rem", color: "oklch(0.35 0.04 150)", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: expanded === inj.headline ? "normal" : "nowrap" as const }}>{inj.headline}</div>
-                </div>
-                <span style={{ fontSize: "0.62rem", color: "oklch(0.6 0.03 150)", flexShrink: 0, marginTop: 2 }}>{timeAgo(inj.published)}</span>
-              </div>
-            </div>
+        <div style={{ paddingBottom: "0.25rem" }}>
+          {displayed.map((item, i) => (
+            <PlayerNewsRow key={i} item={item} isFirst={i === 0} />
           ))}
         </div>
       )}
@@ -324,9 +313,9 @@ function InjuryReport({ ownerKey }: { ownerKey: string }) {
 // ── Player News ───────────────────────────────────────────────────────────────
 
 function MyTeamNews({ ownerKey }: { ownerKey: string }) {
-  const [articles, setArticles] = useState<(ESPNArticle & { playerName: string })[]>([]);
+  const [items, setItems] = useState<PlayerNewsItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [myTeamOnly, setMyTeamOnly] = useState(true);
 
   const teamId = OWNER_TO_TEAM_ID[ownerKey] ?? `team-${ownerKey.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
   const [myPlayers, setMyPlayers] = useState<{ name: string; pos: string; nflTeam: string }[]>([]);
@@ -343,31 +332,35 @@ function MyTeamNews({ ownerKey }: { ownerKey: string }) {
       const json = await res.json();
       const allArticles: ESPNArticle[] = json.articles ?? [];
 
-      const found: (ESPNArticle & { playerName: string })[] = [];
-      for (const player of myPlayers) {
-        const fullName = player.name.toLowerCase();
-        const lastName = player.name.split(" ").slice(1).join(" ").toLowerCase();
-        const related = allArticles.filter(a => {
-          const text = (a.headline + " " + (a.description ?? "")).toLowerCase();
-          const categoryText = (a.categories ?? []).map((c: { description: string }) => c.description).join(" ").toLowerCase();
-          const allText = text + " " + categoryText;
-          // Full-name match preferred; last name only if it's distinctive (>4 chars)
-          return allText.includes(fullName) || (lastName.length > 4 && allText.includes(lastName));
+      // Build news items from all articles that have an athlete category
+      const found: PlayerNewsItem[] = [];
+      const seen = new Set<string>();
+      for (const a of allArticles) {
+        if (seen.has(a.headline)) continue;
+        const athleteId = getAthleteId(a.categories);
+        const athleteCat = (a.categories ?? []).find(c => c.type === "athlete");
+        const playerName = athleteCat?.description ?? "";
+        if (!playerName) continue;
+        seen.add(a.headline);
+        const myP = myPlayers.find(p =>
+          p.name.toLowerCase() === playerName.toLowerCase() ||
+          playerName.toLowerCase().includes(p.name.split(" ").slice(-1)[0].toLowerCase())
+        );
+        found.push({
+          playerName,
+          pos: myP?.pos ?? "",
+          nflTeam: myP?.nflTeam ?? "",
+          headline: a.headline,
+          description: a.description,
+          published: a.published,
+          url: a.links?.web?.href,
+          athleteId,
         });
-        for (const a of related.slice(0, 3)) {
-          found.push({ ...a, playerName: player.name });
-        }
       }
 
-      // Deduplicate + sort by date
-      const seen = new Set<string>();
-      const deduped = found
-        .filter(f => { if (seen.has(f.headline)) return false; seen.add(f.headline); return true; })
-        .sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime());
-
-      setArticles(deduped.slice(0, 15));
+      setItems(found.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime()).slice(0, 50));
     } catch {
-      setArticles([]);
+      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -375,20 +368,24 @@ function MyTeamNews({ ownerKey }: { ownerKey: string }) {
 
   useEffect(() => { fetchNews(); }, [fetchNews]);
 
-  function timeAgo(iso: string) {
-    const diff = Date.now() - new Date(iso).getTime();
-    const h = Math.floor(diff / 3600000);
-    if (h < 1) return "Just now";
-    if (h < 24) return `${h}h ago`;
-    return `${Math.floor(h / 24)}d ago`;
-  }
+  // Filter to my team if toggle is on
+  const myPlayerNames = new Set(myPlayers.map(p => p.name.toLowerCase()));
+  const displayed = myTeamOnly
+    ? items.filter(it => myPlayerNames.has(it.playerName.toLowerCase()) || myPlayers.some(p => it.playerName.toLowerCase().includes(p.name.split(" ").slice(-1)[0].toLowerCase())))
+    : items;
 
   return (
     <div className="wrc-card" style={{ marginBottom: "1.25rem" }}>
       <div className="wrc-card-gold-stripe" />
-      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.875rem 1.25rem 0.5rem" }}>
-        <Newspaper size={15} color="oklch(0.42 0.18 260)" />
-        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: "oklch(0.35 0.06 150)", flex: 1 }}>Player News — My Team</span>
+      <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.875rem 1rem 0.6rem" }}>
+        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1rem", fontWeight: 800, color: "oklch(0.18 0.06 150)", flex: 1 }}>Player News</span>
+        <button
+          onClick={() => setMyTeamOnly(v => !v)}
+          style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "0.3rem 0.75rem", borderRadius: 20, border: "1.5px solid oklch(0.82 0.04 150)", background: "white", color: "oklch(0.35 0.06 150)", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer", letterSpacing: "0.02em" }}
+        >
+          <ChevronDown size={12} />
+          {myTeamOnly ? "My Team" : "All League"}
+        </button>
         <button onClick={fetchNews} style={{ background: "none", border: "none", cursor: "pointer", color: "oklch(0.55 0.06 150)", padding: "0.2rem", borderRadius: 4, display: "flex", alignItems: "center" }} title="Refresh">
           <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
         </button>
@@ -400,31 +397,15 @@ function MyTeamNews({ ownerKey }: { ownerKey: string }) {
             <div key={i} className="skeleton-shimmer" style={{ height: 52, borderRadius: 8, marginBottom: "0.5rem" }} />
           ))}
         </div>
-      ) : articles.length === 0 ? (
+      ) : displayed.length === 0 ? (
         <div style={{ padding: "1.25rem 1.25rem 1rem", textAlign: "center" as const, color: "oklch(0.55 0.04 150)", fontSize: "0.82rem" }}>
           <Newspaper size={20} style={{ margin: "0 auto 0.4rem", display: "block", opacity: 0.35 }} />
-          No recent news found for your players
+          {myTeamOnly ? "No recent news found for your players" : "No recent news found"}
         </div>
       ) : (
-        <div style={{ padding: "0 0 0.5rem" }}>
-          {articles.map((a, i) => (
-            <div
-              key={i}
-              className="wrc-row-hover"
-              style={{ padding: "0.65rem 1.25rem", borderTop: i === 0 ? "1px solid oklch(0.92 0.01 150)" : "1px solid oklch(0.94 0.005 150)", cursor: "pointer" }}
-              onClick={() => a.links?.web?.href ? window.open(a.links.web.href, "_blank") : setExpanded(expanded === a.headline ? null : a.headline)}
-            >
-              <div style={{ display: "flex", alignItems: "flex-start", gap: "0.75rem" }}>
-                <div style={{ flexShrink: 0, marginTop: 2 }}>
-                  <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.62rem", fontWeight: 700, background: "oklch(0.93 0.04 260)", color: "oklch(0.38 0.18 260)", borderRadius: 4, padding: "1px 5px", letterSpacing: "0.04em", whiteSpace: "nowrap" as const }}>{a.playerName.split(" ").slice(-1)[0].toUpperCase()}</span>
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: "0.72rem", fontWeight: 700, color: "oklch(0.28 0.09 150)", marginBottom: 2 }}>{a.playerName}</div>
-                  <div style={{ fontSize: "0.72rem", color: "oklch(0.35 0.04 150)", lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: expanded === a.headline ? "normal" : "nowrap" as const }}>{a.headline}</div>
-                </div>
-                <span style={{ fontSize: "0.62rem", color: "oklch(0.6 0.03 150)", flexShrink: 0, marginTop: 2 }}>{timeAgo(a.published)}</span>
-              </div>
-            </div>
+        <div style={{ paddingBottom: "0.25rem" }}>
+          {displayed.map((item, i) => (
+            <PlayerNewsRow key={i} item={item} isFirst={i === 0} />
           ))}
         </div>
       )}
