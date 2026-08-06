@@ -204,8 +204,8 @@ function InjuryReport({ ownerKey }: { ownerKey: string }) {
   const teamId = OWNER_TO_TEAM_ID[ownerKey] ?? `team-${ownerKey.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
   const [myPlayers, setMyPlayers] = useState<{ name: string; pos: string; nflTeam: string }[]>([]);
   useEffect(() => {
-    supabase.from("players").select("name,pos,nfl_team").eq("team_id", teamId).then(({ data }) => {
-      if (data) setMyPlayers(data.map((p: { name: string; pos: string; nfl_team: string }) => ({ name: p.name, pos: p.pos, nflTeam: p.nfl_team })));
+    supabase.from("players").select("name,position,nfl_team").eq("team_id", teamId).then(({ data }) => {
+      if (data) setMyPlayers(data.map((p: { name: string; position: string; nfl_team: string }) => ({ name: p.name, pos: p.position, nflTeam: p.nfl_team })));
     });
   }, [teamId]);
 
@@ -326,8 +326,8 @@ function MyTeamNews({ ownerKey }: { ownerKey: string }) {
   const teamId = OWNER_TO_TEAM_ID[ownerKey] ?? `team-${ownerKey.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
   const [myPlayers, setMyPlayers] = useState<{ name: string; pos: string; nflTeam: string }[]>([]);
   useEffect(() => {
-    supabase.from("players").select("name,pos,nfl_team").eq("team_id", teamId).then(({ data }) => {
-      if (data) setMyPlayers(data.map((p: { name: string; pos: string; nfl_team: string }) => ({ name: p.name, pos: p.pos, nflTeam: p.nfl_team })));
+    supabase.from("players").select("name,position,nfl_team").eq("team_id", teamId).then(({ data }) => {
+      if (data) setMyPlayers(data.map((p: { name: string; position: string; nfl_team: string }) => ({ name: p.name, pos: p.position, nflTeam: p.nfl_team })));
     });
   }, [teamId]);
 
