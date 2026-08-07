@@ -9,6 +9,7 @@
  */
 import { useParams, useLocation } from "wouter";
 import { useTank01PlayerByName, getTeamLogoUrl } from "@/hooks/useTank01Player";
+import { useWatchlist } from "@/hooks/useWatchlist";
 import { calcFantasyPoints, getStatLine, getPerGameAvg, injuryColor, injuryLabel } from "@/lib/scoringEngine";
 import type { Tank01Stats } from "@/lib/scoringEngine";
 import { getCurrentWeek } from "@/lib/scheduleData2026";
@@ -538,6 +539,7 @@ export default function PlayerPage() {
   const [, navigate] = useLocation();
   const { franchise } = useAuth();
   const [bidModalOpen, setBidModalOpen] = useState(false);
+  const { isWatched, toggleWatch } = useWatchlist(franchise?.id);
   const [activeTab, setActiveTab] = useState<"stats" | "schedule" | "gamelog">("stats");
   const [gameLogSeason, setGameLogSeason] = useState(2026);
 
@@ -720,6 +722,24 @@ export default function PlayerPage() {
                 >
                   View on ESPN →
                 </a>
+                {/* Watchlist star */}
+                {franchise && (
+                  <button
+                    onClick={() => toggleWatch({ name: player.longName, pos: player.pos, nflTeam: player.team })}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-all"
+                    style={{
+                      background: isWatched(player.longName) ? "oklch(0.96 0.06 85)" : "white",
+                      borderColor: isWatched(player.longName) ? "oklch(0.75 0.14 85)" : "oklch(0.88 0.02 150)",
+                      color: isWatched(player.longName) ? "oklch(0.45 0.16 85)" : "oklch(0.55 0.06 150)",
+                    }}
+                    title={isWatched(player.longName) ? "Remove from watchlist" : "Add to watchlist"}
+                  >
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill={isWatched(player.longName) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2.5">
+                      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+                    </svg>
+                    {isWatched(player.longName) ? "Watching" : "Watch"}
+                  </button>
+                )}
               </div>
             </div>
 

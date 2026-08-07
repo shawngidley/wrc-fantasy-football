@@ -21,7 +21,8 @@ import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } 
 import FAABBidModal from "@/components/FAABBidModal";
 import { supabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
-import { Search, DollarSign, ChevronRight, Trophy, Clock, ArrowUpDown, Users, ArrowLeftRight } from "lucide-react";
+import { Search, DollarSign, ChevronRight, Trophy, Clock, ArrowUpDown, Users, ArrowLeftRight, Star, Bookmark } from "lucide-react";
+import { useWatchlist } from "@/hooks/useWatchlist";
 import { toast } from "sonner";
 import Navigation from "@/components/Navigation";
 
@@ -236,6 +237,10 @@ export default function FreeAgents() {
   const [loadingOwned, setLoadingOwned] = useState(true);
   const [playerScope, setPlayerScope] = useState<"fa" | "all">("fa");
   const [ownershipMap, setOwnershipMap] = useState<Record<string, string>>({});
+  const [activeView, setActiveView] = useState<"pool" | "watchlist">("pool");
+
+  // Watchlist hook
+  const { watchlist, isWatched, toggleWatch } = useWatchlist(franchise?.id);
 
   const currentWeek = getCurrentWeek();
   const week = currentWeek > 0 ? currentWeek : 1;
@@ -336,15 +341,19 @@ export default function FreeAgents() {
             {([
               { key: "fa", label: "Free Agents", icon: null },
               { key: "all", label: "All Players", icon: <Users size={11} style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} /> },
+              { key: "watchlist" as unknown as "fa" | "all", label: `Watchlist${watchlist.length > 0 ? ` (${watchlist.length})` : ""}`, icon: <Star size={11} style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} /> },
             ] as { key: "fa" | "all"; label: string; icon: React.ReactNode }[]).map(({ key, label, icon }) => (
               <button
                 key={key}
-                onClick={() => setPlayerScope(key)}
+                onClick={() => {
+                  if ((key as string) === "watchlist") { setActiveView("watchlist"); }
+                  else { setPlayerScope(key); setActiveView("pool"); }
+                }}
                 style={{
                   padding: "0.4rem 0.875rem", borderRadius: 8,
-                  border: playerScope === key ? "2px solid oklch(0.55 0.16 85)" : "2px solid oklch(0.88 0.04 150)",
-                  background: playerScope === key ? "oklch(0.22 0.08 150)" : "white",
-                  color: playerScope === key ? "white" : "oklch(0.4 0.04 150)",
+                  border: ((key as string) === "watchlist" ? activeView === "watchlist" : activeView === "pool" && playerScope === key) ? "2px solid oklch(0.55 0.16 85)" : "2px solid oklch(0.88 0.04 150)",
+                  background: ((key as string) === "watchlist" ? activeView === "watchlist" : activeView === "pool" && playerScope === key) ? "oklch(0.22 0.08 150)" : "white",
+                  color: ((key as string) === "watchlist" ? activeView === "watchlist" : activeView === "pool" && playerScope === key) ? "white" : "oklch(0.4 0.04 150)",
                   fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700,
                   letterSpacing: "0.04em", cursor: "pointer",
                 }}
@@ -374,6 +383,78 @@ export default function FreeAgents() {
         {activeTab === "bids" && isCommissioner ? (
           <CommissionerBids week={week} />
         ) : (
+          activeView === "watchlist" ? (
+            /* ── Watchlist Tab ── */
+            <div className="wrc-card" style={{ marginTop: "1rem" }}>
+              <div className="wrc-card-gold-stripe" />
+              <div style={{ padding: "0.875rem 1rem 0.5rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <Star size={15} color="oklch(0.55 0.16 85)" fill="oklch(0.55 0.16 85)" />
+                <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1rem", fontWeight: 800, color: "oklch(0.18 0.06 150)", flex: 1 }}>My Watchlist</span>
+                <span style={{ fontSize: "0.72rem", color: "oklch(0.6 0.04 150)" }}>{watchlist.length} player{watchlist.length !== 1 ? "s" : ""}</span>
+              </div>
+              {watchlist.length === 0 ? (
+                <div style={{ padding: "3rem 2rem", textAlign: "center" as const }}>
+                  <Star size={36} color="oklch(0.75 0.06 150)" style={{ margin: "0 auto 0.75rem" }} />
+                  <p style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: "oklch(0.4 0.08 150)" }}>No players on your watchlist</p>
+                  <p style={{ fontSize: "0.8rem", color: "oklch(0.55 0.06 150)", marginTop: "0.25rem" }}>Tap the ★ star on any player to add them here</p>
+                </div>
+              ) : (
+                <>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 48px 60px 80px", gap: "0.25rem", padding: "0.5rem 0.75rem", background: "oklch(0.96 0.02 150)", borderBottom: "1px solid oklch(0.9 0.04 150)" }}>
+                    {["Player", "Bye", "Proj", "Action"].map((h, i) => (
+                      <span key={i} style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: "oklch(0.55 0.06 150)", textAlign: i > 0 ? "center" as const : "left" as const }}>{h}</span>
+                    ))}
+                  </div>
+                  {watchlist.map((wp) => {
+                    const player = [...(NFL_PLAYERS_2026 as NFLPlayer[])].find(p => p.name.toLowerCase() === wp.player_name.toLowerCase()) ?? {
+                      id: wp.player_name, name: wp.player_name, pos: wp.pos, nflTeam: wp.nfl_team, adp: 999, bye: undefined,
+                    } as unknown as NFLPlayer;
+                    const proj = getProjectedPoints(projections, player.name, player.pos, player.nflTeam);
+                    const ownerTeam = ownershipMap[player.name.toLowerCase()];
+                    const isOwned = !!ownerTeam;
+                    const isMyPlayer = franchise && ownerTeam === franchise.team_name;
+                    return (
+                      <div key={wp.player_name} style={{ display: "grid", gridTemplateColumns: "1fr 48px 60px 80px", gap: "0.25rem", padding: "0.5rem 0.75rem", alignItems: "center", borderBottom: "1px solid oklch(0.94 0.02 150)", background: "white" }}>
+                        <Link href={`/player/${encodeURIComponent(player.name)}`} style={{ display: "flex", alignItems: "center", gap: "0.4rem", textDecoration: "none", minWidth: 0, overflow: "hidden" }}>
+                          <img src={getTeamLogoUrl(player.nflTeam)} alt={player.nflTeam} style={{ width: 24, height: 24, objectFit: "contain", flexShrink: 0 }} onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <p style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.22 0.08 150)", margin: 0, lineHeight: 1.2 }}>{player.name}</p>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", marginTop: 1 }}>
+                              <PosBadge pos={player.pos} />
+                              <span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.06 150)" }}>{player.nflTeam}</span>
+                              {isOwned && <span style={{ fontSize: "0.65rem", color: "oklch(0.42 0.1 240)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, background: "oklch(0.92 0.04 240)", border: "1px solid oklch(0.78 0.08 240)", borderRadius: 4, padding: "0px 4px" }}>{ownerTeam}</span>}
+                            </div>
+                          </div>
+                        </Link>
+                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", color: "oklch(0.5 0.06 150)", textAlign: "center" as const }}>{player.bye ?? "—"}</span>
+                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.95rem", color: proj > 0 ? "oklch(0.38 0.14 150)" : "oklch(0.65 0.06 150)", textAlign: "center" as const }}>{proj > 0 ? proj.toFixed(1) : "—"}</span>
+                        <div style={{ display: "flex", gap: "0.25rem", justifyContent: "center", alignItems: "center" }}>
+                          {/* Star/unstar button */}
+                          <button onClick={() => toggleWatch({ name: player.name, pos: player.pos, nflTeam: player.nflTeam })} style={{ background: "none", border: "none", cursor: "pointer", padding: "0.15rem", color: "oklch(0.55 0.16 85)", display: "flex", alignItems: "center" }} title="Remove from watchlist">
+                            <Star size={14} fill="oklch(0.55 0.16 85)" />
+                          </button>
+                          {/* Action button */}
+                          {isMyPlayer ? (
+                            <span style={{ fontSize: "0.65rem", color: "oklch(0.42 0.14 150)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, background: "oklch(0.92 0.06 150)", border: "1px solid oklch(0.78 0.1 150)", borderRadius: 4, padding: "2px 5px" }}>Roster</span>
+                          ) : isOwned ? (
+                            <Link href="/trades" style={{ background: "oklch(0.42 0.1 240)", color: "white", border: "none", borderRadius: 6, padding: "0.25rem 0.45rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.65rem", letterSpacing: "0.03em", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.2rem", textDecoration: "none" }}>
+                              <ArrowLeftRight size={9} />Trade
+                            </Link>
+                          ) : franchise ? (
+                            <button onClick={() => setBidPlayer(player as NFLPlayer)} style={{ background: "oklch(0.55 0.16 85)", color: "white", border: "none", borderRadius: 6, padding: "0.25rem 0.45rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.65rem", letterSpacing: "0.03em", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.2rem" }}>
+                              <DollarSign size={9} />Bid
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: "0.65rem", color: "oklch(0.6 0.06 150)" }}>Sign in</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </>
+              )}
+            </div>
+          ) : (
           <>
             {/* ── Filters ── */}
             <div style={{ display: "flex", flexDirection: "column" as const, gap: "0.6rem", marginBottom: "1rem" }}>
@@ -567,6 +648,16 @@ export default function FreeAgents() {
                         ) : (
                           <span style={{ fontSize: "0.68rem", color: "oklch(0.6 0.06 150)", textAlign: "center" as const }}>Sign in</span>
                         )}
+                        {/* Star / watchlist button */}
+                        {franchise && (
+                          <button
+                            onClick={e => { e.stopPropagation(); toggleWatch({ name: player.name, pos: player.pos, nflTeam: player.nflTeam }); }}
+                            style={{ background: "none", border: "none", cursor: "pointer", padding: "0.15rem 0", color: isWatched(player.name) ? "oklch(0.55 0.16 85)" : "oklch(0.75 0.06 150)", display: "flex", alignItems: "center", justifyContent: "center" }}
+                            title={isWatched(player.name) ? "Remove from watchlist" : "Add to watchlist"}
+                          >
+                            <Star size={13} fill={isWatched(player.name) ? "oklch(0.55 0.16 85)" : "none"} />
+                          </button>
+                        )}
                       </div>
                     );
                   })}
@@ -574,6 +665,7 @@ export default function FreeAgents() {
               )}
             </div>
           </>
+          )
         )}
       </div>
 
