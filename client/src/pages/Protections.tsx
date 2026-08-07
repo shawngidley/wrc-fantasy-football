@@ -257,6 +257,21 @@ export default function Protections() {
     setSaved(false);
   };
 
+  // ── Change round assignment for an FA slot ────────────────────────────────
+  const changeRound = (playerId: string, newRound: number) => {
+    if (cd.past) return;
+    setSlots(prev => prev.map(s => {
+      if (s.playerId === playerId) return { ...s, assignedRound: newRound };
+      // If another FA slot had this round, swap them
+      if (s.assignedRound === newRound) {
+        const thisSlot = prev.find(x => x.playerId === playerId);
+        return { ...s, assignedRound: thisSlot?.assignedRound ?? null };
+      }
+      return s;
+    }));
+    setSaved(false);
+  };
+
   // Validation: all slots have an assigned round
   const isValid = slots.every(s => {
     const entry = roster.find(r => r.id === s.playerId);
@@ -563,20 +578,50 @@ export default function Protections() {
                       <div style={{
                         background: "oklch(0.89 0.07 150)",
                         borderBottom: "1px solid oklch(0.82 0.06 150)",
-                        padding: "0.45rem 1.25rem 0.45rem 3.75rem",
-                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        padding: "0.5rem 1.25rem 0.5rem 3.75rem",
+                        display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" as const,
                       }}
                         onClick={e => e.stopPropagation()}
                       >
-                        <span style={{ fontSize: "0.75rem", color: "oklch(0.35 0.1 150)", fontWeight: 600 }}>
-                          {entry.tier === "tier1"
-                            ? `Forfeits Rd ${draftedCost(entry.draftRound!)} pick (one round higher than Rd ${entry.draftRound})`
-                            : `Forfeits Rd ${slot?.assignedRound ?? "?"} pick (FA #${faSlots.findIndex(s => s.playerId === entry.id) + 1})`}
-                        </span>
+                        {entry.tier === "tier1" ? (
+                          <span style={{ fontSize: "0.75rem", color: "oklch(0.35 0.1 150)", fontWeight: 600, flex: 1 }}>
+                            Forfeits Rd {draftedCost(entry.draftRound!)} pick (one round higher than Rd {entry.draftRound})
+                          </span>
+                        ) : (
+                          <>
+                            <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "oklch(0.28 0.1 150)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.04em" }}>
+                              PICK:
+                            </span>
+                            <div style={{ display: "flex", gap: "0.35rem" }}>
+                              {pickStatus.available.map(round => {
+                                const isMe = slot?.assignedRound === round;
+                                const takenByOther = faSlots.some(s => s.playerId !== entry.id && s.assignedRound === round);
+                                return (
+                                  <button
+                                    key={round}
+                                    onClick={() => changeRound(entry.id, round)}
+                                    disabled={cd.past}
+                                    style={{
+                                      padding: "3px 11px", borderRadius: 6,
+                                      border: isMe ? "2px solid oklch(0.42 0.15 150)" : "2px solid transparent",
+                                      background: isMe ? "oklch(0.42 0.15 150)" : takenByOther ? "oklch(0.78 0.04 150)" : "white",
+                                      color: isMe ? "white" : takenByOther ? "oklch(0.55 0.04 150)" : "oklch(0.28 0.1 150)",
+                                      fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.78rem",
+                                      cursor: cd.past ? "not-allowed" : "pointer", transition: "all 0.15s",
+                                    }}
+                                    title={takenByOther ? "Swap with other FA" : `Assign Rd ${round}`}
+                                  >
+                                    Rd {round}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </>
+                        )}
                         {!cd.past && (
                           <button
                             onClick={() => toggle(entry)}
-                            style={{ background: "none", border: "none", cursor: "pointer", color: "oklch(0.55 0.22 25)", display: "flex", alignItems: "center", gap: "0.25rem", fontSize: "0.72rem", fontWeight: 600 }}
+                            style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "oklch(0.55 0.22 25)", display: "flex", alignItems: "center", gap: "0.25rem", fontSize: "0.72rem", fontWeight: 600 }}
                           >
                             <X size={13} /> Remove
                           </button>
