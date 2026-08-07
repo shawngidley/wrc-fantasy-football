@@ -386,7 +386,10 @@ export default function Lineup() {
   const { projections } = useNFLProjections(currentWeek);
 
   // Lineup persistence (Supabase) — only for owner's own lineup
-  const ownerTeamId = !teamId ? (franchise?.id ?? null) : null;
+  // Load saved lineup if: (a) on /lineup (owner's own page), or (b) on /lineup/team-X where team-X matches the logged-in owner
+  const ownerTeamId = franchise?.id
+    ? (!teamId || teamId === franchise.id ? franchise.id : null)
+    : null;
   const { savedLineup, saveLineup, saving, saveError } = useLineupPersistence(
   ownerTeamId, currentWeek
 );
