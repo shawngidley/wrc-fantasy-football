@@ -20,6 +20,7 @@ import { OWNER_TO_TEAM } from "@/lib/scheduleData2026";
 import { NFL_PLAYERS_2026, getAvailablePlayers, type NFLPlayer } from "@/lib/nflPlayers2026";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
+import { fetchPlayerByName, getTeamLogoUrl } from "@/hooks/useTank01Player";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const TIMER_SECONDS = 90;
@@ -152,6 +153,12 @@ export default function DraftBoard() {
   const [expandedRound, setExpandedRound] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // ── Player reveal overlay state ──
+  const [revealPick, setRevealPick] = useState<DbDraftPick | null>(null);
+  const [revealHeadshot, setRevealHeadshot] = useState<string | null>(null);
+  const [revealProgress, setRevealProgress] = useState(100);
+  const prevPickCountRef = useRef(0);
+
   const tradedPicks = getTradedPicks();
 
   // ── Derived state ──
@@ -254,6 +261,46 @@ export default function DraftBoard() {
     }, 1000);
     return () => clearInterval(id);
   }, [started, paused, complete, curRound, curPick]);
+
+  // ── Player reveal overlay — fires when a new pick is added ──
+  useEffect(() => {
+    if (dbPicks.length === 0) {
+      prevPickCountRef.current = 0;
+      return;
+    }
+    if (dbPicks.length <= prevPickCountRef.current) {
+      prevPickCountRef.current = dbPicks.length;
+      return;
+    }
+    // New pick detected
+    const newPick = dbPicks[dbPicks.length - 1];
+    prevPickCountRef.current = dbPicks.length;
+    setRevealPick(newPick);
+    setRevealHeadshot(null);
+    setRevealProgress(100);
+
+    // Fetch headshot asynchronously
+    fetchPlayerByName(newPick.player_name).then(p => {
+      if (p?.espnHeadshot) setRevealHeadshot(p.espnHeadshot);
+    }).catch(() => {});
+
+    // Progress bar countdown (6 seconds)
+    const REVEAL_MS = 6000;
+    const INTERVAL_MS = 50;
+    const steps = REVEAL_MS / INTERVAL_MS;
+    let step = 0;
+    const progressId = setInterval(() => {
+      step++;
+      setRevealProgress(Math.max(0, 100 - (step / steps) * 100));
+      if (step >= steps) {
+        clearInterval(progressId);
+        setRevealPick(null);
+        setRevealHeadshot(null);
+      }
+    }, INTERVAL_MS);
+
+    return () => clearInterval(progressId);
+  }, [dbPicks]);
 
   // ── Commissioner actions ──
   async function updateDraftState(patch: Partial<DbDraftState>) {
@@ -365,6 +412,107 @@ export default function DraftBoard() {
 
         {/* Countdown (pre-draft) */}
         {!started && <DraftCountdownBanner />}
+
+        {/* ── Player Reveal Overlay ── */}
+        {revealPick && (
+          <div
+            onClick={() => { setRevealPick(null); setRevealHeadshot(null); }}
+            style={{
+              position: "fixed", inset: 0, zIndex: 9999,
+              background: "rgba(0,0,0,0.88)",
+              display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center",
+              animation: "revealFadeIn 0.4s cubic-bezier(0.23,1,0.32,1)",
+              cursor: "pointer",
+            }}
+          >
+            {/* Pick number badge */}
+            <div style={{ fontSize: "0.75rem", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.15em", color: "rgba(255,255,255,0.5)", marginBottom: "0.5rem", textTransform: "uppercase" }}>
+              Round {revealPick.round} · Pick {revealPick.pick + 1} · Overall #{revealPick.overall}
+            </div>
+
+            {/* Player headshot */}
+            <div style={{
+              width: 220, height: 220, borderRadius: "50%",
+              border: "4px solid oklch(0.72 0.15 85)",
+              overflow: "hidden", background: "oklch(0.18 0.03 150)",
+              marginBottom: "1.5rem",
+              animation: "revealScaleIn 0.5s cubic-bezier(0.23,1,0.32,1)",
+              boxShadow: "0 0 60px oklch(0.72 0.15 85 / 0.4)",
+            }}>
+              {revealHeadshot ? (
+                <img src={revealHeadshot} alt={revealPick.player_name}
+                  style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top" }}
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+              ) : (
+                <img
+                  src={`https://a.espncdn.com/combiner/i?img=/i/teamlogos/nfl/500/${revealPick.player_nfl_team?.toLowerCase()}.png&w=200&h=200`}
+                  alt={revealPick.player_nfl_team}
+                  style={{ width: "100%", height: "100%", objectFit: "contain", padding: "2rem", opacity: 0.6 }}
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                />
+              )}
+            </div>
+
+            {/* Player name */}
+            <div style={{
+              fontFamily: "Barlow Condensed, sans-serif",
+              fontSize: "clamp(2rem, 8vw, 4rem)",
+              fontWeight: 900, letterSpacing: "0.04em",
+              color: "white", textTransform: "uppercase",
+              textAlign: "center", lineHeight: 1,
+              marginBottom: "0.75rem",
+              textShadow: "0 2px 20px rgba(0,0,0,0.5)",
+            }}>
+              {revealPick.player_name}
+            </div>
+
+            {/* Position + NFL team */}
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1rem" }}>
+              <span style={{
+                background: POS_COLORS[revealPick.player_pos] ?? "#64748b",
+                color: "white", fontFamily: "Barlow Condensed, sans-serif",
+                fontWeight: 700, fontSize: "0.9rem", letterSpacing: "0.1em",
+                padding: "0.25rem 0.75rem", borderRadius: 6,
+              }}>
+                {revealPick.player_pos}
+              </span>
+              <img
+                src={getTeamLogoUrl(revealPick.player_nfl_team ?? "")}
+                alt={revealPick.player_nfl_team}
+                style={{ width: 32, height: 32, objectFit: "contain" }}
+                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+              />
+              <span style={{ color: "rgba(255,255,255,0.7)", fontFamily: "Barlow Condensed, sans-serif", fontSize: "1rem", letterSpacing: "0.08em" }}>
+                {revealPick.player_nfl_team}
+              </span>
+            </div>
+
+            {/* Drafted by */}
+            <div style={{
+              fontFamily: "Barlow Condensed, sans-serif",
+              fontSize: "1.1rem", letterSpacing: "0.12em",
+              color: "oklch(0.72 0.15 85)", textTransform: "uppercase",
+              marginBottom: "2rem",
+            }}>
+              Drafted by {revealPick.team_name}
+            </div>
+
+            {/* Progress bar */}
+            <div style={{ width: 200, height: 3, background: "rgba(255,255,255,0.15)", borderRadius: 2, overflow: "hidden" }}>
+              <div style={{
+                height: "100%", borderRadius: 2,
+                background: "oklch(0.72 0.15 85)",
+                width: `${revealProgress}%`,
+                transition: "width 0.05s linear",
+              }} />
+            </div>
+            <div style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.3)", marginTop: "0.5rem", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.1em" }}>
+              TAP TO DISMISS
+            </div>
+          </div>
+        )}
 
         {/* Page Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1rem" }}>
