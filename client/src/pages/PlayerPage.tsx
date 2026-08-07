@@ -650,6 +650,8 @@ export default function PlayerPage() {
           isInjury: injuryKeywords.some(kw => text.includes(kw)),
         });
       }
+      // Sort newest first
+      found.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime());
       setPlayerNews(found);
     } catch {
       setPlayerNews([]);
