@@ -158,6 +158,14 @@ export default function DraftBoard() {
   const [revealHeadshot, setRevealHeadshot] = useState<string | null>(null);
   const [revealProgress, setRevealProgress] = useState(100);
   const prevPickCountRef = useRef(0);
+  const chimeRef = useRef<HTMLAudioElement | null>(null);
+
+  // Pre-load the chime audio on mount
+  useEffect(() => {
+    const audio = new Audio("/manus-storage/nfl-draft-chime_9c48384a.mp3");
+    audio.preload = "auto";
+    chimeRef.current = audio;
+  }, []);
 
   const tradedPicks = getTradedPicks();
 
@@ -278,6 +286,12 @@ export default function DraftBoard() {
     setRevealPick(newPick);
     setRevealHeadshot(null);
     setRevealProgress(100);
+
+    // Play the NFL Draft chime
+    if (chimeRef.current) {
+      chimeRef.current.currentTime = 0;
+      chimeRef.current.play().catch(() => {});
+    }
 
     // Fetch headshot asynchronously
     fetchPlayerByName(newPick.player_name).then(p => {
