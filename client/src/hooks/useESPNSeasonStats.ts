@@ -1,18 +1,18 @@
 /**
  * useESPNSeasonStats — fetches per-season stats for an NFL player
- * using the ESPN v2 public API.
+ * using the ESPN gamelog public API (sum of per-game stats).
  *
- * Endpoint: sports.core.api.espn.com/v2/sports/football/leagues/nfl/seasons/{year}/types/2/athletes/{espnId}/statistics
- * type=2 = regular season
+ * Endpoint: site.api.espn.com/apis/common/v3/sports/football/nfl/athletes/{espnId}/gamelog?season={year}
+ * Sums all regular-season game stats to produce season totals.
  *
- * Returns a map of season year → normalized stats object.
- * Fetches the last 5 seasons in parallel and caches in sessionStorage (24h TTL).
+ * Returns a list of SeasonStatRow objects sorted newest-first.
+ * Caches in sessionStorage (24h TTL).
  */
 import { useState, useEffect } from "react";
 import { calcFantasyPoints } from "@/lib/scoringEngine";
 
-const ESPN_BASE = "https://sports.core.api.espn.com/v2/sports/football/leagues/nfl";
-const CACHE_PREFIX = "wrc_espn_stats_v1_";
+const ESPN_GAMELOG = "https://site.api.espn.com/apis/common/v3/sports/football/nfl/athletes";
+const CACHE_PREFIX = "wrc_espn_gl_v2_";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export interface SeasonStatRow {
@@ -62,169 +62,197 @@ export interface UseESPNSeasonStatsResult {
   error: string | null;
 }
 
-function extractStats(cats: Array<Record<string, unknown>>): Partial<SeasonStatRow> {
-  const result: Partial<SeasonStatRow> = {};
-
-  for (const cat of cats) {
-    const catName = (cat.name as string) ?? "";
-    const statsList = (cat.stats as Array<Record<string, unknown>>) ?? [];
-    const statsMap: Record<string, number> = {};
-    for (const s of statsList) {
-      statsMap[s.name as string] = (s.value as number) ?? 0;
-    }
-
-    if (catName === "passing") {
-      result.passYds    = statsMap.passingYards ?? 0;
-      result.passTD     = statsMap.passingTouchdowns ?? 0;
-      result.passInt    = statsMap.interceptions ?? 0;
-      result.passAtt    = statsMap.passingAttempts ?? 0;
-      result.passCmp    = statsMap.completions ?? 0;
-      result.passCmpPct = statsMap.completionPct ?? 0;
-      result.passRating = statsMap.QBRating ?? 0;
-    } else if (catName === "rushing") {
-      result.rushYds = statsMap.rushingYards ?? 0;
-      result.rushTD  = statsMap.rushingTouchdowns ?? 0;
-      result.rushAtt = statsMap.rushingAttempts ?? 0;
-      result.rushAvg = statsMap.yardsPerRushAttempt ?? 0;
-    } else if (catName === "receiving") {
-      result.rec        = statsMap.receptions ?? 0;
-      result.recYds     = statsMap.receivingYards ?? 0;
-      result.recTD      = statsMap.receivingTouchdowns ?? 0;
-      result.recTargets = statsMap.receivingTargets ?? 0;
-      result.recAvg     = statsMap.yardsPerReception ?? 0;
-    } else if (catName === "kicking") {
-      result.fgMade  = statsMap.fieldGoalsMade ?? 0;
-      result.fgAtt   = statsMap.fieldGoalAttempts ?? 0;
-      result.fgPct   = statsMap.fieldGoalPct ?? 0;
-      result.xpMade  = statsMap.extraPointsMade ?? 0;
-      result.xpAtt   = statsMap.extraPointAttempts ?? 0;
-    } else if (catName === "defensive") {
-      result.sacks             = statsMap.sacks ?? 0;
-      result.defInt            = statsMap.interceptions ?? 0;
-      result.defTD             = statsMap.defensiveTouchdowns ?? 0;
-      result.fumblesRecovered  = statsMap.fumblesRecovered ?? 0;
-    } else if (catName === "general") {
-      result.fumbles     = statsMap.fumbles ?? 0;
-      result.fumblesLost = statsMap.fumblesLost ?? 0;
+/** Sum an array of per-game stat arrays using the label index map */
+function sumGameStats(
+  events: Array<{ stats?: string[] }>,
+  labelMap: Record<string, number>
+): Record<string, number> {
+  const totals: Record<string, number> = {};
+  for (const ev of events) {
+    const stats = ev.stats ?? [];
+    for (const [label, idx] of Object.entries(labelMap)) {
+      const val = parseFloat(stats[idx] ?? "0") || 0;
+      totals[label] = (totals[label] ?? 0) + val;
     }
   }
-
-  return result;
+  return totals;
 }
 
-function rowToTank01Stats(row: Partial<SeasonStatRow>) {
-  return {
-    gamesPlayed: row.gp ?? 0,
-    Passing: {
-      passYds:   row.passYds ?? 0,
-      passTD:    row.passTD ?? 0,
-      int:       row.passInt ?? 0,
-      passCompletions: row.passCmp ?? 0,
-      passAttempts:    row.passAtt ?? 0,
-    },
-    Rushing: {
-      rushYds: row.rushYds ?? 0,
-      rushTD:  row.rushTD ?? 0,
-      carries: row.rushAtt ?? 0,
-    },
-    Receiving: {
-      receptions: row.rec ?? 0,
-      recYds:     row.recYds ?? 0,
-      recTD:      row.recTD ?? 0,
-      targets:    row.recTargets ?? 0,
-    },
-    Kicking: {
-      fgMade:     row.fgMade ?? 0,
-      fgAttempts: row.fgAtt ?? 0,
-      xpMade:     row.xpMade ?? 0,
-      xpAttempts: row.xpAtt ?? 0,
-    },
-    Defense: {
-      sacks:                  row.sacks ?? 0,
-      defensiveInterceptions: row.defInt ?? 0,
-      fumblesRecovered:       row.fumblesRecovered ?? 0,
-      defTD:                  row.defTD ?? 0,
-      fumblesLost:            row.fumblesLost ?? 0,
-    },
-  };
+/** Build a label→index map from the ESPN gamelog labels array */
+function buildLabelMap(labels: string[]): Record<string, number> {
+  const map: Record<string, number> = {};
+  // ESPN gamelog has duplicate labels (e.g. "YDS" appears for both passing and rushing)
+  // We track occurrence count to disambiguate
+  const seen: Record<string, number> = {};
+  for (let i = 0; i < labels.length; i++) {
+    const lbl = labels[i];
+    const count = seen[lbl] ?? 0;
+    seen[lbl] = count + 1;
+    // Use occurrence suffix for duplicates: YDS_0, YDS_1
+    map[`${lbl}_${count}`] = i;
+    // Also map first occurrence without suffix for convenience
+    if (count === 0) map[lbl] = i;
+  }
+  return map;
 }
 
-async function fetchSeasonStats(espnId: string, year: number, pos: string): Promise<SeasonStatRow | null> {
+/** Extract a SeasonStatRow from summed game stats + label map */
+function extractFromGamelog(
+  totals: Record<string, number>,
+  gp: number,
+  labels: string[]
+): Partial<SeasonStatRow> {
+  const r: Partial<SeasonStatRow> = { gp };
+  const lm = buildLabelMap(labels);
+
+  // QB: CMP ATT YDS CMP% AVG TD INT LNG SACK RTG QBR | CAR YDS AVG TD LNG
+  if ("CMP" in lm) {
+    r.passCmp    = totals["CMP"] ?? 0;
+    r.passAtt    = totals["ATT"] ?? 0;
+    r.passYds    = totals["YDS_0"] ?? totals["YDS"] ?? 0;
+    r.passTD     = totals["TD_0"] ?? totals["TD"] ?? 0;
+    r.passInt    = totals["INT"] ?? 0;
+    r.passCmpPct = r.passAtt > 0 ? Math.round((r.passCmp / r.passAtt) * 1000) / 10 : 0;
+    // Rush stats (second YDS/TD occurrence for QB)
+    r.rushAtt    = totals["CAR"] ?? 0;
+    r.rushYds    = totals["YDS_1"] ?? 0;
+    r.rushTD     = totals["TD_1"] ?? 0;
+    r.rushAvg    = r.rushAtt > 0 ? Math.round((r.rushYds / r.rushAtt) * 10) / 10 : 0;
+  }
+
+  // RB: CAR YDS AVG TD LNG | REC TGTS YDS AVG TD LNG | FUM LST FF KB
+  if ("CAR" in lm && !("CMP" in lm)) {
+    r.rushAtt    = totals["CAR"] ?? 0;
+    r.rushYds    = totals["YDS_0"] ?? totals["YDS"] ?? 0;
+    r.rushTD     = totals["TD_0"] ?? totals["TD"] ?? 0;
+    r.rushAvg    = r.rushAtt > 0 ? Math.round((r.rushYds / r.rushAtt) * 10) / 10 : 0;
+    r.rec        = totals["REC"] ?? 0;
+    r.recTargets = totals["TGTS"] ?? 0;
+    r.recYds     = totals["YDS_1"] ?? 0;
+    r.recTD      = totals["TD_1"] ?? 0;
+    r.recAvg     = r.rec > 0 ? Math.round((r.recYds / r.rec) * 10) / 10 : 0;
+    r.fumblesLost = totals["LST"] ?? 0;
+  }
+
+  // WR/TE: REC TGTS YDS AVG TD LNG | CAR YDS AVG TD LNG (optional rush)
+  if ("REC" in lm && !("CAR" in lm)) {
+    r.rec        = totals["REC"] ?? 0;
+    r.recTargets = totals["TGTS"] ?? 0;
+    r.recYds     = totals["YDS_0"] ?? totals["YDS"] ?? 0;
+    r.recTD      = totals["TD_0"] ?? totals["TD"] ?? 0;
+    r.recAvg     = r.rec > 0 ? Math.round((r.recYds / r.rec) * 10) / 10 : 0;
+    r.fumblesLost = totals["LST"] ?? 0;
+  }
+
+  // K: FGM FGA FG% XPM XPA XP%
+  if ("FGM" in lm) {
+    r.fgMade  = totals["FGM"] ?? 0;
+    r.fgAtt   = totals["FGA"] ?? 0;
+    r.fgPct   = r.fgAtt > 0 ? Math.round((r.fgMade / r.fgAtt) * 1000) / 10 : 0;
+    r.xpMade  = totals["XPM"] ?? 0;
+    r.xpAtt   = totals["XPA"] ?? 0;
+  }
+
+  // DST: SACK INT FR TD
+  if ("SACK" in lm && !("CMP" in lm)) {
+    r.sacks            = totals["SACK"] ?? 0;
+    r.defInt           = totals["INT"] ?? 0;
+    r.fumblesRecovered = totals["FR"] ?? 0;
+    r.defTD            = totals["TD"] ?? 0;
+  }
+
+  return r;
+}
+
+async function fetchSeasonStats(
+  espnId: string,
+  year: number,
+  pos: string
+): Promise<SeasonStatRow | null> {
   const cacheKey = `${CACHE_PREFIX}${espnId}_${year}`;
   try {
     const cached = sessionStorage.getItem(cacheKey);
     if (cached) {
-      const { data, timestamp } = JSON.parse(cached);
-      if (Date.now() - timestamp < CACHE_TTL_MS) return data as SeasonStatRow;
+      const { ts, data } = JSON.parse(cached);
+      if (Date.now() - ts < CACHE_TTL_MS) return data;
     }
-  } catch { /* ignore */ }
+  } catch {}
 
   try {
-    const url = `${ESPN_BASE}/seasons/${year}/types/2/athletes/${espnId}/statistics`;
-    const res = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0" },
-    });
+    const res = await fetch(`${ESPN_GAMELOG}/${espnId}/gamelog?season=${year}`);
     if (!res.ok) return null;
-    const data = await res.json();
-    const splits = data?.splits ?? {};
-    const cats = (splits.categories ?? []) as Array<Record<string, unknown>>;
+    const d = await res.json();
 
-    // Get games played from general category
-    const generalCat = cats.find((c: Record<string, unknown>) => c.name === "general");
-    const generalStats = (generalCat?.stats as Array<Record<string, unknown>>) ?? [];
-    const gpStat = generalStats.find((s: Record<string, unknown>) => s.name === "gamesPlayed");
-    const gp = (gpStat?.value as number) ?? 0;
+    const labels: string[] = d.labels ?? [];
+    if (!labels.length) return null;
 
-    const extracted = extractStats(cats);
-    const row: SeasonStatRow = { season: year, gp, ...extracted };
-
-    // Calculate WRC fantasy points for this season
-    if (gp > 0) {
-      const tank01Stats = rowToTank01Stats(row);
-      const wrcPts = calcFantasyPoints(tank01Stats, pos);
-      row.wrcPts = wrcPts;
-      row.wrcPtsPerGame = gp > 0 ? Math.round((wrcPts / gp) * 10) / 10 : 0;
+    // Find regular season events (seasonTypes[1] or the one with most events)
+    const seasonTypes: Array<{ categories?: Array<{ events?: Array<{ stats?: string[] }> }> }> = d.seasonTypes ?? [];
+    let regularEvents: Array<{ stats?: string[] }> = [];
+    for (const st of seasonTypes) {
+      for (const cat of st.categories ?? []) {
+        const evs = cat.events ?? [];
+        if (evs.length > regularEvents.length) regularEvents = evs;
+      }
     }
 
-    try {
-      sessionStorage.setItem(cacheKey, JSON.stringify({ data: row, timestamp: Date.now() }));
-    } catch { /* ignore */ }
+    if (!regularEvents.length) return null;
 
+    const gp = regularEvents.length;
+    const lm = buildLabelMap(labels);
+    const totals = sumGameStats(regularEvents, Object.fromEntries(Object.entries(lm).map(([k, v]) => [k, v])));
+    const extracted = extractFromGamelog(totals, gp, labels);
+
+    // Calculate WRC fantasy points
+    const tank01Stats = {
+      Passing: { passYds: extracted.passYds ?? 0, passTD: extracted.passTD ?? 0, int: extracted.passInt ?? 0, passAtt: extracted.passAtt ?? 0, passCmp: extracted.passCmp ?? 0 },
+      Rushing: { rushYds: extracted.rushYds ?? 0, rushTD: extracted.rushTD ?? 0, carries: extracted.rushAtt ?? 0 },
+      Receiving: { recYds: extracted.recYds ?? 0, recTD: extracted.recTD ?? 0, receptions: extracted.rec ?? 0, targets: extracted.recTargets ?? 0 },
+      Kicking: { fgMade: extracted.fgMade ?? 0, fgAttempts: extracted.fgAtt ?? 0, xpMade: extracted.xpMade ?? 0 },
+      Defense: { sacks: extracted.sacks ?? 0, defensiveInterceptions: extracted.defInt ?? 0, defTD: extracted.defTD ?? 0, fumblesRecovered: extracted.fumblesRecovered ?? 0 },
+      Fumbles: { fumblesLost: extracted.fumblesLost ?? 0 },
+    };
+    const wrcPts = calcFantasyPoints(tank01Stats as Parameters<typeof calcFantasyPoints>[0], pos, true);
+    const row: SeasonStatRow = {
+      season: year,
+      gp,
+      ...extracted,
+      wrcPts: Math.round(wrcPts * 10) / 10,
+      wrcPtsPerGame: gp > 0 ? Math.round((wrcPts / gp) * 10) / 10 : 0,
+    };
+
+    try { sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data: row })); } catch {}
     return row;
-  } catch {
+  } catch (e) {
+    console.error(`ESPN gamelog fetch failed for ${espnId} ${year}:`, e);
     return null;
   }
 }
 
-export function useESPNSeasonStats(espnId: string | null | undefined, pos = ""): UseESPNSeasonStatsResult {
+export function useESPNSeasonStats(
+  espnId: string | null | undefined,
+  pos: string
+): UseESPNSeasonStatsResult {
   const [seasons, setSeasons] = useState<SeasonStatRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!espnId) return;
-
-    let cancelled = false;
     setLoading(true);
     setError(null);
 
-    const currentYear = new Date().getFullYear();
-    // Fetch last 5 seasons (excluding current year since season hasn't started)
-    const years = [currentYear - 1, currentYear - 2, currentYear - 3, currentYear - 4, currentYear - 5];
-
-    Promise.all(years.map((y) => fetchSeasonStats(espnId, y, pos))).then((results) => {
-      if (cancelled) return;
-      const valid = results.filter((r): r is SeasonStatRow => r !== null && r.gp > 0);
-      setSeasons(valid);
-      setLoading(false);
-    }).catch(() => {
-      if (!cancelled) {
-        setError("Failed to load season stats");
+    const years = [2025, 2024, 2023, 2022, 2021, 2020];
+    Promise.all(years.map(yr => fetchSeasonStats(espnId, yr, pos)))
+      .then(results => {
+        const valid = results.filter((r): r is SeasonStatRow => r !== null);
+        setSeasons(valid.sort((a, b) => b.season - a.season));
         setLoading(false);
-      }
-    });
-
-    return () => { cancelled = true; };
+      })
+      .catch(e => {
+        setError(String(e));
+        setLoading(false);
+      });
   }, [espnId, pos]);
 
   return { seasons, loading, error };

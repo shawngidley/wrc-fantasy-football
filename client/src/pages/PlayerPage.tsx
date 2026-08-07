@@ -55,7 +55,7 @@ type OwnershipResult = {
   round: number | null;
 } | null;
 
-function usePlayerOwnership(playerName: string | null): { ownership: OwnershipResult; ownerLoading: boolean } {
+  function usePlayerOwnership(playerName: string | null): { ownership: OwnershipResult; ownerLoading: boolean } {
   const [ownership, setOwnership] = useState<OwnershipResult>(null);
   const [ownerLoading, setOwnerLoading] = useState(true);
 
@@ -64,18 +64,19 @@ function usePlayerOwnership(playerName: string | null): { ownership: OwnershipRe
     setOwnerLoading(true);
     supabase
       .from("players")
-      .select("team_id, acquisition, round, teams(team_name, owner)")
+      .select("team_id, acquisition, round, teams(name, owner)")
       .ilike("name", playerName)
       .limit(1)
-      .single()
-      .then(({ data }) => {
-        if (data && data.team_id) {
-          const t = Array.isArray(data.teams) ? data.teams[0] as { team_name: string; owner: string } | undefined : data.teams as { team_name: string; owner: string } | null;
+      .then(({ data, error }) => {
+        if (error) { console.error("ownership query error:", error); setOwnerLoading(false); return; }
+        const row = data?.[0];
+        if (row && row.team_id) {
+          const t = Array.isArray(row.teams) ? row.teams[0] as { name: string; owner: string } | undefined : row.teams as { name: string; owner: string } | null;
           setOwnership({
-            teamName: t?.team_name ?? data.team_id,
+            teamName: t?.name ?? row.team_id,
             owner: t?.owner ?? "",
-            acquisition: data.acquisition ?? "Draft",
-            round: data.round ?? null,
+            acquisition: row.acquisition ?? "Draft",
+            round: row.round ?? null,
           });
         } else {
           setOwnership(null);
