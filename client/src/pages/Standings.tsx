@@ -249,7 +249,7 @@ function InjuryReport({ ownerKey }: { ownerKey: string }) {
         if (seen.has(a.headline)) continue;
         seen.add(a.headline);
         // Find pos/team from myPlayers if available
-        const myP = myPlayers.find(p => p.name.toLowerCase() === playerName.toLowerCase() || playerName.toLowerCase().includes(p.name.split(" ").slice(-1)[0].toLowerCase()));
+        const myP = myPlayers.find(p => p.name.toLowerCase() === playerName.toLowerCase());
         found.push({
           playerName,
           pos: myP?.pos ?? "",
@@ -276,7 +276,7 @@ function InjuryReport({ ownerKey }: { ownerKey: string }) {
   // Filter to my team if toggle is on
   const myPlayerNames = new Set(myPlayers.map(p => p.name.toLowerCase()));
   const displayed = myTeamOnly
-    ? items.filter(it => myPlayerNames.has(it.playerName.toLowerCase()) || myPlayers.some(p => it.playerName.toLowerCase().includes(p.name.split(" ").slice(-1)[0].toLowerCase())))
+    ? items.filter(it => myPlayerNames.has(it.playerName.toLowerCase()))
     : items;
 
   return (
@@ -352,7 +352,8 @@ function MyTeamNews({ ownerKey }: { ownerKey: string }) {
         seen.add(a.headline);
         const myP = myPlayers.find(p =>
           p.name.toLowerCase() === playerName.toLowerCase() ||
-          playerName.toLowerCase().includes(p.name.split(" ").slice(-1)[0].toLowerCase())
+          // Exact full-name match only — no last-name fallback to avoid false positives
+          false
         );
         found.push({
           playerName,
@@ -379,7 +380,7 @@ function MyTeamNews({ ownerKey }: { ownerKey: string }) {
   // Filter to my team if toggle is on
   const myPlayerNames = new Set(myPlayers.map(p => p.name.toLowerCase()));
   const displayed = myTeamOnly
-    ? items.filter(it => myPlayerNames.has(it.playerName.toLowerCase()) || myPlayers.some(p => it.playerName.toLowerCase().includes(p.name.split(" ").slice(-1)[0].toLowerCase())))
+    ? items.filter(it => myPlayerNames.has(it.playerName.toLowerCase()))
     : items;
 
   return (
