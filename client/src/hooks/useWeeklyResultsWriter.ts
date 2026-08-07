@@ -377,6 +377,52 @@ export function useWeeklyResultsWriter(
         ]);
       }
 
+      // 9. Write Game of the Week — highest-scoring team this week
+      const TEAM_ID_TO_OWNER: Record<string, string> = Object.fromEntries(
+        Object.entries(OWNER_TO_TEAM_ID).map(([owner, id]) => [id, owner])
+      );
+      const OWNER_TO_TEAM_NAME: Record<string, string> = {
+        "Jonas":    "The Super Snuffleupagus",
+        "David R.": "The Boys of Fall",
+        "Jason":    "Heiden's Hardtimes",
+        "Jamie":    "The Four Horsemen",
+        "Keith":    "HamSandwich",
+        "Dan":      "Larry \"Bud\" Melman123",
+        "Scott N.": "Millertime",
+        "Bill":     "Billy Goats Gruff",
+        "Scott M.": "Xavier Musketeers",
+        "David S.": "Legends",
+        "Shawn":    "Vipers",
+        "Greg":     "Larry \"Bud\" Melman123",
+      };
+      // Find the team with the highest score this week
+      const gowEntry = Object.entries(teamScores).reduce<{ teamId: string; score: number } | null>(
+        (best, [teamId, score]) => (!best || score > best.score) ? { teamId, score } : best,
+        null
+      );
+      if (gowEntry) {
+        const gowOwner = TEAM_ID_TO_OWNER[gowEntry.teamId] ?? gowEntry.teamId;
+        const gowTeamName = OWNER_TO_TEAM_NAME[gowOwner] ?? gowOwner;
+        // Find their opponent this week
+        const gowMatchup = weekSchedule.matchups.find(
+          ([h, a]) => OWNER_TO_TEAM_ID[h] === gowEntry.teamId || OWNER_TO_TEAM_ID[a] === gowEntry.teamId
+        );
+        const gowOppOwner = gowMatchup
+          ? (OWNER_TO_TEAM_ID[gowMatchup[0]] === gowEntry.teamId ? gowMatchup[1] : gowMatchup[0])
+          : "";
+        const gowOppTeamName = OWNER_TO_TEAM_NAME[gowOppOwner] ?? gowOppOwner;
+        const gowOppScore = teamScores[OWNER_TO_TEAM_ID[gowOppOwner]] ?? 0;
+        await supabase.from("gow_history").upsert({
+          week: w,
+          season: s,
+          winner: gowOwner,
+          team: gowTeamName,
+          opponent: gowOppTeamName,
+          score: `${gowEntry.score.toFixed(1)} – ${gowOppScore.toFixed(1)}`,
+          amount: 30,
+        }, { onConflict: "week,season" });
+      }
+
       sessionStorage.setItem(cacheKey, "1");
       setAutoWriteStatus("done");
     } catch (err) {
