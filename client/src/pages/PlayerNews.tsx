@@ -73,7 +73,10 @@ export default function PlayerNews() {
 
         const myP = myPlayers.find(p =>
           p.name.toLowerCase() === playerName.toLowerCase() ||
-          playerName.toLowerCase().includes(p.name.split(" ").slice(-1)[0].toLowerCase())
+          // Allow first-initial + last name match (e.g. ESPN "J. Williams" → "Javonte Williams")
+          // but require at least 5 chars to avoid "Williams" matching "C. Williams"
+          (p.name.split(" ").slice(-1)[0].length >= 5 &&
+           playerName.toLowerCase() === `${p.name[0].toLowerCase()}. ${p.name.split(" ").slice(-1)[0].toLowerCase()}`)
         );
 
         const injuryKeywords = ["injured","injury","questionable","doubtful","out","ir","placed on","ruled out","limited","missed","surgery","knee","hamstring","ankle","shoulder","concussion","rib","back","wrist","hip","illness"];
@@ -110,7 +113,13 @@ export default function PlayerNews() {
   const displayed = myTeamOnly && franchise
     ? items.filter(it =>
         myPlayerNames.has(it.playerName.toLowerCase()) ||
-        myPlayers.some(p => it.playerName.toLowerCase().includes(p.name.split(" ").slice(-1)[0].toLowerCase()))
+        myPlayers.some(p => {
+          const espnName = it.playerName.toLowerCase();
+          const rosterName = p.name.toLowerCase();
+          // Exact full-name match only — no last-name fallback to avoid false positives
+          // e.g. "Caleb Williams" should NOT match "Javonte Williams"
+          return espnName === rosterName;
+        })
       )
     : items;
 
