@@ -1,982 +1,40 @@
 /**
- * WRC Fantasy Football - Players Page
- * Tab 1: Player Browser — search/filter, season stats, FAAB bid panel,
- *         inline injury news, watchlist stars
- * Tab 2: Injury News feed
+ * WRC Fantasy Football — News Page
+ *
+ * Clean ESPN NFL news feed for all fantasy-relevant players.
+ * No player browser, no search filters, no FAAB balance.
+ * Just the news list with a My Team toggle.
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import {
-  Search, AlertTriangle, Activity, Users, Newspaper,
-  Star, ChevronDown, ChevronUp, DollarSign, Check, X,
-  ArrowLeftRight, ClipboardList, Trash2,
-} from "lucide-react";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
-import { toast } from "sonner";
-import { supabase } from "@/lib/supabase";
-import { NFL_PLAYERS_2026 } from "@/lib/nflPlayers2026";
 import { PlayerNewsRow, type PlayerNewsItem } from "@/components/PlayerNewsRow";
-import { getCurrentWeek } from "@/lib/scheduleData2026";
+import { supabase } from "@/lib/supabase";
+import { RefreshCw, Newspaper } from "lucide-react";
 
-// ── Types ─────────────────────────────────────────────────────────────────────
-interface SeasonStats {
-  gp: number;
-  passYds?: number; passTd?: number; passInt?: number;
-  rushYds?: number; rushTd?: number; rushAtt?: number;
-  rec?: number; recYds?: number; recTd?: number;
-  fgm?: number; fga?: number; xpm?: number;
-  sacks?: number; defInt?: number; defTd?: number; pa?: number;
-}
-
-interface NFLPlayer {
-  id: string;
-  name: string;
-  pos: "QB" | "RB" | "WR" | "TE" | "K" | "DST";
-  nflTeam: string;
-  status: string;
-  owned: boolean;
-  ownerTeam?: string;
-  seasonFpts: number;
-  byeWeek: number;
-  seasonStats: SeasonStats;
-  injuryNote?: string;
-}
-
-interface PendingClaim {
-  playerId: string;
-  playerName: string;
-  playerPos: string;
-  bidAmount: number;
-  dropPlayerId: string | null; // null = no drop
-  dropPlayerName: string | null;
-}
-
-interface TradeProposal {
-  targetPlayerId: string;
-  targetPlayerName: string;
-  targetPlayerPos: string;
-  targetTeam: string;
-  givePlayerIds: string[];
-  giveFaab: string;
-  note: string;
-}
-
-// ── Mock player pool ───────────────────────────────────────────────────────────
-const PLAYERS: NFLPlayer[] = [
-  { id: "p1",  name: "Josh Allen",          pos: "QB",  nflTeam: "BUF", status: "Active", owned: true,  ownerTeam: "Vipers",  byeWeek: 12, seasonFpts: 412.8, seasonStats: { gp: 13, passYds: 3842, passTd: 32, passInt: 6,  rushYds: 524, rushTd: 7 } },
-  { id: "p2",  name: "Lamar Jackson",        pos: "QB",  nflTeam: "BAL", status: "Active", owned: true,  ownerTeam: "Vipers",  byeWeek: 14, seasonFpts: 448.2, seasonStats: { gp: 13, passYds: 3124, passTd: 28, passInt: 4,  rushYds: 812, rushTd: 11 } },
-  { id: "p3",  name: "Patrick Mahomes",      pos: "QB",  nflTeam: "KC",  status: "Active", owned: true,  ownerTeam: "The Boys of Fall",   byeWeek: 6,  seasonFpts: 388.4, seasonStats: { gp: 13, passYds: 3612, passTd: 30, passInt: 8,  rushYds: 248, rushTd: 3 } },
-  { id: "p4",  name: "Jalen Hurts",          pos: "QB",  nflTeam: "PHI", status: "Active", owned: true,  ownerTeam: "Millertime",  byeWeek: 5,  seasonFpts: 362.6, seasonStats: { gp: 13, passYds: 2984, passTd: 24, passInt: 5,  rushYds: 612, rushTd: 10 } },
-  { id: "p5",  name: "Dak Prescott",         pos: "QB",  nflTeam: "DAL", status: "Active", owned: true,  ownerTeam: "The Boys of Fall",   byeWeek: 7,  seasonFpts: 298.4, seasonStats: { gp: 13, passYds: 3248, passTd: 22, passInt: 9,  rushYds: 148, rushTd: 2 } },
-  { id: "p6",  name: "Jordan Love",          pos: "QB",  nflTeam: "GB",  status: "Active", owned: false,                            byeWeek: 5,  seasonFpts: 274.2, seasonStats: { gp: 12, passYds: 2842, passTd: 20, passInt: 7,  rushYds: 124, rushTd: 2 } },
-  { id: "p7",  name: "Sam Darnold",          pos: "QB",  nflTeam: "MIN", status: "Active", owned: false,                            byeWeek: 6,  seasonFpts: 248.6, seasonStats: { gp: 13, passYds: 2648, passTd: 18, passInt: 8,  rushYds: 98,  rushTd: 1 } },
-  { id: "p8",  name: "Geno Smith",           pos: "QB",  nflTeam: "SEA", status: "Active", owned: false,                            byeWeek: 10, seasonFpts: 224.8, seasonStats: { gp: 13, passYds: 2512, passTd: 16, passInt: 6,  rushYds: 78,  rushTd: 1 } },
-  { id: "p9",  name: "Derrick Henry",        pos: "RB",  nflTeam: "BAL", status: "Active", owned: true,  ownerTeam: "Vipers",  byeWeek: 14, seasonFpts: 298.4, seasonStats: { gp: 13, rushYds: 1512, rushTd: 14, rushAtt: 248, rec: 18, recYds: 112 } },
-  { id: "p10", name: "Saquon Barkley",       pos: "RB",  nflTeam: "PHI", status: "Active", owned: true,  ownerTeam: "The Boys of Fall",   byeWeek: 5,  seasonFpts: 276.2, seasonStats: { gp: 13, rushYds: 1284, rushTd: 11, rushAtt: 218, rec: 34, recYds: 248, recTd: 2 } },
-  { id: "p11", name: "Jahmyr Gibbs",         pos: "RB",  nflTeam: "DET", status: "Active", owned: true,  ownerTeam: "Vipers",  byeWeek: 5,  seasonFpts: 242.6, seasonStats: { gp: 13, rushYds: 924,  rushTd: 9,  rushAtt: 164, rec: 42, recYds: 348, recTd: 3 } },
-  { id: "p12", name: "Christian McCaffrey",  pos: "RB",  nflTeam: "SF",  status: "BYE",    owned: true,  ownerTeam: "The Boys of Fall",   byeWeek: 9,  seasonFpts: 188.2, seasonStats: { gp: 10, rushYds: 748,  rushTd: 8,  rushAtt: 148, rec: 52, recYds: 384, recTd: 4 } },
-  { id: "p13", name: "Bijan Robinson",       pos: "RB",  nflTeam: "ATL", status: "Active", owned: true,  ownerTeam: "The Super Snuffleupagus",  byeWeek: 12, seasonFpts: 224.8, seasonStats: { gp: 13, rushYds: 1048, rushTd: 9,  rushAtt: 188, rec: 38, recYds: 248, recTd: 2 } },
-  { id: "p14", name: "De'Von Achane",        pos: "RB",  nflTeam: "MIA", status: "Q",      owned: true,  ownerTeam: "The Super Snuffleupagus",  byeWeek: 6,  seasonFpts: 198.4, seasonStats: { gp: 11, rushYds: 812,  rushTd: 7,  rushAtt: 142, rec: 44, recYds: 312, recTd: 3 }, injuryNote: "Questionable with ankle — limited practice Thursday" },
-  { id: "p15", name: "Tony Pollard",         pos: "RB",  nflTeam: "TEN", status: "Active", owned: false,                            byeWeek: 5,  seasonFpts: 138.6, seasonStats: { gp: 13, rushYds: 624,  rushTd: 5,  rushAtt: 148, rec: 22, recYds: 148 } },
-  { id: "p16", name: "Gus Edwards",          pos: "RB",  nflTeam: "LAC", status: "Active", owned: false,                            byeWeek: 5,  seasonFpts: 88.4,  seasonStats: { gp: 12, rushYds: 448,  rushTd: 4,  rushAtt: 112 } },
-  { id: "p17", name: "Tyjae Spears",         pos: "RB",  nflTeam: "TEN", status: "Active", owned: false,                            byeWeek: 5,  seasonFpts: 82.4,  seasonStats: { gp: 12, rushYds: 348,  rushTd: 3,  rushAtt: 88,  rec: 18, recYds: 112 } },
-  { id: "p18", name: "CeeDee Lamb",          pos: "WR",  nflTeam: "DAL", status: "Active", owned: true,  ownerTeam: "The Boys of Fall",   byeWeek: 7,  seasonFpts: 312.4, seasonStats: { gp: 13, rec: 94, recYds: 1348, recTd: 11 } },
-  { id: "p19", name: "Tyreek Hill",          pos: "WR",  nflTeam: "MIA", status: "OUT",    owned: true,  ownerTeam: "The Boys of Fall",   byeWeek: 6,  seasonFpts: 218.6, seasonStats: { gp: 13, rec: 72, recYds: 1024, recTd: 6 },  injuryNote: "Ruled out Sunday with ankle injury — missed full practice" },
-  { id: "p20", name: "Justin Jefferson",     pos: "WR",  nflTeam: "MIN", status: "Q",      owned: true,  ownerTeam: "Millertime",  byeWeek: 6,  seasonFpts: 248.6, seasonStats: { gp: 12, rec: 78, recYds: 1124, recTd: 8 },  injuryNote: "Questionable with hamstring — limited practice Wednesday" },
-  { id: "p21", name: "Ja'Marr Chase",        pos: "WR",  nflTeam: "CIN", status: "Active", owned: true,  ownerTeam: "Vipers",  byeWeek: 7,  seasonFpts: 286.4, seasonStats: { gp: 13, rec: 88, recYds: 1248, recTd: 10 } },
-  { id: "p22", name: "Amon-Ra St. Brown",    pos: "WR",  nflTeam: "DET", status: "Active", owned: true,  ownerTeam: "Millertime",  byeWeek: 5,  seasonFpts: 224.8, seasonStats: { gp: 13, rec: 84, recYds: 1012, recTd: 7 } },
-  { id: "p23", name: "Jaylen Waddle",        pos: "WR",  nflTeam: "MIA", status: "Active", owned: false,                            byeWeek: 6,  seasonFpts: 162.4, seasonStats: { gp: 12, rec: 54, recYds: 724, recTd: 4 } },
-  { id: "p24", name: "Elijah Moore",         pos: "WR",  nflTeam: "CLE", status: "Active", owned: false,                            byeWeek: 5,  seasonFpts: 96.2,  seasonStats: { gp: 13, rec: 38, recYds: 512, recTd: 3 } },
-  { id: "p25", name: "Darnell Mooney",       pos: "WR",  nflTeam: "ATL", status: "Active", owned: false,                            byeWeek: 12, seasonFpts: 88.4,  seasonStats: { gp: 13, rec: 42, recYds: 488, recTd: 2 } },
-  { id: "p26", name: "Travis Kelce",         pos: "TE",  nflTeam: "KC",  status: "Q",      owned: true,  ownerTeam: "The Boys of Fall",   byeWeek: 6,  seasonFpts: 198.4, seasonStats: { gp: 12, rec: 58, recYds: 648, recTd: 6 },  injuryNote: "Questionable with knee — limited practice Thursday" },
-  { id: "p27", name: "Sam LaPorta",          pos: "TE",  nflTeam: "DET", status: "Q",      owned: true,  ownerTeam: "Vipers",  byeWeek: 5,  seasonFpts: 184.8, seasonStats: { gp: 13, rec: 58, recYds: 624, recTd: 7 },  injuryNote: "Questionable with shoulder — limited Wednesday" },
-  { id: "p28", name: "Mark Andrews",         pos: "TE",  nflTeam: "BAL", status: "Active", owned: true,  ownerTeam: "The Super Snuffleupagus",  byeWeek: 14, seasonFpts: 172.4, seasonStats: { gp: 13, rec: 52, recYds: 572, recTd: 6 } },
-  { id: "p29", name: "Dallas Goedert",       pos: "TE",  nflTeam: "PHI", status: "Active", owned: true,  ownerTeam: "Millertime",  byeWeek: 5,  seasonFpts: 148.6, seasonStats: { gp: 13, rec: 48, recYds: 524, recTd: 5 } },
-  { id: "p30", name: "Kyle Pitts",           pos: "TE",  nflTeam: "ATL", status: "Q",      owned: false,                            byeWeek: 12, seasonFpts: 124.8, seasonStats: { gp: 11, rec: 42, recYds: 548, recTd: 3 }, injuryNote: "Questionable with hamstring — limited all week" },
-  { id: "p31", name: "Evan Engram",          pos: "TE",  nflTeam: "JAX", status: "Active", owned: false,                            byeWeek: 13, seasonFpts: 112.4, seasonStats: { gp: 13, rec: 44, recYds: 484, recTd: 3 } },
-  { id: "p32", name: "Harrison Butker",      pos: "K",   nflTeam: "KC",  status: "Active", owned: true,  ownerTeam: "Vipers",  byeWeek: 6,  seasonFpts: 142.0, seasonStats: { gp: 13, fgm: 28, fga: 31, xpm: 42 } },
-  { id: "p33", name: "Evan McPherson",       pos: "K",   nflTeam: "CIN", status: "Active", owned: false,                            byeWeek: 7,  seasonFpts: 112.0, seasonStats: { gp: 13, fgm: 22, fga: 26, xpm: 34 } },
-  { id: "p34", name: "Brandon Aubrey",       pos: "K",   nflTeam: "DAL", status: "Active", owned: false,                            byeWeek: 7,  seasonFpts: 128.4, seasonStats: { gp: 13, fgm: 26, fga: 28, xpm: 38 } },
-  { id: "p35", name: "San Francisco 49ers",  pos: "DST", nflTeam: "SF",  status: "Active", owned: true,  ownerTeam: "Vipers",  byeWeek: 9,  seasonFpts: 168.4, seasonStats: { gp: 13, sacks: 42, defInt: 14, defTd: 4, pa: 18 } },
-  { id: "p36", name: "Pittsburgh Steelers",  pos: "DST", nflTeam: "PIT", status: "Active", owned: false,                            byeWeek: 9,  seasonFpts: 134.6, seasonStats: { gp: 13, sacks: 34, defInt: 10, defTd: 2, pa: 22 } },
-  { id: "p37", name: "Dallas Cowboys",       pos: "DST", nflTeam: "DAL", status: "Active", owned: true,  ownerTeam: "The Boys of Fall",   byeWeek: 7,  seasonFpts: 148.2, seasonStats: { gp: 13, sacks: 38, defInt: 12, defTd: 3, pa: 20 } },
-];
-
-// ── Stat chip builder ─────────────────────────────────────────────────────────
-function buildStatChips(p: NFLPlayer): { label: string; value: string }[] {
-  const s = p.seasonStats;
-  const chips: { label: string; value: string }[] = [];
-  if (p.pos === "QB") {
-    if (s.passYds) chips.push({ label: "PYDS", value: s.passYds.toLocaleString() });
-    if (s.passTd)  chips.push({ label: "PTD",  value: String(s.passTd) });
-    if (s.passInt) chips.push({ label: "INT",  value: String(s.passInt) });
-    if (s.rushYds) chips.push({ label: "RYDS", value: String(s.rushYds) });
-    if (s.rushTd)  chips.push({ label: "RTD",  value: String(s.rushTd) });
-  } else if (p.pos === "RB") {
-    if (s.rushYds) chips.push({ label: "RYDS", value: s.rushYds.toLocaleString() });
-    if (s.rushTd)  chips.push({ label: "RTD",  value: String(s.rushTd) });
-    if (s.rec)     chips.push({ label: "REC",  value: String(s.rec) });
-    if (s.recYds)  chips.push({ label: "RCYDS",value: String(s.recYds) });
-    if (s.recTd)   chips.push({ label: "RCTD", value: String(s.recTd) });
-  } else if (p.pos === "WR" || p.pos === "TE") {
-    if (s.rec)     chips.push({ label: "REC",  value: String(s.rec) });
-    if (s.recYds)  chips.push({ label: "YDS",  value: s.recYds!.toLocaleString() });
-    if (s.recTd)   chips.push({ label: "TD",   value: String(s.recTd) });
-  } else if (p.pos === "K") {
-    if (s.fgm !== undefined && s.fga !== undefined)
-      chips.push({ label: "FG", value: `${s.fgm}/${s.fga}` });
-    if (s.xpm) chips.push({ label: "XP", value: String(s.xpm) });
-  } else if (p.pos === "DST") {
-    if (s.sacks)  chips.push({ label: "SACK", value: String(s.sacks) });
-    if (s.defInt) chips.push({ label: "INT",  value: String(s.defInt) });
-    if (s.defTd)  chips.push({ label: "TD",   value: String(s.defTd) });
-    if (s.pa)     chips.push({ label: "PA/G", value: String(s.pa) });
-  }
-  return chips;
-}
-
-const POS_COLORS: Record<string, string> = {
-  QB: "oklch(0.42 0.18 260)", RB: "oklch(0.38 0.15 150)",
-  WR: "oklch(0.42 0.18 220)", TE: "oklch(0.55 0.16 85)",
-  K:  "oklch(0.50 0.04 150)", DST:"oklch(0.45 0.18 25)",
-};
-const STATUS_COLORS: Record<string, string> = {
-  Active: "oklch(0.42 0.15 150)", Q: "oklch(0.65 0.14 85)",
-  D: "oklch(0.55 0.22 25)", OUT: "oklch(0.5 0.22 25)", BYE: "oklch(0.50 0.02 150)",
-};
-
-// ── ESPN News types ───────────────────────────────────────────────────────────
+// ── ESPN types ────────────────────────────────────────────────────────────────
 interface ESPNArticle {
-  id: string;
   headline: string;
-  description: string;
+  description?: string;
   published: string;
-  byline?: string;
-  categories: { description: string }[];
-  images: { url: string }[];
-  links: { web: { href: string } };
-  premium: boolean;
+  links?: { web?: { href?: string } };
+  categories?: { type?: string; athleteId?: number; description: string }[];
 }
 
-// ── Player Browser ────────────────────────────────────────────────────────────
-function PlayerBrowser() {
+function getAthleteId(cats?: { type?: string; athleteId?: number }[]): number | undefined {
+  return (cats ?? []).find(c => c.type === "athlete" && c.athleteId)?.athleteId;
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
+export default function PlayerNews() {
   const { franchise } = useAuth();
-  const CURRENT_WEEK = getCurrentWeek() || 1;
-  const [search, setSearch]           = useState("");
-  const [posFilter, setPosFilter]     = useState("ALL");
-  const [ownFilter, setOwnFilter]     = useState("ALL");
-  const [sortBy, setSortBy]           = useState<"fpts"|"fpg"|"name">("fpts");
-  const [watchlist, setWatchlist]     = useState<Set<string>>(new Set());
-  const [watchOnly, setWatchOnly]     = useState(false);
-  // Live player pool from Supabase + nflPlayers2026
-  const [PLAYERS, setPlayers]         = useState<NFLPlayer[]>([]);
-  const [MY_ROSTER, setMyRoster]      = useState<{ id: string; name: string; pos: string }[]>([]);
 
-  useEffect(() => {
-    // Load all owned players from Supabase with team info
-    supabase
-      .from("players")
-      .select("id, name, position, nfl_team, bye_week, acquisition, draft_round, team_id, teams(name)")
-      .then(({ data: ownedRows }) => {
-        const ownedMap = new Map<string, { teamName: string; teamId: string; acquisition: string; round: number | null }>();
-        (ownedRows ?? []).forEach((r: { id: string; name: string; position: string; nfl_team: string; bye_week: number; acquisition: string; draft_round: number | null; team_id: string; teams: unknown }) => {
-          if (r.team_id) {
-            ownedMap.set(r.name.toLowerCase(), {
-              teamName: (r.teams as { name: string } | null)?.name ?? r.team_id,
-              teamId: r.team_id,
-              acquisition: r.acquisition ?? "Draft",
-              round: r.draft_round ?? null,
-            });
-          }
-        });
-
-        // Build full player pool from nflPlayers2026 + ownership data
-        const pool: NFLPlayer[] = NFL_PLAYERS_2026.map(np => {
-          const owned = ownedMap.get(np.name.toLowerCase());
-          return {
-            id: np.name.toLowerCase().replace(/\s+/g, "-"),
-            name: np.name,
-            pos: np.pos as NFLPlayer["pos"],
-            nflTeam: np.nflTeam,
-            status: "Active",
-            owned: !!owned,
-            ownerTeam: owned?.teamName,
-            seasonFpts: 0,
-            byeWeek: np.bye ?? 0,
-            seasonStats: { gp: 0 },
-          };
-        });
-        setPlayers(pool);
-
-        // My roster = players owned by my team
-        if (franchise?.id) {
-          const myRoster = (ownedRows ?? [])
-            .filter((r: { team_id: string }) => r.team_id === franchise.id)
-            .map((r: { id: string; name: string; position: string }) => ({ id: r.id, name: r.name, pos: r.position }));
-          setMyRoster(myRoster);
-        }
-      });
-  }, [franchise?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  // bidPlayerId: which FA row has the bid panel open
-  const [bidPlayerId, setBidPlayerId] = useState<string | null>(null);
-  const [bidAmount, setBidAmount]     = useState("");
-  // injuryExpanded: which rows have the injury note expanded
-  const [injuryExpanded, setInjuryExpanded] = useState<Set<string>>(new Set());
-  // pending claims list
-  const [pendingClaims, setPendingClaims] = useState<PendingClaim[]>([]);
-  const myFaab = franchise?.faab ?? 1000;
-  const myTeamName = franchise?.team_name ?? "My Team";
-
-  // Load pending claims from Supabase on mount
-  useEffect(() => {
-    if (!franchise?.id) return;
-    supabase.from("faab_bids").select("id, player_id, drop_player_id, faab_amount, note").eq("team_id", franchise.id).eq("status", "pending")
-      .then(({ data }) => {
-        if (!data) return;
-        setPendingClaims(data.map((r: { id: string; player_id: string; drop_player_id: string | null; faab_amount: number; note: string }) => ({
-          playerId: r.player_id,
-          playerName: r.player_id,
-          playerPos: "",
-          bidAmount: r.faab_amount,
-          dropPlayerId: r.drop_player_id,
-          dropPlayerName: r.drop_player_id,
-        })));
-      });
-  }, [franchise?.id]);
-  // drop selection per bid
-  const [bidDropId, setBidDropId] = useState<string>("");
-  // per-player news modal
-  const [newsPlayer, setNewsPlayer] = useState<NFLPlayer | null>(null);
-  const [newsArticles, setNewsArticles] = useState<ESPNArticle[]>([]);
-  const [newsLoading, setNewsLoading] = useState(false);
-
-  const openPlayerNews = async (player: NFLPlayer) => {
-    setNewsPlayer(player);
-    setNewsArticles([]);
-    setNewsLoading(true);
-    try {
-      // Search ESPN for this player's name
-      const query = encodeURIComponent(player.name);
-      const res = await fetch(
-        `https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=8&q=${query}`
-      );
-      const json = await res.json();
-      const all: ESPNArticle[] = json.articles ?? [];
-      // Filter to articles that mention the player name
-      const filtered = all.filter(a =>
-        a.headline.toLowerCase().includes(player.name.split(" ")[1]?.toLowerCase() ?? player.name.toLowerCase())
-      );
-      setNewsArticles(filtered.length > 0 ? filtered : all.slice(0, 5));
-    } catch {
-      setNewsArticles([]);
-    } finally {
-      setNewsLoading(false);
-    }
-  };
-
-  // trade modal
-  const [tradeTarget, setTradeTarget] = useState<NFLPlayer | null>(null);
-  const [tradeGiveIds, setTradeGiveIds] = useState<string[]>([]);
-  const [tradeFaab, setTradeFaab] = useState("");
-  const [tradeNote, setTradeNote] = useState("");
-
-  const toggleWatch = (id: string) => {
-    setWatchlist(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
-
-  const toggleInjury = (id: string) => {
-    setInjuryExpanded(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
-
-  const openBid = (id: string) => {
-    setBidPlayerId(id);
-    setBidAmount("");
-    setBidDropId("");
-  };
-
-  const cancelBid = () => {
-    setBidPlayerId(null);
-    setBidAmount("");
-    setBidDropId("");
-  };
-
-  const submitBid = (player: NFLPlayer) => {
-    const amt = parseInt(bidAmount, 10);
-    if (isNaN(amt) || amt < 0) {
-      toast.error("Enter a valid FAAB amount (0 or more)");
-      return;
-    }
-    if (amt > myFaab) {
-      toast.error(`Bid exceeds your FAAB balance ($${myFaab})`);
-      return;
-    }
-    const dropPlayer = bidDropId ? MY_ROSTER.find(r => r.id === bidDropId) : null;
-    const claim: PendingClaim = {
-      playerId: player.id,
-      playerName: player.name,
-      playerPos: player.pos,
-      bidAmount: amt,
-      dropPlayerId: dropPlayer?.id ?? null,
-      dropPlayerName: dropPlayer?.name ?? null,
-    };
-    // Save to Supabase
-    if (franchise?.id) {
-      supabase.from("faab_bids").upsert({
-        team_id: franchise.id,
-        player_id: player.id,
-        drop_player_id: dropPlayer?.id ?? null,
-        faab_amount: amt,
-        note: dropPlayer ? `Drop: ${dropPlayer.name}` : "",
-        status: "pending",
-      }, { onConflict: "team_id,player_id" }).then(({ error }) => {
-        if (error) toast.error("Failed to save bid: " + error.message);
-      });
-    }
-    setPendingClaims(prev => [...prev.filter(c => c.playerId !== player.id), claim]);
-    setBidPlayerId(null);
-    setBidAmount("");
-    setBidDropId("");
-    const dropMsg = dropPlayer ? ` · Drop: ${dropPlayer.name}` : " · No drop";
-    toast.success(`Waiver claim submitted: ${player.name} — $${amt} FAAB${dropMsg}`);
-  };
-
-  const cancelClaim = async (playerId: string) => {
-    if (franchise?.id) {
-      await supabase.from("faab_bids").delete().eq("team_id", franchise.id).eq("player_id", playerId);
-    }
-    setPendingClaims(prev => prev.filter(c => c.playerId !== playerId));
-    toast.info("Waiver claim cancelled");
-  };
-
-  const openTrade = (player: NFLPlayer) => {
-    setTradeTarget(player);
-    setTradeGiveIds([]);
-    setTradeFaab("");
-    setTradeNote("");
-  };
-
-  const submitTrade = async () => {
-    if (!tradeTarget) return;
-    if (tradeGiveIds.length === 0 && !tradeFaab) {
-      toast.error("Add at least one player or FAAB to your offer");
-      return;
-    }
-    const giveNames = tradeGiveIds.map(id => MY_ROSTER.find(r => r.id === id)?.name).filter(Boolean).join(", ");
-    const faabPart = tradeFaab ? ` + $${tradeFaab} FAAB` : "";
-    // Save to Supabase
-    if (franchise?.id) {
-      const { error } = await supabase.from("trade_proposals").insert({
-        from_team_id: franchise.id,
-        to_team_id: tradeTarget.ownerTeam ?? "unknown",
-        give_player_ids: tradeGiveIds,
-        receive_player_ids: [tradeTarget.id],
-        faab_amount: parseInt(tradeFaab || "0", 10),
-        note: tradeNote,
-        status: "pending",
-      });
-      if (error) { toast.error("Failed to send trade: " + error.message); return; }
-    }
-    toast.success(`Trade proposal sent to ${tradeTarget.ownerTeam}: ${giveNames}${faabPart} → ${tradeTarget.name}`);
-    setTradeTarget(null);
-  };
-
-  const hasPendingClaim = (id: string) => pendingClaims.some(c => c.playerId === id);
-
-  // Trade modal helpers
-  const toggleGivePlayer = (id: string) => {
-    setTradeGiveIds(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    );
-  };
-
-  const filtered = PLAYERS
-    .filter(p => {
-      const q = search.toLowerCase();
-      const matchSearch = p.name.toLowerCase().includes(q) || p.nflTeam.toLowerCase().includes(q);
-      const matchPos  = posFilter === "ALL" || p.pos === posFilter;
-      const matchOwn  = ownFilter === "ALL" || (ownFilter === "FA" && !p.owned) || (ownFilter === "OWNED" && p.owned);
-      const matchWatch = !watchOnly || watchlist.has(p.id);
-      return matchSearch && matchPos && matchOwn && matchWatch;
-    })
-    .sort((a, b) => {
-      if (sortBy === "fpts") return b.seasonFpts - a.seasonFpts;
-      if (sortBy === "fpg") {
-        const fpgA = a.seasonStats.gp > 0 ? a.seasonFpts / a.seasonStats.gp : 0;
-        const fpgB = b.seasonStats.gp > 0 ? b.seasonFpts / b.seasonStats.gp : 0;
-        return fpgB - fpgA;
-      }
-      return a.name.localeCompare(b.name);
-    });
-
-  return (
-    <div>
-      {/* Filter bar */}
-      <div className="wrc-card" style={{ marginBottom: "1.25rem" }}>
-        <div style={{ padding: "0.875rem 1.25rem", display: "flex", gap: "0.6rem", flexWrap: "wrap" as const, alignItems: "center" }}>
-          <div style={{ position: "relative" as const, flex: 1, minWidth: 180 }}>
-            <Search size={14} style={{ position: "absolute" as const, left: 10, top: "50%", transform: "translateY(-50%)", color: "oklch(0.55 0.04 150)" }} />
-            <input
-              value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Search players or teams…"
-              style={{ width: "100%", padding: "0.5rem 0.5rem 0.5rem 2rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 8, fontSize: "0.875rem", outline: "none", boxSizing: "border-box" as const }}
-            />
-          </div>
-          <select value={posFilter} onChange={e => setPosFilter(e.target.value)} style={{ padding: "0.5rem 0.75rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 8, fontSize: "0.875rem", background: "white", cursor: "pointer", outline: "none" }}>
-            <option value="ALL">All Positions</option>
-            {["QB","RB","WR","TE","K","DST"].map(p => <option key={p} value={p}>{p}</option>)}
-          </select>
-          <select value={ownFilter} onChange={e => setOwnFilter(e.target.value)} style={{ padding: "0.5rem 0.75rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 8, fontSize: "0.875rem", background: "white", cursor: "pointer", outline: "none" }}>
-            <option value="ALL">All Players</option>
-            <option value="FA">Free Agents</option>
-            <option value="OWNED">Rostered</option>
-          </select>
-          <select value={sortBy} onChange={e => setSortBy(e.target.value as "fpts"|"fpg"|"name")} style={{ padding: "0.5rem 0.75rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 8, fontSize: "0.875rem", background: "white", cursor: "pointer", outline: "none" }}>
-            <option value="fpts">Sort: Season FPTS</option>
-            <option value="fpg">Sort: FP/G</option>
-            <option value="name">Sort: Name</option>
-          </select>
-          {/* Watchlist toggle */}
-          <button
-            onClick={() => setWatchOnly(v => !v)}
-            style={{
-              display: "flex", alignItems: "center", gap: "0.35rem",
-              padding: "0.5rem 0.875rem", borderRadius: 8, cursor: "pointer",
-              fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700,
-              letterSpacing: "0.05em", border: "1.5px solid",
-              background: watchOnly ? "oklch(0.55 0.16 85)" : "white",
-              color:      watchOnly ? "white" : "oklch(0.55 0.16 85)",
-              borderColor: "oklch(0.55 0.16 85)",
-              transition: "all 0.15s",
-            }}
-          >
-            <Star size={13} fill={watchOnly ? "white" : "none"} />
-            {watchOnly ? "Watchlist" : "Watchlist"}
-          </button>
-        </div>
-        {/* FAAB balance */}
-        <div style={{ padding: "0 1.25rem 0.75rem", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-          <DollarSign size={13} color="oklch(0.38 0.14 85)" />
-          <span style={{ fontSize: "0.75rem", color: "oklch(0.45 0.04 150)" }}>
-            Your FAAB balance: <strong style={{ color: "oklch(0.28 0.09 150)" }}>${myFaab}</strong>
-          </span>
-          {watchlist.size > 0 && (
-            <span style={{ marginLeft: "auto", fontSize: "0.72rem", color: "oklch(0.55 0.16 85)", fontWeight: 700 }}>
-              ★ {watchlist.size} watched
-            </span>
-          )}
-        </div>
-      </div>
-
-      {/* Pending Claims list */}
-      {pendingClaims.length > 0 && (
-        <div className="wrc-card" style={{ marginBottom: "1.25rem" }}>
-          <div className="wrc-card-gold-stripe" />
-          <div className="wrc-card-header">
-            <ClipboardList size={14} />
-            My Pending Waiver Claims
-            <span style={{ marginLeft: "auto", fontSize: "0.78rem", color: "oklch(0.6 0.04 150)" }}>
-              {pendingClaims.length} claim{pendingClaims.length > 1 ? "s" : ""} · processes Tue morning
-            </span>
-          </div>
-          {pendingClaims.map((claim, ci) => (
-            <div key={claim.playerId} style={{
-              display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.65rem 1.25rem",
-              borderBottom: ci < pendingClaims.length - 1 ? "1px solid oklch(0.93 0.005 150)" : "none",
-            }}>
-              <span style={{ fontSize: "0.65rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: POS_COLORS[claim.playerPos] || "oklch(0.5 0.04 150)", color: "white" }}>{claim.playerPos}</span>
-              <span style={{ fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.18 0.05 150)", flex: 1 }}>{claim.playerName}</span>
-              <span style={{ fontSize: "0.7rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: "oklch(0.38 0.16 85)", background: "oklch(0.94 0.06 85)", border: "1px solid oklch(0.84 0.10 85)", borderRadius: 4, padding: "1px 7px" }}>
-                ${claim.bidAmount} FAAB
-              </span>
-              {claim.dropPlayerName ? (
-                <span style={{ fontSize: "0.68rem", color: "oklch(0.5 0.22 25)", display: "flex", alignItems: "center", gap: "0.25rem" }}>
-                  <Trash2 size={11} /> Drop: {claim.dropPlayerName}
-                </span>
-              ) : (
-                <span style={{ fontSize: "0.68rem", color: "oklch(0.6 0.04 150)" }}>No drop</span>
-              )}
-              <button
-                onClick={() => cancelClaim(claim.playerId)}
-                style={{ background: "none", border: "none", cursor: "pointer", padding: 2, color: "oklch(0.6 0.04 150)", display: "flex", alignItems: "center" }}
-                title="Cancel claim"
-              >
-                <X size={15} />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Player list */}
-      <div className="wrc-card">
-        <div className="wrc-card-gold-stripe" />
-        <div className="wrc-card-header">
-          <Users size={14} />
-          Player Pool
-          <span style={{ marginLeft: "auto", fontSize: "0.78rem", color: "oklch(0.6 0.04 150)" }}>
-            {filtered.length} players · Week {CURRENT_WEEK}
-          </span>
-        </div>
-
-        {filtered.length === 0 && (
-          <div style={{ padding: "2.5rem", textAlign: "center" as const, color: "oklch(0.6 0.04 150)" }}>No players match your filters</div>
-        )}
-
-        {filtered.map((p, i) => {
-          const gp  = p.seasonStats.gp;
-          const fpg = gp > 0 ? (p.seasonFpts / gp).toFixed(1) : "—";
-          const chips = buildStatChips(p);
-          const byeConflict = p.byeWeek === CURRENT_WEEK;
-          const isWatched   = watchlist.has(p.id);
-          const isBidOpen   = bidPlayerId === p.id;
-          const isInjuryOpen = injuryExpanded.has(p.id);
-          const hasBid      = hasPendingClaim(p.id);
-          const pendingClaim = pendingClaims.find(c => c.playerId === p.id);
-          const hasInjury   = !!p.injuryNote && p.status !== "Active";
-
-          return (
-            <div key={p.id} className="wrc-row-hover" style={{
-              borderBottom: i < filtered.length - 1 ? "1px solid oklch(0.93 0.005 150)" : "none",
-              background: byeConflict ? "oklch(0.98 0.03 25)" : "white",
-            }}>
-              {/* Main row */}
-              <div style={{ display: "flex", gap: "0.6rem", padding: "0.75rem 1rem", alignItems: "flex-start" }}>
-
-                {/* Star / watchlist */}
-                <button
-                  onClick={() => toggleWatch(p.id)}
-                  style={{ background: "none", border: "none", cursor: "pointer", padding: "2px", flexShrink: 0, marginTop: 1 }}
-                  title={isWatched ? "Remove from watchlist" : "Add to watchlist"}
-                >
-                  <Star
-                    size={16}
-                    fill={isWatched ? "oklch(0.55 0.16 85)" : "none"}
-                    color={isWatched ? "oklch(0.55 0.16 85)" : "oklch(0.75 0.04 150)"}
-                    style={{ transition: "all 0.15s" }}
-                  />
-                </button>
-
-                {/* Pos badge */}
-                <div style={{
-                  width: 42, textAlign: "center" as const, flexShrink: 0, marginTop: 2,
-                  fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 700,
-                  color: "white", background: POS_COLORS[p.pos] || "oklch(0.5 0.04 150)",
-                  borderRadius: 4, padding: "2px 0",
-                }}>{p.pos}</div>
-
-                {/* Main info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", flexWrap: "wrap" as const }}>
-                    <a
-                      href={`/player/${encodeURIComponent(p.name)}`}
-                      style={{ fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.22 0.12 260)", textDecoration: "underline", textDecorationColor: "oklch(0.22 0.12 260 / 0.3)", textUnderlineOffset: 2, cursor: "pointer" }}
-                      title={`View player page for ${p.name}`}
-                    >{p.name}</a>
-                    <span style={{ fontSize: "0.7rem", color: "oklch(0.55 0.04 150)" }}>{p.nflTeam}</span>
-                    {p.status !== "Active" && (
-                      <span style={{
-                        fontSize: "0.62rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif",
-                        padding: "1px 5px", borderRadius: 3,
-                        background: `${STATUS_COLORS[p.status] || "oklch(0.5 0.04 150)"}18`,
-                        color: STATUS_COLORS[p.status] || "oklch(0.5 0.04 150)",
-                      }}>{p.status}</span>
-                    )}
-                    {p.owned ? (
-                      <span style={{ fontSize: "0.62rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif", padding: "1px 5px", borderRadius: 3, background: "oklch(0.92 0.04 260)", color: "oklch(0.35 0.14 260)" }}>
-                        {p.ownerTeam}
-                      </span>
-                    ) : (
-                      <span style={{ fontSize: "0.62rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif", padding: "1px 5px", borderRadius: 3, background: "oklch(0.94 0.06 150)", color: "oklch(0.32 0.12 150)" }}>
-                        FREE AGENT
-                      </span>
-                    )}
-                    {hasBid && pendingClaim && (
-                      <span style={{ fontSize: "0.62rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif", padding: "1px 5px", borderRadius: 3, background: "oklch(0.92 0.08 85)", color: "oklch(0.38 0.16 85)", border: "1px solid oklch(0.82 0.10 85)" }}>
-                        BID ${pendingClaim.bidAmount}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Stats row */}
-                  <div style={{ display: "flex", flexWrap: "wrap" as const, alignItems: "center", gap: "0.3rem", marginTop: "0.35rem" }}>
-                    <span style={{ fontSize: "0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "oklch(0.92 0.06 150)", color: "oklch(0.28 0.09 150)", border: "1px solid oklch(0.84 0.08 150)", whiteSpace: "nowrap" as const }}>
-                      {p.seasonFpts.toFixed(1)} FPTS
-                    </span>
-                    <span style={{ fontSize: "0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "oklch(0.94 0.04 85)", color: "oklch(0.38 0.14 85)", border: "1px solid oklch(0.86 0.07 85)", whiteSpace: "nowrap" as const }}>
-                      {fpg}/G
-                    </span>
-                    <span style={{
-                      fontSize: "0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700,
-                      padding: "1px 5px", borderRadius: 3, whiteSpace: "nowrap" as const,
-                      background: byeConflict ? "oklch(0.92 0.12 25)" : "oklch(0.93 0.005 150)",
-                      color:      byeConflict ? "oklch(0.45 0.20 25)" : "oklch(0.52 0.02 150)",
-                      border:     byeConflict ? "1px solid oklch(0.82 0.14 25)" : "1px solid oklch(0.85 0.01 150)",
-                    }}>
-                      {byeConflict ? `⚠ BYE ${p.byeWeek}` : `BYE ${p.byeWeek}`}
-                    </span>
-                    {chips.map((c, ci) => (
-                      <span key={ci} style={{ fontSize: "0.58rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600, padding: "1px 4px", borderRadius: 3, background: "oklch(0.95 0.005 150)", color: "oklch(0.42 0.04 150)", border: "1px solid oklch(0.88 0.01 150)", whiteSpace: "nowrap" as const }}>
-                        {c.label} {c.value}
-                      </span>
-                    ))}
-                  </div>
-
-                  {/* Injury toggle — only shown if player has an injury note */}
-                  {hasInjury && (
-                    <button
-                      onClick={() => toggleInjury(p.id)}
-                      style={{
-                        display: "flex", alignItems: "center", gap: "0.3rem",
-                        marginTop: "0.35rem", background: "none", border: "none",
-                        cursor: "pointer", padding: 0,
-                        fontSize: "0.68rem", color: STATUS_COLORS[p.status] || "oklch(0.5 0.04 150)",
-                        fontWeight: 600,
-                      }}
-                    >
-                      <AlertTriangle size={11} />
-                      {isInjuryOpen ? "Hide injury note" : "Show injury note"}
-                      {isInjuryOpen ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
-                    </button>
-                  )}
-
-                  {/* Injury note expanded */}
-                  {hasInjury && isInjuryOpen && (
-                    <div style={{
-                      marginTop: "0.35rem", padding: "0.5rem 0.75rem",
-                      background: `${STATUS_COLORS[p.status]}10`,
-                      border: `1px solid ${STATUS_COLORS[p.status]}30`,
-                      borderRadius: 6, fontSize: "0.8rem",
-                      color: "oklch(0.35 0.04 150)", lineHeight: 1.5,
-                    }}>
-                      {p.injuryNote}
-                    </div>
-                  )}
-                </div>
-
-                {/* Right side: FPTS + action */}
-                <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "flex-end", gap: "0.35rem", flexShrink: 0 }}>
-                  <div style={{ textAlign: "right" as const }}>
-                    <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1.05rem", color: "oklch(0.22 0.08 150)", lineHeight: 1 }}>{p.seasonFpts.toFixed(1)}</div>
-                    <div style={{ fontSize: "0.6rem", color: "oklch(0.6 0.04 150)", marginTop: 2 }}>{fpg}/G</div>
-                  </div>
-                  {/* Bid button — only for free agents */}
-                  {!p.owned && !hasBid && (
-                    <button
-                      onClick={() => isBidOpen ? cancelBid() : openBid(p.id)}
-                      style={{
-                        display: "flex", alignItems: "center", gap: "0.3rem",
-                        padding: "3px 10px", borderRadius: 5, cursor: "pointer",
-                        fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", fontWeight: 700,
-                        letterSpacing: "0.04em",
-                        background: isBidOpen ? "oklch(0.95 0.02 150)" : "oklch(0.28 0.09 150)",
-                        color: isBidOpen ? "oklch(0.45 0.04 150)" : "white",
-                        border: isBidOpen ? "1px solid oklch(0.82 0.02 150)" : "none",
-                        transition: "all 0.15s",
-                      }}
-                    >
-                      <DollarSign size={11} />
-                      {isBidOpen ? "Cancel" : "Bid"}
-                    </button>
-                  )}
-                  {hasBid && (
-                    <button
-                      onClick={() => cancelClaim(p.id)}
-                      style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "3px 10px", borderRadius: 5, cursor: "pointer", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", fontWeight: 700, background: "oklch(0.95 0.02 150)", color: "oklch(0.5 0.04 150)", border: "1px solid oklch(0.82 0.02 150)" }}
-                    >
-                      <X size={11} /> Cancel
-                    </button>
-                  )}
-                  {/* Trade button — only for rostered players on other teams */}
-                  {p.owned && p.ownerTeam !== myTeamName && (
-                    <button
-                      onClick={() => openTrade(p)}
-                      style={{
-                        display: "flex", alignItems: "center", gap: "0.3rem",
-                        padding: "3px 10px", borderRadius: 5, cursor: "pointer",
-                        fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", fontWeight: 700,
-                        letterSpacing: "0.04em",
-                        background: "oklch(0.42 0.18 260)", color: "white", border: "none",
-                        transition: "background 0.15s",
-                      }}
-                    >
-                      <ArrowLeftRight size={11} /> Trade
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {/* FAAB Bid panel */}
-              {isBidOpen && (
-                <div style={{
-                  margin: "0 1rem 0.75rem",
-                  padding: "0.875rem 1rem",
-                  background: "oklch(0.97 0.02 150)",
-                  border: "1.5px solid oklch(0.88 0.04 150)",
-                  borderRadius: 8,
-                }}>
-                  <div style={{ fontSize: "0.72rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.06em", color: "oklch(0.38 0.08 150)", textTransform: "uppercase" as const, marginBottom: "0.75rem" }}>
-                    FAAB Waiver Claim — {p.name}
-                  </div>
-                  {/* Row 1: FAAB amount */}
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" as const, marginBottom: "0.6rem" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
-                      <span style={{ fontSize: "0.7rem", color: "oklch(0.45 0.04 150)", fontWeight: 600 }}>Bid:</span>
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", background: "white", border: "1.5px solid oklch(0.84 0.04 150)", borderRadius: 6, padding: "0.3rem 0.6rem" }}>
-                        <DollarSign size={13} color="oklch(0.38 0.14 85)" />
-                        <input
-                          type="number" min={0} max={myFaab}
-                          value={bidAmount}
-                          onChange={e => setBidAmount(e.target.value)}
-                          placeholder="0"
-                          style={{ width: 70, border: "none", outline: "none", fontSize: "0.9rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: "oklch(0.22 0.08 150)" }}
-                          onKeyDown={e => e.key === "Enter" && submitBid(p)}
-                          autoFocus
-                        />
-                      </div>
-                      <span style={{ fontSize: "0.68rem", color: "oklch(0.6 0.04 150)" }}>Balance: <strong>${myFaab}</strong></span>
-                    </div>
-                  </div>
-                  {/* Row 2: Drop player */}
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" as const, marginBottom: "0.75rem" }}>
-                    <span style={{ fontSize: "0.7rem", color: "oklch(0.45 0.04 150)", fontWeight: 600 }}>Drop:</span>
-                    <select
-                      value={bidDropId}
-                      onChange={e => setBidDropId(e.target.value)}
-                      style={{ padding: "0.35rem 0.6rem", border: "1.5px solid oklch(0.84 0.04 150)", borderRadius: 6, fontSize: "0.82rem", background: "white", cursor: "pointer", outline: "none", color: bidDropId ? "oklch(0.22 0.08 150)" : "oklch(0.6 0.04 150)" }}
-                    >
-                      <option value="">No drop (open roster spot)</option>
-                      {MY_ROSTER.map(r => (
-                        <option key={r.id} value={r.id}>{r.name} ({r.pos})</option>
-                      ))}
-                    </select>
-                    {bidDropId && (
-                      <span style={{ fontSize: "0.68rem", color: "oklch(0.5 0.22 25)", fontWeight: 600 }}>
-                        ⚠ {MY_ROSTER.find(r => r.id === bidDropId)?.name} will be released
-                      </span>
-                    )}
-                  </div>
-                  {/* Row 3: Actions */}
-                  <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" as const }}>
-                    <button
-                      onClick={() => submitBid(p)}
-                      style={{
-                        display: "flex", alignItems: "center", gap: "0.3rem",
-                        padding: "0.4rem 1rem", borderRadius: 6, cursor: "pointer",
-                        fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700,
-                        background: "oklch(0.38 0.15 150)", color: "white", border: "none",
-                      }}
-                    >
-                      <Check size={13} /> Submit Claim
-                    </button>
-                    <button
-                      onClick={cancelBid}
-                      style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "0.4rem 0.75rem", borderRadius: 6, cursor: "pointer", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, background: "white", color: "oklch(0.5 0.04 150)", border: "1px solid oklch(0.82 0.02 150)" }}
-                    >
-                      <X size={13} /> Cancel
-                    </button>
-                  </div>
-                  <div style={{ fontSize: "0.68rem", color: "oklch(0.6 0.04 150)", marginTop: "0.5rem" }}>
-                    Waiver claims process Tuesday morning. Highest bid wins. $0 bid = priority waiver.
-                  </div>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-      {/* Per-Player ESPN News Modal */}
-      <Dialog open={!!newsPlayer} onOpenChange={open => { if (!open) { setNewsPlayer(null); setNewsArticles([]); } }}>
-        <DialogContent style={{ maxWidth: 560, maxHeight: "80vh", overflowY: "auto" }}>
-          <DialogHeader>
-            <DialogTitle style={{ fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <Newspaper size={18} />
-              {newsPlayer?.name} — ESPN News
-            </DialogTitle>
-          </DialogHeader>
-          {newsLoading && (
-            <div style={{ padding: "2rem", textAlign: "center", color: "oklch(0.6 0.04 150)" }}>
-              <Activity size={20} style={{ margin: "0 auto 0.5rem", display: "block", animation: "spin 1s linear infinite" }} />
-              Loading news…
-            </div>
-          )}
-          {!newsLoading && newsArticles.length === 0 && (
-            <div style={{ padding: "2rem", textAlign: "center", color: "oklch(0.6 0.04 150)" }}>
-              No recent ESPN articles found for {newsPlayer?.name}.
-            </div>
-          )}
-          {!newsLoading && newsArticles.map((a, i) => (
-            <div key={a.id ?? i} style={{
-              borderBottom: i < newsArticles.length - 1 ? "1px solid oklch(0.93 0.005 150)" : "none",
-              padding: "0.875rem 0",
-              display: "flex", gap: "0.75rem", alignItems: "flex-start",
-            }}>
-              {a.images?.[0]?.url && (
-                <img
-                  src={a.images[0].url}
-                  alt=""
-                  style={{ width: 72, height: 52, objectFit: "cover", borderRadius: 6, flexShrink: 0 }}
-                />
-              )}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <a
-                  href={a.links?.web?.href ?? "#"}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.18 0.05 150)", textDecoration: "none", lineHeight: 1.35, display: "block", marginBottom: "0.3rem" }}
-                >
-                  {a.headline}
-                </a>
-                {a.description && (
-                  <p style={{ fontSize: "0.78rem", color: "oklch(0.45 0.04 150)", lineHeight: 1.5, margin: 0, marginBottom: "0.3rem" }}>
-                    {a.description.length > 140 ? a.description.slice(0, 140) + "…" : a.description}
-                  </p>
-                )}
-                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
-                  {a.byline && <span style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)" }}>{a.byline}</span>}
-                  <span style={{ fontSize: "0.68rem", color: "oklch(0.65 0.04 150)" }}>{timeAgo(a.published)}</span>
-                  {a.premium && <span style={{ fontSize: "0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: "oklch(0.88 0.10 85)", color: "oklch(0.38 0.16 85)" }}>ESPN+</span>}
-                  <a href={a.links?.web?.href ?? "#"} target="_blank" rel="noopener noreferrer" style={{ marginLeft: "auto", fontSize: "0.68rem", color: "oklch(0.42 0.18 260)", fontWeight: 600 }}>Read on ESPN →</a>
-                </div>
-              </div>
-            </div>
-          ))}
-        </DialogContent>
-      </Dialog>
-
-      {/* Trade Proposal Modal */}
-      <Dialog open={!!tradeTarget} onOpenChange={open => { if (!open) setTradeTarget(null); }}>
-        <DialogContent style={{ maxWidth: 480 }}>
-          <DialogHeader>
-            <DialogTitle style={{ fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.04em" }}>
-              Propose Trade
-            </DialogTitle>
-          </DialogHeader>
-          {tradeTarget && (
-            <div style={{ display: "flex", flexDirection: "column" as const, gap: "1rem" }}>
-              {/* Target player */}
-              <div style={{ padding: "0.75rem", background: "oklch(0.96 0.03 260)", borderRadius: 8, border: "1px solid oklch(0.88 0.06 260)" }}>
-                <div style={{ fontSize: "0.68rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: "oklch(0.42 0.12 260)", letterSpacing: "0.06em", marginBottom: "0.3rem" }}>YOU WANT</div>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-                  <span style={{ fontSize: "0.65rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, padding: "1px 5px", borderRadius: 3, background: POS_COLORS[tradeTarget.pos], color: "white" }}>{tradeTarget.pos}</span>
-                  <span style={{ fontWeight: 700, fontSize: "0.95rem", color: "oklch(0.18 0.05 150)" }}>{tradeTarget.name}</span>
-                  <span style={{ fontSize: "0.7rem", color: "oklch(0.55 0.04 150)" }}>{tradeTarget.nflTeam}</span>
-                  <span style={{ marginLeft: "auto", fontSize: "0.7rem", color: "oklch(0.42 0.12 260)", fontWeight: 600 }}>from {tradeTarget.ownerTeam}</span>
-                </div>
-              </div>
-
-              {/* Give players */}
-              <div>
-                <div style={{ fontSize: "0.68rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: "oklch(0.45 0.04 150)", letterSpacing: "0.06em", marginBottom: "0.5rem" }}>YOU GIVE — select from your roster</div>
-                <div style={{ display: "flex", flexDirection: "column" as const, gap: "0.35rem" }}>
-                  {MY_ROSTER.map(r => {
-                    const selected = tradeGiveIds.includes(r.id);
-                    return (
-                      <button
-                        key={r.id}
-                        onClick={() => toggleGivePlayer(r.id)}
-                        style={{
-                          display: "flex", alignItems: "center", gap: "0.5rem",
-                          padding: "0.45rem 0.75rem", borderRadius: 6, cursor: "pointer",
-                          border: selected ? "1.5px solid oklch(0.38 0.15 150)" : "1.5px solid oklch(0.88 0.01 150)",
-                          background: selected ? "oklch(0.94 0.06 150)" : "white",
-                          transition: "all 0.12s",
-                        }}
-                      >
-                        <span style={{ fontSize: "0.62rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, padding: "1px 4px", borderRadius: 3, background: POS_COLORS[r.pos], color: "white" }}>{r.pos}</span>
-                        <span style={{ fontSize: "0.85rem", fontWeight: selected ? 700 : 400, color: selected ? "oklch(0.22 0.08 150)" : "oklch(0.35 0.04 150)" }}>{r.name}</span>
-                        {selected && <Check size={13} color="oklch(0.38 0.15 150)" style={{ marginLeft: "auto" }} />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* FAAB sweetener */}
-              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                <span style={{ fontSize: "0.7rem", color: "oklch(0.45 0.04 150)", fontWeight: 600 }}>Add FAAB:</span>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", background: "white", border: "1.5px solid oklch(0.84 0.04 150)", borderRadius: 6, padding: "0.3rem 0.6rem" }}>
-                  <DollarSign size={13} color="oklch(0.38 0.14 85)" />
-                  <input
-                    type="number" min={0} max={myFaab}
-                    value={tradeFaab}
-                    onChange={e => setTradeFaab(e.target.value)}
-                    placeholder="0 (optional)"
-                    style={{ width: 100, border: "none", outline: "none", fontSize: "0.88rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600, color: "oklch(0.22 0.08 150)" }}
-                  />
-                </div>
-                <span style={{ fontSize: "0.68rem", color: "oklch(0.6 0.04 150)" }}>Balance: ${myFaab}</span>
-              </div>
-
-              {/* Note */}
-              <div>
-                <div style={{ fontSize: "0.68rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: "oklch(0.45 0.04 150)", letterSpacing: "0.06em", marginBottom: "0.35rem" }}>NOTE (optional)</div>
-                <textarea
-                  value={tradeNote}
-                  onChange={e => setTradeNote(e.target.value)}
-                  placeholder="Add a message to the other team…"
-                  rows={2}
-                  style={{ width: "100%", padding: "0.5rem 0.75rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 6, fontSize: "0.85rem", resize: "vertical" as const, outline: "none", boxSizing: "border-box" as const }}
-                />
-              </div>
-
-              {/* Actions */}
-              <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" as const }}>
-                <button
-                  onClick={() => setTradeTarget(null)}
-                  style={{ padding: "0.5rem 1rem", borderRadius: 6, cursor: "pointer", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, background: "white", color: "oklch(0.5 0.04 150)", border: "1px solid oklch(0.82 0.02 150)" }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={submitTrade}
-                  style={{ display: "flex", alignItems: "center", gap: "0.35rem", padding: "0.5rem 1.25rem", borderRadius: 6, cursor: "pointer", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, background: "oklch(0.42 0.18 260)", color: "white", border: "none" }}
-                >
-                  <ArrowLeftRight size={13} /> Send Proposal
-                </button>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
-}
-
-// ── News Feed (live ESPN API) ─────────────────────────────────────────────────
-function NewsFeed() {
-  const { franchise } = useAuth();
-  const [search, setSearch]         = useState("");
+  const [items, setItems] = useState<PlayerNewsItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [myTeamOnly, setMyTeamOnly] = useState(false);
-  const [articles, setArticles]     = useState<ESPNArticle[]>([]);
-  const [loading, setLoading]       = useState(true);
-  const [error, setError]           = useState<string | null>(null);
-  const [page, setPage]             = useState(0);
-  const PAGE_SIZE = 10;
-  const [myPlayerNames, setMyPlayerNames] = useState<string[]>([]);
   const [myPlayers, setMyPlayers] = useState<{ name: string; pos: string; nflTeam: string }[]>([]);
 
-  // Load my roster player names for filtering
+  // Load the logged-in owner's players for "My Team" filter
   useEffect(() => {
     if (!franchise?.id) return;
     supabase
@@ -984,190 +42,149 @@ function NewsFeed() {
       .select("name,position,nfl_team")
       .eq("team_id", franchise.id)
       .then(({ data }) => {
-        if (data) {
-          setMyPlayerNames(data.map((r: { name: string }) => r.name.toLowerCase()));
-          setMyPlayers(data.map((r: { name: string; position: string; nfl_team: string }) => ({ name: r.name, pos: r.position, nflTeam: r.nfl_team })));
-        }
+        if (data) setMyPlayers(data.map((p: { name: string; position: string; nfl_team: string }) => ({
+          name: p.name,
+          pos: p.position,
+          nflTeam: p.nfl_team,
+        })));
       });
   }, [franchise?.id]);
 
-  useEffect(() => {
+  const fetchNews = useCallback(async () => {
     setLoading(true);
-    setError(null);
-    fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=50")
-      .then(r => r.json())
-      .then(d => { setArticles(d.articles || []); setLoading(false); })
-      .catch(() => { setError("Unable to load ESPN news. Check your connection."); setLoading(false); });
-  }, []);
+    try {
+      const res = await fetch(
+        "https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=200"
+      );
+      const json = await res.json();
+      const allArticles: ESPNArticle[] = json.articles ?? [];
 
-  // Filter by search text, then optionally by my roster players
-  const filtered = articles.filter(a => {
-    const text = (a.headline + " " + (a.description ?? "") + " " + a.categories.map(c => c.description).join(" ")).toLowerCase();
-    const matchSearch = !search || text.includes(search.toLowerCase());
-    const matchMyTeam = !myTeamOnly || myPlayerNames.some(name => {
-      const lastName = name.split(" ").slice(1).join(" ");
-      return lastName && text.includes(lastName);
-    });
-    return matchSearch && matchMyTeam;
-  });
-  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
-  const paginated  = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
+      const found: PlayerNewsItem[] = [];
+      const seen = new Set<string>();
 
-  // Convert filtered articles to PlayerNewsItem format
-  const newsItems: PlayerNewsItem[] = paginated.map(a => {
-    const athleteCat = (a.categories as { type?: string; athleteId?: number; description: string }[]).find(c => c.type === "athlete");
-    const playerName = athleteCat?.description ?? "";
-    const athleteId = athleteCat?.athleteId;
-    const myP = myPlayers.find(p => p.name.toLowerCase() === playerName.toLowerCase() || (playerName && playerName.toLowerCase().includes(p.name.split(" ").slice(-1)[0].toLowerCase())));
-    return {
-      playerName: playerName || a.categories[0]?.description || "NFL",
-      pos: myP?.pos ?? "",
-      nflTeam: myP?.nflTeam ?? "",
-      headline: a.headline,
-      description: a.description,
-      published: a.published,
-      url: a.links?.web?.href,
-      athleteId,
-    };
-  });
+      for (const a of allArticles) {
+        if (seen.has(a.headline)) continue;
+        const athleteId = getAthleteId(a.categories);
+        const athleteCat = (a.categories ?? []).find(c => c.type === "athlete");
+        const playerName = athleteCat?.description ?? "";
+        if (!playerName) continue;
+        seen.add(a.headline);
 
-  return (
-    <div>
-      <div className="wrc-card" style={{ marginBottom: "1.25rem" }}>
-        <div style={{ padding: "0.875rem 1.25rem", display: "flex", gap: "0.75rem", flexWrap: "wrap" as const, alignItems: "center" }}>
-          <div style={{ position: "relative" as const, flex: 1, minWidth: 180 }}>
-            <Search size={14} style={{ position: "absolute" as const, left: 10, top: "50%", transform: "translateY(-50%)", color: "oklch(0.55 0.04 150)" }} />
-            <input
-              value={search}
-              onChange={e => { setSearch(e.target.value); setPage(0); }}
-              placeholder="Search headlines, teams, players…"
-              style={{ width: "100%", padding: "0.5rem 0.5rem 0.5rem 2rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 8, fontSize: "0.875rem", outline: "none", boxSizing: "border-box" as const }}
-            />
-          </div>
-          {/* My Team filter toggle */}
-          {franchise && myPlayerNames.length > 0 && (
-            <button
-              onClick={() => { setMyTeamOnly(v => !v); setPage(0); }}
-              style={{
-                display: "flex", alignItems: "center", gap: "0.35rem",
-                padding: "0.45rem 0.875rem", borderRadius: 8, cursor: "pointer",
-                fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700,
-                letterSpacing: "0.05em", border: "1.5px solid",
-                background: myTeamOnly ? "oklch(0.28 0.09 150)" : "white",
-                color: myTeamOnly ? "white" : "oklch(0.28 0.09 150)",
-                borderColor: "oklch(0.28 0.09 150)",
-                transition: "all 0.15s",
-                whiteSpace: "nowrap" as const,
-              }}
-            >
-              🏹 My Team Only
-            </button>
-          )}
-          <div style={{ fontSize: "0.72rem", color: "oklch(0.6 0.04 150)", whiteSpace: "nowrap" as const }}>
-            Powered by <strong>ESPN</strong> · Live
-          </div>
-        </div>
-      </div>
+        const myP = myPlayers.find(p =>
+          p.name.toLowerCase() === playerName.toLowerCase() ||
+          playerName.toLowerCase().includes(p.name.split(" ").slice(-1)[0].toLowerCase())
+        );
 
-      <div className="wrc-card">
-        <div className="wrc-card-gold-stripe" />
-        <div className="wrc-card-header">
-          <Newspaper size={14} />
-          {myTeamOnly ? `My Team News — ${franchise?.team_name ?? ""}` : "NFL News — ESPN"}
-          <span style={{ marginLeft: "auto", fontSize: "0.72rem", color: "oklch(0.6 0.04 150)" }}>
-            {filtered.length} article{filtered.length !== 1 ? "s" : ""}
-          </span>
-        </div>
+        const injuryKeywords = ["injured","injury","questionable","doubtful","out","ir","placed on","ruled out","limited","missed","surgery","knee","hamstring","ankle","shoulder","concussion","rib","back","wrist","hip","illness"];
+        const text = (a.headline + " " + (a.description ?? "")).toLowerCase();
+        const isInjury = injuryKeywords.some(kw => text.includes(kw));
 
-        {loading && (
-          <div style={{ padding: "1rem 1.25rem" }}>
-            {[...Array(6)].map((_, i) => (
-              <div key={i} style={{ display: "flex", gap: "0.875rem", padding: "0.875rem 0", borderBottom: "1px solid oklch(0.92 0.005 150)", alignItems: "flex-start" }}>
-                <div className="wrc-skeleton" style={{ flexShrink: 0, width: 80, height: 56 }} />
-                <div style={{ flex: 1 }}>
-                  <div className="wrc-skeleton" style={{ height: 12, width: "30%", marginBottom: 8 }} />
-                  <div className="wrc-skeleton" style={{ height: 16, width: "90%", marginBottom: 6 }} />
-                  <div className="wrc-skeleton" style={{ height: 12, width: "70%", marginBottom: 6 }} />
-                  <div className="wrc-skeleton" style={{ height: 10, width: "40%" }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        found.push({
+          playerName,
+          pos: myP?.pos ?? "",
+          nflTeam: myP?.nflTeam ?? "",
+          headline: a.headline,
+          description: a.description,
+          published: a.published,
+          url: a.links?.web?.href,
+          athleteId,
+          isInjury,
+        });
+      }
 
-        {error && (
-          <div style={{ padding: "2rem", textAlign: "center" as const, color: "oklch(0.52 0.22 25)" }}>
-            <AlertTriangle size={20} style={{ marginBottom: 8 }} />
-            <div>{error}</div>
-          </div>
-        )}
+      setItems(
+        found.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime())
+      );
+    } catch {
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [myPlayers]);
 
-        {!loading && !error && newsItems.map((item, i) => (
-          <PlayerNewsRow key={i} item={item} isFirst={i === 0} />
-        ))}
+  useEffect(() => { fetchNews(); }, [fetchNews]);
 
-        {!loading && !error && filtered.length === 0 && (
-          <div style={{ padding: "2.5rem 1.25rem", textAlign: "center" as const, color: "oklch(0.6 0.04 150)" }}>
-            <Newspaper size={32} style={{ margin: "0 auto 0.6rem", opacity: 0.3 }} />
-            <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.04em", fontSize: "1rem" }}>No articles found</div>
-            <div style={{ fontSize: "0.8rem", marginTop: "0.25rem", opacity: 0.7 }}>Try adjusting your search or position filter.</div>
-          </div>
-        )}
-
-        {!loading && !error && totalPages > 1 && (
-          <div style={{ display: "flex", justifyContent: "center" as const, gap: "0.5rem", padding: "1rem" }}>
-            <button
-              onClick={() => setPage(p => Math.max(0, p - 1))}
-              disabled={page === 0}
-              style={{ padding: "0.4rem 1rem", borderRadius: 6, border: "1.5px solid oklch(0.88 0.01 150)", background: page === 0 ? "oklch(0.95 0.005 150)" : "white", cursor: page === 0 ? "default" : "pointer", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, color: page === 0 ? "oklch(0.7 0.02 150)" : "oklch(0.22 0.08 150)" }}
-            >← Prev</button>
-            <span style={{ padding: "0.4rem 0.75rem", fontSize: "0.78rem", color: "oklch(0.5 0.04 150)" }}>{page + 1} / {totalPages}</span>
-            <button
-              onClick={() => setPage(p => Math.min(totalPages - 1, p + 1))}
-              disabled={page === totalPages - 1}
-              style={{ padding: "0.4rem 1rem", borderRadius: 6, border: "1.5px solid oklch(0.88 0.01 150)", background: page === totalPages - 1 ? "oklch(0.95 0.005 150)" : "white", cursor: page === totalPages - 1 ? "default" : "pointer", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, color: page === totalPages - 1 ? "oklch(0.7 0.02 150)" : "oklch(0.22 0.08 150)" }}
-            >Next →</button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Page ──────────────────────────────────────────────────────────────────────
-export default function PlayerNews() {
-  const { franchise } = useAuth();
-  const [tab, setTab] = useState<"players"|"news">("players");
-
-  const tabStyle = (active: boolean) => ({
-    padding: "0.5rem 1.25rem",
-    fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: 700,
-    letterSpacing: "0.06em", textTransform: "uppercase" as const,
-    border: "none", cursor: "pointer",
-    borderRadius: "6px 6px 0 0",
-    background: active ? "white" : "transparent",
-    color: active ? "oklch(0.22 0.08 150)" : "oklch(0.6 0.04 150)",
-    borderBottom: active ? "2px solid oklch(0.55 0.16 85)" : "2px solid transparent",
-    transition: "all 0.15s",
-  });
+  // My Team filter
+  const myPlayerNames = new Set(myPlayers.map(p => p.name.toLowerCase()));
+  const displayed = myTeamOnly && franchise
+    ? items.filter(it =>
+        myPlayerNames.has(it.playerName.toLowerCase()) ||
+        myPlayers.some(p => it.playerName.toLowerCase().includes(p.name.split(" ").slice(-1)[0].toLowerCase()))
+      )
+    : items;
 
   return (
     <div className="bg-turf bg-overlay" style={{ minHeight: "100vh" }}>
       <Navigation showTicker={false} teamName={franchise?.team_name} />
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "1.5rem 1rem 3rem" }}>
-        <div className="wrc-page-title" style={{ padding: "1rem 0 1rem" }}>
-          <h1>Players</h1>
-          <p>Browse all players, free agents, and injury news — Week {getCurrentWeek() || 1}</p>
+
+      <div style={{ maxWidth: 760, margin: "0 auto", padding: "1.5rem 1rem 3rem" }}>
+
+        {/* Page header */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem", flexWrap: "wrap", gap: "0.75rem" }}>
+          <div className="wrc-page-title" style={{ padding: 0 }}>
+            <h1>News</h1>
+            <p>ESPN NFL news — fantasy-relevant players</p>
+          </div>
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            {franchise && (
+              <button
+                onClick={() => setMyTeamOnly(v => !v)}
+                style={{
+                  padding: "0.4rem 1rem", borderRadius: 20,
+                  border: myTeamOnly ? "1.5px solid oklch(0.42 0.15 150)" : "1.5px solid oklch(0.82 0.04 150)",
+                  background: myTeamOnly ? "oklch(0.42 0.15 150)" : "white",
+                  color: myTeamOnly ? "white" : "oklch(0.35 0.06 150)",
+                  fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700,
+                  cursor: "pointer", letterSpacing: "0.04em", transition: "all 0.15s",
+                }}
+              >
+                {myTeamOnly ? "✓ MY TEAM" : "MY TEAM"}
+              </button>
+            )}
+            <button
+              onClick={fetchNews}
+              style={{ background: "white", border: "1.5px solid oklch(0.82 0.04 150)", borderRadius: 20, padding: "0.4rem 0.75rem", cursor: "pointer", color: "oklch(0.45 0.06 150)", display: "flex", alignItems: "center", gap: "0.3rem" }}
+              title="Refresh news"
+            >
+              <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
+            </button>
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 0, borderBottom: "1px solid oklch(0.88 0.01 150)", marginBottom: "1.25rem" }}>
-          <button style={tabStyle(tab === "players")} onClick={() => setTab("players")}>
-            <span style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}><Users size={13} /> Player Browser</span>
-          </button>
-          <button style={tabStyle(tab === "news")} onClick={() => setTab("news")}>
-            <span style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}><Newspaper size={13} /> Injury News</span>
-          </button>
+
+        {/* News feed */}
+        <div className="wrc-card">
+          <div className="wrc-card-gold-stripe" />
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.875rem 1rem 0.6rem" }}>
+            <Newspaper size={14} color="oklch(0.55 0.16 85)" />
+            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", fontWeight: 800, color: "oklch(0.18 0.06 150)", flex: 1, letterSpacing: "0.04em" }}>
+              NFL PLAYER NEWS
+            </span>
+            <span style={{ fontSize: "0.7rem", color: "oklch(0.55 0.04 150)" }}>
+              {loading ? "Loading…" : `${displayed.length} articles`}
+            </span>
+          </div>
+
+          {loading ? (
+            <div style={{ padding: "2rem 1rem", textAlign: "center" }}>
+              <div style={{ display: "inline-block", width: 24, height: 24, border: "3px solid oklch(0.88 0.04 150)", borderTopColor: "oklch(0.42 0.15 150)", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+              <p style={{ marginTop: "0.75rem", fontSize: "0.85rem", color: "oklch(0.55 0.04 150)" }}>Loading ESPN news…</p>
+            </div>
+          ) : displayed.length === 0 ? (
+            <div style={{ padding: "2rem 1rem", textAlign: "center", color: "oklch(0.55 0.04 150)" }}>
+              <Newspaper size={32} style={{ margin: "0 auto 0.75rem", opacity: 0.3 }} />
+              <p style={{ margin: 0, fontSize: "0.9rem" }}>
+                {myTeamOnly ? "No recent news for your team players." : "No news articles found."}
+              </p>
+            </div>
+          ) : (
+            <div>
+              {displayed.map((item, i) => (
+                <PlayerNewsRow key={`${item.playerName}-${item.published}`} item={item} isFirst={i === 0} />
+              ))}
+            </div>
+          )}
         </div>
-        {tab === "players" ? <PlayerBrowser /> : <NewsFeed />}
+
       </div>
     </div>
   );
