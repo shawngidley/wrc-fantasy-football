@@ -18,7 +18,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Star, TrendingUp, Shield, Zap, AlertCircle, Calendar, User, ListOrdered, BarChart2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import FAABBidModal from "@/components/FAABBidModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNFLMatchups, formatMatchup, formatGameTime } from "@/hooks/useNFLMatchups";
@@ -26,6 +26,7 @@ import { useESPNSeasonStats, type SeasonStatRow } from "@/hooks/useESPNSeasonSta
 import { useNFLTeamSchedule, parseDate, type ScheduleGame } from "@/hooks/useNFLTeamSchedule";
 import { useNFLGameLog, type GameLogEntry } from "@/hooks/useNFLGameLog";
 import TeamLogo from "@/components/TeamLogo";
+import { PlayerNewsRow, type PlayerNewsItem } from "@/components/PlayerNewsRow";
 
 // ── Position badge colors ────────────────────────────────────────────────────
 const POS_COLORS: Record<string, string> = {
@@ -591,6 +592,8 @@ export default function PlayerPage() {
   const { isWatched, toggleWatch } = useWatchlist(franchise?.id);
   const [activeTab, setActiveTab] = useState<"stats" | "schedule" | "gamelog">("stats");
   const [gameLogSeason, setGameLogSeason] = useState(2026);
+  const [playerNews, setPlayerNews] = useState<PlayerNewsItem[]>([]);
+  const [newsLoading, setNewsLoading] = useState(false);
 
   // Decode the player name from the URL
   const rawName = params.playerName ?? "";
@@ -615,6 +618,49 @@ export default function PlayerPage() {
     player?.pos ?? "",
     gameLogSeason
   );
+
+  // Fetch ESPN news for this specific player
+  const fetchPlayerNews = useCallback(async (name: string) => {
+    if (!name) return;
+    setNewsLoading(true);
+    try {
+      const res = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=200");
+      const json = await res.json();
+      const articles: { headline: string; description?: string; published: string; links?: { web?: { href: string } }; categories?: { type?: string; athleteId?: number; description: string }[] }[] = json.articles ?? [];
+      const nameLower = name.toLowerCase();
+      const found: PlayerNewsItem[] = [];
+      const seen = new Set<string>();
+      for (const a of articles) {
+        const athleteCat = (a.categories ?? []).find(c => c.type === "athlete");
+        const articlePlayerName = athleteCat?.description ?? "";
+        if (articlePlayerName.toLowerCase() !== nameLower) continue;
+        if (seen.has(a.headline)) continue;
+        seen.add(a.headline);
+        const injuryKeywords = ["injur", "questionable", "doubtful", "out ", "ir ", "placed on", "ruled out", "limited", "missed practice", "did not practice", "dnp", "hamstring", "knee", "ankle", "shoulder", "concussion", "rib", "surgery"];
+        const text = (a.headline + " " + (a.description ?? "")).toLowerCase();
+        found.push({
+          playerName: articlePlayerName,
+          pos: "",
+          nflTeam: "",
+          headline: a.headline,
+          description: a.description,
+          published: a.published,
+          url: a.links?.web?.href,
+          athleteId: athleteCat?.athleteId,
+          isInjury: injuryKeywords.some(kw => text.includes(kw)),
+        });
+      }
+      setPlayerNews(found);
+    } catch {
+      setPlayerNews([]);
+    } finally {
+      setNewsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (player?.longName) fetchPlayerNews(player.longName);
+  }, [player?.longName, fetchPlayerNews]);
 
   // Injury info
   const injury = player?.injury;
@@ -743,25 +789,21 @@ export default function PlayerPage() {
               </div>
 
               {/* Lower card: injury + ownership */}
-              <div className="px-6 py-4 flex flex-col sm:flex-row sm:items-center gap-3">
-                {/* Injury tag */}
+              {/* Compact action row: status badge + ESPN link + watchlist button */}
+              <div className="px-4 py-2.5 flex items-center gap-2 flex-wrap border-t border-slate-100">
+                {/* Status badge */}
                 {hasInjury ? (
-                  <div className={`inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full ${injuryColor(injury.designation)}`}>
-                    <AlertCircle className="w-3.5 h-3.5" />
+                  <div className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full ${injuryColor(injury.designation)}`}>
+                    <AlertCircle className="w-3 h-3" />
                     {injuryLabel(injury.designation)}
-                    {injury.description && (
-                      <span className="font-normal ml-1">— {injury.description}</span>
-                    )}
                   </div>
                 ) : (
-                  <div className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full text-green-700 bg-green-50">
-                    <Zap className="w-3.5 h-3.5" />
+                  <div className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full text-green-700 bg-green-50">
+                    <Zap className="w-3 h-3" />
                     Active
                   </div>
                 )}
-
                 <div className="flex-1" />
-
                 {/* ESPN link */}
                 <a
                   href={player.espnLink}
@@ -769,21 +811,20 @@ export default function PlayerPage() {
                   rel="noopener noreferrer"
                   className="text-xs text-blue-600 hover:underline font-medium"
                 >
-                  View on ESPN →
+                  ESPN →
                 </a>
-                {/* Watchlist star */}
+                {/* Watchlist button */}
                 {franchise && (
                   <button
                     onClick={() => toggleWatch({ name: player.longName, pos: player.pos, nflTeam: player.team })}
-                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border transition-all"
+                    className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border transition-all"
                     style={{
                       background: isWatched(player.longName) ? "oklch(0.96 0.06 85)" : "white",
                       borderColor: isWatched(player.longName) ? "oklch(0.75 0.14 85)" : "oklch(0.88 0.02 150)",
                       color: isWatched(player.longName) ? "oklch(0.45 0.16 85)" : "oklch(0.55 0.06 150)",
                     }}
-                    title={isWatched(player.longName) ? "Remove from watchlist" : "Add to watchlist"}
                   >
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill={isWatched(player.longName) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2.5">
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill={isWatched(player.longName) ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2.5">
                       <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
                     </svg>
                     {isWatched(player.longName) ? "Watching" : "Watch"}
@@ -842,6 +883,25 @@ export default function PlayerPage() {
                 )}
               </div>
             </div>
+
+            {/* ── Player News ── */}
+            {(newsLoading || playerNews.length > 0) && (
+              <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
+                  <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Latest News</span>
+                  {newsLoading && <span className="text-xs text-slate-400">Loading…</span>}
+                </div>
+                {playerNews.length === 0 && newsLoading ? (
+                  <div className="px-4 py-4 text-sm text-slate-400">Loading news…</div>
+                ) : (
+                  <div className="divide-y divide-slate-100">
+                    {playerNews.map((item, i) => (
+                      <PlayerNewsRow key={i} item={item} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* ── Tab bar ── */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
