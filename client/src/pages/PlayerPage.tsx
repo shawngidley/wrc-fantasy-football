@@ -64,19 +64,19 @@ type OwnershipResult = {
     setOwnerLoading(true);
     supabase
       .from("players")
-      .select("team_id, acquisition, round, teams(name, owner)")
+      .select("team_id, acquisition, draft_round, teams(name, owner)")
       .ilike("name", playerName)
       .limit(1)
       .then(({ data, error }) => {
         if (error) { console.error("ownership query error:", error); setOwnerLoading(false); return; }
         const row = data?.[0];
         if (row && row.team_id) {
-          const t = Array.isArray(row.teams) ? row.teams[0] as { name: string; owner: string } | undefined : row.teams as { name: string; owner: string } | null;
+          const t = Array.isArray(row.teams) ? (row.teams[0] as { name: string; owner: string } | undefined) : (row.teams as { name: string; owner: string } | null);
           setOwnership({
             teamName: t?.name ?? row.team_id,
             owner: t?.owner ?? "",
             acquisition: row.acquisition ?? "Draft",
-            round: row.round ?? null,
+            round: row.draft_round ?? null,
           });
         } else {
           setOwnership(null);
@@ -270,7 +270,11 @@ function MultiSeasonStatsTable({
   type Col = { label: string; key: keyof SeasonStatRow; dec?: number; highlight?: boolean; gold?: boolean };
 
   const getColumns = (): Col[] => {
-    const base: Col[] = [{ label: "GP", key: "gp" }];
+    const base: Col[] = [
+      { label: "GP", key: "gp" },
+      { label: "WRC PTS", key: "wrcPts", dec: 1, gold: true },
+      { label: "PTS/G", key: "wrcPtsPerGame", dec: 1, gold: true },
+    ];
     switch (pos) {
       case "QB":
         return [
@@ -284,8 +288,6 @@ function MultiSeasonStatsTable({
           { label: "RUSH YDS", key: "rushYds" },
           { label: "RUSH TD", key: "rushTD" },
           { label: "FUM", key: "fumbles" },
-          { label: "WRC PTS", key: "wrcPts", dec: 1, gold: true },
-          { label: "PTS/G", key: "wrcPtsPerGame", dec: 1, gold: true },
         ];
       case "RB":
         return [
@@ -299,8 +301,6 @@ function MultiSeasonStatsTable({
           { label: "REC YDS", key: "recYds" },
           { label: "REC TD", key: "recTD" },
           { label: "FUM", key: "fumbles" },
-          { label: "WRC PTS", key: "wrcPts", dec: 1, gold: true },
-          { label: "PTS/G", key: "wrcPtsPerGame", dec: 1, gold: true },
         ];
       case "WR":
       case "TE":
@@ -312,8 +312,6 @@ function MultiSeasonStatsTable({
           { label: "AVG", key: "recAvg", dec: 1 },
           { label: "TD", key: "recTD", highlight: true },
           { label: "FUM", key: "fumbles" },
-          { label: "WRC PTS", key: "wrcPts", dec: 1, gold: true },
-          { label: "PTS/G", key: "wrcPtsPerGame", dec: 1, gold: true },
         ];
       case "K":
         return [
@@ -323,8 +321,6 @@ function MultiSeasonStatsTable({
           { label: "FG%", key: "fgPct", dec: 1 },
           { label: "XPM", key: "xpMade" },
           { label: "XPA", key: "xpAtt" },
-          { label: "WRC PTS", key: "wrcPts", dec: 1, gold: true },
-          { label: "PTS/G", key: "wrcPtsPerGame", dec: 1, gold: true },
         ];
       case "DST":
         return [
@@ -333,8 +329,6 @@ function MultiSeasonStatsTable({
           { label: "INT", key: "defInt", highlight: true },
           { label: "FR", key: "fumblesRecovered" },
           { label: "TD", key: "defTD", highlight: true },
-          { label: "WRC PTS", key: "wrcPts", dec: 1, gold: true },
-          { label: "PTS/G", key: "wrcPtsPerGame", dec: 1, gold: true },
         ];
       default:
         return base;
@@ -438,6 +432,7 @@ function GameLogTable({ games, pos }: { games: GameLogEntry[]; pos: string }) {
       { label: "WK",   render: (g) => { const m = g.gameDate.slice(4,6); const d = g.gameDate.slice(6,8); const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"]; return `${months[parseInt(m,10)-1]} ${parseInt(d,10)}`; } },
       { label: "OPP",  render: (g) => `${g.isHome ? "vs" : "@"} ${g.opponent}` },
       { label: "RESULT", render: (g) => g.result ?? "—" },
+      { label: "WRC PTS", render: (g) => fmt(g.wrcPts, 1), gold: true },
     ];
     switch (pos) {
       case "QB": return [...base,
@@ -447,7 +442,6 @@ function GameLogTable({ games, pos }: { games: GameLogEntry[]; pos: string }) {
         { label: "INT",     render: (g) => fmt(g.passInt) },
         { label: "RUSH",    render: (g) => fmt(g.rushYds) },
         { label: "RTD",     render: (g) => fmt(g.rushTD) },
-        { label: "WRC PTS", render: (g) => fmt(g.wrcPts, 1), gold: true },
       ];
       case "RB": return [...base,
         { label: "CAR",     render: (g) => fmt(g.rushAtt) },
@@ -456,7 +450,6 @@ function GameLogTable({ games, pos }: { games: GameLogEntry[]; pos: string }) {
         { label: "REC",     render: (g) => fmt(g.rec) },
         { label: "REC YDS", render: (g) => fmt(g.recYds) },
         { label: "REC TD",  render: (g) => fmt(g.recTD) },
-        { label: "WRC PTS", render: (g) => fmt(g.wrcPts, 1), gold: true },
       ];
       case "WR":
       case "TE": return [...base,
@@ -464,20 +457,17 @@ function GameLogTable({ games, pos }: { games: GameLogEntry[]; pos: string }) {
         { label: "TGTS",    render: (g) => fmt(g.targets) },
         { label: "YDS",     render: (g) => fmt(g.recYds), highlight: true },
         { label: "TD",      render: (g) => fmt(g.recTD),  highlight: true },
-        { label: "WRC PTS", render: (g) => fmt(g.wrcPts, 1), gold: true },
       ];
       case "K": return [...base,
         { label: "FGM/A",   render: (g) => g.fgAtt ? `${g.fgMade}/${g.fgAtt}` : "—" },
         { label: "XPM/A",   render: (g) => g.xpAtt ? `${g.xpMade}/${g.xpAtt}` : "—" },
-        { label: "WRC PTS", render: (g) => fmt(g.wrcPts, 1), gold: true },
       ];
       case "DST": return [...base,
         { label: "SACK",    render: (g) => fmt(g.sacks),  highlight: true },
         { label: "INT",     render: (g) => fmt(g.defInt), highlight: true },
         { label: "TD",      render: (g) => fmt(g.defTD),  highlight: true },
-        { label: "WRC PTS", render: (g) => fmt(g.wrcPts, 1), gold: true },
       ];
-      default: return [...base, { label: "WRC PTS", render: (g) => fmt(g.wrcPts, 1), gold: true }];
+      default: return base;
     }
   };
 

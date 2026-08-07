@@ -179,16 +179,16 @@ function PlayerBrowser() {
     // Load all owned players from Supabase with team info
     supabase
       .from("players")
-      .select("id, name, position, nfl_team, bye_week, acquisition, round, team_id, teams(team_name)")
+      .select("id, name, position, nfl_team, bye_week, acquisition, draft_round, team_id, teams(name)")
       .then(({ data: ownedRows }) => {
         const ownedMap = new Map<string, { teamName: string; teamId: string; acquisition: string; round: number | null }>();
-        (ownedRows ?? []).forEach((r: { id: string; name: string; position: string; nfl_team: string; bye_week: number; acquisition: string; round: number | null; team_id: string; teams: unknown }) => {
+        (ownedRows ?? []).forEach((r: { id: string; name: string; position: string; nfl_team: string; bye_week: number; acquisition: string; draft_round: number | null; team_id: string; teams: unknown }) => {
           if (r.team_id) {
             ownedMap.set(r.name.toLowerCase(), {
-              teamName: (r.teams as { team_name: string } | null)?.team_name ?? r.team_id,
+              teamName: (r.teams as { name: string } | null)?.name ?? r.team_id,
               teamId: r.team_id,
               acquisition: r.acquisition ?? "Draft",
-              round: r.round ?? null,
+              round: r.draft_round ?? null,
             });
           }
         });
