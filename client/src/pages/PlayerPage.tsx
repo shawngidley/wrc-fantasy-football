@@ -25,6 +25,7 @@ import { useNFLMatchups, formatMatchup, formatGameTime } from "@/hooks/useNFLMat
 import { useESPNSeasonStats, type SeasonStatRow } from "@/hooks/useESPNSeasonStats";
 import { useNFLTeamSchedule, parseDate, type ScheduleGame } from "@/hooks/useNFLTeamSchedule";
 import { useNFLGameLog, type GameLogEntry } from "@/hooks/useNFLGameLog";
+import TeamLogo from "@/components/TeamLogo";
 
 // ── Position badge colors ────────────────────────────────────────────────────
 const POS_COLORS: Record<string, string> = {
@@ -272,8 +273,8 @@ function MultiSeasonStatsTable({
   const getColumns = (): Col[] => {
     const base: Col[] = [
       { label: "GP", key: "gp" },
-      { label: "WRC PTS", key: "wrcPts", dec: 1, gold: true },
       { label: "PTS/G", key: "wrcPtsPerGame", dec: 1, gold: true },
+      { label: "WRC PTS", key: "wrcPts", dec: 1, gold: true },
     ];
     switch (pos) {
       case "QB":
@@ -735,39 +736,51 @@ export default function PlayerPage() {
             </div>
 
             {/* ── Ownership card ── */}
-            <div className={`rounded-2xl border shadow-sm p-5 ${isFreeAgent ? "bg-amber-50 border-amber-200" : "bg-emerald-50 border-emerald-200"}`}>
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isFreeAgent ? "bg-amber-200" : "bg-emerald-200"}`}>
-                    {isFreeAgent ? <Star className="w-5 h-5 text-amber-700" /> : <User className="w-5 h-5 text-emerald-700" />}
-                  </div>
-                  <div>
+            <div className={`rounded-2xl border shadow-sm px-4 py-3 ${isFreeAgent ? "bg-amber-50 border-amber-200" : "bg-emerald-50 border-emerald-200"}`}>
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  {/* Logo or star icon */}
+                  {isFreeAgent ? (
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center bg-amber-200 shrink-0">
+                      <Star className="w-5 h-5 text-amber-700" />
+                    </div>
+                  ) : (
+                    <div className="shrink-0">
+                      <TeamLogo teamName={ownership!.teamName} size={40} round />
+                    </div>
+                  )}
+                  {/* Text info */}
+                  <div className="min-w-0">
                     {isFreeAgent ? (
                       <>
-                        <p className="text-sm font-bold text-amber-800">Free Agent</p>
-                        <p className="text-xs text-amber-700">Available for FAAB bid</p>
+                        <p className="text-sm font-bold text-amber-800 leading-tight">Free Agent</p>
+                        <p className="text-xs text-amber-700 leading-tight">Available for FAAB bid</p>
                       </>
                     ) : (
                       <>
-                        <p className="text-sm font-bold text-emerald-800">
-                          {ownership!.teamName}
-                        </p>
-                        <p className="text-xs text-emerald-700">
-                          Owner: {ownership!.owner} · {ownership!.acquisition === "Draft" ? `Round ${ownership!.round ?? "?"}` : "FA Pickup"}
-                        </p>
+                        <p className="text-sm font-bold text-emerald-800 leading-tight truncate">{ownership!.teamName}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                          <span className="text-xs text-emerald-700">{ownership!.owner}</span>
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full leading-none ${
+                            ownership!.acquisition === "Draft"
+                              ? "bg-emerald-200 text-emerald-800"
+                              : "bg-sky-100 text-sky-700"
+                          }`}>
+                            {ownership!.acquisition === "Draft" ? `Rd ${ownership!.round ?? "?"}` : "FA"}
+                          </span>
+                        </div>
                       </>
                     )}
                   </div>
                 </div>
-
                 {/* FAAB bid button — only for free agents and signed-in users */}
                 {isFreeAgent && franchise && (
                   <Button
                     size="sm"
-                    className="bg-amber-600 hover:bg-amber-700 text-white font-semibold"
+                    className="bg-amber-600 hover:bg-amber-700 text-white font-semibold shrink-0"
                     onClick={() => setBidModalOpen(true)}
                   >
-                    Place FAAB Bid
+                    Bid
                   </Button>
                 )}
               </div>
