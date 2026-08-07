@@ -421,6 +421,33 @@ export function useWeeklyResultsWriter(
           score: `${gowEntry.score.toFixed(1)} – ${gowOppScore.toFixed(1)}`,
           amount: 30,
         }, { onConflict: "week,season" });
+
+        // 10. Update earnings table — add $30 GOW to the winner's row for this season
+        // First fetch existing row for this owner+season (if any)
+        const { data: existingEarning } = await supabase
+          .from("earnings")
+          .select("id, gow")
+          .eq("name", gowOwner)
+          .eq("season", s)
+          .maybeSingle();
+        if (existingEarning) {
+          // Row exists — increment gow amount
+          await supabase
+            .from("earnings")
+            .update({ gow: (existingEarning.gow ?? 0) + 30 })
+            .eq("id", existingEarning.id);
+        } else {
+          // No row yet — insert a fresh one for this owner+season
+          await supabase.from("earnings").insert({
+            name: gowOwner,
+            season: s,
+            gow: 30,
+            wild_card: null,
+            divisional: null,
+            super_bowl: null,
+            champ: null,
+          });
+        }
       }
 
       sessionStorage.setItem(cacheKey, "1");
