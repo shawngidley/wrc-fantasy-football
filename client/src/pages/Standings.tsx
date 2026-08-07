@@ -141,12 +141,19 @@ function MatchupWidget({ ownerKey, standings }: { ownerKey: string; standings: D
   const oppTeamData = standings.find(t => t.team_name === oppTeam);
 
   return (
-    <div className="wrc-card" style={{ marginBottom: "1.25rem" }}>
+    <Link href={`/live?week=${currentWeek}`} style={{ textDecoration: "none", display: "block" }}>
+    <div className="wrc-card" style={{ marginBottom: "1.25rem", cursor: "pointer", transition: "box-shadow 0.15s", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}
+      onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 4px 16px rgba(0,0,0,0.13)")}
+      onMouseLeave={e => (e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.08)")}
+    >
       <div className="wrc-card-gold-stripe" />
       <div style={{ padding: "0.875rem 1.25rem" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
           <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: "oklch(0.55 0.16 85)" }}>
             Week {currentWeek} Matchup · {weekData.dates}
+          </span>
+          <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", color: "oklch(0.42 0.15 150)", textTransform: "uppercase" as const }}>
+            View Live →
           </span>
         </div>
 
@@ -172,6 +179,7 @@ function MatchupWidget({ ownerKey, standings }: { ownerKey: string; standings: D
         </div>
       </div>
     </div>
+    </Link>
   );
 }
 
