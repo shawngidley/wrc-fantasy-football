@@ -159,6 +159,8 @@ export default function DraftBoard() {
   const [revealProgress, setRevealProgress] = useState(100);
   const prevPickCountRef = useRef(0);
   const chimeRef = useRef<HTMLAudioElement | null>(null);
+  // Tracks which pick IDs have been revealed (shown in board after overlay)
+  const [revealedPickIds, setRevealedPickIds] = useState<Set<number>>(new Set());
 
   // Pre-load the chime audio on mount
   useEffect(() => {
@@ -179,9 +181,11 @@ export default function DraftBoard() {
   // Build picks map: "round-pick" → DbDraftPick
   const picksMap = useMemo(() => {
     const m: Record<string, DbDraftPick> = {};
-    for (const p of dbPicks) m[`${p.round}-${p.pick}`] = p;
+    for (const p of dbPicks) {
+      if (revealedPickIds.has(p.id)) m[`${p.round}-${p.pick}`] = p;
+    }
     return m;
-  }, [dbPicks]);
+  }, [dbPicks, revealedPickIds]);
 
   // Drafted player names set (for filtering available pool)
   const draftedNames = useMemo(() => new Set(dbPicks.map(p => p.player_name)), [dbPicks]);
@@ -221,7 +225,12 @@ export default function DraftBoard() {
         setDraftState(stateData as DbDraftState);
         setTimer(stateData.timer_seconds ?? TIMER_SECONDS);
       }
-      if (picksData) setDbPicks(picksData as DbDraftPick[]);
+      if (picksData) {
+        const picks = picksData as DbDraftPick[];
+        setDbPicks(picks);
+        setRevealedPickIds(new Set(picks.map(p => p.id)));
+        prevPickCountRef.current = picks.length;
+      }
       setLoading(false);
     }
 
@@ -283,37 +292,43 @@ export default function DraftBoard() {
     // New pick detected
     const newPick = dbPicks[dbPicks.length - 1];
     prevPickCountRef.current = dbPicks.length;
-    setRevealPick(newPick);
-    setRevealHeadshot(null);
-    setRevealProgress(100);
 
-    // Play the NFL Draft chime
+    // Step 1: Play the NFL Draft chime immediately
     if (chimeRef.current) {
       chimeRef.current.currentTime = 0;
       chimeRef.current.play().catch(() => {});
     }
 
-    // Fetch headshot asynchronously
-    fetchPlayerByName(newPick.player_name).then(p => {
-      if (p?.espnHeadshot) setRevealHeadshot(p.espnHeadshot);
-    }).catch(() => {});
+    // Step 2: Show reveal overlay 500ms after chime starts
+    const overlayDelay = setTimeout(() => {
+      setRevealPick(newPick);
+      setRevealHeadshot(null);
+      setRevealProgress(100);
 
-    // Progress bar countdown (6 seconds)
-    const REVEAL_MS = 6000;
-    const INTERVAL_MS = 50;
-    const steps = REVEAL_MS / INTERVAL_MS;
-    let step = 0;
-    const progressId = setInterval(() => {
-      step++;
-      setRevealProgress(Math.max(0, 100 - (step / steps) * 100));
-      if (step >= steps) {
-        clearInterval(progressId);
-        setRevealPick(null);
-        setRevealHeadshot(null);
-      }
-    }, INTERVAL_MS);
+      // Fetch headshot asynchronously
+      fetchPlayerByName(newPick.player_name).then(p => {
+        if (p?.espnHeadshot) setRevealHeadshot(p.espnHeadshot);
+      }).catch(() => {});
 
-    return () => clearInterval(progressId);
+      // Progress bar countdown (6 seconds)
+      const REVEAL_MS = 6000;
+      const INTERVAL_MS = 50;
+      const steps = REVEAL_MS / INTERVAL_MS;
+      let step = 0;
+      const progressId = setInterval(() => {
+        step++;
+        setRevealProgress(Math.max(0, 100 - (step / steps) * 100));
+        if (step >= steps) {
+          clearInterval(progressId);
+          setRevealPick(null);
+          setRevealHeadshot(null);
+          // Step 3: Add pick to revealed set so it appears in the board
+          setRevealedPickIds(prev => new Set(Array.from(prev).concat(newPick.id)));
+        }
+      }, INTERVAL_MS);
+    }, 500);
+
+    return () => clearTimeout(overlayDelay);
   }, [dbPicks]);
 
   // ── Commissioner actions ──
