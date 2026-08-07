@@ -119,14 +119,13 @@ interface ProtectionSlot {
 
 // ── Rules helpers ─────────────────────────────────────────────────────────────
 function getTier(draftRound: number | null): Tier {
-  if (draftRound === null) return "tier2";
-  if (draftRound <= 2) return "ineligible";
-  if (draftRound <= 6) return "tier1";
-  return "tier2";
+  if (draftRound === null) return "tier2";       // FA
+  if (draftRound <= 2) return "ineligible";      // Rd 1-2: cannot protect
+  return "tier1";                                // Rd 3+: drafted, fixed cost
 }
 
-function tier1Cost(draftRound: number): number {
-  return draftRound - 1;
+function draftedCost(draftRound: number): number {
+  return draftRound - 1; // always one round higher (earlier)
 }
 
 // ── Position colors ───────────────────────────────────────────────────────────
@@ -215,54 +214,56 @@ export default function Protections() {
 
   // ── Derived state ──────────────────────────────────────────────────────────
   const selectedIds = slots.map(s => s.playerId);
-  const tier1Slots = slots.filter(s => roster.find(r => r.id === s.playerId)?.tier === "tier1");
-  const tier2Slots = slots.filter(s => roster.find(r => r.id === s.playerId)?.tier === "tier2");
+  const draftedSlots = slots.filter(s => roster.find(r => r.id === s.playerId)?.tier === "tier1");
+  const faSlots = slots.filter(s => roster.find(r => r.id === s.playerId)?.tier === "tier2");
   const totalSelected = slots.length;
 
-  // Which tier-2 rounds are already assigned
-  const assignedTier2Rounds = tier2Slots.map(s => s.assignedRound).filter(Boolean) as number[];
-  // Available rounds for tier-2 (from pick status, minus already assigned)
-  const availableTier2Rounds = pickStatus.available.filter(r => !assignedTier2Rounds.includes(r));
+  // FA cost: 1st FA → pickStatus.available[0] (Rd 6), 2nd → [1] (Rd 7), 3rd → [2] (Rd 8)
+  // Auto-assigned by order of selection — no manual choice
+  function getFaCost(faIndex: number): number {
+    return pickStatus.available[faIndex] ?? (6 + faIndex);
+  }
 
   // ── Toggle selection ───────────────────────────────────────────────────────
   const toggle = (entry: RosterEntry) => {
     if (entry.tier === "ineligible" || cd.past) return;
 
     if (selectedIds.includes(entry.id)) {
-      setSlots(prev => prev.filter(s => s.playerId !== entry.id));
+      setSlots(prev => {
+        const next = prev.filter(s => s.playerId !== entry.id);
+        // Re-assign FA costs by order after removal
+        let faIdx = 0;
+        return next.map(s => {
+          const e = roster.find(r => r.id === s.playerId);
+          if (e?.tier === "tier2") {
+            return { ...s, assignedRound: getFaCost(faIdx++) };
+          }
+          return s;
+        });
+      });
     } else {
       if (totalSelected >= 3) return;
-      if (entry.tier === "tier1" && tier1Slots.length >= 1) return;
-      if (entry.tier === "tier2" && tier2Slots.length >= 3) return;
+      if (entry.tier === "tier1" && draftedSlots.length >= 1) return; // max 1 drafted Rd 3-6... actually no cap on drafted, cap is total 3
+      if (entry.tier === "tier2" && faSlots.length >= 3) return;
 
-      // For tier2: auto-assign the next available round, owner can change it
-      const nextRound = availableTier2Rounds[0] ?? null;
+      // For FA: auto-assign based on how many FAs already selected
+      const nextFaIdx = faSlots.length;
+      const nextRound = entry.tier === "tier2" ? getFaCost(nextFaIdx) : null;
       setSlots(prev => [...prev, {
         playerId: entry.id,
-        assignedRound: entry.tier === "tier2" ? nextRound : null,
+        assignedRound: nextRound,
       }]);
     }
     setSaved(false);
   };
 
-  // ── Change round assignment for a tier-2 slot ─────────────────────────────
-  const changeRound = (playerId: string, newRound: number) => {
-    if (cd.past) return;
-    setSlots(prev => prev.map(s => {
-      if (s.playerId === playerId) return { ...s, assignedRound: newRound };
-      // If another slot had this round, swap them
-      if (s.assignedRound === newRound) {
-        const thisSlot = prev.find(x => x.playerId === playerId);
-        return { ...s, assignedRound: thisSlot?.assignedRound ?? null };
-      }
-      return s;
-    }));
-    setSaved(false);
-  };
-
-  // Validation: any tier-2 slot missing a round assignment?
-  const unassignedTier2 = tier2Slots.filter(s => !s.assignedRound);
-  const isValid = unassignedTier2.length === 0;
+  // Validation: all slots have an assigned round
+  const isValid = slots.every(s => {
+    const entry = roster.find(r => r.id === s.playerId);
+    if (!entry) return false;
+    if (entry.tier === "tier1") return true; // drafted cost is always valid
+    return s.assignedRound !== null;
+  });
 
   const handleSave = async () => {
     if (!franchise?.id || cd.past || !isValid) return;
@@ -297,7 +298,7 @@ export default function Protections() {
           <button
             onClick={handleSave}
             disabled={!franchise || cd.past || !isValid}
-            title={!isValid ? `${unassignedTier2.length} player${unassignedTier2.length > 1 ? 's' : ''} need round assignment` : undefined}
+            title={!isValid ? "Some players missing round assignment" : undefined}
             style={{
               background: saved ? "oklch(0.42 0.15 150)" : cd.past ? "rgba(0,0,0,0.3)" : !isValid ? "rgba(0,0,0,0.35)" : "oklch(0.28 0.09 150)",
               color: "white", border: !isValid && !cd.past && franchise ? "2px solid oklch(0.65 0.18 25)" : "none", borderRadius: 8,
@@ -308,7 +309,7 @@ export default function Protections() {
               opacity: (franchise && !cd.past) ? 1 : 0.5,
             }}
           >
-            {saved ? <><CheckCircle2 size={14} /> Saved!</> : cd.past ? "Deadline Passed" : !isValid && franchise ? <><AlertTriangle size={14} /> {unassignedTier2.length} Need Round Assignment</> : "Submit Protections"}
+            {saved ? <><CheckCircle2 size={14} /> Saved!</> : cd.past ? "Deadline Passed" : "Submit Protections"}
           </button>
         </div>
 
@@ -421,10 +422,10 @@ export default function Protections() {
           </div>
           <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
             <span style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "3px 10px", fontSize: "0.72rem", color: "rgba(255,255,255,0.65)", fontFamily: "Barlow Condensed, sans-serif" }}>
-              Rd 3–6 slot: {tier1Slots.length}/1
+              Drafted: {draftedSlots.length}
             </span>
             <span style={{ background: "rgba(0,0,0,0.35)", border: "1px solid rgba(255,255,255,0.15)", borderRadius: 6, padding: "3px 10px", fontSize: "0.72rem", color: "rgba(255,255,255,0.65)", fontFamily: "Barlow Condensed, sans-serif" }}>
-              Rd 7–18 / FA slots: {tier2Slots.length}/3
+              FA: {faSlots.length}/3
             </span>
           </div>
         </div>
@@ -452,8 +453,8 @@ export default function Protections() {
                 const isSelected = selectedIds.includes(entry.id);
                 const slot = slots.find(s => s.playerId === entry.id);
                 const isIneligible = entry.tier === "ineligible";
-                const isTier1Full = entry.tier === "tier1" && tier1Slots.length >= 1 && !isSelected;
-                const isTier2Full = entry.tier === "tier2" && tier2Slots.length >= 3 && !isSelected;
+                const isTier1Full = false; // no per-tier cap on drafted beyond total 3
+                const isTier2Full = entry.tier === "tier2" && faSlots.length >= 3 && !isSelected;
                 const isTotalFull = totalSelected >= 3 && !isSelected;
                 const isDisabled = isIneligible || isTier1Full || isTier2Full || isTotalFull || cd.past;
 
@@ -463,17 +464,21 @@ export default function Protections() {
                 if (entry.tier === "ineligible") {
                   costLabel = "Ineligible";
                 } else if (entry.tier === "tier1") {
-                  const cost = tier1Cost(entry.draftRound!);
+                  const cost = draftedCost(entry.draftRound!);
                   costLabel = `Rd ${cost} pick`;
                   costNote = `Drafted Rd ${entry.draftRound} → forfeit Rd ${cost}`;
                 } else {
-                  if (isSelected && slot?.assignedRound) {
-                    costLabel = `Rd ${slot.assignedRound} pick`;
-                    costNote = entry.draftRound ? `Drafted Rd ${entry.draftRound}` : "Free Agent";
+                  // FA: show cost based on FA order
+                  const faIdx = faSlots.findIndex(s => s.playerId === entry.id);
+                  if (isSelected && faIdx >= 0) {
+                    const round = getFaCost(faIdx);
+                    costLabel = `Rd ${round} pick`;
+                    costNote = `FA #${faIdx + 1} → forfeit Rd ${round}`;
                   } else {
-                    const nextRound = availableTier2Rounds[0] ?? pickStatus.available[0] ?? 6;
+                    const nextFaIdx = faSlots.length;
+                    const nextRound = getFaCost(nextFaIdx);
                     costLabel = `~Rd ${nextRound} pick`;
-                    costNote = entry.draftRound ? `Drafted Rd ${entry.draftRound}` : "Free Agent";
+                    costNote = "Free Agent";
                   }
                 }
 
@@ -553,64 +558,8 @@ export default function Protections() {
                       </div>
                     </div>
 
-                    {/* ── Round assignment panel (tier2 selected only) ── */}
-                    {isSelected && entry.tier === "tier2" && (
-                      <div style={{
-                        background: "oklch(0.89 0.07 150)",
-                        borderBottom: "1px solid oklch(0.82 0.06 150)",
-                        padding: "0.6rem 1.25rem 0.6rem 3.75rem",
-                        display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap",
-                      }}
-                        onClick={e => e.stopPropagation()}
-                      >
-                        <ArrowUpDown size={13} color="oklch(0.35 0.1 150)" />
-                        <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "oklch(0.28 0.1 150)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.04em" }}>
-                          ASSIGN FORFEITED PICK:
-                        </span>
-                        <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
-                          {pickStatus.available.map(round => {
-                            const isAssignedToMe = slot?.assignedRound === round;
-                            const isAssignedToOther = assignedTier2Rounds.includes(round) && !isAssignedToMe;
-                            return (
-                              <button
-                                key={round}
-                                onClick={() => changeRound(entry.id, round)}
-                                disabled={cd.past}
-                                style={{
-                                  padding: "3px 12px",
-                                  borderRadius: 6,
-                                  border: isAssignedToMe ? "2px solid oklch(0.42 0.15 150)" : "2px solid transparent",
-                                  background: isAssignedToMe
-                                    ? "oklch(0.42 0.15 150)"
-                                    : isAssignedToOther
-                                      ? "oklch(0.78 0.04 150)"
-                                      : "white",
-                                  color: isAssignedToMe ? "white" : isAssignedToOther ? "oklch(0.55 0.04 150)" : "oklch(0.28 0.1 150)",
-                                  fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.78rem",
-                                  cursor: cd.past ? "not-allowed" : "pointer",
-                                  transition: "all 0.15s",
-                                  position: "relative",
-                                }}
-                                title={isAssignedToOther ? "Swap with other player" : `Assign Rd ${round} to this player`}
-                              >
-                                Rd {round}
-                                {isAssignedToOther && (
-                                  <span style={{ fontSize: "0.6rem", position: "absolute", top: -6, right: -4, background: "oklch(0.55 0.14 85)", color: "white", borderRadius: 3, padding: "0 3px" }}>swap</span>
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <button
-                          onClick={() => toggle(entry)}
-                          style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "oklch(0.55 0.22 25)", display: "flex", alignItems: "center", gap: "0.25rem", fontSize: "0.72rem", fontWeight: 600 }}
-                        >
-                          <X size={13} /> Remove
-                        </button>
-                      </div>
-                    )}
                     {/* Remove button for tier1 selected */}
-                    {isSelected && entry.tier === "tier1" && (
+                    {isSelected && (
                       <div style={{
                         background: "oklch(0.89 0.07 150)",
                         borderBottom: "1px solid oklch(0.82 0.06 150)",
@@ -620,7 +569,9 @@ export default function Protections() {
                         onClick={e => e.stopPropagation()}
                       >
                         <span style={{ fontSize: "0.75rem", color: "oklch(0.35 0.1 150)", fontWeight: 600 }}>
-                          Forfeits Round {tier1Cost(entry.draftRound!)} pick (one round higher than Rd {entry.draftRound})
+                          {entry.tier === "tier1"
+                            ? `Forfeits Rd ${draftedCost(entry.draftRound!)} pick (one round higher than Rd ${entry.draftRound})`
+                            : `Forfeits Rd ${slot?.assignedRound ?? "?"} pick (FA #${faSlots.findIndex(s => s.playerId === entry.id) + 1})`}
                         </span>
                         {!cd.past && (
                           <button
@@ -662,7 +613,7 @@ export default function Protections() {
                     const entry = roster.find(r => r.id === slot.playerId);
                     if (!entry) return null;
                     let pickLabel = "";
-                    if (entry.tier === "tier1") pickLabel = `Round ${tier1Cost(entry.draftRound!)}`;
+                    if (entry.tier === "tier1") pickLabel = `Round ${draftedCost(entry.draftRound!)}`;
                     else if (slot.assignedRound) pickLabel = `Round ${slot.assignedRound}`;
                     else pickLabel = "⚠ Assign a round";
                     return (
