@@ -1,7 +1,7 @@
 /**
  * WRC Fantasy Football - Money Page
  * Background: Field turf
- * Sections: Money Owed (editable by commish), Prize Structure, GOW History, 2025 Earnings
+ * Sections: Money Owed (editable by commish), Prize Structure, GOW History, 2026 Earnings
  * Supabase tables: money_owed, gow_history, earnings
  */
 import { useState, useEffect, useCallback } from "react";
@@ -47,18 +47,18 @@ type Earnings = {
 };
 
 const DEFAULT_EARNINGS: Earnings[] = [
-  { name: "Shawn",    gow: 30.00, wildCard: null,  divisional: null,   superBowl: null,   champ: null   },
-  { name: "Greg",     gow: 30.00, wildCard: null,  divisional: null,   superBowl: null,   champ: null   },
-  { name: "Jonas",    gow: 30.00, wildCard: 50.00, divisional: null,   superBowl: null,   champ: null   },
-  { name: "Jamie",    gow: 30.00, wildCard: 50.00, divisional: 100.00, superBowl: null,   champ: null   },
-  { name: "Bill",     gow: 30.00, wildCard: null,  divisional: null,   superBowl: null,   champ: null   },
-  { name: "Scott M.", gow: 30.00, wildCard: 50.00, divisional: 100.00, superBowl: 300.00, champ: null   },
-  { name: "David S.", gow: 30.00, wildCard: 50.00, divisional: null,   superBowl: null,   champ: null   },
-  { name: "David R.", gow: null,  wildCard: null,  divisional: null,   superBowl: null,   champ: null   },
-  { name: "Scott N.", gow: null,  wildCard: null,  divisional: null,   superBowl: null,   champ: null   },
-  { name: "Jason",    gow: 30.00, wildCard: null,  divisional: null,   superBowl: null,   champ: null   },
-  { name: "Keith",    gow: 60.00, wildCard: 50.00, divisional: 100.00, superBowl: null,   champ: null   },
-  { name: "Dan",      gow: 60.00, wildCard: 50.00, divisional: 100.00, superBowl: 300.00, champ: 600.00 },
+  { name: "Shawn",    gow: null, wildCard: null, divisional: null, superBowl: null, champ: null },
+  { name: "Greg",     gow: null, wildCard: null, divisional: null, superBowl: null, champ: null },
+  { name: "Jonas",    gow: null, wildCard: null, divisional: null, superBowl: null, champ: null },
+  { name: "Jamie",    gow: null, wildCard: null, divisional: null, superBowl: null, champ: null },
+  { name: "Bill",     gow: null, wildCard: null, divisional: null, superBowl: null, champ: null },
+  { name: "Scott M.", gow: null, wildCard: null, divisional: null, superBowl: null, champ: null },
+  { name: "David S.", gow: null, wildCard: null, divisional: null, superBowl: null, champ: null },
+  { name: "David R.", gow: null, wildCard: null, divisional: null, superBowl: null, champ: null },
+  { name: "Scott N.", gow: null, wildCard: null, divisional: null, superBowl: null, champ: null },
+  { name: "Jason",    gow: null, wildCard: null, divisional: null, superBowl: null, champ: null },
+  { name: "Keith",    gow: null, wildCard: null, divisional: null, superBowl: null, champ: null },
+  { name: "Dan",      gow: null, wildCard: null, divisional: null, superBowl: null, champ: null },
 ];
 
 type GowEntry = {
@@ -71,20 +71,7 @@ type GowEntry = {
   amount: number;
 };
 
-const DEFAULT_GOW: GowEntry[] = [
-  { week: 1,  winner: "Dan",      team: "Larry \"Bud\" Melman123", opponent: "Millertime",          score: "142.6 – 98.3",  amount: 30 },
-  { week: 2,  winner: "Keith",    team: "HamSandwich",              opponent: "Vipers",              score: "138.9 – 112.4", amount: 30 },
-  { week: 3,  winner: "Scott M.", team: "Xavier Musketeers",        opponent: "Four Horsemen",       score: "155.2 – 101.8", amount: 30 },
-  { week: 4,  winner: "Jamie",    team: "Heiden's Hardtimes",       opponent: "Legion of Doom",      score: "147.1 – 109.5", amount: 30 },
-  { week: 5,  winner: "Jonas",    team: "Super Snuffleupagus",      opponent: "Billy Goats Gruff",   score: "161.4 – 118.2", amount: 30 },
-  { week: 6,  winner: "Jason",    team: "Boys of Fall",             opponent: "Legends",             score: "133.8 – 97.6",  amount: 30 },
-  { week: 7,  winner: "Bill",     team: "Millertime",               opponent: "HamSandwich",         score: "149.7 – 122.3", amount: 30 },
-  { week: 8,  winner: "Greg",     team: "Four Horsemen",            opponent: "Xavier Musketeers",   score: "144.2 – 108.9", amount: 30 },
-  { week: 9,  winner: "Shawn",    team: "Vipers",                   opponent: "Super Snuffleupagus", score: "158.6 – 131.4", amount: 30 },
-  { week: 10, winner: "David S.", team: "Legends",                  opponent: "Boys of Fall",        score: "139.3 – 104.7", amount: 30 },
-  { week: 11, winner: "Keith",    team: "HamSandwich",              opponent: "Billy Goats Gruff",   score: "162.8 – 119.5", amount: 30 },
-  { week: 12, winner: "Dan",      team: "Larry \"Bud\" Melman123",  opponent: "Legion of Doom",      score: "171.4 – 138.2", amount: 30 },
-];
+const DEFAULT_GOW: GowEntry[] = [];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -577,11 +564,11 @@ export default function Money() {
           </table>
         </div>
 
-        {/* ── SECTION 4: 2025 Earnings ──────────────────────────────────────── */}
+        {/* ── SECTION 4: 2026 Earnings ──────────────────────────────────────── */}
         <div className="wrc-card" style={{ overflowX: "auto" }}>
           <div className="wrc-card-gold-stripe" />
           <div style={{ padding: "0.85rem 1rem 0.5rem" }}>
-            <h2 style={sectionTitle}>2025 Earnings</h2>
+            <h2 style={sectionTitle}>2026 Earnings</h2>
           </div>
           <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 600 }}>
             <thead>
