@@ -274,8 +274,11 @@ export default function Protections() {
   // ── Sorted roster ─────────────────────────────────────────────────────────
   const posOrder = ["QB","RB","WR","TE","K","DST"];
   const sorted = [...roster].sort((a, b) => {
-    const tierRank = { tier1: 0, tier2: 1, ineligible: 2 };
-    if (tierRank[a.tier] !== tierRank[b.tier]) return tierRank[a.tier] - tierRank[b.tier];
+    // Primary: sort by draft round ascending (FA/null goes to end)
+    const ra = a.draftRound ?? 999;
+    const rb = b.draftRound ?? 999;
+    if (ra !== rb) return ra - rb;
+    // Secondary: position order
     return posOrder.indexOf(a.pos) - posOrder.indexOf(b.pos);
   });
 
@@ -502,7 +505,7 @@ export default function Protections() {
 
                       {/* Name + acquisition */}
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.18 0.05 150)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.18 0.05 150)", lineHeight: 1.25 }}>
                           {entry.name}
                         </div>
                         <div style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)", display: "flex", gap: "0.4rem", flexWrap: "wrap" }}>
