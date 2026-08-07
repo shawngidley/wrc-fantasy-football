@@ -19,7 +19,7 @@ import { useNFLMatchups } from "@/hooks/useNFLMatchups";
 import { useWeeklyResultsWriter } from "@/hooks/useWeeklyResultsWriter";
 import { CheckCircle2, Clock, Edit3, Trophy, X, Zap, RefreshCw, Calendar, User } from "lucide-react";
 import { toast } from "sonner";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import TeamLogo from "@/components/TeamLogo";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -203,7 +203,7 @@ function ScoreModal({ result, onClose, onSaved }: {
 // ── Matchup Card ──────────────────────────────────────────────────────────────
 
 function MatchupCard({
-  weekNum, ownerA, ownerB, result, isCommissioner, myOwner, isCurrent, isFuture, onEdit, seeds,
+  weekNum, ownerA, ownerB, result, isCommissioner, myOwner, isCurrent, isFuture, onEdit, seeds, displayWeek,
 }: {
   weekNum: number;
   ownerA: string;
@@ -215,7 +215,10 @@ function MatchupCard({
   isFuture: boolean;
   onEdit: (r: WeeklyResult) => void;
   seeds: string[];
+  displayWeek: number;
 }) {
+  const [, navigate] = useLocation();
+
   // Resolve team names
   const teamA = ownerA === "TBD" ? "TBD" : (ownerToTeam(ownerA) ?? ownerA);
   const teamB = ownerB === "TBD" ? "TBD" : (ownerToTeam(ownerB) ?? ownerB);
@@ -237,12 +240,15 @@ function MatchupCard({
     ? "2px solid oklch(0.65 0.18 85)"
     : "1px solid oklch(0.93 0.01 150)";
   const cardBg = isMyMatchup ? "oklch(0.99 0.02 85)" : "white";
+  const handleCardClick = () => {
+    navigate(`/live?week=${displayWeek}`);
+  };
 
   return (
     <div
-      style={{ background: cardBg, border: cardBorder, borderRadius: 10, padding: "0.6rem 1rem", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem", cursor: (isCommissioner && isFinal) ? "pointer" : "default", transition: "background 0.15s" }}
-      onClick={() => isCommissioner && result && onEdit(result)}
-      onMouseEnter={e => { if (isCommissioner && result) (e.currentTarget as HTMLElement).style.background = isMyMatchup ? "oklch(0.97 0.04 85)" : "oklch(0.97 0.01 150)"; }}
+      style={{ background: cardBg, border: cardBorder, borderRadius: 10, padding: "0.6rem 1rem", marginBottom: "0.5rem", display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer", transition: "background 0.15s" }}
+      onClick={handleCardClick}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = isMyMatchup ? "oklch(0.97 0.04 85)" : "oklch(0.97 0.01 150)"; }}
       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = cardBg; }}
     >
       {/* Home team */}
@@ -513,6 +519,7 @@ export default function ScheduleResults() {
                       isFuture={isFuture}
                       onEdit={setEditTarget}
                       seeds={seeds}
+                      displayWeek={displayWeek}
                     />
                   );
                 })
