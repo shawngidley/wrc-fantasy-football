@@ -249,7 +249,7 @@ function MatchupCard({
       <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "0.4rem" }}>
         <TeamLogo teamName={displayHome} size={28} style={{ borderRadius: 5, flexShrink: 0 }} />
         <div style={{ minWidth: 0 }}>
-          <div style={{ fontSize: "0.78rem", fontWeight: homeWon ? 800 : 500, color: homeWon ? "oklch(0.22 0.08 150)" : awayWon ? "oklch(0.65 0.04 150)" : "oklch(0.28 0.06 150)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
+          <div style={{ fontSize: "0.78rem", fontWeight: homeWon ? 800 : 500, color: homeWon ? "oklch(0.22 0.08 150)" : awayWon ? "oklch(0.65 0.04 150)" : "oklch(0.28 0.06 150)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.02em", lineHeight: 1.2 }}>
             {homeWon && <Trophy size={10} style={{ display: "inline", marginRight: 3, color: "oklch(0.55 0.18 85)", verticalAlign: "middle" }} />}
             {displayHome}
           </div>
@@ -279,7 +279,7 @@ function MatchupCard({
           </div>
         ) : (
           <div style={{ fontSize: "0.65rem", color: "oklch(0.65 0.04 150)", fontStyle: "italic" }}>
-            {isCommissioner ? "Enter score" : "Pending"}
+            "Pending"
           </div>
         )}
       </div>
@@ -287,7 +287,7 @@ function MatchupCard({
       {/* Away team */}
       <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "0.4rem", justifyContent: "flex-end" }}>
         <div style={{ minWidth: 0, textAlign: "right" as const }}>
-          <div style={{ fontSize: "0.78rem", fontWeight: awayWon ? 800 : 500, color: awayWon ? "oklch(0.22 0.08 150)" : homeWon ? "oklch(0.65 0.04 150)" : "oklch(0.28 0.06 150)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>
+          <div style={{ fontSize: "0.78rem", fontWeight: awayWon ? 800 : 500, color: awayWon ? "oklch(0.22 0.08 150)" : homeWon ? "oklch(0.65 0.04 150)" : "oklch(0.28 0.06 150)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.02em", lineHeight: 1.2 }}>
             {awayWon && <Trophy size={10} style={{ display: "inline", marginRight: 3, color: "oklch(0.55 0.18 85)", verticalAlign: "middle" }} />}
             {displayAway}
           </div>
@@ -296,7 +296,6 @@ function MatchupCard({
         <TeamLogo teamName={displayAway} size={28} style={{ borderRadius: 5, flexShrink: 0 }} />
       </div>
 
-      {isCommissioner && result && <Edit3 size={12} style={{ color: "oklch(0.65 0.04 150)", flexShrink: 0, marginLeft: 2 }} />}
     </div>
   );
 }
@@ -432,34 +431,6 @@ export default function ScheduleResults() {
             )}
           </div>
         </div>
-
-        {/* ── Commissioner panel ── */}
-        {!authLoading && isCommissioner && (
-          <div style={{ background: "oklch(0.96 0.04 85)", border: "1.5px solid oklch(0.82 0.12 85)", borderRadius: 10, padding: "0.75rem 1rem", marginBottom: "1.25rem" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.6rem" }}>
-              <Edit3 size={14} color="oklch(0.45 0.18 85)" />
-              <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, letterSpacing: "0.06em", color: "oklch(0.38 0.14 85)" }}>
-                COMMISSIONER — Click any matchup to enter scores
-              </span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" as const }}>
-              <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", color: "oklch(0.45 0.08 85)" }}>Auto-score week:</span>
-              <select value={forceWeek} onChange={e => setForceWeek(parseInt(e.target.value))}
-                style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, borderRadius: 6, border: "1.5px solid oklch(0.75 0.1 85)", padding: "0.25rem 0.5rem", background: "white", color: "oklch(0.3 0.1 85)", cursor: "pointer" }}>
-                {SCHEDULE_2026.filter(w => w.type === "regular").map(w => (
-                  <option key={w.week} value={w.week}>Week {w.week}</option>
-                ))}
-              </select>
-              <button onClick={() => forceWriteResults(forceWeek)} disabled={autoWriteStatus === "running"}
-                style={{ display: "flex", alignItems: "center", gap: "0.35rem", background: autoWriteStatus === "done" ? "oklch(0.42 0.15 150)" : "oklch(0.38 0.14 85)", color: "white", border: "none", borderRadius: 7, padding: "0.35rem 0.875rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, letterSpacing: "0.05em", cursor: autoWriteStatus === "running" ? "wait" : "pointer", opacity: autoWriteStatus === "running" ? 0.7 : 1 }}>
-                {autoWriteStatus === "running" ? <><RefreshCw size={12} style={{ animation: "spin 1s linear infinite" }} /> Scoring...</>
-                  : autoWriteStatus === "done" ? <><CheckCircle2 size={12} /> Scores Written!</>
-                  : <><Zap size={12} /> Auto-Score Week {forceWeek}</>}
-              </button>
-              {autoWriteError && <span style={{ fontSize: "0.7rem", color: "#ef4444" }}>{autoWriteError}</span>}
-            </div>
-          </div>
-        )}
 
         {/* ── Week selector ── */}
         <div style={{ overflowX: "auto", marginBottom: "1.25rem" }}>
