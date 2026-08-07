@@ -456,13 +456,10 @@ function PlayerCell({ player, side, injuries = {} }: { player: SlotPlayer | null
             fontSize: "1.15rem", lineHeight: 1,
             color: hasScored ? "#e07b00" : "oklch(0.7 0.03 150)",
           }}>
-            {player.pts.toFixed(2).replace(/\.?0+$/, p => p === "" ? "" : p)}
-            <sup style={{ fontSize: "0.55rem", fontWeight: 700, color: "oklch(0.55 0.12 85)" }}>
-              .{String(Math.round(player.pts * 100) % 100).padStart(2, "0")}
-            </sup>
+            {player.pts.toFixed(1)}
           </div>
           <div style={{ fontSize: "0.6rem", color: "oklch(0.6 0.04 150)", textAlign: "center" }}>
-            {player.pts.toFixed(2)}
+            {player.pts.toFixed(1)}
           </div>
         </div>
       </div>
@@ -560,12 +557,9 @@ function MatchupDetail({ matchup, injuries }: { matchup: Matchup; injuries?: imp
             <div>
               <div style={{
                 fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "2rem",
-                color: homeWinning ? "#1a3a2a" : "oklch(0.55 0.04 150)", lineHeight: 1,
+              color: homeWinning ? "#1a3a2a" : "oklch(0.55 0.04 150)", lineHeight: 1,
               }}>
                 {matchup.home.score.toFixed(1)}
-                <sup style={{ fontSize: "0.8rem", fontWeight: 600, color: "oklch(0.55 0.12 85)" }}>
-                  .{String(Math.round(matchup.home.score * 100) % 100).padStart(2, "0")}
-                </sup>
               </div>
               <div style={{
                 fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.85rem",
@@ -574,7 +568,7 @@ function MatchupDetail({ matchup, injuries }: { matchup: Matchup; injuries?: imp
                 {matchup.home.team}
               </div>
               <div style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)" }}>
-                {matchup.home.score.toFixed(2)}
+                {matchup.home.score.toFixed(1)}
               </div>
               {/* Players played */}
               <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 3, fontSize: "0.65rem", color: "oklch(0.5 0.04 150)" }}>
@@ -590,12 +584,9 @@ function MatchupDetail({ matchup, injuries }: { matchup: Matchup; injuries?: imp
             <div style={{ textAlign: "right" }}>
               <div style={{
                 fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "2rem",
-                color: !homeWinning ? "#1a3a2a" : "oklch(0.55 0.04 150)", lineHeight: 1,
+              color: !homeWinning ? "#1a3a2a" : "oklch(0.55 0.04 150)", lineHeight: 1,
               }}>
                 {matchup.away.score.toFixed(1)}
-                <sup style={{ fontSize: "0.8rem", fontWeight: 600, color: "oklch(0.55 0.12 85)" }}>
-                  .{String(Math.round(matchup.away.score * 100) % 100).padStart(2, "0")}
-                </sup>
               </div>
               <div style={{
                 fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.85rem",
@@ -875,7 +866,11 @@ async function buildMatchupsFromLineups(
           const p = playerByName[row.player_name.toLowerCase()];
           if (!p) continue;
           if (row.is_bench) benchPlayers.push(p);
-          else starters.push({ slot: row.slot, player: p });
+          else {
+            // Normalize RB1/RB2 → RB, WR1/WR2 → WR, TE1/TE2 → TE
+            const normalizedSlot = row.slot.replace(/^(RB|WR|TE)\d+$/, "$1");
+            starters.push({ slot: normalizedSlot, player: p });
+          }
         }
       } else {
         // Default: use is_starter flag or first by position
