@@ -27,27 +27,6 @@ type TradeSide = {
   assets: TradeAsset[];
 };
 
-const TRADE_HISTORY = [
-  {
-    date: "Dec 15, 2025",
-    team1: "The Super Snuffleupagus", sends1: ["Justin Jefferson (WR)"],
-    team2: "Legion of Doom", sends2: ["George Pickens (WR)", `${CURRENT_YEAR} Rd 4 Pick`],
-    status: "Completed",
-  },
-  {
-    date: "Nov 28, 2025",
-    team1: "Xavier Musketeers", sends1: ["Sam Darnold (QB)"],
-    team2: "The Four Horsemen", sends2: ["Tua Tagovailoa (QB)", "FAAB $30"],
-    status: "Completed",
-  },
-  {
-    date: "Nov 10, 2025",
-    team1: "Millertime", sends1: [`${CURRENT_YEAR} Rd 2 Pick`, "FAAB $50"],
-    team2: "Legends", sends2: ["Patrick Mahomes (QB)"],
-    status: "Completed",
-  },
-];
-
 // Incoming trade proposals for the inbox
 type IncomingProposal = {
   id: string;
@@ -498,49 +477,10 @@ export default function Trades() {
           <div className="wrc-card-gold-stripe" />
           <div className="wrc-card-header">Trade History — 2026 Season</div>
           <div>
-            {TRADE_HISTORY.map((t, i) => (
-              <div key={i} style={{ padding: "1rem 1.25rem", borderBottom: "1px solid oklch(0.92 0.005 150)" }}>
-                <div style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: "0.6rem", flexWrap: "wrap" }}>
-                  <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 600, letterSpacing: "0.06em", color: "oklch(0.5 0.04 150)" }}>{t.date}</span>
-                  <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "oklch(0.42 0.15 150)", background: "oklch(0.94 0.03 150)", borderRadius: 4, padding: "1px 6px" }}>{t.status}</span>
-                </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: "0.75rem", alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.22 0.08 150)", marginBottom: "0.3rem" }}>{t.team1} sends</div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
-                      {t.sends1.map((s, j) => {
-                        const isFaab = s.startsWith("FAAB");
-                        const isPick = s.includes("Pick") || s.includes("Rd");
-                        return (
-                          <span key={j} style={{
-                            fontSize: "0.75rem", fontWeight: 600, borderRadius: 4, padding: "2px 8px",
-                            background: isFaab ? "oklch(0.93 0.06 250)" : isPick ? "oklch(0.93 0.06 85)" : "oklch(0.93 0.03 150)",
-                            color: isFaab ? "oklch(0.32 0.14 250)" : isPick ? "oklch(0.35 0.14 85)" : "oklch(0.28 0.08 150)",
-                          }}>{s}</span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                  <ArrowLeftRight size={16} color="oklch(0.6 0.04 150)" style={{ flexShrink: 0 }} />
-                  <div>
-                    <div style={{ fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.22 0.08 150)", marginBottom: "0.3rem" }}>{t.team2} sends</div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
-                      {t.sends2.map((s, j) => {
-                        const isFaab = s.startsWith("FAAB");
-                        const isPick = s.includes("Pick") || s.includes("Rd");
-                        return (
-                          <span key={j} style={{
-                            fontSize: "0.75rem", fontWeight: 600, borderRadius: 4, padding: "2px 8px",
-                            background: isFaab ? "oklch(0.93 0.06 250)" : isPick ? "oklch(0.93 0.06 85)" : "oklch(0.93 0.03 150)",
-                            color: isFaab ? "oklch(0.32 0.14 250)" : isPick ? "oklch(0.35 0.14 85)" : "oklch(0.28 0.08 150)",
-                          }}>{s}</span>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+            <div style={{ padding: "2rem 1.25rem", textAlign: "center", color: "oklch(0.55 0.04 150)" }}>
+              <ArrowLeftRight size={28} style={{ margin: "0 auto 0.75rem", opacity: 0.25 }} />
+              <p style={{ margin: 0, fontSize: "0.88rem" }}>No completed trades yet for the 2026 season.</p>
+            </div>
           </div>
         </div>
 
