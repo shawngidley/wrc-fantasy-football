@@ -32,6 +32,7 @@ export default function PlayerNews() {
   const [items, setItems] = useState<PlayerNewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [myTeamOnly, setMyTeamOnly] = useState(false);
+  const [posFilter, setPosFilter] = useState<string>("ALL");
   const [myPlayers, setMyPlayers] = useState<{ name: string; pos: string; nflTeam: string }[]>([]);
 
   // Load the logged-in owner's players for "My Team" filter
@@ -113,6 +114,16 @@ export default function PlayerNews() {
       )
     : items;
 
+  // Position filter — applied after My Team filter
+  const POS_COLORS: Record<string, string> = {
+    QB: "oklch(0.42 0.18 260)", RB: "oklch(0.38 0.15 150)",
+    WR: "oklch(0.42 0.18 220)", TE: "oklch(0.55 0.16 85)",
+    K:  "oklch(0.50 0.04 150)", DST: "oklch(0.45 0.18 25)",
+  };
+  const posFiltered = posFilter === "ALL"
+    ? displayed
+    : displayed.filter(it => it.pos === posFilter);
+
   return (
     <div className="bg-turf bg-overlay" style={{ minHeight: "100vh" }}>
       <Navigation showTicker={false} teamName={franchise?.team_name} />
@@ -151,6 +162,30 @@ export default function PlayerNews() {
           </div>
         </div>
 
+        {/* Position filter pills */}
+        <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginBottom: "1rem" }}>
+          {["ALL", "QB", "RB", "WR", "TE", "K", "DST"].map(pos => {
+            const isActive = posFilter === pos;
+            const color = pos === "ALL" ? "oklch(0.28 0.09 150)" : POS_COLORS[pos];
+            return (
+              <button
+                key={pos}
+                onClick={() => setPosFilter(pos)}
+                style={{
+                  padding: "0.3rem 0.85rem", borderRadius: 20,
+                  border: isActive ? `1.5px solid ${color}` : "1.5px solid oklch(0.82 0.04 150)",
+                  background: isActive ? color : "white",
+                  color: isActive ? "white" : "oklch(0.35 0.06 150)",
+                  fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem", fontWeight: 700,
+                  cursor: "pointer", letterSpacing: "0.04em", transition: "all 0.15s",
+                }}
+              >
+                {pos}
+              </button>
+            );
+          })}
+        </div>
+
         {/* News feed */}
         <div className="wrc-card">
           <div className="wrc-card-gold-stripe" />
@@ -160,7 +195,7 @@ export default function PlayerNews() {
               NFL PLAYER NEWS
             </span>
             <span style={{ fontSize: "0.7rem", color: "oklch(0.55 0.04 150)" }}>
-              {loading ? "Loading…" : `${displayed.length} articles`}
+            {loading ? "Loading…" : `${posFiltered.length} articles`}
             </span>
           </div>
 
@@ -178,7 +213,7 @@ export default function PlayerNews() {
             </div>
           ) : (
             <div>
-              {displayed.map((item, i) => (
+              {posFiltered.map((item, i) => (
                 <PlayerNewsRow key={`${item.playerName}-${item.published}`} item={item} isFirst={i === 0} />
               ))}
             </div>
