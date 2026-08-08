@@ -3,11 +3,11 @@
  * Background: Field turf
  * Supports trading players, FAAB budget, and future draft picks (current + next year)
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { ArrowLeftRight, Plus, X, DollarSign, CalendarDays, Inbox, Check, XCircle, RefreshCw } from "lucide-react";
+import { ArrowLeftRight, Plus, X, DollarSign, CalendarDays, Inbox, Check, XCircle, RefreshCw, CornerUpLeft } from "lucide-react";
 import { TEAMS as WRC_TEAMS } from "@/lib/wrcData";
 import { toast } from "sonner";
 
@@ -42,7 +42,7 @@ type IncomingProposal = {
   givePicks: {year:number;round:number}[];
   receivePicks: {year:number;round:number}[];
   note?: string;
-  status: "pending" | "accepted" | "declined";
+  status: "pending" | "accepted" | "declined" | "countered";
 };
 
 const SAMPLE_INCOMING: IncomingProposal[] = [];
@@ -374,6 +374,8 @@ export default function Trades() {
   const [note, setNote] = useState("");
   const [inbox, setInbox] = useState<IncomingProposal[]>([]);
   const [inboxLoading, setInboxLoading] = useState(false);
+  const [counterToId, setCounterToId] = useState<string | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
 
   // Load incoming proposals from Supabase
   const loadInbox = async () => {
@@ -409,7 +411,7 @@ export default function Trades() {
       givePicks: r.give_picks ?? [],
       receivePicks: r.receive_picks ?? [],
       note: r.note || undefined,
-      status: r.status as "pending" | "accepted" | "declined",
+      status: r.status as "pending" | "accepted" | "declined" | "countered",
     })));
   };
 
@@ -420,6 +422,7 @@ export default function Trades() {
     setTheirSide({ team: "", assets: [] });
     setNote("");
     setShowForm(false);
+    setCounterToId(null);
   };
 
   const sendProposal = async () => {
@@ -443,10 +446,42 @@ export default function Trades() {
       receive_picks: receivePicks,
       note: note.trim(),
       status: "pending",
+      ...(counterToId ? { counter_to_id: counterToId } : {}),
     });
     if (error) { toast.error("Failed to send proposal"); return; }
-    toast.success(`Trade proposal sent to ${theirSide.team}!`);
+    // If this was a counter, mark the original as countered
+    if (counterToId) {
+      await supabase.from("trade_proposals").update({ status: "countered" }).eq("id", counterToId);
+      setInbox(prev => prev.map(p => p.id === counterToId ? { ...p, status: "countered" } : p));
+      toast.success(`Counter-offer sent to ${theirSide.team}!`);
+    } else {
+      toast.success(`Trade proposal sent to ${theirSide.team}!`);
+    }
     resetForm();
+  };
+
+  const handleCounter = (proposal: IncomingProposal) => {
+    // Pre-populate the form with the proposal reversed
+    // "You Send" = what they originally asked you to send
+    // "You Receive" = what they originally offered to send
+    const fromTeam = WRC_TEAMS.find(t => t.id === proposal.fromTeamId);
+    const myAssets: TradeAsset[] = [
+      ...proposal.receivePlayers.map(name => ({ type: "player" as const, name })),
+      ...(proposal.receiveFaab > 0 ? [{ type: "faab" as const, amount: proposal.receiveFaab }] : []),
+      ...proposal.receivePicks.map(p => ({ type: "pick" as const, year: p.year, round: p.round })),
+    ];
+    const theirAssets: TradeAsset[] = [
+      ...proposal.givePlayers.map(name => ({ type: "player" as const, name })),
+      ...(proposal.giveFaab > 0 ? [{ type: "faab" as const, amount: proposal.giveFaab }] : []),
+      ...proposal.givePicks.map(p => ({ type: "pick" as const, year: p.year, round: p.round })),
+    ];
+    setMySide({ team: franchise?.team_name ?? "", assets: myAssets });
+    setTheirSide({ team: fromTeam?.teamName ?? proposal.fromTeamId, assets: theirAssets });
+    setCounterToId(proposal.id);
+    setNote("");
+    setShowForm(true);
+    // Scroll to form
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
   };
 
   const respondToProposal = async (id: string, action: "accepted" | "declined") => {
@@ -612,13 +647,18 @@ export default function Trades() {
 
         {/* Trade Proposal Form */}
         {showForm && (
-          <div className="wrc-card" style={{ marginBottom: "1.25rem" }}>
+          <div ref={formRef} className="wrc-card" style={{ marginBottom: "1.25rem" }}>
             <div className="wrc-card-gold-stripe" />
-            <div className="wrc-card-header"><ArrowLeftRight size={14} /> New Trade Proposal</div>
+            <div className="wrc-card-header">
+              {counterToId ? <><CornerUpLeft size={14} /> Counter Offer</> : <><ArrowLeftRight size={14} /> New Trade Proposal</>}
+            </div>
             <div className="wrc-card-body" style={{ padding: "1.25rem" }}>
 
               <p style={{ color: "oklch(0.45 0.04 150)", fontSize: "0.85rem", margin: "0 0 1.25rem" }}>
-                Build your trade by adding players, FAAB budget, and/or draft picks to each side. You can trade picks for the <strong>2026</strong> and <strong>{NEXT_YEAR}</strong> drafts.
+                {counterToId
+                  ? <>You are sending a <strong>counter-offer</strong>. Modify either side and send your revised proposal.</>
+                  : <>Build your trade by adding players, FAAB budget, and/or draft picks to each side. You can trade picks for the <strong>2026</strong> and <strong>{NEXT_YEAR}</strong> drafts.</>
+                }
               </p>
 
               {/* Two-column trade builder */}
@@ -715,12 +755,20 @@ export default function Trades() {
                         >
                           <XCircle size={12} /> Decline
                         </button>
+                        <button
+                          onClick={() => handleCounter(proposal)}
+                          style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "0.3rem 0.85rem", background: "oklch(0.93 0.06 250)", color: "oklch(0.32 0.14 250)", border: "1px solid oklch(0.82 0.1 250)", borderRadius: 6, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.06em", cursor: "pointer" }}
+                        >
+                          <CornerUpLeft size={12} /> Counter
+                        </button>
                       </div>
                     ) : (
                       <span style={{ fontSize: "0.72rem", fontWeight: 700, borderRadius: 4, padding: "2px 8px",
                         background: proposal.status === "accepted" ? "oklch(0.93 0.06 150)" : "oklch(0.94 0.04 25)",
                         color: proposal.status === "accepted" ? "oklch(0.35 0.15 150)" : "oklch(0.45 0.18 25)"
-                      }}>{proposal.status === "accepted" ? "✓ Accepted" : "✕ Declined"}</span>
+                      }}>
+                        {proposal.status === "accepted" ? "✓ Accepted" : proposal.status === "countered" ? "↩ Countered" : "✕ Declined"}
+                      </span>
                     )}
                   </div>
 
