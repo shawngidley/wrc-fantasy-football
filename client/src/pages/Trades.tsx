@@ -3,7 +3,7 @@
  * Background: Field turf
  * Supports trading players, FAAB budget, and future draft picks (current + next year)
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -38,25 +38,7 @@ type IncomingProposal = {
   status: "pending" | "accepted" | "declined";
 };
 
-const SAMPLE_INCOMING: IncomingProposal[] = [
-  {
-    id: "ip1",
-    from: "Legion of Doom",
-    date: "Today, 2:14 PM",
-    theySend: ["Derrick Henry (RB)"],
-    youSend: ["Josh Allen (QB)", `${CURRENT_YEAR} Rd 3 Pick`],
-    note: "Let me know what you think!",
-    status: "pending",
-  },
-  {
-    id: "ip2",
-    from: "Xavier Musketeers",
-    date: "Yesterday, 6:40 PM",
-    theySend: ["Ja'Marr Chase (WR)", "FAAB $25"],
-    youSend: ["Lamar Jackson (QB)"],
-    status: "pending",
-  },
-];
+const SAMPLE_INCOMING: IncomingProposal[] = [];
 
 function AssetTag({ asset, onRemove }: { asset: TradeAsset; onRemove: () => void }) {
   let label = "";
@@ -93,21 +75,79 @@ function AssetTag({ asset, onRemove }: { asset: TradeAsset; onRemove: () => void
   );
 }
 
+// ── Live data hook for a team's roster, FAAB, and picks ──────────────────────
+type TeamData = {
+  roster: { id: string; name: string; position: string; nfl_team: string }[];
+  faab: number;
+  teamId: string;
+};
+
+function useTeamData(teamName: string): TeamData & { loading: boolean } {
+  const [data, setData] = useState<TeamData>({ roster: [], faab: 1000, teamId: "" });
+  const [loading, setLoading] = useState(false);
+
+  const load = useCallback(async (name: string) => {
+    if (!name) { setData({ roster: [], faab: 1000, teamId: "" }); return; }
+    setLoading(true);
+    try {
+      // Get team id + faab
+      const { data: teamRows } = await supabase
+        .from("teams")
+        .select("id, faab")
+        .eq("name", name)
+        .limit(1);
+      const teamRow = teamRows?.[0];
+      if (!teamRow) { setLoading(false); return; }
+      // Get roster
+      const { data: players } = await supabase
+        .from("players")
+        .select("id, name, position, nfl_team")
+        .eq("team_id", teamRow.id)
+        .order("position")
+        .order("name");
+      setData({
+        roster: (players ?? []).map((p: { id: string; name: string; position: string; nfl_team: string }) => p),
+        faab: teamRow.faab ?? 1000,
+        teamId: teamRow.id,
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { load(teamName); }, [teamName, load]);
+  return { ...data, loading };
+}
+
 function TradeSideBuilder({
-  side, label, onChange,
+  side, label, onChange, isMyTeam,
 }: {
   side: TradeSide;
   label: string;
   onChange: (s: TradeSide) => void;
+  isMyTeam?: boolean;
 }) {
-  const [playerInput, setPlayerInput] = useState("");
   const [faabAmount, setFaabAmount] = useState("");
   const [pickYear, setPickYear] = useState(CURRENT_YEAR);
   const [pickRound, setPickRound] = useState(1);
   const [addMode, setAddMode] = useState<"player" | "faab" | "pick" | null>(null);
+  const { roster, faab, loading: teamLoading } = useTeamData(side.team);
+
+  // Already-added assets
+  const addedPlayerNames = new Set(
+    side.assets.filter(a => a.type === "player").map(a => (a as { type: "player"; name: string }).name)
+  );
+  const totalFaabAdded = side.assets
+    .filter(a => a.type === "faab")
+    .reduce((s, a) => s + (a as { type: "faab"; amount: number }).amount, 0);
+  const addedPicks = new Set(
+    side.assets.filter(a => a.type === "pick")
+      .map(a => { const p = a as { type: "pick"; year: number; round: number }; return `${p.year}-${p.round}`; })
+  );
 
   const addAsset = (asset: TradeAsset) => {
     onChange({ ...side, assets: [...side.assets, asset] });
+    setAddMode(null);
   };
 
   const removeAsset = (i: number) => {
@@ -125,20 +165,38 @@ function TradeSideBuilder({
     textTransform: "uppercase" as const, cursor: "pointer",
   });
 
+  const faabRemaining = faab - totalFaabAdded;
+
   return (
     <div style={{ flex: 1, minWidth: 0 }}>
-      {/* Team selector */}
+      {/* Team label */}
       <label style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "oklch(0.35 0.06 150)", display: "block", marginBottom: "0.4rem" }}>
         {label}
       </label>
-      <select
-        value={side.team}
-        onChange={e => onChange({ ...side, team: e.target.value })}
-        style={{ width: "100%", padding: "0.5rem 0.75rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 8, fontSize: "0.875rem", marginBottom: "0.75rem", background: "white" }}
-      >
-        <option value="">Select team…</option>
-        {TEAMS.map(t => <option key={t} value={t}>{t}</option>)}
-      </select>
+
+      {/* Team selector — only shown on "their" side */}
+      {!isMyTeam && (
+        <select
+          value={side.team}
+          onChange={e => onChange({ ...side, team: e.target.value, assets: [] })}
+          style={{ width: "100%", padding: "0.5rem 0.75rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 8, fontSize: "0.875rem", marginBottom: "0.75rem", background: "white" }}
+        >
+          <option value="">Select team…</option>
+          {TEAMS.map(t => <option key={t} value={t}>{t}</option>)}
+        </select>
+      )}
+
+      {/* My team name display */}
+      {isMyTeam && (
+        <div style={{ fontWeight: 700, fontSize: "0.95rem", color: "oklch(0.22 0.08 150)", marginBottom: "0.5rem" }}>
+          {side.team}
+          {faab > 0 && (
+            <span style={{ fontSize: "0.75rem", fontWeight: 500, color: "oklch(0.45 0.04 150)", marginLeft: "0.5rem" }}>
+              FAAB: ${faab}
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Asset tags */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", minHeight: 32, marginBottom: "0.75rem" }}>
@@ -151,82 +209,132 @@ function TradeSideBuilder({
       </div>
 
       {/* Add asset buttons */}
-      <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginBottom: "0.6rem" }}>
-        <button style={btnStyle(addMode === "player")} onClick={() => setAddMode(addMode === "player" ? null : "player")}>
-          <Plus size={11} /> Player
-        </button>
-        <button style={btnStyle(addMode === "faab")} onClick={() => setAddMode(addMode === "faab" ? null : "faab")}>
-          <DollarSign size={11} /> FAAB
-        </button>
-        <button style={btnStyle(addMode === "pick")} onClick={() => setAddMode(addMode === "pick" ? null : "pick")}>
-          <CalendarDays size={11} /> Draft Pick
-        </button>
-      </div>
+      {(side.team || isMyTeam) && (
+        <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginBottom: "0.6rem" }}>
+          <button style={btnStyle(addMode === "player")} onClick={() => setAddMode(addMode === "player" ? null : "player")}>
+            <Plus size={11} /> Player
+          </button>
+          <button style={btnStyle(addMode === "faab")} onClick={() => setAddMode(addMode === "faab" ? null : "faab")}>
+            <DollarSign size={11} /> FAAB
+          </button>
+          <button style={btnStyle(addMode === "pick")} onClick={() => setAddMode(addMode === "pick" ? null : "pick")}>
+            <CalendarDays size={11} /> Draft Pick
+          </button>
+        </div>
+      )}
 
-      {/* Player input */}
+      {/* Player picker — scrollable roster list */}
       {addMode === "player" && (
-        <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.5rem" }}>
-          <input
-            value={playerInput}
-            onChange={e => setPlayerInput(e.target.value)}
-            onKeyDown={e => {
-              if (e.key === "Enter" && playerInput.trim()) {
-                addAsset({ type: "player", name: playerInput.trim() });
-                setPlayerInput("");
-              }
-            }}
-            placeholder="Player name (press Enter)"
-            style={{ flex: 1, padding: "0.45rem 0.75rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 6, fontSize: "0.85rem" }}
-          />
-          <button
-            onClick={() => { if (playerInput.trim()) { addAsset({ type: "player", name: playerInput.trim() }); setPlayerInput(""); } }}
-            style={{ padding: "0.45rem 0.9rem", background: "oklch(0.28 0.09 150)", color: "white", border: "none", borderRadius: 6, fontWeight: 600, cursor: "pointer", fontSize: "0.82rem" }}
-          >Add</button>
+        <div style={{ border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 8, marginBottom: "0.5rem", maxHeight: 220, overflowY: "auto", background: "white" }}>
+          {teamLoading ? (
+            <div style={{ padding: "0.75rem 1rem", fontSize: "0.82rem", color: "oklch(0.55 0.03 150)" }}>Loading roster…</div>
+          ) : roster.length === 0 ? (
+            <div style={{ padding: "0.75rem 1rem", fontSize: "0.82rem", color: "oklch(0.55 0.03 150)" }}>No players found</div>
+          ) : (
+            roster.map(p => {
+              const alreadyAdded = addedPlayerNames.has(p.name);
+              return (
+                <button
+                  key={p.id}
+                  disabled={alreadyAdded}
+                  onClick={() => { if (!alreadyAdded) addAsset({ type: "player", name: p.name }); }}
+                  style={{
+                    display: "flex", alignItems: "center", gap: "0.5rem",
+                    width: "100%", padding: "0.5rem 0.75rem",
+                    background: alreadyAdded ? "oklch(0.96 0.01 150)" : "white",
+                    border: "none", borderBottom: "1px solid oklch(0.94 0.01 150)",
+                    cursor: alreadyAdded ? "default" : "pointer", textAlign: "left",
+                    opacity: alreadyAdded ? 0.5 : 1,
+                  }}
+                >
+                  <span style={{
+                    fontSize: "0.65rem", fontWeight: 700, padding: "1px 5px", borderRadius: 3,
+                    background: p.position === "QB" ? "#3b82f6" : p.position === "RB" ? "#22c55e" : p.position === "WR" ? "#a855f7" : p.position === "TE" ? "#f97316" : "#6b7280",
+                    color: "white", minWidth: 26, textAlign: "center",
+                  }}>{p.position}</span>
+                  <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "oklch(0.22 0.06 150)", flex: 1 }}>{p.name}</span>
+                  <span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.03 150)" }}>{p.nfl_team}</span>
+                  {alreadyAdded && <Check size={12} style={{ color: "oklch(0.45 0.14 150)" }} />}
+                </button>
+              );
+            })
+          )}
         </div>
       )}
 
-      {/* FAAB input */}
+      {/* FAAB input with balance display */}
       {addMode === "faab" && (
-        <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.5rem", alignItems: "center" }}>
-          <span style={{ fontSize: "0.9rem", fontWeight: 700, color: "oklch(0.4 0.04 150)" }}>$</span>
-          <input
-            type="number"
-            min={1}
-            max={1000}
-            value={faabAmount}
-            onChange={e => setFaabAmount(e.target.value)}
-            placeholder="Amount (e.g. 75)"
-            style={{ flex: 1, padding: "0.45rem 0.75rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 6, fontSize: "0.85rem" }}
-          />
-          <button
-            onClick={() => { const n = parseInt(faabAmount); if (n > 0) { addAsset({ type: "faab", amount: n }); setFaabAmount(""); } }}
-            style={{ padding: "0.45rem 0.9rem", background: "oklch(0.32 0.14 250)", color: "white", border: "none", borderRadius: 6, fontWeight: 600, cursor: "pointer", fontSize: "0.82rem" }}
-          >Add</button>
+        <div style={{ marginBottom: "0.5rem" }}>
+          <div style={{ fontSize: "0.72rem", color: "oklch(0.45 0.04 150)", marginBottom: "0.35rem" }}>
+            Available FAAB: <strong>${faabRemaining}</strong> of ${faab}
+          </div>
+          <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+            <span style={{ fontSize: "0.9rem", fontWeight: 700, color: "oklch(0.4 0.04 150)" }}>$</span>
+            <input
+              type="number"
+              min={1}
+              max={faabRemaining}
+              value={faabAmount}
+              onChange={e => setFaabAmount(e.target.value)}
+              placeholder={`Amount (max $${faabRemaining})`}
+              style={{ flex: 1, padding: "0.45rem 0.75rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 6, fontSize: "0.85rem" }}
+            />
+            <button
+              onClick={() => {
+                const n = parseInt(faabAmount);
+                if (n > 0 && n <= faabRemaining) { addAsset({ type: "faab", amount: n }); setFaabAmount(""); }
+                else if (n > faabRemaining) { toast.error(`Max FAAB available: $${faabRemaining}`); }
+              }}
+              style={{ padding: "0.45rem 0.9rem", background: "oklch(0.32 0.14 250)", color: "white", border: "none", borderRadius: 6, fontWeight: 600, cursor: "pointer", fontSize: "0.82rem" }}
+            >Add</button>
+          </div>
         </div>
       )}
 
-      {/* Pick selector */}
+      {/* Pick selector — show all 18 rounds for 2026 and 2027 */}
       {addMode === "pick" && (
-        <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.5rem", flexWrap: "wrap", alignItems: "center" }}>
-          <select
-            value={pickYear}
-            onChange={e => setPickYear(Number(e.target.value))}
-            style={{ padding: "0.45rem 0.6rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 6, fontSize: "0.85rem" }}
-          >
-            <option value={CURRENT_YEAR}>{CURRENT_YEAR}</option>
-            <option value={NEXT_YEAR}>{NEXT_YEAR}</option>
-          </select>
-          <select
-            value={pickRound}
-            onChange={e => setPickRound(Number(e.target.value))}
-            style={{ padding: "0.45rem 0.6rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 6, fontSize: "0.85rem" }}
-          >
-            {ROUNDS.map(r => <option key={r} value={r}>Round {r}</option>)}
-          </select>
-          <button
-            onClick={() => addAsset({ type: "pick", year: pickYear, round: pickRound })}
-            style={{ padding: "0.45rem 0.9rem", background: "oklch(0.42 0.14 85)", color: "white", border: "none", borderRadius: 6, fontWeight: 600, cursor: "pointer", fontSize: "0.82rem" }}
-          >Add</button>
+        <div style={{ border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 8, marginBottom: "0.5rem", background: "white" }}>
+          <div style={{ display: "flex", borderBottom: "1px solid oklch(0.93 0.01 150)" }}>
+            {[CURRENT_YEAR, NEXT_YEAR].map(yr => (
+              <button
+                key={yr}
+                onClick={() => setPickYear(yr)}
+                style={{
+                  flex: 1, padding: "0.4rem", fontSize: "0.78rem", fontWeight: 700,
+                  background: pickYear === yr ? "oklch(0.42 0.14 85)" : "white",
+                  color: pickYear === yr ? "white" : "oklch(0.4 0.04 150)",
+                  border: "none", cursor: "pointer",
+                  borderRadius: yr === CURRENT_YEAR ? "6px 0 0 0" : "0 6px 0 0",
+                }}
+              >{yr} Draft</button>
+            ))}
+          </div>
+          <div style={{ maxHeight: 200, overflowY: "auto" }}>
+            {ROUNDS.map(r => {
+              const key = `${pickYear}-${r}`;
+              const alreadyAdded = addedPicks.has(key);
+              return (
+                <button
+                  key={r}
+                  disabled={alreadyAdded}
+                  onClick={() => { if (!alreadyAdded) addAsset({ type: "pick", year: pickYear, round: r }); }}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    width: "100%", padding: "0.45rem 0.75rem",
+                    background: alreadyAdded ? "oklch(0.96 0.01 150)" : "white",
+                    border: "none", borderBottom: "1px solid oklch(0.94 0.01 150)",
+                    cursor: alreadyAdded ? "default" : "pointer",
+                    opacity: alreadyAdded ? 0.5 : 1,
+                  }}
+                >
+                  <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "oklch(0.28 0.08 150)" }}>
+                    {pickYear} Round {r}
+                  </span>
+                  {alreadyAdded && <Check size={12} style={{ color: "oklch(0.45 0.14 150)" }} />}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>
@@ -336,7 +444,7 @@ export default function Trades() {
 
               {/* Two-column trade builder */}
               <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: "1rem", alignItems: "start" }}>
-                <TradeSideBuilder side={mySide} label="You Send" onChange={setMySide} />
+                <TradeSideBuilder side={mySide} label="You Send" onChange={setMySide} isMyTeam />
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "center", paddingTop: "2.5rem" }}>
                   <ArrowLeftRight size={22} color="oklch(0.6 0.04 150)" />
                 </div>
