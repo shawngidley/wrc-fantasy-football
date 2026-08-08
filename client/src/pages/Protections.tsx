@@ -647,53 +647,51 @@ export default function Protections() {
               <CheckCircle2 size={14} /> Protected Players Summary
             </div>
             <div style={{ padding: "1rem 1.25rem" }}>
-              <table className="wrc-table">
-                <thead>
-                  <tr>
-                    <th>Player</th>
-                    <th>Pos</th>
-                    <th>Acquisition</th>
-                    <th>Forfeited Pick</th>
-                    <th></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {slots.map(slot => {
-                    const entry = roster.find(r => r.id === slot.playerId);
-                    if (!entry) return null;
-                    let pickLabel = "";
-                    if (entry.tier === "tier1") pickLabel = `Round ${draftedCost(entry.draftRound!)}`;
-                    else if (slot.assignedRound) pickLabel = `Round ${slot.assignedRound}`;
-                    else pickLabel = "⚠ Assign a round";
-                    return (
-                      <tr key={slot.playerId}>
-                        <td style={{ fontWeight: 700 }}>{entry.name}</td>
-                        <td>
-                          <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem", color: "white", background: POS_COLORS[entry.pos] ?? "#64748b", borderRadius: 3, padding: "1px 6px" }}>
-                            {entry.pos}
-                          </span>
-                        </td>
-                        <td style={{ fontSize: "0.82rem", color: "oklch(0.45 0.04 150)" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+                {slots.map((slot, idx) => {
+                  const entry = roster.find(r => r.id === slot.playerId);
+                  if (!entry) return null;
+                  let pickLabel = "";
+                  const hasRound = entry.tier === "tier1" || !!slot.assignedRound;
+                  if (entry.tier === "tier1") pickLabel = `Rd ${draftedCost(entry.draftRound!)}`;
+                  else if (slot.assignedRound) pickLabel = `Rd ${slot.assignedRound}`;
+                  else pickLabel = "⚠ Assign";
+                  return (
+                    <div key={slot.playerId} style={{
+                      display: "flex", alignItems: "center", gap: "0.75rem",
+                      padding: "0.75rem 0",
+                      borderBottom: idx < slots.length - 1 ? "1px solid oklch(0.93 0.005 150)" : "none",
+                    }}>
+                      {/* Pos badge */}
+                      <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.7rem", color: "white", background: POS_COLORS[entry.pos] ?? "#64748b", borderRadius: 4, padding: "2px 7px", flexShrink: 0 }}>
+                        {entry.pos}
+                      </span>
+                      {/* Player name + acquisition */}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.18 0.05 150)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {entry.name}
+                        </div>
+                        <div style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)" }}>
                           {entry.acquisition === "FA" ? "Free Agent" : `Drafted Rd ${entry.draftRound}`}
-                        </td>
-                        <td style={{ fontWeight: 700, color: slot.assignedRound || entry.tier === "tier1" ? "oklch(0.28 0.12 150)" : "oklch(0.55 0.22 25)" }}>
-                          {pickLabel}
-                        </td>
-                        <td>
-                          {!cd.past && (
-                            <button
-                              onClick={() => toggle(entry)}
-                              style={{ background: "none", border: "none", cursor: "pointer", color: "oklch(0.55 0.22 25)", display: "flex", alignItems: "center" }}
-                            >
-                              <X size={14} />
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                        </div>
+                      </div>
+                      {/* Forfeited pick */}
+                      <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: hasRound ? "oklch(0.28 0.12 150)" : "oklch(0.55 0.22 25)", flexShrink: 0 }}>
+                        {pickLabel}
+                      </span>
+                      {/* Remove button */}
+                      {!cd.past && (
+                        <button
+                          onClick={() => toggle(entry)}
+                          style={{ background: "none", border: "none", cursor: "pointer", color: "oklch(0.55 0.22 25)", display: "flex", alignItems: "center", flexShrink: 0, padding: "2px" }}
+                        >
+                          <X size={15} />
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         )}
