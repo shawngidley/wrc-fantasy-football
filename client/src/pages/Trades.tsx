@@ -30,9 +30,17 @@ type TradeSide = {
 type IncomingProposal = {
   id: string;
   from: string;
+  fromTeamId: string;
+  toTeamId: string;
   date: string;
   theySend: string[];
   youSend: string[];
+  givePlayers: string[];
+  receivePlayers: string[];
+  giveFaab: number;
+  receiveFaab: number;
+  givePicks: {year:number;round:number}[];
+  receivePicks: {year:number;round:number}[];
   note?: string;
   status: "pending" | "accepted" | "declined";
 };
@@ -373,20 +381,33 @@ export default function Trades() {
     setInboxLoading(true);
     const { data, error } = await supabase
       .from("trade_proposals")
-      .select("id, from_team_id, give_player_ids, receive_player_ids, faab_amount, note, status, created_at")
+      .select("id, from_team_id, to_team_id, give_player_ids, receive_player_ids, faab_amount, receive_faab_amount, give_picks, receive_picks, note, status, created_at")
       .eq("to_team_id", franchise.id)
       .order("created_at", { ascending: false });
     setInboxLoading(false);
     if (error || !data) return;
-    setInbox(data.map((r: { id: string; from_team_id: string; give_player_ids: string[]; receive_player_ids: string[]; faab_amount: number; note: string; status: string; created_at: string }) => ({
+    setInbox(data.map((r: { id: string; from_team_id: string; to_team_id: string; give_player_ids: string[]; receive_player_ids: string[]; faab_amount: number; receive_faab_amount: number; give_picks: {year:number;round:number}[]; receive_picks: {year:number;round:number}[]; note: string; status: string; created_at: string }) => ({
       id: r.id,
       from: r.from_team_id,
+      fromTeamId: r.from_team_id,
+      toTeamId: r.to_team_id,
       date: new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
       theySend: [
-        ...r.give_player_ids,
+        ...(r.give_player_ids ?? []),
         ...(r.faab_amount > 0 ? [`FAAB $${r.faab_amount}`] : []),
+        ...((r.give_picks ?? []).map((p: {year:number;round:number}) => `${p.year} Rd ${p.round} Pick`)),
       ],
-      youSend: r.receive_player_ids,
+      youSend: [
+        ...(r.receive_player_ids ?? []),
+        ...(r.receive_faab_amount > 0 ? [`FAAB $${r.receive_faab_amount}`] : []),
+        ...((r.receive_picks ?? []).map((p: {year:number;round:number}) => `${p.year} Rd ${p.round} Pick`)),
+      ],
+      givePlayers: r.give_player_ids ?? [],
+      receivePlayers: r.receive_player_ids ?? [],
+      giveFaab: r.faab_amount ?? 0,
+      receiveFaab: r.receive_faab_amount ?? 0,
+      givePicks: r.give_picks ?? [],
+      receivePicks: r.receive_picks ?? [],
       note: r.note || undefined,
       status: r.status as "pending" | "accepted" | "declined",
     })));
@@ -408,12 +429,18 @@ export default function Trades() {
     const givePlayers = mySide.assets.filter(a => a.type === "player").map(a => (a as { type: "player"; name: string }).name);
     const receivePlayers = theirSide.assets.filter(a => a.type === "player").map(a => (a as { type: "player"; name: string }).name);
     const faabGiven = mySide.assets.filter(a => a.type === "faab").reduce((s, a) => s + (a as { type: "faab"; amount: number }).amount, 0);
+    const faabReceived = theirSide.assets.filter(a => a.type === "faab").reduce((s, a) => s + (a as { type: "faab"; amount: number }).amount, 0);
+    const givePicks = mySide.assets.filter(a => a.type === "pick").map(a => { const p = a as { type: "pick"; year: number; round: number }; return { year: p.year, round: p.round }; });
+    const receivePicks = theirSide.assets.filter(a => a.type === "pick").map(a => { const p = a as { type: "pick"; year: number; round: number }; return { year: p.year, round: p.round }; });
     const { error } = await supabase.from("trade_proposals").insert({
       from_team_id: franchise.id,
       to_team_id: toTeam.id,
       give_player_ids: givePlayers,
       receive_player_ids: receivePlayers,
       faab_amount: faabGiven,
+      receive_faab_amount: faabReceived,
+      give_picks: givePicks,
+      receive_picks: receivePicks,
       note: note.trim(),
       status: "pending",
     });
@@ -423,10 +450,73 @@ export default function Trades() {
   };
 
   const respondToProposal = async (id: string, action: "accepted" | "declined") => {
-    const { error } = await supabase.from("trade_proposals").update({ status: action }).eq("id", id);
-    if (error) { toast.error("Failed to update proposal"); return; }
-    setInbox(prev => prev.map(p => p.id === id ? { ...p, status: action } : p));
-    toast.success(action === "accepted" ? "Trade accepted!" : "Trade declined");
+    if (action === "declined") {
+      const { error } = await supabase.from("trade_proposals").update({ status: "declined" }).eq("id", id);
+      if (error) { toast.error("Failed to decline trade"); return; }
+      setInbox(prev => prev.map(p => p.id === id ? { ...p, status: "declined" } : p));
+      toast.success("Trade declined");
+      return;
+    }
+
+    // Accept: execute the trade
+    const proposal = inbox.find(p => p.id === id);
+    if (!proposal) { toast.error("Proposal not found"); return; }
+
+    try {
+      // 1. Move sender's players to receiver's team
+      for (const playerName of (proposal.givePlayers ?? [])) {
+        await supabase.from("players")
+          .update({ team_id: proposal.toTeamId })
+          .eq("name", playerName)
+          .eq("team_id", proposal.fromTeamId);
+      }
+      // 2. Move receiver's players to sender's team
+      for (const playerName of (proposal.receivePlayers ?? [])) {
+        await supabase.from("players")
+          .update({ team_id: proposal.fromTeamId })
+          .eq("name", playerName)
+          .eq("team_id", proposal.toTeamId);
+      }
+      // 3. FAAB: sender gives FAAB to receiver
+      if ((proposal.giveFaab ?? 0) > 0) {
+        const { data: fromTeam } = await supabase.from("teams").select("faab").eq("id", proposal.fromTeamId).single();
+        const { data: toTeam } = await supabase.from("teams").select("faab").eq("id", proposal.toTeamId).single();
+        if (fromTeam) await supabase.from("teams").update({ faab: Math.max(0, (fromTeam.faab ?? 0) - proposal.giveFaab) }).eq("id", proposal.fromTeamId);
+        if (toTeam) await supabase.from("teams").update({ faab: (toTeam.faab ?? 0) + proposal.giveFaab }).eq("id", proposal.toTeamId);
+      }
+      // 4. FAAB: receiver gives FAAB to sender
+      if ((proposal.receiveFaab ?? 0) > 0) {
+        const { data: fromTeam } = await supabase.from("teams").select("faab").eq("id", proposal.fromTeamId).single();
+        const { data: toTeam } = await supabase.from("teams").select("faab").eq("id", proposal.toTeamId).single();
+        if (toTeam) await supabase.from("teams").update({ faab: Math.max(0, (toTeam.faab ?? 0) - proposal.receiveFaab) }).eq("id", proposal.toTeamId);
+        if (fromTeam) await supabase.from("teams").update({ faab: (fromTeam.faab ?? 0) + proposal.receiveFaab }).eq("id", proposal.fromTeamId);
+      }
+      // 5. Transfer sender's picks to receiver
+      for (const pick of (proposal.givePicks ?? [])) {
+        await supabase.from("traded_picks")
+          .update({ current_owner_team_id: proposal.toTeamId })
+          .eq("year", pick.year)
+          .eq("round", pick.round)
+          .eq("current_owner_team_id", proposal.fromTeamId);
+      }
+      // 6. Transfer receiver's picks to sender
+      for (const pick of (proposal.receivePicks ?? [])) {
+        await supabase.from("traded_picks")
+          .update({ current_owner_team_id: proposal.fromTeamId })
+          .eq("year", pick.year)
+          .eq("round", pick.round)
+          .eq("current_owner_team_id", proposal.toTeamId);
+      }
+      // 7. Mark proposal as accepted
+      await supabase.from("trade_proposals").update({ status: "accepted" }).eq("id", id);
+      setInbox(prev => prev.map(p => p.id === id ? { ...p, status: "accepted" } : p));
+      toast.success("Trade accepted! Rosters, FAAB, and picks updated.");
+    } catch (err) {
+      console.error("Trade execution error:", err);
+      toast.error("Trade accepted but some updates may have failed. Please verify rosters.");
+      await supabase.from("trade_proposals").update({ status: "accepted" }).eq("id", id);
+      setInbox(prev => prev.map(p => p.id === id ? { ...p, status: "accepted" } : p));
+    }
   };
 
   return (
