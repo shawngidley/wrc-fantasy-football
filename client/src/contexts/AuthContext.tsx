@@ -3,7 +3,7 @@
  * Manages team login state (team dropdown + PIN)
  */
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { getStoredTeam, storeTeam, clearTeam } from "@/lib/supabase";
+import { getStoredTeam, storeTeam, clearTeam, supabase } from "@/lib/supabase";
 
 export interface LoggedInTeam {
   id: string;
@@ -74,7 +74,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const stored = getStoredTeam();
-    if (stored) setTeam(normalise(stored));
+    if (stored) {
+      // Set from cache immediately so UI is instant
+      setTeam(normalise(stored));
+      // Silently refresh from Supabase to pick up name/logo/FAAB changes
+      const teamId = (stored as Record<string, unknown>).id as string;
+      if (teamId) {
+        supabase
+          .from("teams")
+          .select("id, name, owner, division, faab, wins, losses, ties, points_for, points_against, is_commissioner, pin")
+          .eq("id", teamId)
+          .single()
+          .then(({ data }) => {
+            if (data) {
+              const fresh = normalise(data as unknown as Record<string, unknown>);
+              setTeam(fresh);
+              storeTeam(fresh as unknown as Record<string, unknown>);
+            }
+          });
+      }
+    }
     setAuthLoading(false);
   }, []);
 
