@@ -180,9 +180,10 @@ export default function Protections() {
   const roster: RosterEntry[] = livePlayers
     .map((pl, i) => {
       const rp = pl as typeof pl & { round?: number };
-      // Parse draft round from acquisition string (e.g. "Rd 6" → 6, "FA" → null)
+      // Use round from useDraftedRoster (set from draft_round in Supabase players table)
+      // Fall back to parsing acquisition string (e.g. "Rd 6" → 6) if round is not set
       const acqMatch = pl.acquisition?.match(/^Rd\s*(\d+)$/i);
-      const draftRound = acqMatch ? parseInt(acqMatch[1], 10) : (rp.round ?? null);
+      const draftRound = rp.round != null ? rp.round : (acqMatch ? parseInt(acqMatch[1], 10) : null);
       return {
         id: pl.id || `p-${i}`,
         name: pl.name,
