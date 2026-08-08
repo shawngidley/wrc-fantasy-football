@@ -384,7 +384,10 @@ export default function Transactions() {
                         </div>
                       </td>
                       <td style={{ fontWeight: 600, fontSize: "0.88rem" }}>{m.team_name}</td>
-                      <td style={{ fontWeight: 500 }}>{m.player_name}</td>
+                      <td style={{ fontWeight: 500 }}>
+                        <div>{m.player_name}</div>
+                        {m.note && <div style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)", marginTop: 2 }}>{m.note}</div>}
+                      </td>
                       <td>
                         <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "oklch(0.35 0.06 150)", background: "oklch(0.92 0.01 150)", borderRadius: 4, padding: "1px 6px" }}>
                           {m.player_pos}

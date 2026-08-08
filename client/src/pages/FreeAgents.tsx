@@ -127,6 +127,30 @@ function CommissionerBids({ week }: { week: number }) {
       toast.error("Failed to process bid.");
     } else {
       toast.success(`${bid.player_name} awarded to ${bid.team_name}!`);
+      // Write ADD transaction to roster_moves
+      await supabase.from("roster_moves").insert({
+        move_type: "ADD",
+        team_name: bid.team_name,
+        owner: bid.team_name,
+        player_name: bid.player_name,
+        player_pos: bid.player_pos,
+        player_nfl_team: bid.player_nfl_team,
+        faab_spent: bid.bid_amount,
+        note: `FAAB $${bid.bid_amount} — Week ${bid.week}`,
+      });
+      // Write DROP transaction if a player was dropped
+      if (bid.drop_player_name) {
+        await supabase.from("roster_moves").insert({
+          move_type: "DROP",
+          team_name: bid.team_name,
+          owner: bid.team_name,
+          player_name: bid.drop_player_name,
+          player_pos: "—",
+          player_nfl_team: "FA",
+          faab_spent: null,
+          note: `Dropped to make room for ${bid.player_name}`,
+        });
+      }
       setBids((prev) =>
         prev.map((b) =>
           b.id === bid.id

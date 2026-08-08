@@ -463,6 +463,19 @@ export default function Trades() {
     if (!proposal) { toast.error("Proposal not found"); return; }
 
     try {
+      // 0. Resolve team IDs to friendly names and player positions
+      const { data: teamsData } = await supabase.from("teams").select("id, name");
+      const teamNameMap: Record<string, string> = {};
+      (teamsData ?? []).forEach((t: { id: string; name: string }) => { teamNameMap[t.id] = t.name; });
+      const fromName = teamNameMap[proposal.fromTeamId] ?? proposal.fromTeamId;
+      const toName = teamNameMap[proposal.toTeamId] ?? proposal.toTeamId;
+      const allPlayerNames = [...(proposal.givePlayers ?? []), ...(proposal.receivePlayers ?? [])];
+      const { data: playerData } = await supabase.from("players").select("name, position, nfl_team").in("name", allPlayerNames);
+      const playerMap: Record<string, { pos: string; nflTeam: string }> = {};
+      (playerData ?? []).forEach((p: { name: string; position: string; nfl_team: string }) => {
+        playerMap[p.name] = { pos: p.position, nflTeam: p.nfl_team };
+      });
+
       // 1. Move sender's players to receiver's team
       for (const playerName of (proposal.givePlayers ?? [])) {
         await supabase.from("players")
@@ -510,6 +523,65 @@ export default function Trades() {
       // 7. Mark proposal as accepted
       await supabase.from("trade_proposals").update({ status: "accepted" }).eq("id", id);
       setInbox(prev => prev.map(p => p.id === id ? { ...p, status: "accepted" } : p));
+      // 8. Write TRADE rows to roster_moves for the activity log
+      const tradeNote = [
+        ...(proposal.givePlayers ?? []).map(p => `${p} → ${toName}`),
+        ...(proposal.receivePlayers ?? []).map(p => `${p} → ${fromName}`),
+        ...(proposal.givePicks ?? []).map(p => `${p.year} Rd ${p.round} pick → ${toName}`),
+        ...(proposal.receivePicks ?? []).map(p => `${p.year} Rd ${p.round} pick → ${fromName}`),
+      ].join(" | ");
+      // One TRADE row per player on each side
+      const tradeRows = [
+        ...(proposal.givePlayers ?? []).map(playerName => ({
+          move_type: "TRADE",
+          team_name: fromName,
+          owner: fromName,
+          player_name: playerName,
+          player_pos: playerMap[playerName]?.pos ?? "—",
+          player_nfl_team: playerMap[playerName]?.nflTeam ?? "—",
+          faab_spent: null,
+          note: `Traded to ${toName}${(proposal.giveFaab ?? 0) > 0 ? ` + FAAB $${proposal.giveFaab}` : ""}`,
+        })),
+        ...(proposal.receivePlayers ?? []).map(playerName => ({
+          move_type: "TRADE",
+          team_name: toName,
+          owner: toName,
+          player_name: playerName,
+          player_pos: playerMap[playerName]?.pos ?? "—",
+          player_nfl_team: playerMap[playerName]?.nflTeam ?? "—",
+          faab_spent: null,
+          note: `Traded to ${fromName}${(proposal.receiveFaab ?? 0) > 0 ? ` + FAAB $${proposal.receiveFaab}` : ""}`,
+        })),
+      ];
+      if (tradeRows.length > 0) {
+        await supabase.from("roster_moves").insert(tradeRows);
+      }
+      // Write pick trade rows
+      const pickRows = [
+        ...(proposal.givePicks ?? []).map(p => ({
+          move_type: "TRADE",
+          team_name: fromName,
+          owner: fromName,
+          player_name: `${p.year} Rd ${p.round} Pick`,
+          player_pos: "PICK",
+          player_nfl_team: "—",
+          faab_spent: null,
+          note: `Pick traded to ${toName}`,
+        })),
+        ...(proposal.receivePicks ?? []).map(p => ({
+          move_type: "TRADE",
+          team_name: toName,
+          owner: toName,
+          player_name: `${p.year} Rd ${p.round} Pick`,
+          player_pos: "PICK",
+          player_nfl_team: "—",
+          faab_spent: null,
+          note: `Pick traded to ${fromName}`,
+        })),
+      ];
+      if (pickRows.length > 0) {
+        await supabase.from("roster_moves").insert(pickRows);
+      }
       toast.success("Trade accepted! Rosters, FAAB, and picks updated.");
     } catch (err) {
       console.error("Trade execution error:", err);
