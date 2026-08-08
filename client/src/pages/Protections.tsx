@@ -179,7 +179,9 @@ export default function Protections() {
   const roster: RosterEntry[] = livePlayers
     .map((pl, i) => {
       const rp = pl as typeof pl & { round?: number };
-      const draftRound = rp.round ?? (pl.acquisition === "Draft" ? null : null);
+      // Parse draft round from acquisition string (e.g. "Rd 6" → 6, "FA" → null)
+      const acqMatch = pl.acquisition?.match(/^Rd\s*(\d+)$/i);
+      const draftRound = acqMatch ? parseInt(acqMatch[1], 10) : (rp.round ?? null);
       return {
         id: pl.id || `p-${i}`,
         name: pl.name,
