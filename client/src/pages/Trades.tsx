@@ -19,7 +19,7 @@ const ROUNDS = Array.from({ length: 18 }, (_, i) => i + 1);
 type TradeAsset =
   | { type: "player"; name: string }
   | { type: "faab"; amount: number }
-  | { type: "pick"; year: number; round: number };
+  | { type: "pick"; year: number; round: number; originalTeamId?: string };
 
 type TradeSide = {
   team: string;
@@ -87,7 +87,7 @@ type TeamData = {
   roster: { id: string; name: string; position: string; nfl_team: string }[];
   faab: number;
   teamId: string;
-  ownedPicks: { year: number; round: number }[];
+  ownedPicks: { year: number; round: number; originalTeamId: string }[];
 };
 
 function useTeamData(teamName: string): TeamData & { loading: boolean } {
@@ -116,7 +116,7 @@ function useTeamData(teamName: string): TeamData & { loading: boolean } {
       // Get owned picks from traded_picks table
       const { data: picksData } = await supabase
         .from("traded_picks")
-        .select("year, round")
+        .select("year, round, original_team_id")
         .eq("current_owner_team_id", teamRow.id)
         .order("year")
         .order("round");
@@ -124,7 +124,7 @@ function useTeamData(teamName: string): TeamData & { loading: boolean } {
         roster: (players ?? []).map((p: { id: string; name: string; position: string; nfl_team: string }) => p),
         faab: teamRow.faab ?? 1000,
         teamId: teamRow.id,
-        ownedPicks: (picksData ?? []).map((p: { year: number; round: number }) => ({ year: p.year, round: p.round })),
+        ownedPicks: (picksData ?? []).map((p: { year: number; round: number; original_team_id: string }) => ({ year: p.year, round: p.round, originalTeamId: p.original_team_id })),
       });
     } finally {
       setLoading(false);
@@ -147,7 +147,7 @@ function TradeSideBuilder({
   const [pickYear, setPickYear] = useState(2026);
   const [pickRound, setPickRound] = useState(1);
   const [addMode, setAddMode] = useState<"player" | "faab" | "pick" | null>(null);
-  const { roster, faab, ownedPicks, loading: teamLoading } = useTeamData(side.team);
+  const { roster, faab, ownedPicks, teamId, loading: teamLoading } = useTeamData(side.team);
 
   // Already-added assets
   const addedPlayerNames = new Set(
@@ -334,13 +334,13 @@ function TradeSideBuilder({
               </div>
               <div style={{ maxHeight: 200, overflowY: "auto" }}>
                 {ownedPicks.filter(p => p.year === pickYear).map(p => {
-                  const key = `${p.year}-${p.round}`;
+                  const key = `${p.year}-${p.round}-${p.originalTeamId}`;
                   const alreadyAdded = addedPicks.has(key);
                   return (
                     <button
                       key={key}
                       disabled={alreadyAdded}
-                      onClick={() => { if (!alreadyAdded) addAsset({ type: "pick", year: p.year, round: p.round }); }}
+                      onClick={() => { if (!alreadyAdded) addAsset({ type: "pick", year: p.year, round: p.round, originalTeamId: p.originalTeamId }); }}
                       style={{
                         display: "flex", alignItems: "center", justifyContent: "space-between",
                         width: "100%", padding: "0.45rem 0.75rem",
@@ -351,7 +351,7 @@ function TradeSideBuilder({
                       }}
                     >
                       <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "oklch(0.28 0.08 150)" }}>
-                        {p.year} Round {p.round}
+                        {p.year} Round {p.round}{p.originalTeamId !== teamId ? <span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)", marginLeft: 4 }}>(via {p.originalTeamId.replace("team-", "")})</span> : null}
                       </span>
                       {alreadyAdded && <Check size={12} style={{ color: "oklch(0.45 0.14 150)" }} />}
                     </button>
