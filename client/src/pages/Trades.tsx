@@ -13,7 +13,6 @@ import { toast } from "sonner";
 
 const TEAMS = WRC_TEAMS.map(t => t.teamName);
 
-const CURRENT_YEAR = 2026;
 const NEXT_YEAR = 2027;
 const ROUNDS = Array.from({ length: 18 }, (_, i) => i + 1);
 
@@ -80,14 +79,15 @@ type TeamData = {
   roster: { id: string; name: string; position: string; nfl_team: string }[];
   faab: number;
   teamId: string;
+  ownedPicks: { year: number; round: number }[];
 };
 
 function useTeamData(teamName: string): TeamData & { loading: boolean } {
-  const [data, setData] = useState<TeamData>({ roster: [], faab: 1000, teamId: "" });
+  const [data, setData] = useState<TeamData>({ roster: [], faab: 1000, teamId: "", ownedPicks: [] });
   const [loading, setLoading] = useState(false);
 
   const load = useCallback(async (name: string) => {
-    if (!name) { setData({ roster: [], faab: 1000, teamId: "" }); return; }
+    if (!name) { setData({ roster: [], faab: 1000, teamId: "", ownedPicks: [] }); return; }
     setLoading(true);
     try {
       // Get team id + faab
@@ -105,10 +105,18 @@ function useTeamData(teamName: string): TeamData & { loading: boolean } {
         .eq("team_id", teamRow.id)
         .order("position")
         .order("name");
+      // Get owned picks from traded_picks table
+      const { data: picksData } = await supabase
+        .from("traded_picks")
+        .select("year, round")
+        .eq("current_owner_team_id", teamRow.id)
+        .order("year")
+        .order("round");
       setData({
         roster: (players ?? []).map((p: { id: string; name: string; position: string; nfl_team: string }) => p),
         faab: teamRow.faab ?? 1000,
         teamId: teamRow.id,
+        ownedPicks: (picksData ?? []).map((p: { year: number; round: number }) => ({ year: p.year, round: p.round })),
       });
     } finally {
       setLoading(false);
@@ -128,10 +136,10 @@ function TradeSideBuilder({
   isMyTeam?: boolean;
 }) {
   const [faabAmount, setFaabAmount] = useState("");
-  const [pickYear, setPickYear] = useState(CURRENT_YEAR);
+  const [pickYear, setPickYear] = useState(2026);
   const [pickRound, setPickRound] = useState(1);
   const [addMode, setAddMode] = useState<"player" | "faab" | "pick" | null>(null);
-  const { roster, faab, loading: teamLoading } = useTeamData(side.team);
+  const { roster, faab, ownedPicks, loading: teamLoading } = useTeamData(side.team);
 
   // Already-added assets
   const addedPlayerNames = new Set(
@@ -291,50 +299,59 @@ function TradeSideBuilder({
         </div>
       )}
 
-      {/* Pick selector — show all 18 rounds for 2026 and 2027 */}
+      {/* Pick selector — show only picks this team currently owns from traded_picks */}
       {addMode === "pick" && (
         <div style={{ border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 8, marginBottom: "0.5rem", background: "white" }}>
-          <div style={{ display: "flex", borderBottom: "1px solid oklch(0.93 0.01 150)" }}>
-            {[CURRENT_YEAR, NEXT_YEAR].map(yr => (
-              <button
-                key={yr}
-                onClick={() => setPickYear(yr)}
-                style={{
-                  flex: 1, padding: "0.4rem", fontSize: "0.78rem", fontWeight: 700,
-                  background: pickYear === yr ? "oklch(0.42 0.14 85)" : "white",
-                  color: pickYear === yr ? "white" : "oklch(0.4 0.04 150)",
-                  border: "none", cursor: "pointer",
-                  borderRadius: yr === CURRENT_YEAR ? "6px 0 0 0" : "0 6px 0 0",
-                }}
-              >{yr} Draft</button>
-            ))}
-          </div>
-          <div style={{ maxHeight: 200, overflowY: "auto" }}>
-            {ROUNDS.map(r => {
-              const key = `${pickYear}-${r}`;
-              const alreadyAdded = addedPicks.has(key);
-              return (
-                <button
-                  key={r}
-                  disabled={alreadyAdded}
-                  onClick={() => { if (!alreadyAdded) addAsset({ type: "pick", year: pickYear, round: r }); }}
-                  style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    width: "100%", padding: "0.45rem 0.75rem",
-                    background: alreadyAdded ? "oklch(0.96 0.01 150)" : "white",
-                    border: "none", borderBottom: "1px solid oklch(0.94 0.01 150)",
-                    cursor: alreadyAdded ? "default" : "pointer",
-                    opacity: alreadyAdded ? 0.5 : 1,
-                  }}
-                >
-                  <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "oklch(0.28 0.08 150)" }}>
-                    {pickYear} Round {r}
-                  </span>
-                  {alreadyAdded && <Check size={12} style={{ color: "oklch(0.45 0.14 150)" }} />}
-                </button>
-              );
-            })}
-          </div>
+          {teamLoading ? (
+            <div style={{ padding: "0.75rem 1rem", fontSize: "0.82rem", color: "oklch(0.55 0.03 150)" }}>Loading picks…</div>
+          ) : ownedPicks.length === 0 ? (
+            <div style={{ padding: "0.75rem 1rem", fontSize: "0.82rem", color: "oklch(0.55 0.03 150)" }}>No tradeable picks available</div>
+          ) : (
+            <>
+              {/* Year filter tabs */}
+              <div style={{ display: "flex", borderBottom: "1px solid oklch(0.93 0.01 150)" }}>
+                {Array.from(new Set(ownedPicks.map(p => p.year))).sort().map((yr, i, arr) => (
+                  <button
+                    key={yr}
+                    onClick={() => setPickYear(yr)}
+                    style={{
+                      flex: 1, padding: "0.4rem", fontSize: "0.78rem", fontWeight: 700,
+                      background: pickYear === yr ? "oklch(0.42 0.14 85)" : "white",
+                      color: pickYear === yr ? "white" : "oklch(0.4 0.04 150)",
+                      border: "none", cursor: "pointer",
+                      borderRadius: i === 0 ? "6px 0 0 0" : i === arr.length - 1 ? "0 6px 0 0" : "0",
+                    }}
+                  >{yr} Draft</button>
+                ))}
+              </div>
+              <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                {ownedPicks.filter(p => p.year === pickYear).map(p => {
+                  const key = `${p.year}-${p.round}`;
+                  const alreadyAdded = addedPicks.has(key);
+                  return (
+                    <button
+                      key={key}
+                      disabled={alreadyAdded}
+                      onClick={() => { if (!alreadyAdded) addAsset({ type: "pick", year: p.year, round: p.round }); }}
+                      style={{
+                        display: "flex", alignItems: "center", justifyContent: "space-between",
+                        width: "100%", padding: "0.45rem 0.75rem",
+                        background: alreadyAdded ? "oklch(0.96 0.01 150)" : "white",
+                        border: "none", borderBottom: "1px solid oklch(0.94 0.01 150)",
+                        cursor: alreadyAdded ? "default" : "pointer",
+                        opacity: alreadyAdded ? 0.5 : 1,
+                      }}
+                    >
+                      <span style={{ fontSize: "0.85rem", fontWeight: 600, color: "oklch(0.28 0.08 150)" }}>
+                        {p.year} Round {p.round}
+                      </span>
+                      {alreadyAdded && <Check size={12} style={{ color: "oklch(0.45 0.14 150)" }} />}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>
@@ -439,7 +456,7 @@ export default function Trades() {
             <div className="wrc-card-body" style={{ padding: "1.25rem" }}>
 
               <p style={{ color: "oklch(0.45 0.04 150)", fontSize: "0.85rem", margin: "0 0 1.25rem" }}>
-                Build your trade by adding players, FAAB budget, and/or draft picks to each side. You can trade picks for the <strong>{CURRENT_YEAR}</strong> and <strong>{NEXT_YEAR}</strong> drafts.
+                Build your trade by adding players, FAAB budget, and/or draft picks to each side. You can trade picks for the <strong>2026</strong> and <strong>{NEXT_YEAR}</strong> drafts.
               </p>
 
               {/* Two-column trade builder */}
