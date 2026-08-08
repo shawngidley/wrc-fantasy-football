@@ -618,11 +618,51 @@ export default function Lineup() {
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "1.5rem 1rem 3rem" }}>
 
         {/* ── Back link (read-only mode) ── */}
-        {isReadOnly && (
-          <Link href="/rosters" style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", marginBottom: "0.75rem", fontSize: "0.78rem", color: "oklch(0.78 0.15 85)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600, letterSpacing: "0.05em", textDecoration: "none" }}>
-            <ArrowLeft size={13} /> Back to Rosters
-          </Link>
-        )}
+        {/* ── Team Selector Dropdown ── */}
+        <div style={{ marginBottom: "1rem" }}>
+          <select
+            value={teamId ?? (franchise?.id ?? "")}
+            onChange={e => {
+              const val = e.target.value;
+              if (!val) return;
+              if (val === franchise?.id) {
+                navigate("/lineup");
+              } else {
+                navigate(`/lineup/${val}`);
+              }
+            }}
+            style={{
+              fontFamily: "Barlow Condensed, sans-serif",
+              fontSize: "0.85rem",
+              fontWeight: 600,
+              letterSpacing: "0.04em",
+              textTransform: "uppercase",
+              background: "rgba(0,0,0,0.45)",
+              color: "oklch(0.78 0.15 85)",
+              border: "1px solid rgba(255,255,255,0.2)",
+              borderRadius: 8,
+              padding: "0.45rem 0.9rem",
+              cursor: "pointer",
+              appearance: "none" as const,
+              WebkitAppearance: "none" as const,
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23c9a227' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "right 0.6rem center",
+              paddingRight: "2rem",
+            }}
+          >
+            {Object.entries(TEAM_ID_TO_NAME).map(([id, name]) => (
+              <option key={id} value={id} style={{ background: "#1a2e1a", color: "white" }}>
+                {name}{id === franchise?.id ? " (My Team)" : ""}
+              </option>
+            ))}
+          </select>
+          {isReadOnly && (
+            <span style={{ marginLeft: "0.75rem", fontSize: "0.72rem", color: "rgba(255,255,255,0.5)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.04em" }}>
+              READ ONLY
+            </span>
+          )}
+        </div>
 
         {/* ── Header ── */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1.25rem" }}>
