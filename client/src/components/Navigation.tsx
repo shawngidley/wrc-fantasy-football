@@ -6,6 +6,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { X, Menu, Settings, ChevronDown } from "lucide-react";
+import TeamLogo from "@/components/TeamLogo";
 
 type NavLink = { label: string; path: string; live?: boolean };
 
@@ -209,15 +210,18 @@ export default function Navigation({
             {/* Right side: team name + hamburger */}
             <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginLeft: "auto", flexShrink: 0 }}>
               {teamName && (
-                <span style={{
-                  fontFamily: "Barlow Condensed, sans-serif",
-                  fontSize: "0.8rem",
-                  color: "oklch(0.78 0.15 85)",
-                  letterSpacing: "0.04em",
-                  textTransform: "uppercase",
-                }}>
-                  {teamName}
-                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                  <TeamLogo teamName={teamName} size={28} round style={{ border: "1.5px solid oklch(0.78 0.15 85)", flexShrink: 0 }} />
+                  <span style={{
+                    fontFamily: "Barlow Condensed, sans-serif",
+                    fontSize: "0.8rem",
+                    color: "oklch(0.78 0.15 85)",
+                    letterSpacing: "0.04em",
+                    textTransform: "uppercase",
+                  }}>
+                    {teamName}
+                  </span>
+                </div>
               )}
               {teamName && (
                 <Link
