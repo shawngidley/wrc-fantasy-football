@@ -119,9 +119,10 @@ interface ProtectionSlot {
 
 // ── Rules helpers ─────────────────────────────────────────────────────────────
 function getTier(draftRound: number | null): Tier {
-  if (draftRound === null) return "tier2";       // FA
+  if (draftRound === null) return "tier2";       // FA → Rd 6/7/8 cost
   if (draftRound <= 2) return "ineligible";      // Rd 1-2: cannot protect
-  return "tier1";                                // Rd 3+: drafted, fixed cost
+  if (draftRound <= 6) return "tier1";           // Rd 3-6: fixed cost (draft_round - 1), max 1
+  return "tier2";                                // Rd 7+: Rd 6/7/8 cost, same as FA
 }
 
 function draftedCost(draftRound: number): number {
