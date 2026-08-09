@@ -91,7 +91,6 @@ interface DbDraftPick {
   picked_at: string;
 }
 
-type BoardView = "live" | "order" | "traded" | "queue";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function getOwnerForSlot(round: number, pickIdx: number): string {
@@ -167,8 +166,6 @@ export default function DraftBoard() {
   const [search, setSearch] = useState("");
   const [posFilter, setPosFilter] = useState("ALL");
   const [showPlayerPool, setShowPlayerPool] = useState(false);
-  const [boardView, setBoardView] = useState<BoardView>("live");
-  const [expandedRound, setExpandedRound] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
   // Draft queue state
   const [queueSearch, setQueueSearch] = useState("");
@@ -738,156 +735,7 @@ export default function DraftBoard() {
           </div>
         )}
 
-        {/* Draft Grid */}
-        <div style={{ overflowX: "auto", marginBottom: "1.5rem" }}>
-          <div style={{ minWidth: TOTAL_TEAMS * 110 + 60 }}>
-            {/* Column headers — owner names */}
-            <div style={{ display: "grid", gridTemplateColumns: `60px repeat(${TOTAL_TEAMS}, 1fr)`, gap: 2, marginBottom: 2 }}>
-              <div style={{ background: "rgba(0,0,0,0.5)", padding: "0.4rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", color: "rgba(255,255,255,0.5)", textAlign: "center" }}>RD</div>
-              {ROUND1_ORDER.map((owner, i) => (
-                <div key={i} style={{ background: OWNER_COLORS[owner] ?? "oklch(0.22 0.08 150)", padding: "0.4rem 0.25rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.62rem", fontWeight: 700, color: "white", textAlign: "center", letterSpacing: "0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderRadius: "3px 3px 0 0" }}>
-                  {owner}
-                </div>
-              ))}
-            </div>
-
-            {/* Pick rows */}
-            {Array.from({ length: TOTAL_ROUNDS }, (_, r) => {
-              const round = r + 1;
-              // For even rounds, column order reverses (snake)
-              const colOwners = round % 2 === 1 ? ROUND1_ORDER : [...ROUND1_ORDER].reverse();
-              return (
-                <div key={r} style={{ display: "grid", gridTemplateColumns: `60px repeat(${TOTAL_TEAMS}, 1fr)`, gap: 2, marginBottom: 2 }}>
-                  <div style={{ background: "rgba(0,0,0,0.4)", padding: "0.4rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, color: "rgba(255,255,255,0.7)", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    {round}
-                    {round <= 2 && <span style={{ fontSize: "0.5rem", color: "oklch(0.78 0.15 85)", marginLeft: 2 }}>L</span>}
-                  </div>
-                  {colOwners.map((colOwner, p) => {
-                    // Find the actual pick for this cell using DRAFT_PICKS_2026 order
-                    const pickInRound = p + 1;
-                    const draftOrderPick = DRAFT_PICKS_2026.find(dp => dp.round === round && dp.pickInRound === pickInRound);
-                    const cellOwner = draftOrderPick?.owner ?? colOwner;
-                    const cellKey = `${round}-${p}`;
-                    const dbPick = picksMap[cellKey];
-                    const isCurrent = started && !complete && round === curRound && p === curPick;
-                    const isTraded = draftOrderPick?.isTraded ?? false;
-
-                    return (
-                      <div key={p} style={{
-                        background: isCurrent ? "oklch(0.78 0.15 85)" : dbPick ? "oklch(0.94 0.01 150)" : "rgba(255,255,255,0.06)",
-                        border: isCurrent ? "2px solid oklch(0.65 0.14 85)" : isTraded ? "1.5px solid oklch(0.78 0.15 85 / 0.6)" : "1px solid rgba(255,255,255,0.06)",
-                        borderRadius: 4, padding: "0.3rem 0.2rem", minHeight: 52,
-                        display: "flex", flexDirection: "column", justifyContent: "center",
-                        transition: "background 0.2s",
-                        animation: isCurrent ? "gold-pulse 1.4s ease-in-out infinite" : dbPick ? "fadeInUp 0.25s ease both" : "none",
-                        cursor: isCurrent && (isMyTurn || isCommissioner) ? "pointer" : "default",
-                      }}
-                        onClick={() => { if (isCurrent && (isMyTurn || isCommissioner)) setShowPlayerPool(true); }}
-                      >
-                        {dbPick ? (
-                          <>
-                            <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.62rem", fontWeight: 700, color: "oklch(0.22 0.08 150)", textAlign: "center", lineHeight: 1.2, padding: "0 2px" }}>{dbPick.player_name}</div>
-                            <div style={{ textAlign: "center", marginTop: 2 }}>
-                              <span style={{ fontSize: "0.55rem", fontWeight: 700, color: "white", background: POS_COLORS[dbPick.player_pos] || "#64748b", borderRadius: 3, padding: "1px 3px" }}>{dbPick.player_pos}</span>
-                            </div>
-                          </>
-                        ) : isCurrent ? (
-                          <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.62rem", fontWeight: 700, color: "oklch(0.15 0.02 150)", textAlign: "center" }}>ON CLOCK</div>
-                        ) : (
-                          <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.58rem", color: "rgba(255,255,255,0.25)", textAlign: "center" }}>
-                            {round}.{pickInRound}
-                            {isTraded && <div style={{ fontSize: "0.5rem", color: "oklch(0.78 0.15 85 / 0.7)" }}>T</div>}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* View Tabs */}
-        <div style={{ display: "flex", gap: "0.35rem", marginBottom: "1rem", background: "rgba(0,0,0,0.35)", borderRadius: 8, padding: 4, width: "fit-content" }}>
-          {(["live","order","traded","queue"] as BoardView[]).map(v => (
-            <button key={v} onClick={() => setBoardView(v)} style={{ background: boardView === v ? "oklch(0.78 0.15 85)" : "transparent", color: boardView === v ? "oklch(0.15 0.02 150)" : "rgba(255,255,255,0.65)", border: "none", borderRadius: 6, padding: "0.4rem 0.9rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", cursor: "pointer" }}>
-              {v === "live" ? `Live Board (${dbPicks.length}/${TOTAL_ROUNDS * TOTAL_TEAMS})` : v === "order" ? "Draft Order" : v === "traded" ? `Traded (${tradedPicks.length})` : `My Queue (${queue.filter(q => !draftedNamesLower.has(q.player_name.toLowerCase())).length})`}
-            </button>
-          ))}
-        </div>
-
-        {/* Draft Order View */}
-        {boardView === "order" && (
-          <div style={{ marginBottom: "1.5rem" }}>
-            {Array.from({ length: TOTAL_ROUNDS }, (_, i) => i + 1).map(round => {
-              const rPicks = DRAFT_PICKS_2026.filter(p => p.round === round);
-              const isExp = expandedRound === round;
-              return (
-                <div key={round} className="wrc-card" style={{ marginBottom: "0.6rem" }}>
-                  <div onClick={() => setExpandedRound(isExp ? null : round)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0.65rem 1rem", cursor: "pointer", borderBottom: isExp ? "1px solid oklch(0.88 0.02 150)" : "none" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                      <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.22 0.08 150)" }}>ROUND {round}</span>
-                      <span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)" }}>Picks {(round-1)*12+1}–{round*12}</span>
-                      {rPicks.some(p => p.isTraded) && <span style={{ fontSize: "0.65rem", fontWeight: 700, color: "oklch(0.45 0.14 85)", background: "oklch(0.97 0.08 85)", border: "1px solid oklch(0.85 0.12 85)", borderRadius: 4, padding: "1px 6px" }}>{rPicks.filter(p=>p.isTraded).length} traded</span>}
-                    </div>
-                    <span style={{ fontSize: "0.75rem", color: "oklch(0.55 0.04 150)" }}>{isExp ? "▲" : "▼"}</span>
-                  </div>
-                  {isExp && (
-                    <div style={{ padding: "0.5rem 0.75rem", display: "flex", flexWrap: "wrap", gap: "0.35rem" }}>
-                      {rPicks.map(pick => {
-                        const made = dbPicks.find(d => d.round === pick.round && d.pick === pick.pickInRound - 1);
-                        return (
-                          <div key={pick.overall} style={{ background: made ? "oklch(0.94 0.01 150)" : pick.isTraded ? "oklch(0.97 0.08 85)" : "oklch(0.95 0.02 150)", border: `1.5px solid ${pick.isTraded ? "oklch(0.78 0.15 85)" : (OWNER_COLORS[pick.owner] ?? "oklch(0.8 0.04 150)")}`, borderRadius: 5, padding: "3px 8px" }}>
-                            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem", color: OWNER_COLORS[pick.owner] ?? "oklch(0.35 0.06 150)" }}>{pick.owner}</span>
-                            {pick.isTraded && <span style={{ fontSize: "0.6rem", color: "oklch(0.45 0.14 85)", marginLeft: 4 }}>via {pick.originalOwner}</span>}
-                            <div style={{ fontSize: "0.6rem", color: "oklch(0.55 0.04 150)" }}>#{pick.overall}</div>
-                            {made && <div style={{ fontSize: "0.6rem", fontWeight: 700, color: "oklch(0.35 0.1 150)" }}>{made.player_name} ({made.player_pos})</div>}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Traded Picks View */}
-        {boardView === "traded" && (
-          <div className="wrc-card" style={{ marginBottom: "1.5rem" }}>
-            <div className="wrc-card-gold-stripe" />
-            <div className="wrc-card-header" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <ArrowLeftRight size={14} /> Traded Picks ({tradedPicks.length})
-            </div>
-            <div style={{ padding: "1rem", overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
-                <thead>
-                  <tr style={{ borderBottom: "2px solid oklch(0.88 0.02 150)" }}>
-                    {["#","Round","Pick","Current Owner","Original Owner"].map(h => (
-                      <th key={h} style={{ textAlign: "left", padding: "0.35rem 0.75rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.06em", color: "oklch(0.45 0.06 150)", textTransform: "uppercase" }}>{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {tradedPicks.map((pick, i) => (
-                    <tr key={pick.overall} style={{ background: i%2===0?"white":"oklch(0.97 0.005 150)", borderBottom: "1px solid oklch(0.93 0.01 150)" }}>
-                      <td style={{ padding: "0.45rem 0.75rem", fontWeight: 700, color: "oklch(0.35 0.06 150)" }}>#{pick.overall}</td>
-                      <td style={{ padding: "0.45rem 0.75rem", color: "oklch(0.45 0.04 150)" }}>Rd {pick.round}</td>
-                      <td style={{ padding: "0.45rem 0.75rem", color: "oklch(0.45 0.04 150)" }}>Pick {pick.pickInRound}</td>
-                      <td style={{ padding: "0.45rem 0.75rem" }}><span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: OWNER_COLORS[pick.owner]??"oklch(0.35 0.06 150)", fontSize: "0.78rem" }}>{pick.owner}</span></td>
-                      <td style={{ padding: "0.45rem 0.75rem" }}><span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: OWNER_COLORS[pick.originalOwner!]??"oklch(0.5 0.04 150)", fontSize: "0.78rem" }}>{pick.originalOwner}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* ── My Queue View ── */}
-        {boardView === "queue" && (
+        {/* My Queue */}
           <div style={{ marginBottom: "1.5rem" }}>
             {!franchise ? (
               <div className="wrc-card" style={{ padding: "2rem", textAlign: "center", color: "rgba(255,255,255,0.6)" }}>
@@ -1008,7 +856,79 @@ export default function DraftBoard() {
               </>
             )}
           </div>
-        )}
+
+        {/* Draft Grid */}
+        <div style={{ overflowX: "auto", marginBottom: "1.5rem" }}>
+          <div style={{ minWidth: TOTAL_TEAMS * 110 + 60 }}>
+            {/* Column headers — owner names */}
+            <div style={{ display: "grid", gridTemplateColumns: `60px repeat(${TOTAL_TEAMS}, 1fr)`, gap: 2, marginBottom: 2 }}>
+              <div style={{ background: "rgba(0,0,0,0.5)", padding: "0.4rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", color: "rgba(255,255,255,0.5)", textAlign: "center" }}>RD</div>
+              {ROUND1_ORDER.map((owner, i) => (
+                <div key={i} style={{ background: OWNER_COLORS[owner] ?? "oklch(0.22 0.08 150)", padding: "0.4rem 0.25rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.62rem", fontWeight: 700, color: "white", textAlign: "center", letterSpacing: "0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderRadius: "3px 3px 0 0" }}>
+                  {owner}
+                </div>
+              ))}
+            </div>
+
+            {/* Pick rows */}
+            {Array.from({ length: TOTAL_ROUNDS }, (_, r) => {
+              const round = r + 1;
+              // For even rounds, column order reverses (snake)
+              const colOwners = round % 2 === 1 ? ROUND1_ORDER : [...ROUND1_ORDER].reverse();
+              return (
+                <div key={r} style={{ display: "grid", gridTemplateColumns: `60px repeat(${TOTAL_TEAMS}, 1fr)`, gap: 2, marginBottom: 2 }}>
+                  <div style={{ background: "rgba(0,0,0,0.4)", padding: "0.4rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, color: "rgba(255,255,255,0.7)", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    {round}
+                    {round <= 2 && <span style={{ fontSize: "0.5rem", color: "oklch(0.78 0.15 85)", marginLeft: 2 }}>L</span>}
+                  </div>
+                  {colOwners.map((colOwner, p) => {
+                    // Find the actual pick for this cell using DRAFT_PICKS_2026 order
+                    const pickInRound = p + 1;
+                    const draftOrderPick = DRAFT_PICKS_2026.find(dp => dp.round === round && dp.pickInRound === pickInRound);
+                    const cellOwner = draftOrderPick?.owner ?? colOwner;
+                    const cellKey = `${round}-${p}`;
+                    const dbPick = picksMap[cellKey];
+                    const isCurrent = started && !complete && round === curRound && p === curPick;
+                    const isTraded = draftOrderPick?.isTraded ?? false;
+
+                    return (
+                      <div key={p} style={{
+                        background: isCurrent ? "oklch(0.78 0.15 85)" : dbPick ? "oklch(0.94 0.01 150)" : "rgba(255,255,255,0.06)",
+                        border: isCurrent ? "2px solid oklch(0.65 0.14 85)" : isTraded ? "1.5px solid oklch(0.78 0.15 85 / 0.6)" : "1px solid rgba(255,255,255,0.06)",
+                        borderRadius: 4, padding: "0.3rem 0.2rem", minHeight: 52,
+                        display: "flex", flexDirection: "column", justifyContent: "center",
+                        transition: "background 0.2s",
+                        animation: isCurrent ? "gold-pulse 1.4s ease-in-out infinite" : dbPick ? "fadeInUp 0.25s ease both" : "none",
+                        cursor: isCurrent && (isMyTurn || isCommissioner) ? "pointer" : "default",
+                      }}
+                        onClick={() => { if (isCurrent && (isMyTurn || isCommissioner)) setShowPlayerPool(true); }}
+                      >
+                        {dbPick ? (
+                          <>
+                            <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.62rem", fontWeight: 700, color: "oklch(0.22 0.08 150)", textAlign: "center", lineHeight: 1.2, padding: "0 2px" }}>{dbPick.player_name}</div>
+                            <div style={{ textAlign: "center", marginTop: 2 }}>
+                              <span style={{ fontSize: "0.55rem", fontWeight: 700, color: "white", background: POS_COLORS[dbPick.player_pos] || "#64748b", borderRadius: 3, padding: "1px 3px" }}>{dbPick.player_pos}</span>
+                            </div>
+                          </>
+                        ) : isCurrent ? (
+                          <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.62rem", fontWeight: 700, color: "oklch(0.15 0.02 150)", textAlign: "center" }}>ON CLOCK</div>
+                        ) : (
+                          <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.58rem", color: "rgba(255,255,255,0.25)", textAlign: "center" }}>
+                            {round}.{pickInRound}
+                            {isTraded && <div style={{ fontSize: "0.5rem", color: "oklch(0.78 0.15 85 / 0.7)" }}>T</div>}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+
+
 
         {/* Theme Song Note */}
         <div style={{ background: "rgba(0,0,0,0.45)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "0.875rem 1.25rem", display: "flex", alignItems: "center", gap: "0.75rem" }}>
