@@ -673,19 +673,20 @@ export default function PlayerPage() {
   void gameLogLoading;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-crowd bg-overlay">
       {/* ── Top nav bar ── */}
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-20">
+      <div style={{ background: "oklch(0.15 0.04 150 / 0.92)", borderBottom: "1px solid oklch(0.28 0.06 150)", position: "sticky", top: 0, zIndex: 20, backdropFilter: "blur(8px)" }}>
         <div className="max-w-4xl mx-auto px-4 py-3 flex items-center gap-3">
           <button
             onClick={() => window.history.back()}
-            className="flex items-center gap-1.5 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors"
+            className="flex items-center gap-1.5 text-sm font-medium transition-colors"
+            style={{ color: "rgba(255,255,255,0.75)" }}
           >
             <ArrowLeft className="w-4 h-4" />
             Back
           </button>
-          <span className="text-slate-300">|</span>
-          <span className="text-sm text-slate-500 truncate">
+          <span style={{ color: "rgba(255,255,255,0.3)" }}>|</span>
+          <span className="text-sm truncate" style={{ color: "rgba(255,255,255,0.65)" }}>
             {playerName || "Player"}
           </span>
         </div>
@@ -706,7 +707,7 @@ export default function PlayerPage() {
               <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 900, fontSize: "1.4rem", color: "oklch(0.78 0.15 85)", letterSpacing: "0.04em" }}>WRC</span>
             </div>
             {/* Player name */}
-            <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1.1rem", color: "oklch(0.35 0.05 150)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+            <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1.1rem", color: "rgba(255,255,255,0.9)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
               {playerName || "Loading player…"}
             </div>
             {/* Animated dots */}
