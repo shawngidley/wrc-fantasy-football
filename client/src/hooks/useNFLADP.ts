@@ -38,8 +38,9 @@ export function useNFLADP() {
     })
       .then(r => r.json())
       .then(json => {
-        const body = json?.body ?? {};
-        const entries = Array.isArray(body) ? body : Object.values(body);
+        // Tank01 response: { body: { adpDate, adpType, adpList: [...] } }
+        const adpList = json?.body?.adpList ?? [];
+        const entries = Array.isArray(adpList) ? adpList : [];
         const map = new Map<string, number>();
         for (const p of entries as Array<{ longName?: string; overallADP?: string }>) {
           if (p.longName && p.overallADP) {
