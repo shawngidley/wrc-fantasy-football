@@ -14,13 +14,14 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { Play, Pause, SkipForward, Search, Music, ArrowLeftRight, RotateCcw, Wifi, WifiOff } from "lucide-react";
+import { Play, Pause, SkipForward, Search, Music, ArrowLeftRight, RotateCcw, Wifi, WifiOff, ChevronUp, ChevronDown, ListOrdered, Plus, Check } from "lucide-react";
 import { DRAFT_PICKS_2026, getTradedPicks } from "@/lib/draftData2026";
 import { OWNER_TO_TEAM } from "@/lib/scheduleData2026";
 import { NFL_PLAYERS_2026, getAvailablePlayers, type NFLPlayer } from "@/lib/nflPlayers2026";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { fetchPlayerByName, getTeamLogoUrl } from "@/hooks/useTank01Player";
+import { useDraftQueue } from "@/hooks/useDraftQueue";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const TIMER_SECONDS = 90;
@@ -73,7 +74,7 @@ interface DbDraftPick {
   picked_at: string;
 }
 
-type BoardView = "live" | "order" | "traded";
+type BoardView = "live" | "order" | "traded" | "queue";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function getOwnerForSlot(round: number, pickIdx: number): string {
@@ -152,6 +153,10 @@ export default function DraftBoard() {
   const [boardView, setBoardView] = useState<BoardView>("live");
   const [expandedRound, setExpandedRound] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Draft queue state
+  const [queueSearch, setQueueSearch] = useState("");
+  const [queuePosFilter, setQueuePosFilter] = useState("ALL");
+  const [showQueueBrowser, setShowQueueBrowser] = useState(false);
 
   // ── Player reveal overlay state ──
   const [revealPick, setRevealPick] = useState<DbDraftPick | null>(null);
@@ -161,6 +166,26 @@ export default function DraftBoard() {
   const chimeRef = useRef<HTMLAudioElement | null>(null);
   // Tracks which pick IDs have been revealed (shown in board after overlay)
   const [revealedPickIds, setRevealedPickIds] = useState<Set<number>>(new Set());
+
+  // Draft queue hook
+  const franchiseId = franchise?.id ?? null;
+  const { queue, addToQueue, removeFromQueue, moveItem, isQueued } = useDraftQueue(franchiseId);
+
+  // Drafted player names (for graying out in queue)
+  const draftedNames = useMemo(() => new Set(dbPicks.map(p => p.player_name)), [dbPicks]);
+  const draftedNamesLower = useMemo(() => new Set(dbPicks.map(p => p.player_name.toLowerCase())), [dbPicks]);
+
+  // Queue browser filtered players
+  const queueFilteredPlayers = useMemo(() => {
+    return NFL_PLAYERS_2026.filter(p => {
+      if (queuePosFilter !== "ALL" && p.pos !== queuePosFilter) return false;
+      if (queueSearch) {
+        const q = queueSearch.toLowerCase();
+        if (!p.name.toLowerCase().includes(q) && !p.nflTeam.toLowerCase().includes(q)) return false;
+      }
+      return true;
+    }).sort((a, b) => a.adp - b.adp);
+  }, [queueSearch, queuePosFilter]);
 
   // Pre-load the chime audio on mount
   useEffect(() => {
@@ -186,9 +211,6 @@ export default function DraftBoard() {
     }
     return m;
   }, [dbPicks, revealedPickIds]);
-
-  // Drafted player names set (for filtering available pool)
-  const draftedNames = useMemo(() => new Set(dbPicks.map(p => p.player_name)), [dbPicks]);
 
   // Current owner on the clock
   const currentOwner = getOwnerForSlot(curRound, curPick);
@@ -707,9 +729,9 @@ export default function DraftBoard() {
 
         {/* View Tabs */}
         <div style={{ display: "flex", gap: "0.35rem", marginBottom: "1rem", background: "rgba(0,0,0,0.35)", borderRadius: 8, padding: 4, width: "fit-content" }}>
-          {(["live","order","traded"] as BoardView[]).map(v => (
+          {(["live","order","traded","queue"] as BoardView[]).map(v => (
             <button key={v} onClick={() => setBoardView(v)} style={{ background: boardView === v ? "oklch(0.78 0.15 85)" : "transparent", color: boardView === v ? "oklch(0.15 0.02 150)" : "rgba(255,255,255,0.65)", border: "none", borderRadius: 6, padding: "0.4rem 0.9rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", cursor: "pointer" }}>
-              {v === "live" ? `Live Board (${dbPicks.length}/${TOTAL_ROUNDS * TOTAL_TEAMS})` : v === "order" ? "Draft Order" : `Traded (${tradedPicks.length})`}
+              {v === "live" ? `Live Board (${dbPicks.length}/${TOTAL_ROUNDS * TOTAL_TEAMS})` : v === "order" ? "Draft Order" : v === "traded" ? `Traded (${tradedPicks.length})` : `My Queue (${queue.filter(q => !draftedNamesLower.has(q.player_name.toLowerCase())).length})`}
             </button>
           ))}
         </div>
@@ -780,6 +802,130 @@ export default function DraftBoard() {
                 </tbody>
               </table>
             </div>
+          </div>
+        )}
+
+        {/* ── My Queue View ── */}
+        {boardView === "queue" && (
+          <div style={{ marginBottom: "1.5rem" }}>
+            {!franchise ? (
+              <div className="wrc-card" style={{ padding: "2rem", textAlign: "center", color: "rgba(255,255,255,0.6)" }}>
+                <ListOrdered size={28} style={{ margin: "0 auto 0.5rem", display: "block", opacity: 0.4 }} />
+                <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.95rem" }}>Sign in to manage your draft queue</div>
+              </div>
+            ) : (
+              <>
+                {/* Queue header + add button */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
+                  <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: "white", letterSpacing: "0.05em" }}>
+                    MY DRAFT QUEUE — {franchise.team_name}
+                  </div>
+                  <button
+                    onClick={() => setShowQueueBrowser(v => !v)}
+                    style={{ display: "flex", alignItems: "center", gap: "0.35rem", background: "oklch(0.78 0.15 85)", color: "oklch(0.15 0.02 150)", border: "none", borderRadius: 7, padding: "0.4rem 0.85rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", cursor: "pointer" }}
+                  >
+                    <Plus size={13} /> Add Players
+                  </button>
+                </div>
+
+                {/* Player browser */}
+                {showQueueBrowser && (
+                  <div className="wrc-card" style={{ marginBottom: "1rem" }}>
+                    <div className="wrc-card-gold-stripe" />
+                    <div className="wrc-card-header">Add to Queue</div>
+                    <div style={{ padding: "0.75rem 1rem", borderBottom: "1px solid oklch(0.9 0.005 150)" }}>
+                      <div style={{ position: "relative", marginBottom: "0.5rem" }}>
+                        <Search size={14} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "oklch(0.55 0.04 150)" }} />
+                        <input
+                          value={queueSearch}
+                          onChange={e => setQueueSearch(e.target.value)}
+                          placeholder="Search by name or NFL team..."
+                          style={{ width: "100%", padding: "0.45rem 0.5rem 0.45rem 1.9rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 7, fontSize: "0.85rem", outline: "none", boxSizing: "border-box" as const }}
+                        />
+                      </div>
+                      <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" as const }}>
+                        {["ALL","QB","RB","WR","TE","K","DST"].map(pos => (
+                          <button key={pos} onClick={() => setQueuePosFilter(pos)} style={{ padding: "0.22rem 0.55rem", borderRadius: 5, border: "1.5px solid", borderColor: queuePosFilter === pos ? "oklch(0.28 0.09 150)" : "oklch(0.88 0.01 150)", background: queuePosFilter === pos ? "oklch(0.28 0.09 150)" : "white", color: queuePosFilter === pos ? "white" : "oklch(0.4 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", fontWeight: 600, cursor: "pointer" }}>
+                            {pos}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{ maxHeight: 320, overflowY: "auto" }}>
+                      {queueFilteredPlayers.map(player => {
+                        const drafted = draftedNamesLower.has(player.name.toLowerCase());
+                        const queued = isQueued(player.name);
+                        return (
+                          <div key={player.id} style={{ display: "flex", alignItems: "center", gap: "0.65rem", padding: "0.6rem 1rem", borderBottom: "1px solid oklch(0.95 0.003 150)", opacity: drafted ? 0.4 : 1 }}>
+                            <span style={{ width: 30, textAlign: "center", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.66rem", fontWeight: 700, color: "white", background: POS_COLORS[player.pos] || "#64748b", borderRadius: 4, padding: "2px 0", flexShrink: 0 }}>{player.pos}</span>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "oklch(0.18 0.05 150)" }}>{player.name}</div>
+                              <div style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)" }}>{player.nflTeam} · ADP {player.adp.toFixed(1)}</div>
+                            </div>
+                            <button
+                              disabled={drafted || queued}
+                              onClick={() => { if (!drafted && !queued) { addToQueue({ name: player.name, pos: player.pos, nflTeam: player.nflTeam }); toast.success(`${player.name} added to queue`); } }}
+                              style={{ display: "flex", alignItems: "center", gap: "0.25rem", background: queued ? "oklch(0.42 0.15 150)" : drafted ? "oklch(0.88 0.01 150)" : "oklch(0.28 0.09 150)", color: "white", border: "none", borderRadius: 6, padding: "0.3rem 0.65rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", fontWeight: 700, cursor: drafted || queued ? "default" : "pointer", flexShrink: 0 }}
+                            >
+                              {queued ? <><Check size={11} /> Added</> : drafted ? "Drafted" : <><Plus size={11} /> Queue</>}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Queue list */}
+                {queue.length === 0 ? (
+                  <div className="wrc-card" style={{ padding: "2.5rem 1.25rem", textAlign: "center" }}>
+                    <ListOrdered size={28} style={{ margin: "0 auto 0.5rem", display: "block", opacity: 0.25, color: "oklch(0.45 0.06 150)" }} />
+                    <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.95rem", color: "oklch(0.45 0.06 150)" }}>Your queue is empty</div>
+                    <div style={{ fontSize: "0.78rem", color: "oklch(0.6 0.04 150)", marginTop: "0.25rem" }}>Tap "Add Players" to build your draft list</div>
+                  </div>
+                ) : (
+                  <div className="wrc-card">
+                    <div className="wrc-card-gold-stripe" />
+                    <div className="wrc-card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span>My Queue ({queue.length} players · {queue.filter(q => !draftedNamesLower.has(q.player_name.toLowerCase())).length} available)</span>
+                    </div>
+                    <div>
+                      {queue.map((item, idx) => {
+                        const isDrafted = draftedNamesLower.has(item.player_name.toLowerCase());
+                        return (
+                          <div key={item.id} style={{ display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.65rem 1rem", borderBottom: "1px solid oklch(0.95 0.003 150)", opacity: isDrafted ? 0.4 : 1, background: isDrafted ? "oklch(0.97 0.005 150)" : "white" }}>
+                            {/* Rank number */}
+                            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.75rem", color: "oklch(0.55 0.04 150)", width: 20, textAlign: "center", flexShrink: 0 }}>{idx + 1}</span>
+                            {/* Pos badge */}
+                            <span style={{ width: 30, textAlign: "center", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.66rem", fontWeight: 700, color: "white", background: POS_COLORS[item.player_pos] || "#64748b", borderRadius: 4, padding: "2px 0", flexShrink: 0 }}>{item.player_pos}</span>
+                            {/* Name + team */}
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontWeight: 700, fontSize: "0.88rem", color: isDrafted ? "oklch(0.55 0.04 150)" : "oklch(0.18 0.05 150)", textDecoration: isDrafted ? "line-through" : "none" }}>{item.player_name}</div>
+                              <div style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)" }}>{item.player_nfl_team ?? ""}{isDrafted ? " · Drafted" : ""}</div>
+                            </div>
+                            {/* Up/Down buttons */}
+                            {!isDrafted && (
+                              <div style={{ display: "flex", flexDirection: "column", gap: 1, flexShrink: 0 }}>
+                                <button onClick={() => moveItem(item.id, "up")} disabled={idx === 0} style={{ background: "none", border: "none", cursor: idx === 0 ? "default" : "pointer", color: idx === 0 ? "oklch(0.85 0.01 150)" : "oklch(0.45 0.06 150)", padding: "1px 3px", display: "flex" }}>
+                                  <ChevronUp size={14} />
+                                </button>
+                                <button onClick={() => moveItem(item.id, "down")} disabled={idx === queue.length - 1} style={{ background: "none", border: "none", cursor: idx === queue.length - 1 ? "default" : "pointer", color: idx === queue.length - 1 ? "oklch(0.85 0.01 150)" : "oklch(0.45 0.06 150)", padding: "1px 3px", display: "flex" }}>
+                                  <ChevronDown size={14} />
+                                </button>
+                              </div>
+                            )}
+                            {/* Remove button */}
+                            <button onClick={() => removeFromQueue(item.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "oklch(0.55 0.22 25)", padding: "2px 4px", flexShrink: 0, display: "flex", alignItems: "center" }}>
+                              ✕
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         )}
 
