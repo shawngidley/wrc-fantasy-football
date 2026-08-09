@@ -537,3 +537,14 @@
     }
   }
 }
+
+/* Playoffs bracket responsive layout */
+/* Mobile first: show stacked, hide horizontal */
+.bracket-desktop { display: none !important; }
+.bracket-mobile { display: block; }
+
+/* Desktop (≥ 700px): show horizontal, hide stacked */
+@media (min-width: 700px) {
+  .bracket-desktop { display: block !important; }
+  .bracket-mobile { display: none !important; }
+}
