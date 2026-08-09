@@ -49,6 +49,22 @@ const OWNER_COLORS: Record<string, string> = {
   "Scott M.":"oklch(0.52 0.16 230)","Dan":"oklch(0.50 0.16 130)",
 };
 
+// Maps owner first name to Supabase team_id
+const OWNER_TO_TEAM_ID: Record<string, string> = {
+  "Jonas":    "team-jonas",
+  "David R.": "team-davidr",
+  "Jason":    "team-jason",
+  "Keith":    "team-keith",
+  "Dan":      "team-dan",
+  "Scott N.": "team-scottn",
+  "Bill":     "team-bill",
+  "Jamie":    "team-jamie",
+  "Scott M.": "team-scottm",
+  "David S.": "team-davids",
+  "Shawn":    "team-shawn",
+  "Greg":     "team-greg",
+};
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface DbDraftState {
   id: number;
@@ -418,6 +434,23 @@ export default function DraftBoard() {
       toast.error("Pick failed: " + pickError.message);
       setSubmitting(false);
       return;
+    }
+
+    // Update players table: assign player to drafting team so roster/lineup pages update immediately
+    const draftingTeamId = OWNER_TO_TEAM_ID[currentOwner];
+    if (draftingTeamId) {
+      // Try to find the player by name in the players table and update their team_id
+      const { error: rosterError } = await supabase
+        .from("players")
+        .update({
+          team_id: draftingTeamId,
+          acquisition: `Rd ${curRound}`,
+          draft_round: curRound,
+        })
+        .ilike("name", player.name);
+      if (rosterError) {
+        console.warn("[Draft] Could not update players table for", player.name, rosterError.message);
+      }
     }
 
     // Advance to next pick
