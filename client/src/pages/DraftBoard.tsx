@@ -194,6 +194,9 @@ export default function DraftBoard() {
   // Queue browser filtered players
   const queueFilteredPlayers = useMemo(() => {
     return NFL_PLAYERS_2026.filter(p => {
+      // Only show undrafted players not already in the queue
+      if (draftedNames.has(p.name)) return false;
+      if (queue.some(q => q.player_name.toLowerCase() === p.name.toLowerCase())) return false;
       if (queuePosFilter !== "ALL" && p.pos !== queuePosFilter) return false;
       if (queueSearch) {
         const q = queueSearch.toLowerCase();
@@ -201,7 +204,7 @@ export default function DraftBoard() {
       }
       return true;
     }).sort((a, b) => a.adp - b.adp);
-  }, [queueSearch, queuePosFilter]);
+  }, [queueSearch, queuePosFilter, draftedNames, queue]);
 
   // Pre-load the chime audio on mount
   useEffect(() => {
