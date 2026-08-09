@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 
 const RAPIDAPI_KEY = "7e46b980d9mshee27c75e8b169f3p17558bjsnc4344991f4d3";
 const RAPIDAPI_HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
-const CACHE_KEY = "wrc_nfl_adp_cache";
+const CACHE_KEY = "wrc_nfl_adp_cache_v3";
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
 export type ADPMap = Map<string, number>;
@@ -19,6 +19,9 @@ export function useNFLADP() {
   useEffect(() => {
     // Check cache first
     try {
+      // Clear old cache keys
+      sessionStorage.removeItem("wrc_nfl_adp_cache");
+      sessionStorage.removeItem("wrc_nfl_adp_cache_v2");
       const cached = sessionStorage.getItem(CACHE_KEY);
       if (cached) {
         const { data, ts } = JSON.parse(cached);
