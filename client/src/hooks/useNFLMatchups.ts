@@ -27,7 +27,20 @@ interface UseNFLMatchupsResult {
   error: string | null;
 }
 
-const CACHE_PREFIX = "wrc_nfl_matchups_";
+const CACHE_PREFIX = "wrc_nfl_matchups_v2_";
+
+// Normalize Tank01 team abbreviations to match app's internal abbreviations
+// Tank01 uses JAX, KAN, TAM, ARZ, WAS — app uses JAC, KC, TB, ARI, WSH
+function normTeam(abv: string): string {
+  const map: Record<string, string> = {
+    JAX: "JAC",
+    KAN: "KC",
+    TAM: "TB",
+    ARZ: "ARI",
+    WAS: "WSH",
+  };
+  return map[abv] ?? abv;
+}
 
 export function useNFLMatchups(week: number, season = 2026): UseNFLMatchupsResult {
   const [matchups, setMatchups] = useState<NFLMatchupMap>({});
@@ -77,15 +90,17 @@ export function useNFLMatchups(week: number, season = 2026): UseNFLMatchupsResul
         // Build bidirectional map: both home and away teams get an entry
         const map: NFLMatchupMap = {};
         for (const g of games) {
-          map[g.away] = {
-            opponent: g.home,
+          const away = normTeam(g.away);
+          const home = normTeam(g.home);
+          map[away] = {
+            opponent: home,
             isHome: false,
             gameTime: g.gameTime,
             gameDate: g.gameDate,
             gameId: g.gameID,
           };
-          map[g.home] = {
-            opponent: g.away,
+          map[home] = {
+            opponent: away,
             isHome: true,
             gameTime: g.gameTime,
             gameDate: g.gameDate,
