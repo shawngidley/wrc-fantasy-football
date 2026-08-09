@@ -694,19 +694,41 @@ export default function PlayerPage() {
       <div className="max-w-4xl mx-auto px-4 py-6 space-y-5">
         {/* ── Loading state ── */}
         {loading && (
-          <div className="space-y-4">
-            <div className="bg-white rounded-2xl border border-slate-200 p-6">
-              <div className="flex gap-5">
-                <Skeleton className="w-28 h-28 rounded-xl flex-shrink-0" />
-                <div className="flex-1 space-y-3">
-                  <Skeleton className="h-8 w-48" />
-                  <Skeleton className="h-5 w-32" />
-                  <Skeleton className="h-5 w-40" />
-                </div>
-              </div>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "4rem 1rem", gap: "1.25rem" }}>
+            {/* Pulsing WRC badge */}
+            <div style={{
+              width: 72, height: 72, borderRadius: 16,
+              background: "oklch(0.22 0.06 150)",
+              border: "2px solid oklch(0.78 0.15 85)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              animation: "wrc-pulse 1.4s ease-in-out infinite",
+            }}>
+              <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 900, fontSize: "1.4rem", color: "oklch(0.78 0.15 85)", letterSpacing: "0.04em" }}>WRC</span>
             </div>
-            <Skeleton className="h-40 rounded-2xl" />
-            <Skeleton className="h-40 rounded-2xl" />
+            {/* Player name */}
+            <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1.1rem", color: "oklch(0.35 0.05 150)", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+              {playerName || "Loading player…"}
+            </div>
+            {/* Animated dots */}
+            <div style={{ display: "flex", gap: "0.4rem" }}>
+              {[0, 1, 2].map(i => (
+                <div key={i} style={{
+                  width: 8, height: 8, borderRadius: "50%",
+                  background: "oklch(0.78 0.15 85)",
+                  animation: `wrc-dot 1.2s ease-in-out ${i * 0.2}s infinite`,
+                }} />
+              ))}
+            </div>
+            <style>{`
+              @keyframes wrc-pulse {
+                0%, 100% { opacity: 1; transform: scale(1); }
+                50% { opacity: 0.65; transform: scale(0.94); }
+              }
+              @keyframes wrc-dot {
+                0%, 80%, 100% { transform: scale(0.6); opacity: 0.35; }
+                40% { transform: scale(1); opacity: 1; }
+              }
+            `}</style>
           </div>
         )}
 
