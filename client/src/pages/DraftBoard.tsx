@@ -187,6 +187,18 @@ export default function DraftBoard() {
   const franchiseId = franchise?.id ?? null;
   const { queue, addToQueue, removeFromQueue, moveItem, isQueued } = useDraftQueue(franchiseId);
 
+  // Load rostered player names from Supabase to exclude from queue browser
+  const [rosteredNames, setRosteredNames] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    supabase
+      .from("players")
+      .select("name")
+      .not("team_id", "is", null)
+      .then(({ data }) => {
+        if (data) setRosteredNames(new Set(data.map((p: { name: string }) => p.name.toLowerCase())));
+      });
+  }, []);
+
   // Drafted player names (for graying out in queue)
   const draftedNames = useMemo(() => new Set(dbPicks.map(p => p.player_name)), [dbPicks]);
   const draftedNamesLower = useMemo(() => new Set(dbPicks.map(p => p.player_name.toLowerCase())), [dbPicks]);
@@ -196,6 +208,8 @@ export default function DraftBoard() {
     return NFL_PLAYERS_2026.filter(p => {
       // Only show undrafted players not already in the queue
       if (draftedNames.has(p.name)) return false;
+      // Exclude players already on a WRC roster
+      if (rosteredNames.has(p.name.toLowerCase())) return false;
       if (queue.some(q => q.player_name.toLowerCase() === p.name.toLowerCase())) return false;
       if (queuePosFilter !== "ALL" && p.pos !== queuePosFilter) return false;
       if (queueSearch) {
@@ -204,7 +218,7 @@ export default function DraftBoard() {
       }
       return true;
     }).sort((a, b) => a.adp - b.adp);
-  }, [queueSearch, queuePosFilter, draftedNames, queue]);
+  }, [queueSearch, queuePosFilter, draftedNames, queue, rosteredNames]);
 
   // Pre-load the chime audio on mount
   useEffect(() => {
