@@ -22,6 +22,7 @@ import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { fetchPlayerByName, getTeamLogoUrl } from "@/hooks/useTank01Player";
 import { useDraftQueue } from "@/hooks/useDraftQueue";
+import { useNFLADP } from "@/hooks/useNFLADP";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const TIMER_SECONDS = 90;
@@ -187,6 +188,13 @@ export default function DraftBoard() {
   const franchiseId = franchise?.id ?? null;
   const { queue, addToQueue, removeFromQueue, moveItem, isQueued } = useDraftQueue(franchiseId);
 
+  // Live ADP from Tank01
+  const { adpMap } = useNFLADP();
+
+  // Helper: get ADP for a player (falls back to static adp field)
+  const getADP = (name: string, staticAdp: number) =>
+    adpMap.get(name.toLowerCase()) ?? staticAdp;
+
   // Load rostered player names from Supabase to exclude from queue browser
   const [rosteredNames, setRosteredNames] = useState<Set<string>>(new Set());
   useEffect(() => {
@@ -217,8 +225,8 @@ export default function DraftBoard() {
         if (!p.name.toLowerCase().includes(q) && !p.nflTeam.toLowerCase().includes(q)) return false;
       }
       return true;
-    }).sort((a, b) => a.adp - b.adp);
-  }, [queueSearch, queuePosFilter, draftedNames, queue, rosteredNames]);
+    }).sort((a, b) => getADP(a.name, a.adp) - getADP(b.name, b.adp));
+  }, [queueSearch, queuePosFilter, draftedNames, queue, rosteredNames, adpMap]);
 
   // Pre-load the chime audio on mount
   useEffect(() => {
@@ -258,8 +266,8 @@ export default function DraftBoard() {
       const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
                           p.nflTeam.toLowerCase().includes(search.toLowerCase());
       return matchPos && matchSearch;
-    });
-  }, [availablePlayers, posFilter, search]);
+    }).sort((a, b) => getADP(a.name, a.adp) - getADP(b.name, b.adp));
+  }, [availablePlayers, posFilter, search, adpMap]);
 
   // Timer display
   const timerColor = timer > 45 ? "oklch(0.42 0.15 150)" : timer > 20 ? "oklch(0.65 0.14 85)" : "#ef4444";
@@ -933,7 +941,7 @@ export default function DraftBoard() {
                             <span style={{ width: 30, textAlign: "center", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.66rem", fontWeight: 700, color: "white", background: POS_COLORS[player.pos] || "#64748b", borderRadius: 4, padding: "2px 0", flexShrink: 0 }}>{player.pos}</span>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "oklch(0.18 0.05 150)" }}>{player.name}</div>
-                              <div style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)" }}>{player.nflTeam} · ADP {player.adp.toFixed(1)}</div>
+                              <div style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)" }}>{player.nflTeam} · ADP {getADP(player.name, player.adp).toFixed(1)}</div>
                             </div>
                             <button
                               disabled={drafted || queued}
@@ -1071,7 +1079,7 @@ export default function DraftBoard() {
                       <div style={{ fontSize: "0.7rem", color: "oklch(0.55 0.04 150)" }}>
                         {player.nflTeam}
                         {player.bye && <span style={{ marginLeft: "0.4rem" }}>· Bye {player.bye}</span>}
-                        <span style={{ marginLeft: "0.4rem" }}>· ADP {player.adp.toFixed(1)}</span>
+                        <span style={{ marginLeft: "0.4rem" }}>· ADP {getADP(player.name, player.adp).toFixed(1)}</span>
                       </div>
                     </div>
                     <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, color: "oklch(0.28 0.09 150)", flexShrink: 0 }}>Draft →</span>
