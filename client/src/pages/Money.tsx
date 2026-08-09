@@ -360,8 +360,15 @@ export default function Money() {
           </div>
         </div>
 
-        {/* ── SECTION 2: Prize Structure + Paid Badge ───────────────────────── */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1.25rem", marginBottom: "1.75rem" }}>
+        {/* ── Paid for 2027 badge — compact, under the fees table ── */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1.25rem", padding: "0.6rem 1rem", background: "white", border: "1.5px solid oklch(0.78 0.15 85)", borderRadius: 8, boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
+          <span style={{ fontSize: "1rem", color: "oklch(0.55 0.16 85)", flexShrink: 0 }}>✓</span>
+          <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.85rem", letterSpacing: "0.06em", textTransform: "uppercase", color: "oklch(0.28 0.08 85)" }}>Paid for 2027</span>
+          <span style={{ fontSize: "0.72rem", color: "oklch(0.52 0.04 150)", marginLeft: "0.1rem" }}>— All entry fees collected</span>
+        </div>
+
+        {/* ── SECTION 2: Prize Structure ───────────────────────────────────── */}
+        <div style={{ marginBottom: "1.75rem" }}>
           <div className="wrc-card" style={{ overflowX: "auto" }}>
             <div className="wrc-card-gold-stripe" />
             <div style={{ padding: "0.85rem 1rem 0.5rem" }}>
@@ -397,28 +404,6 @@ export default function Money() {
                 </tr>
               </tfoot>
             </table>
-          </div>
-
-          <div className="wrc-card" style={{ display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", padding: "2rem", minHeight: 180 }}>
-            <div className="wrc-card-gold-stripe" />
-            <div style={{
-              background: "oklch(0.78 0.15 85)",
-              color: "oklch(0.18 0.05 85)",
-              fontFamily: "Barlow Condensed, sans-serif",
-              fontWeight: 700,
-              fontSize: "1.4rem",
-              letterSpacing: "0.1em",
-              textTransform: "uppercase",
-              padding: "0.75rem 2rem",
-              borderRadius: 8,
-              boxShadow: "0 4px 16px rgba(0,0,0,0.15)",
-              marginBottom: "0.75rem",
-            }}>
-              ✓ Paid for 2026
-            </div>
-            <p style={{ fontSize: "0.8rem", color: "oklch(0.5 0.04 150)", textAlign: "center", margin: 0 }}>
-              All entry fees collected for the 2026 season
-            </p>
           </div>
         </div>
 
