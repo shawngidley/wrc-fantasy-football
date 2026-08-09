@@ -671,13 +671,36 @@ export default function DraftBoard() {
 
             {/* Make Pick button */}
             {(isMyTurn || isCommissioner) && !paused && (
-              <button
-                onClick={() => setShowPlayerPool(true)}
-                disabled={submitting}
-                style={{ background: "oklch(0.78 0.15 85)", color: "oklch(0.15 0.02 150)", border: "none", borderRadius: 8, padding: "0.5rem 1.25rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.88rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: submitting ? "not-allowed" : "pointer", opacity: submitting ? 0.6 : 1 }}
-              >
-                {submitting ? "Saving..." : "Make Pick"}
-              </button>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", alignItems: "flex-start" }}>
+                {/* Queue suggestion — top available player */}
+                {(() => {
+                  const topQueued = queue.find(q => !draftedNamesLower.has(q.player_name.toLowerCase()));
+                  if (!topQueued) return null;
+                  const qPlayer = NFL_PLAYERS_2026.find(p => p.name.toLowerCase() === topQueued.player_name.toLowerCase());
+                  if (!qPlayer) return null;
+                  return (
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: "rgba(0,0,0,0.4)", border: "1px solid oklch(0.78 0.15 85 / 0.4)", borderRadius: 8, padding: "0.4rem 0.75rem" }}>
+                      <span style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.5)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.05em" }}>QUEUE #1</span>
+                      <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem", color: "white", background: POS_COLORS[topQueued.player_pos] ?? "#64748b", borderRadius: 3, padding: "1px 5px" }}>{topQueued.player_pos}</span>
+                      <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: "white" }}>{topQueued.player_name}</span>
+                      <button
+                        onClick={() => handlePickPlayer(qPlayer)}
+                        disabled={submitting}
+                        style={{ background: "oklch(0.78 0.15 85)", color: "oklch(0.15 0.02 150)", border: "none", borderRadius: 6, padding: "0.3rem 0.75rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", cursor: submitting ? "not-allowed" : "pointer", opacity: submitting ? 0.6 : 1 }}
+                      >
+                        Draft →
+                      </button>
+                    </div>
+                  );
+                })()}
+                <button
+                  onClick={() => setShowPlayerPool(true)}
+                  disabled={submitting}
+                  style={{ background: "oklch(0.78 0.15 85)", color: "oklch(0.15 0.02 150)", border: "none", borderRadius: 8, padding: "0.5rem 1.25rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.88rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: submitting ? "not-allowed" : "pointer", opacity: submitting ? 0.6 : 1 }}
+                >
+                  {submitting ? "Saving..." : "Make Pick"}
+                </button>
+              </div>
             )}
           </div>
         )}
