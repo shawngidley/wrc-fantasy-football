@@ -309,13 +309,13 @@ export default function History() {
                         </td>
                         <td style={{ ...TD, fontSize: "0.7rem", color: "oklch(0.5 0.04 150)" }}>{t.owner}</td>
                         <td style={{ ...TD, fontWeight: 700, color: "oklch(0.28 0.09 150)" }}>{t.w}</td>
-                        <td style={TD}>{t.l}</td>
+                        <td style={{ ...TD, color: "oklch(0.45 0.14 25)" }}>{t.l}</td>
                         <td style={{ ...TD, color: "oklch(0.55 0.04 150)" }}>{t.gb}</td>
                         {"h2hW" in t && <><td style={{ ...TD, color: "oklch(0.35 0.14 150)", fontWeight: 600 }}>{(t as {h2hW:number}).h2hW}</td><td style={{ ...TD, color: "oklch(0.5 0.14 25)" }}>{(t as {h2hL:number}).h2hL}</td></>}
                         {"medW" in t && <><td style={{ ...TD, color: "oklch(0.35 0.14 150)", fontWeight: 600 }}>{(t as {medW:number}).medW}</td><td style={{ ...TD, color: "oklch(0.5 0.14 25)" }}>{(t as {medL:number}).medL}</td></>}
                         <td style={{ ...TD, color: "oklch(0.35 0.14 150)", fontWeight: 600 }}>{t.divW}</td>
                         <td style={{ ...TD, color: "oklch(0.5 0.14 25)" }}>{t.divL}</td>
-                        {t.ptsF !== null && <><td style={{ ...TD, fontWeight: 700, color: "oklch(0.38 0.18 85)" }}>{t.ptsF?.toFixed(2)}</td><td style={TD}>{t.ptsA?.toFixed(2)}</td></>}
+                        {t.ptsF !== null && <><td style={{ ...TD, fontWeight: 700, color: "oklch(0.38 0.18 85)" }}>{t.ptsF?.toFixed(2)}</td><td style={{ ...TD, color: "oklch(0.45 0.06 150)" }}>{t.ptsA?.toFixed(2)}</td></>}
                       </tr>
                     ))}
                   </tbody>
@@ -368,8 +368,8 @@ export default function History() {
                     <td style={{ padding: "0.4rem 0.75rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem" }}>{t.team}</td>
                     <td style={{ padding: "0.4rem 0.5rem", textAlign: "center", fontSize: "0.75rem", color: "oklch(0.5 0.04 150)" }}>{t.owner}</td>
                     <td style={{ padding: "0.4rem 0.5rem", textAlign: "center", fontWeight: 700, color: "oklch(0.28 0.09 150)" }}>{t.w}</td>
-                    <td style={{ padding: "0.4rem 0.5rem", textAlign: "center" }}>{t.l}</td>
-                    <td style={{ padding: "0.4rem 0.5rem", textAlign: "center", fontWeight: 600 }}>{((t.w / (t.w + t.l)) * 100).toFixed(1)}%</td>
+                    <td style={{ padding: "0.4rem 0.5rem", textAlign: "center", color: "oklch(0.45 0.14 25)" }}>{t.l}</td>
+                    <td style={{ padding: "0.4rem 0.5rem", textAlign: "center", fontWeight: 600 }}>{`.${Math.round((t.w / (t.w + t.l)) * 1000).toString().padStart(3, "0")}`}</td>
                     <td style={{ padding: "0.4rem 0.5rem", textAlign: "center" }}>{t.titles > 0 ? <span style={{ color: "oklch(0.65 0.14 85)" }}>{"🏆".repeat(t.titles)}</span> : "—"}</td>
                   </tr>
                 ))}
