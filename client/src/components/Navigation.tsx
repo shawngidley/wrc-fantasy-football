@@ -10,7 +10,7 @@ import TeamLogo from "@/components/TeamLogo";
 
 type NavLink = { label: string; path: string; live?: boolean };
 
-// Primary links — always visible in desktop nav bar
+// All desktop nav links — shown directly in the nav bar (no More dropdown)
 const primaryLinks: NavLink[] = [
   { label: "Standings", path: "/standings" },
   { label: "Live", path: "/live", live: true },
@@ -22,10 +22,6 @@ const primaryLinks: NavLink[] = [
   { label: "News", path: "/news" },
   { label: "Trades", path: "/trades" },
   { label: "Playoffs", path: "/playoffs" },
-];
-
-// Secondary links — shown in "More ▾" dropdown on desktop, and inline on mobile
-const secondaryLinks: NavLink[] = [
   { label: "Draft", path: "/draft" },
   { label: "History", path: "/history" },
   { label: "Money", path: "/money" },
@@ -155,74 +151,6 @@ function MobileNavList({ location, setMobileOpen }: { location: string; setMobil
   );
 }
 
-// ── More ▾ Dropdown ───────────────────────────────────────────────────────────
-function MoreDropdown({ location }: { location: string }) {
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-  const [, navigate] = useLocation();
-
-  // Close on outside click
-  useEffect(() => {
-    function handler(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  const isActive = secondaryLinks.some(l => l.path === location);
-
-  return (
-    <div ref={ref} style={{ position: "relative" }}>
-      <button
-        onClick={() => setOpen(v => !v)}
-        className={`wrc-nav-link ${isActive ? "active" : ""}`}
-        style={{
-          display: "flex", alignItems: "center", gap: "3px",
-          background: "none", border: "none", cursor: "pointer",
-          fontFamily: "inherit", fontSize: "inherit",
-        }}
-      >
-        More <ChevronDown size={12} style={{ transition: "transform 0.15s", transform: open ? "rotate(180deg)" : "none" }} />
-      </button>
-      {open && (
-        <div style={{
-          position: "absolute", top: "calc(100% + 6px)", left: 0,
-          background: "oklch(0.18 0.06 150)",
-          border: "1px solid oklch(0.32 0.08 150)",
-          borderRadius: 8,
-          boxShadow: "0 8px 24px rgba(0,0,0,0.4)",
-          minWidth: 160,
-          zIndex: 200,
-          overflow: "hidden",
-        }}>
-          {secondaryLinks.map(link => (
-            <button
-              key={link.path}
-              onClick={() => { navigate(link.path); setOpen(false); }}
-              style={{
-                display: "block", width: "100%", textAlign: "left",
-                padding: "0.55rem 1rem",
-                fontFamily: "Barlow Condensed, sans-serif",
-                fontSize: "0.82rem", fontWeight: 600, letterSpacing: "0.04em",
-                background: location === link.path ? "oklch(0.28 0.09 150)" : "none",
-                color: location === link.path ? "oklch(0.78 0.15 85)" : "rgba(255,255,255,0.85)",
-                border: "none", cursor: "pointer",
-                borderBottom: "1px solid oklch(0.25 0.06 150)",
-                transition: "background 0.1s",
-              }}
-              onMouseEnter={e => { if (location !== link.path) (e.currentTarget as HTMLButtonElement).style.background = "oklch(0.24 0.07 150)"; }}
-              onMouseLeave={e => { if (location !== link.path) (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
-            >
-              {link.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 interface NavigationProps {
   tickerMessages?: string[];
   showTicker?: boolean;
@@ -292,8 +220,6 @@ export default function Navigation({
                   {link.label}
                 </Link>
               ))}
-              {/* More ▾ dropdown for secondary links */}
-              <MoreDropdown location={location} />
             </div>
 
             {/* Right side: team name + hamburger */}
