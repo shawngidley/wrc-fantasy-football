@@ -159,13 +159,15 @@ function MatchupWidget({ ownerKey, standings }: { ownerKey: string; standings: D
 
         {/* H2H Matchup */}
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
-          <div style={{ flex: 1, textAlign: "center" as const }}>
-            <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1.05rem", fontWeight: 800, color: "oklch(0.18 0.06 150)", letterSpacing: "0.02em" }}>{myTeam}</div>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column" as const, alignItems: "center", gap: "0.25rem" }}>
+            <TeamLogo teamName={myTeam} size={40} round style={{ border: "2px solid oklch(0.88 0.04 150)", flexShrink: 0 }} />
+            <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.88rem", fontWeight: 800, color: "oklch(0.18 0.06 150)", letterSpacing: "0.02em", textAlign: "center" as const }}>{myTeam}</div>
             <div style={{ fontSize: "0.68rem", color: "oklch(0.5 0.04 150)", marginTop: 2 }}>{myTeamData ? `${myTeamData.wins}-${myTeamData.losses}` : ""}</div>
           </div>
           <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1.2rem", fontWeight: 900, color: "oklch(0.55 0.16 85)", padding: "0.2rem 0.75rem", background: "oklch(0.97 0.04 85)", borderRadius: 8, border: "1.5px solid oklch(0.85 0.12 85)" }}>VS</div>
-          <div style={{ flex: 1, textAlign: "center" as const }}>
-            <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1.05rem", fontWeight: 800, color: "oklch(0.18 0.06 150)", letterSpacing: "0.02em" }}>{oppTeam}</div>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column" as const, alignItems: "center", gap: "0.25rem" }}>
+            <TeamLogo teamName={oppTeam} size={40} round style={{ border: "2px solid oklch(0.88 0.04 150)", flexShrink: 0 }} />
+            <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.88rem", fontWeight: 800, color: "oklch(0.18 0.06 150)", letterSpacing: "0.02em", textAlign: "center" as const }}>{oppTeam}</div>
             <div style={{ fontSize: "0.68rem", color: "oklch(0.5 0.04 150)", marginTop: 2 }}>{oppTeamData ? `${oppTeamData.wins}-${oppTeamData.losses}` : ""}</div>
           </div>
         </div>
