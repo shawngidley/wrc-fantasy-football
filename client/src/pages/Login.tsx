@@ -98,7 +98,7 @@ export default function Login() {
           borderRadius: 12,
           marginBottom: "1rem",
         }}>
-          <Trophy size={36} color="oklch(0.78 0.15 85)" />
+          <img src="/manus-storage/wrc-nav-logo_a102a5e4.png" alt="WRC" style={{ width: 56, height: 56, objectFit: "contain" }} />
         </div>
         <h1 style={{
           fontFamily: "Barlow Condensed, sans-serif",
