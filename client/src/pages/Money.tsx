@@ -318,7 +318,9 @@ export default function Money() {
               <tr>
                 <td style={{ ...cell, textAlign: "left", paddingLeft: "1rem", fontWeight: 600 }}>Entry Fee*</td>
                 {owners.map(o => (
-                  <td key={o.id} style={cell}>$&nbsp;—</td>
+                  <td key={o.id} style={{ ...cell, color: o.owed > 0 ? "oklch(0.45 0.18 25)" : "oklch(0.38 0.14 150)", fontWeight: o.owed > 0 ? 700 : 400 }}>
+                    {o.owed > 0 ? `$${o.owed.toFixed(0)}` : <span style={{ color: "oklch(0.42 0.14 150)", fontSize: "0.7rem", fontWeight: 600 }}>PAID</span>}
+                  </td>
                 ))}
               </tr>
               <tr style={{ background: "oklch(0.97 0.01 150)" }}>
@@ -361,10 +363,12 @@ export default function Money() {
         </div>
 
         {/* ── Paid for 2027 badge — compact, under the fees table ── */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1.25rem", padding: "0.6rem 1rem", background: "white", border: "1.5px solid oklch(0.78 0.15 85)", borderRadius: 8, boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1.25rem", padding: "0.6rem 1rem", background: "white", border: "1.5px solid oklch(0.78 0.15 85)", borderRadius: 8, boxShadow: "0 1px 4px rgba(0,0,0,0.08)", flexWrap: "wrap" as const }}>
           <span style={{ fontSize: "1rem", color: "oklch(0.55 0.16 85)", flexShrink: 0 }}>✓</span>
-          <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.85rem", letterSpacing: "0.06em", textTransform: "uppercase", color: "oklch(0.28 0.08 85)" }}>Paid for 2027</span>
-          <span style={{ fontSize: "0.72rem", color: "oklch(0.52 0.04 150)", marginLeft: "0.1rem" }}>— All entry fees collected</span>
+          <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.85rem", letterSpacing: "0.06em", textTransform: "uppercase", color: "oklch(0.28 0.08 85)", flexShrink: 0 }}>Paid for 2027:</span>
+          <span style={{ fontSize: "0.8rem", color: "oklch(0.35 0.08 150)" }}>
+            {owners.filter(o => o.owed === 0).map(o => o.name).join(", ") || "—"}
+          </span>
         </div>
 
         {/* ── SECTION 2: Prize Structure ───────────────────────────────────── */}
