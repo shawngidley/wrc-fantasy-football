@@ -105,7 +105,7 @@ function MobileNavList({ location, setMobileOpen }: { location: string; setMobil
                     <button
                       key={sub.path}
                       onClick={() => {
-                        navigate(sub.path);
+                        window.location.href = sub.path;
                         setMobileOpen(false);
                         setDraftOpen(false);
                       }}
