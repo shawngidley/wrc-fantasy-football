@@ -97,7 +97,7 @@ export default function Login() {
           borderRadius: 12,
           marginBottom: "1rem",
         }}>
-          <img src="/manus-storage/wrc-nav-logo_a102a5e4.png" alt="WRC" style={{ width: 56, height: 56, objectFit: "contain" }} />
+          <img src="/manus-storage/wrc-griffin-192_225a52c5.png" alt="WRC" style={{ width: 64, height: 64, objectFit: "contain", borderRadius: 8 }} />
         </div>
         <h1 style={{
           fontFamily: "Barlow Condensed, sans-serif",

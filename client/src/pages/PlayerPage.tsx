@@ -698,13 +698,11 @@ export default function PlayerPage() {
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "4rem 1rem", gap: "1.25rem" }}>
             {/* Pulsing WRC badge */}
             <div style={{
-              width: 72, height: 72, borderRadius: 16,
-              background: "oklch(0.22 0.06 150)",
-              border: "2px solid oklch(0.78 0.15 85)",
-              display: "flex", alignItems: "center", justifyContent: "center",
+              width: 80, height: 80, borderRadius: 12,
+              overflow: "hidden",
               animation: "wrc-pulse 1.4s ease-in-out infinite",
             }}>
-              <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 900, fontSize: "1.4rem", color: "oklch(0.78 0.15 85)", letterSpacing: "0.04em" }}>WRC</span>
+              <img src="/manus-storage/wrc-griffin-192_225a52c5.png" alt="WRC" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             </div>
             {/* Player name */}
             <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1.1rem", color: "rgba(255,255,255,0.9)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
