@@ -1170,15 +1170,26 @@ export default function LiveScoring() {
             <div>
               {(() => {
                 // Build sorted list of all teams with their scores
+                const gamesStarted = displayMatchups.some(m => m.home.score > 0 || m.away.score > 0);
                 const allTeams = displayMatchups.flatMap(m => [
                   { team: m.home.team, score: m.home.score, proj: m.home.projected },
                   { team: m.away.team, score: m.away.score, proj: m.away.projected },
-                ]).sort((a, b) => b.score - a.score);
+                ]).sort((a, b) => gamesStarted ? b.score - a.score : b.proj - a.proj);
+
+                // Compute median based on same sort key
+                const sortKey = (t: { score: number; proj: number }) => gamesStarted ? t.score : t.proj;
+                const sortedVals = [...allTeams].map(sortKey).sort((a, b) => a - b);
+                const midIdx = Math.floor(sortedVals.length / 2);
+                const displayMedian = sortedVals.length > 0
+                  ? (sortedVals.length % 2 === 0 ? (sortedVals[midIdx - 1] + sortedVals[midIdx]) / 2 : sortedVals[midIdx])
+                  : 0;
 
                 let medianInserted = false;
                 return allTeams.map((t, i) => {
-                  const isAbove = t.score >= median && median > 0;
-                  const nextBelow = i < allTeams.length - 1 && allTeams[i + 1].score < median && t.score >= median && median > 0;
+                  const val = sortKey(t);
+                  const nextVal = i < allTeams.length - 1 ? sortKey(allTeams[i + 1]) : -1;
+                  const isAbove = val >= displayMedian && displayMedian > 0;
+                  const nextBelow = !medianInserted && i < allTeams.length - 1 && nextVal < displayMedian && val >= displayMedian && displayMedian > 0;
                   const showMedianLine = !medianInserted && nextBelow;
                   if (showMedianLine) medianInserted = true;
 
@@ -1193,17 +1204,21 @@ export default function LiveScoring() {
                         {/* Rank */}
                         <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.7rem", color: "oklch(0.6 0.04 150)", width: 16, textAlign: "center", flexShrink: 0 }}>{i + 1}</span>
                         {/* Above/below indicator */}
-                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: median > 0 ? (isAbove ? "oklch(0.55 0.18 150)" : "oklch(0.55 0.18 25)") : "oklch(0.8 0.01 150)", flexShrink: 0, display: "inline-block" }} />
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: displayMedian > 0 ? (isAbove ? "oklch(0.55 0.18 150)" : "oklch(0.55 0.18 25)") : "oklch(0.8 0.01 150)", flexShrink: 0, display: "inline-block" }} />
                         {/* Team name */}
                         <span style={{ flex: 1, fontSize: "0.82rem", fontWeight: 600, color: "oklch(0.22 0.06 150)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.team}</span>
                         {/* Score */}
-                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1rem", color: "oklch(0.22 0.08 150)", flexShrink: 0 }}>{t.score.toFixed(1)}</span>
+                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1rem", color: "oklch(0.22 0.08 150)", flexShrink: 0 }}>
+                          {gamesStarted ? t.score.toFixed(1) : <span style={{ color: "oklch(0.55 0.04 150)", fontSize: "0.82rem" }}>—</span>}
+                        </span>
                         {/* Proj */}
-                        <span style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)", flexShrink: 0, minWidth: 48, textAlign: "right" }}>Proj {t.proj.toFixed(1)}</span>
+                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: gamesStarted ? "0.68rem" : "0.88rem", fontWeight: gamesStarted ? 400 : 700, color: gamesStarted ? "oklch(0.55 0.04 150)" : "oklch(0.22 0.08 150)", flexShrink: 0, minWidth: 52, textAlign: "right" }}>
+                          {gamesStarted ? `Proj ${t.proj.toFixed(1)}` : t.proj.toFixed(1)}
+                        </span>
                       </div>
                       {showMedianLine && (
                         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.25rem 1rem", background: "oklch(0.97 0.04 85 / 0.35)", borderTop: "1.5px dashed oklch(0.78 0.15 85)", borderBottom: "1.5px dashed oklch(0.78 0.15 85)" }}>
-                          <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.08em", color: "oklch(0.45 0.12 85)", textTransform: "uppercase" }}>── MEDIAN LINE · {median.toFixed(1)} pts ──</span>
+                          <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.08em", color: "oklch(0.45 0.12 85)", textTransform: "uppercase" }}>── MEDIAN LINE · {displayMedian.toFixed(1)} pts ──</span>
                         </div>
                       )}
                     </div>
