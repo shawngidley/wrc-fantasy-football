@@ -1157,6 +1157,63 @@ export default function LiveScoring() {
           <MatchupDetail matchup={activeMatchup} injuries={injuries} />
         ) : null}
 
+        {/* League Scoreboard — all 12 teams sorted by score with median line */}
+        {!loading && displayMatchups.length > 0 && (
+          <div className="wrc-card" style={{ marginTop: "1.25rem", overflow: "hidden" }}>
+            <div className="wrc-card-gold-stripe" />
+            <div className="wrc-card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>League Scoreboard</span>
+              <span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.16 85)", fontWeight: 700 }}>
+                Median: {median.toFixed(1)} pts
+              </span>
+            </div>
+            <div>
+              {(() => {
+                // Build sorted list of all teams with their scores
+                const allTeams = displayMatchups.flatMap(m => [
+                  { team: m.home.team, score: m.home.score, proj: m.home.projected },
+                  { team: m.away.team, score: m.away.score, proj: m.away.projected },
+                ]).sort((a, b) => b.score - a.score);
+
+                let medianInserted = false;
+                return allTeams.map((t, i) => {
+                  const isAbove = t.score >= median && median > 0;
+                  const nextBelow = i < allTeams.length - 1 && allTeams[i + 1].score < median && t.score >= median && median > 0;
+                  const showMedianLine = !medianInserted && nextBelow;
+                  if (showMedianLine) medianInserted = true;
+
+                  return (
+                    <div key={t.team}>
+                      <div style={{
+                        display: "flex", alignItems: "center", gap: "0.6rem",
+                        padding: "0.45rem 1rem",
+                        borderBottom: "1px solid oklch(0.95 0.003 150)",
+                        background: isAbove ? "oklch(0.97 0.02 150)" : "white",
+                      }}>
+                        {/* Rank */}
+                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.7rem", color: "oklch(0.6 0.04 150)", width: 16, textAlign: "center", flexShrink: 0 }}>{i + 1}</span>
+                        {/* Above/below indicator */}
+                        <span style={{ width: 8, height: 8, borderRadius: "50%", background: median > 0 ? (isAbove ? "oklch(0.55 0.18 150)" : "oklch(0.55 0.18 25)") : "oklch(0.8 0.01 150)", flexShrink: 0, display: "inline-block" }} />
+                        {/* Team name */}
+                        <span style={{ flex: 1, fontSize: "0.82rem", fontWeight: 600, color: "oklch(0.22 0.06 150)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.team}</span>
+                        {/* Score */}
+                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1rem", color: "oklch(0.22 0.08 150)", flexShrink: 0 }}>{t.score.toFixed(1)}</span>
+                        {/* Proj */}
+                        <span style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)", flexShrink: 0, minWidth: 48, textAlign: "right" }}>Proj {t.proj.toFixed(1)}</span>
+                      </div>
+                      {showMedianLine && (
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.25rem 1rem", background: "oklch(0.97 0.04 85 / 0.35)", borderTop: "1.5px dashed oklch(0.78 0.15 85)", borderBottom: "1.5px dashed oklch(0.78 0.15 85)" }}>
+                          <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.08em", color: "oklch(0.45 0.12 85)", textTransform: "uppercase" }}>── MEDIAN LINE · {median.toFixed(1)} pts ──</span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                });
+              })()}
+            </div>
+          </div>
+        )}
+
         <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.7rem", textAlign: "center" as const, marginTop: "1rem", paddingBottom: "2rem" }}>
           Tap a matchup above to switch · Auto-refreshes every 5 minutes
         </p>
