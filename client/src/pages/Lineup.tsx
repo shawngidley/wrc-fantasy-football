@@ -20,6 +20,7 @@ import { useLineupPersistence } from "@/hooks/useLineupPersistence";
 import { useNFLLiveScores, getLivePoints } from "@/hooks/useNFLLiveScores";
 import { useWeeklyResultsWriter } from "@/hooks/useWeeklyResultsWriter";
 import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } from "@/hooks/useNFLInjuries";
+import { supabase } from "@/lib/supabase";
 
 const STARTER_SLOTS = [
   { slot: "QB",    label: "Quarterback",   eligible: ["QB"] },
@@ -374,6 +375,18 @@ export default function Lineup() {
   const [, navigate] = useLocation();
   const { teamId } = useParams<{ teamId?: string }>();
   const { rostersByTeam, hasPicks, loading: draftLoading } = useDraftedRoster();
+
+  // League median from team_standings
+  const [leagueMedian, setLeagueMedian] = useState<number | null>(null);
+  useEffect(() => {
+    supabase.from("team_standings").select("pts_for").then(({ data }) => {
+      if (!data || data.length === 0) return;
+      const pts = data.map((r: { pts_for: number }) => r.pts_for).sort((a: number, b: number) => a - b);
+      const mid = Math.floor(pts.length / 2);
+      const median = pts.length % 2 === 0 ? (pts[mid - 1] + pts[mid]) / 2 : pts[mid];
+      setLeagueMedian(median);
+    });
+  }, []);
 
   // Determine which team to show and whether we are in read-only mode
   const viewTeamName = teamId ? (TEAM_ID_TO_NAME[teamId] ?? null) : franchise?.team_name;
@@ -736,6 +749,14 @@ export default function Lineup() {
             <div style={{ fontSize: "0.62rem", color: "oklch(0.75 0.06 150)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.08em", textTransform: "uppercase" as const }}>Projected</div>
             <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1.4rem", fontWeight: 700, color: "white", lineHeight: 1 }}>{totalProj.toFixed(1)}</div>
           </div>
+          {leagueMedian !== null && (
+            <div>
+              <div style={{ fontSize: "0.62rem", color: "oklch(0.75 0.06 150)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.08em", textTransform: "uppercase" as const }}>Lg Median</div>
+              <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1.4rem", fontWeight: 700, lineHeight: 1, color: totalPts >= leagueMedian ? "oklch(0.72 0.18 150)" : "oklch(0.72 0.18 25)" }}>
+                {leagueMedian.toFixed(1)}
+              </div>
+            </div>
+          )}
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: "0.75rem" }}>
             {isPolling && (
               <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", background: "oklch(0.35 0.15 150 / 0.6)", borderRadius: 5, padding: "2px 7px" }}>
