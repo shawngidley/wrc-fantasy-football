@@ -189,6 +189,19 @@ for (const season of SEASONS) {
   }
   allTimeMap[season.champion.team].titles = (allTimeMap[season.champion.team]?.titles ?? 0) + 1;
 }
+// Merge David Z. franchises (The Bison + Los Pollos Hermanos) into Scott M. / Xavier Musketeers
+// Scott M. took over David Z.'s franchise
+const davidZTeams = ["The Bison", "Los Pollos Hermanos"];
+const scottMKey = "Xavier Musketeers";
+for (const dzTeam of davidZTeams) {
+  if (allTimeMap[dzTeam]) {
+    if (!allTimeMap[scottMKey]) allTimeMap[scottMKey] = { team: scottMKey, owner: "Scott M.", w: 0, l: 0, titles: 0 };
+    allTimeMap[scottMKey].w += allTimeMap[dzTeam].w;
+    allTimeMap[scottMKey].l += allTimeMap[dzTeam].l;
+    allTimeMap[scottMKey].titles += allTimeMap[dzTeam].titles;
+    delete allTimeMap[dzTeam];
+  }
+}
 const ALL_TIME = Object.values(allTimeMap)
   .sort((a, b) => (b.w / (b.w + b.l || 1)) - (a.w / (a.w + a.l || 1)));
 
@@ -292,7 +305,7 @@ export default function History() {
                         <td style={{ ...TD, textAlign: "left", paddingLeft: "0.75rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif" }}>
                           {t.clinched === "@" && <span title="Division Title" style={{ color: "oklch(0.55 0.16 85)", marginRight: 3, fontSize: "0.7rem" }}>@</span>}
                           {t.clinched === "#" && <span title="Playoff Berth" style={{ color: "oklch(0.42 0.14 150)", marginRight: 3, fontSize: "0.7rem" }}>#</span>}
-                          {t.team}
+                          <span style={{ color: "oklch(0.18 0.06 150)" }}>{t.team}</span>
                         </td>
                         <td style={{ ...TD, fontSize: "0.7rem", color: "oklch(0.5 0.04 150)" }}>{t.owner}</td>
                         <td style={{ ...TD, fontWeight: 700, color: "oklch(0.28 0.09 150)" }}>{t.w}</td>
