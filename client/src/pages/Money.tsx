@@ -363,11 +363,11 @@ export default function Money() {
         </div>
 
         {/* ── Paid for 2027 badge — compact, under the fees table ── */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1.25rem", padding: "0.6rem 1rem", background: "white", border: "1.5px solid oklch(0.78 0.15 85)", borderRadius: 8, boxShadow: "0 1px 4px rgba(0,0,0,0.08)", flexWrap: "wrap" as const }}>
-          <span style={{ fontSize: "1rem", color: "oklch(0.55 0.16 85)", flexShrink: 0 }}>✓</span>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "1.25rem", padding: "0.6rem 1rem", background: "white", border: "1.5px solid oklch(0.75 0.04 150)", borderRadius: 8, boxShadow: "0 1px 4px rgba(0,0,0,0.08)", flexWrap: "wrap" as const }}>
+          <span style={{ fontSize: "0.9rem", color: "oklch(0.65 0.04 150)", flexShrink: 0 }}>○</span>
           <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.85rem", letterSpacing: "0.06em", textTransform: "uppercase", color: "oklch(0.28 0.08 85)", flexShrink: 0 }}>Paid for 2027:</span>
-          <span style={{ fontSize: "0.8rem", color: "oklch(0.35 0.08 150)" }}>
-            {owners.filter(o => o.owed === 0).map(o => o.name).join(", ") || "—"}
+          <span style={{ fontSize: "0.8rem", color: "oklch(0.55 0.04 150)", fontStyle: "italic" }}>
+            No owners have paid yet
           </span>
         </div>
 
