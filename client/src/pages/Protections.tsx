@@ -4,14 +4,12 @@
  * OFFICIAL WRC RULES (Section 5):
  * - Max 3 keepers total per team
  * - Rounds 1-2: INELIGIBLE — cannot be protected
- * - Rounds 3-6: Max ONE player from this tier
- *     Cost: forfeit one round HIGHER than player's draft/protection round
- *     e.g. drafted Rd 4 → forfeit Rd 3 pick
- * - Rounds 7-18 and Free Agents: Max THREE players (combined total still capped at 3)
- *     Cost: forfeit 6th, 7th, or 8th round pick (owner assigns which)
- *     - Owner manually chooses which player gets Rd 6, 7, or 8
- *     - If a pick is traded away, next highest available is used instead
- * - Forfeited pick must ALWAYS be higher (earlier round #) than player's draft status
+ * - Rounds 3-6 (Tier 1): Max ONE player, fixed cost = one round higher (Rd 4 → forfeit Rd 3)
+ * - Round 7 (Tier 2 fixed): Always forfeits Rd 6 — no choice
+ * - Rounds 8-18 & FA (Tier 2 choice): Forfeit Rd 6, 7, or 8 — owner assigns
+ *     - If only 1 such player: auto Rd 6 (no selector shown)
+ *     - If 2+ such players: selector shown, rounds consumed by fixed-cost players removed from pool
+ *     - Rd 7 player always consumes Rd 6 from the pool first
  *
  * DEADLINE: Monday August 24, 2026 at 8:00 PM ET
  *
@@ -100,6 +98,8 @@ function getPickStatus(teamId: string) {
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Tier = "ineligible" | "tier1" | "tier2";
+// Tier 2 sub-types: "rd7" = fixed Rd 6, "choice" = Rd 8-18 or FA with selector
+type Tier2Sub = "rd7" | "choice";
 
 interface RosterEntry {
   id: string;
@@ -110,6 +110,7 @@ interface RosterEntry {
   acquisition: "Draft" | "FA";
   draftRound: number | null;
   tier: Tier;
+  tier2Sub?: Tier2Sub; // only set when tier === "tier2"
 }
 
 interface ProtectionSlot {
@@ -127,6 +128,11 @@ function getTier(draftRound: number | null): Tier {
 
 function draftedCost(draftRound: number): number {
   return draftRound - 1; // always one round higher (earlier)
+}
+
+function getTier2Sub(draftRound: number | null): Tier2Sub {
+  if (draftRound === 7) return "rd7"; // Rd 7 always forfeits Rd 6, no choice
+  return "choice"; // Rd 8-18 or FA: owner assigns from remaining pool
 }
 
 // ── Position colors ───────────────────────────────────────────────────────────
@@ -178,12 +184,13 @@ export default function Protections() {
   const livePlayers = teamName ? (rostersByTeam[teamName] ?? []) : [];
 
   const roster: RosterEntry[] = livePlayers
-    .map((pl, i) => {
+      .map((pl, i) => {
       const rp = pl as typeof pl & { round?: number };
       // Use round from useDraftedRoster (set from draft_round in Supabase players table)
       // Fall back to parsing acquisition string (e.g. "Rd 6" → 6) if round is not set
       const acqMatch = pl.acquisition?.match(/^Rd\s*(\d+)$/i);
       const draftRound = rp.round != null ? rp.round : (acqMatch ? parseInt(acqMatch[1], 10) : null);
+      const tier = getTier(draftRound);
       return {
         id: pl.id || `p-${i}`,
         name: pl.name,
@@ -192,7 +199,8 @@ export default function Protections() {
         byeWeek: pl.byeWeek ?? null,
         acquisition: pl.acquisition,
         draftRound,
-        tier: getTier(draftRound),
+        tier,
+        tier2Sub: tier === "tier2" ? getTier2Sub(draftRound) : undefined,
       };
     })
     .sort((a, b) => {
@@ -222,11 +230,30 @@ export default function Protections() {
   const faSlots = slots.filter(s => roster.find(r => r.id === s.playerId)?.tier === "tier2");
   const totalSelected = slots.length;
 
-  // FA cost: 1st FA → pickStatus.available[0] (Rd 6), 2nd → [1] (Rd 7), 3rd → [2] (Rd 8)
-  // Auto-assigned by order of selection — no manual choice
-  function getFaCost(faIndex: number): number {
-    return pickStatus.available[faIndex] ?? (6 + faIndex);
+  // ── Round pool logic ─────────────────────────────────────────────────────
+  // Compute which rounds are consumed by fixed-cost players already selected.
+  // Tier 1 (Rd 3-6): consumes round = draftRound - 1 (e.g. Rd 4 → consumes Rd 3)
+  //   BUT only Rd 6/7/8 matter for the pool — so Tier 1 only consumes if cost is 6/7/8.
+  // Rd 7 player: always consumes Rd 6.
+  const consumedRounds = new Set<number>();
+  for (const s of slots) {
+    const entry = roster.find(r => r.id === s.playerId);
+    if (!entry) continue;
+    if (entry.tier === "tier1") {
+      const cost = draftedCost(entry.draftRound!);
+      if (cost >= 6 && cost <= 8) consumedRounds.add(cost);
+    } else if (entry.tier2Sub === "rd7") {
+      consumedRounds.add(6); // Rd 7 player always consumes Rd 6
+    }
   }
+
+  // Available rounds for "choice" players = pool minus consumed
+  const ALL_POOL = [6, 7, 8];
+  const availablePool = ALL_POOL.filter(r => !consumedRounds.has(r));
+
+  // Count of "choice" players currently selected
+  const choiceSlots = slots.filter(s => roster.find(r => r.id === s.playerId)?.tier2Sub === "choice");
+  const showSelector = choiceSlots.length >= 2; // only show selector when 2+ choice players
 
   // ── Toggle selection ───────────────────────────────────────────────────────
   const toggle = (entry: RosterEntry) => {
@@ -235,24 +262,25 @@ export default function Protections() {
     if (selectedIds.includes(entry.id)) {
       setSlots(prev => {
         const next = prev.filter(s => s.playerId !== entry.id);
-        // Re-assign FA costs by order after removal
-        let faIdx = 0;
-        return next.map(s => {
-          const e = roster.find(r => r.id === s.playerId);
-          if (e?.tier === "tier2") {
-            return { ...s, assignedRound: getFaCost(faIdx++) };
-          }
-          return s;
-        });
+        return next;
       });
     } else {
       if (totalSelected >= 3) return;
-      if (entry.tier === "tier1" && draftedSlots.length >= 1) return; // max 1 drafted Rd 3-6... actually no cap on drafted, cap is total 3
+      if (entry.tier === "tier1" && draftedSlots.length >= 1) return; // max 1 tier1
       if (entry.tier === "tier2" && faSlots.length >= 3) return;
 
-      // For FA: auto-assign based on how many FAs already selected
-      const nextFaIdx = faSlots.length;
-      const nextRound = entry.tier === "tier2" ? getFaCost(nextFaIdx) : null;
+      // Determine initial round assignment
+      let nextRound: number | null = null;
+      if (entry.tier === "tier2") {
+        if (entry.tier2Sub === "rd7") {
+          nextRound = 6; // Rd 7 player always forfeits Rd 6
+        } else {
+          // choice player: assign first available pool round not yet taken
+          const taken = new Set(slots.filter(s => roster.find(r => r.id === s.playerId)?.tier2Sub === "choice").map(s => s.assignedRound));
+          const newConsumed = new Set(consumedRounds);
+          nextRound = ALL_POOL.find(r => !newConsumed.has(r) && !taken.has(r)) ?? null;
+        }
+      }
       setSlots(prev => [...prev, {
         playerId: entry.id,
         assignedRound: nextRound,
@@ -487,17 +515,15 @@ export default function Protections() {
                   costLabel = `Rd ${cost} pick`;
                   costNote = `Drafted Rd ${entry.draftRound} → forfeit Rd ${cost}`;
                 } else {
-                  // FA: show cost based on FA order
-                  const faIdx = faSlots.findIndex(s => s.playerId === entry.id);
-                  if (isSelected && faIdx >= 0) {
-                    const round = getFaCost(faIdx);
-                    costLabel = `Rd ${round} pick`;
-                    costNote = `FA #${faIdx + 1} → forfeit Rd ${round}`;
+                  if (entry.tier2Sub === "rd7") {
+                    costLabel = "Rd 6 pick";
+                    costNote = "Drafted Rd 7 → forfeit Rd 6";
+                  } else if (isSelected && slot?.assignedRound) {
+                    costLabel = `Rd ${slot.assignedRound} pick`;
+                    costNote = entry.draftRound ? `Drafted Rd ${entry.draftRound}` : "Free Agent";
                   } else {
-                    const nextFaIdx = faSlots.length;
-                    const nextRound = getFaCost(nextFaIdx);
-                    costLabel = `~Rd ${nextRound} pick`;
-                    costNote = "Free Agent";
+                    costLabel = "Rd 6–8 pick";
+                    costNote = entry.draftRound ? `Drafted Rd ${entry.draftRound}` : "Free Agent";
                   }
                 }
 
@@ -588,32 +614,39 @@ export default function Protections() {
                         onClick={e => e.stopPropagation()}
                       >
                         {entry.tier === "tier1" ? (
+                        <span style={{ fontSize: "0.75rem", color: "oklch(0.35 0.1 150)", fontWeight: 600, flex: 1 }}>
+                          Forfeits Rd {draftedCost(entry.draftRound!)} pick (one round higher than Rd {entry.draftRound})
+                        </span>
+                        ) : entry.tier2Sub === "rd7" ? (
                           <span style={{ fontSize: "0.75rem", color: "oklch(0.35 0.1 150)", fontWeight: 600, flex: 1 }}>
-                            Forfeits Rd {draftedCost(entry.draftRound!)} pick (one round higher than Rd {entry.draftRound})
+                            Drafted Rd 7 → forfeits Rd 6 pick (fixed)
                           </span>
-                        ) : (
+                        ) : showSelector ? (
                           <>
                             <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "oklch(0.28 0.1 150)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.04em" }}>
                               PICK:
                             </span>
                             <div style={{ display: "flex", gap: "0.35rem" }}>
-                              {pickStatus.available.map(round => {
+                              {ALL_POOL.map(round => {
                                 const isMe = slot?.assignedRound === round;
-                                const takenByOther = faSlots.some(s => s.playerId !== entry.id && s.assignedRound === round);
+                                const consumedFixed = consumedRounds.has(round);
+                                const takenByOther = choiceSlots.some(s => s.playerId !== entry.id && s.assignedRound === round);
+                                const unavailable = consumedFixed || takenByOther;
                                 return (
                                   <button
                                     key={round}
-                                    onClick={() => changeRound(entry.id, round)}
-                                    disabled={cd.past}
+                                    onClick={() => !unavailable && changeRound(entry.id, round)}
+                                    disabled={cd.past || unavailable}
                                     style={{
                                       padding: "3px 11px", borderRadius: 6,
                                       border: isMe ? "2px solid oklch(0.42 0.15 150)" : "2px solid transparent",
-                                      background: isMe ? "oklch(0.42 0.15 150)" : takenByOther ? "oklch(0.78 0.04 150)" : "white",
-                                      color: isMe ? "white" : takenByOther ? "oklch(0.55 0.04 150)" : "oklch(0.28 0.1 150)",
+                                      background: isMe ? "oklch(0.42 0.15 150)" : unavailable ? "oklch(0.88 0.02 150)" : "white",
+                                      color: isMe ? "white" : unavailable ? "oklch(0.65 0.04 150)" : "oklch(0.28 0.1 150)",
                                       fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.78rem",
-                                      cursor: cd.past ? "not-allowed" : "pointer", transition: "all 0.15s",
+                                      cursor: (cd.past || unavailable) ? "not-allowed" : "pointer", transition: "all 0.15s",
+                                      textDecoration: consumedFixed ? "line-through" : "none",
                                     }}
-                                    title={takenByOther ? "Swap with other FA" : `Assign Rd ${round}`}
+                                    title={consumedFixed ? `Rd ${round} consumed by fixed-cost player` : takenByOther ? "Already assigned to another player" : `Assign Rd ${round}`}
                                   >
                                     Rd {round}
                                   </button>
@@ -621,6 +654,11 @@ export default function Protections() {
                               })}
                             </div>
                           </>
+                        ) : (
+                          <span style={{ fontSize: "0.75rem", color: "oklch(0.35 0.1 150)", fontWeight: 600, flex: 1 }}>
+                            Forfeits Rd {slot?.assignedRound ?? availablePool[0] ?? 6} pick
+                            {choiceSlots.length < 2 && <span style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)", marginLeft: 4 }}>(add another Rd 8–18/FA player to choose)</span>}
+                          </span>
                         )}
                         {!cd.past && (
                           <button
