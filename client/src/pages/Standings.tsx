@@ -469,6 +469,7 @@ export default function Standings() {
     fontFamily: "Barlow Condensed, sans-serif",
     fontWeight: 700,
     letterSpacing: "0.06em",
+    color: "oklch(0.28 0.08 150)",
   };
   const TD_COMPACT: React.CSSProperties = {
     textAlign: "center",
@@ -477,8 +478,8 @@ export default function Standings() {
   };
   const TH_GROUP: React.CSSProperties = {
     ...TH_COMPACT,
-    borderLeft: "2px solid oklch(0.82 0.06 150)",
-    borderBottom: "2px solid oklch(0.82 0.06 150)",
+    borderLeft: "2px solid oklch(0.72 0.08 150)",
+    borderBottom: "2px solid oklch(0.72 0.08 150)",
   };
 
   return (
@@ -518,20 +519,20 @@ export default function Standings() {
                       <th style={{ textAlign: "left", minWidth: 140, padding: "0.4rem 0.5rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", letterSpacing: "0.06em", fontWeight: 700 }}>Team</th>
                       <th style={TH_COMPACT}>W-L</th>
                       <th style={TH_COMPACT}>GB</th>
-                      <th style={{ ...TH_COMPACT, color: "oklch(0.42 0.18 85)" }}>FPts</th>
+                      <th style={{ ...TH_COMPACT, color: "oklch(0.38 0.18 85)", fontWeight: 800 }}>FPts</th>
                       <th style={{ ...TH_GROUP }} colSpan={2}>
-                        <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", marginBottom: 2 }}>Head to Head</div>
-                        <div style={{ display: "flex", justifyContent: "space-around", fontSize: "0.62rem", fontWeight: 400, color: "oklch(0.45 0.04 150)" }}><span>W</span><span>L</span></div>
+                        <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 800, letterSpacing: "0.06em", marginBottom: 2, color: "oklch(0.22 0.08 150)" }}>Head to Head</div>
+                        <div style={{ display: "flex", justifyContent: "space-around", fontSize: "0.65rem", fontWeight: 700, color: "oklch(0.35 0.08 150)" }}><span>W</span><span>L</span></div>
                       </th>
                       <th style={{ ...TH_GROUP }} colSpan={2}>
-                        <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", marginBottom: 2 }}>Median</div>
-                        <div style={{ display: "flex", justifyContent: "space-around", fontSize: "0.62rem", fontWeight: 400, color: "oklch(0.45 0.04 150)" }}><span>W</span><span>L</span></div>
+                        <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 800, letterSpacing: "0.06em", marginBottom: 2, color: "oklch(0.22 0.08 150)" }}>Median</div>
+                        <div style={{ display: "flex", justifyContent: "space-around", fontSize: "0.65rem", fontWeight: 700, color: "oklch(0.35 0.08 150)" }}><span>W</span><span>L</span></div>
                       </th>
                       <th style={{ ...TH_GROUP }} colSpan={2}>
-                        <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", marginBottom: 2 }}>Division</div>
-                        <div style={{ display: "flex", justifyContent: "space-around", fontSize: "0.62rem", fontWeight: 400, color: "oklch(0.45 0.04 150)" }}><span>W</span><span>L</span></div>
+                        <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 800, letterSpacing: "0.06em", marginBottom: 2, color: "oklch(0.22 0.08 150)" }}>Division</div>
+                        <div style={{ display: "flex", justifyContent: "space-around", fontSize: "0.65rem", fontWeight: 700, color: "oklch(0.35 0.08 150)" }}><span>W</span><span>L</span></div>
                       </th>
-                      <th style={{ ...TH_COMPACT, textAlign: "right" }}>PA</th>
+                      <th style={{ ...TH_COMPACT, textAlign: "right", color: "oklch(0.28 0.08 150)" }}>PA</th>
                       <th style={TH_COMPACT}>Streak</th>
                     </tr>
                   </thead>
