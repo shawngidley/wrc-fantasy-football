@@ -12,6 +12,7 @@ import {
   Lock, LogOut, User, Shield, CheckCircle2, Eye, EyeOff,
   RefreshCw, ClipboardList, AlertTriangle, Music, Upload, Trash2, Play, Square,
 } from "lucide-react";
+import { Image } from "lucide-react";
 import { useRef } from "react";
 
 // ── Commissioner PIN Reset Panel ──────────────────────────────────────────────
@@ -274,6 +275,13 @@ export default function Settings() {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // ── Team Logo state ──
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const [logoError, setLogoError] = useState("");
+  const [logoSuccess, setLogoSuccess] = useState("");
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
+
   // Load existing theme song on mount
   useEffect(() => {
     if (!franchise) return;
@@ -286,6 +294,46 @@ export default function Settings() {
         }
       });
   }, [franchise?.id]);
+
+  // Load existing team logo on mount
+  useEffect(() => {
+    if (!franchise) return;
+    supabase.from("teams").select("logo_url").eq("id", franchise.id).single()
+      .then(({ data }) => {
+        if ((data as { logo_url?: string } | null)?.logo_url) {
+          setLogoUrl((data as { logo_url: string }).logo_url);
+        }
+      });
+  }, [franchise?.id]);
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !franchise) return;
+    setLogoError(""); setLogoSuccess("");
+    if (file.size > 5 * 1024 * 1024) { setLogoError("File must be under 5MB."); return; }
+    const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+    if (!allowed.includes(file.type)) { setLogoError("Only JPG, PNG, WEBP, or GIF files are supported."); return; }
+    setUploadingLogo(true);
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
+    const path = `${franchise.id}/logo-${Date.now()}.${ext}`;
+    const { error: upErr } = await supabase.storage.from("team-logos").upload(path, file, { upsert: true, contentType: file.type });
+    if (upErr) { setLogoError("Upload failed: " + upErr.message); setUploadingLogo(false); return; }
+    const { data: { publicUrl } } = supabase.storage.from("team-logos").getPublicUrl(path);
+    const { error: dbErr } = await supabase.from("teams").update({ logo_url: publicUrl }).eq("id", franchise.id);
+    if (dbErr) { setLogoError("Saved file but failed to update record: " + dbErr.message); setUploadingLogo(false); return; }
+    setLogoUrl(publicUrl);
+    setLogoSuccess("Team logo uploaded! Refresh the page to see it everywhere.");
+    setUploadingLogo(false);
+    if (logoInputRef.current) logoInputRef.current.value = "";
+  };
+
+  const handleRemoveLogo = async () => {
+    if (!franchise) return;
+    setLogoError(""); setLogoSuccess("");
+    await supabase.from("teams").update({ logo_url: null }).eq("id", franchise.id);
+    setLogoUrl(null);
+    setLogoSuccess("Team logo removed. Default logo restored.");
+  };
 
   const handleThemeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -547,6 +595,46 @@ export default function Settings() {
         </div>
 
         {/* Theme Song Card */}
+        {/* Team Logo Card */}
+        <div className="wrc-card" style={{ marginBottom: "1.25rem" }}>
+          <div className="wrc-card-gold-stripe" />
+          <div className="wrc-card-header" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <Image size={14} /> Team Logo
+          </div>
+          <div style={{ padding: "1.25rem" }}>
+            <p style={{ fontSize: "0.85rem", color: "oklch(0.5 0.04 150)", margin: "0 0 1.25rem" }}>
+              Upload a custom team logo — it replaces your logo everywhere on the site (nav, standings, matchup panel, lineup, etc.). JPG, PNG, or WEBP · Max 5MB · Square images work best.
+            </p>
+
+            {/* Current logo preview */}
+            {logoUrl && (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", background: "oklch(0.94 0.05 150)", border: "1.5px solid oklch(0.82 0.1 150)", borderRadius: 8, padding: "0.65rem 1rem", marginBottom: "1rem" }}>
+                <img src={logoUrl} alt="Team logo" style={{ width: 48, height: 48, borderRadius: 8, objectFit: "cover", border: "2px solid oklch(0.78 0.15 85)", flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.82rem", color: "oklch(0.22 0.08 150)" }}>Custom Logo Active</div>
+                  <div style={{ fontSize: "0.72rem", color: "oklch(0.5 0.04 150)" }}>Showing on all pages</div>
+                </div>
+                <button onClick={handleRemoveLogo} title="Remove" style={{ background: "oklch(0.97 0.02 25)", color: "oklch(0.45 0.18 25)", border: "1px solid oklch(0.85 0.08 25)", borderRadius: 6, padding: "0.35rem 0.5rem", cursor: "pointer" }}>
+                  <Trash2 size={13} />
+                </button>
+              </div>
+            )}
+
+            {/* Upload button */}
+            <input ref={logoInputRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif,.jpg,.jpeg,.png,.webp,.gif" onChange={handleLogoUpload} style={{ display: "none" }} id="team-logo-input" />
+            <label htmlFor="team-logo-input" style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", background: uploadingLogo ? "oklch(0.88 0.01 150)" : "oklch(0.28 0.09 150)", color: "white", borderRadius: 8, padding: "0.6rem 1.25rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: uploadingLogo ? "not-allowed" : "pointer", pointerEvents: uploadingLogo ? "none" : "auto" }}>
+              <Upload size={14} /> {uploadingLogo ? "Uploading…" : logoUrl ? "Replace Logo" : "Upload Logo"}
+            </label>
+
+            {logoError && <div style={{ marginTop: "0.75rem", color: "oklch(0.45 0.18 25)", fontSize: "0.82rem", fontWeight: 600 }}>{logoError}</div>}
+            {logoSuccess && (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginTop: "0.75rem", color: "oklch(0.35 0.15 150)", fontSize: "0.82rem", fontWeight: 600 }}>
+                <CheckCircle2 size={15} /> {logoSuccess}
+              </div>
+            )}
+          </div>
+        </div>
+
         <div className="wrc-card" style={{ marginBottom: "1.25rem" }}>
           <div className="wrc-card-gold-stripe" />
           <div className="wrc-card-header" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>

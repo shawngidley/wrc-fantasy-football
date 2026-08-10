@@ -4,6 +4,7 @@
  * Uses the CDN-hosted logos from teamLogos.ts.
  */
 import { getTeamLogo } from "@/lib/teamLogos";
+import { useTeamLogos } from "@/hooks/useTeamLogos";
 
 interface TeamLogoProps {
   teamName: string;
@@ -39,7 +40,9 @@ function teamColor(name: string): string {
 }
 
 export default function TeamLogo({ teamName, size = 40, className, style, round = false }: TeamLogoProps) {
-  const logo = getTeamLogo(teamName);
+  const customLogos = useTeamLogos();
+  // Prefer custom uploaded logo, fall back to static CDN map
+  const logo = customLogos[teamName] ?? getTeamLogo(teamName);
   const borderRadius = round ? "50%" : size <= 32 ? 4 : 6;
 
   if (logo) {
