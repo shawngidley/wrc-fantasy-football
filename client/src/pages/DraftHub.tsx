@@ -5,7 +5,7 @@
  *   - Protections  → /draft?tab=protections  (Protections)
  *   - Draft Recap  → /draft?tab=recap  (DraftRecap)
  */
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -27,9 +27,10 @@ export default function DraftHub() {
   const { franchise } = useAuth();
   const [location, navigate] = useLocation();
 
-  // Parse ?tab= from URL
-  const search = typeof window !== "undefined" ? window.location.search : "";
-  const activeTab = getTab(search);
+  // Use local state for the active tab — updates instantly on tap
+  const [activeTab, setActiveTab] = useState<DraftTab>(() =>
+    getTab(typeof window !== "undefined" ? window.location.search : "")
+  );
 
   // Scroll to top on mount
   useEffect(() => { window.scrollTo(0, 0); }, []);
@@ -41,7 +42,7 @@ export default function DraftHub() {
   ];
 
   const setTab = (tab: DraftTab) => {
-    navigate(`/draft${tab === "board" ? "" : `?tab=${tab}`}`);
+    setActiveTab(tab);
     window.scrollTo(0, 0);
   };
 
