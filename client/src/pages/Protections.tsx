@@ -629,9 +629,12 @@ export default function Protections() {
                             <div style={{ display: "flex", gap: "0.35rem" }}>
                               {ALL_POOL.map(round => {
                                 const isMe = slot?.assignedRound === round;
-                                const consumedFixed = consumedRounds.has(round);
-                                const takenByOther = choiceSlots.some(s => s.playerId !== entry.id && s.assignedRound === round);
-                                const unavailable = consumedFixed || takenByOther;
+                               const consumedFixed = consumedRounds.has(round);
+                               const takenByOther = choiceSlots.some(s => s.playerId !== entry.id && s.assignedRound === round);
+                                // Only truly block rounds consumed by fixed-cost players (e.g. McBride → Rd 6).
+                                // "takenByOther" just means it's currently assigned to another choice player —
+                                // tapping it swaps the assignments, so it should remain clickable.
+                                const unavailable = consumedFixed;
                                 return (
                                   <button
                                     key={round}
@@ -640,13 +643,13 @@ export default function Protections() {
                                     style={{
                                       padding: "3px 11px", borderRadius: 6,
                                       border: isMe ? "2px solid oklch(0.42 0.15 150)" : "2px solid transparent",
-                                      background: isMe ? "oklch(0.42 0.15 150)" : unavailable ? "oklch(0.88 0.02 150)" : "white",
-                                      color: isMe ? "white" : unavailable ? "oklch(0.65 0.04 150)" : "oklch(0.28 0.1 150)",
+                                      background: isMe ? "oklch(0.42 0.15 150)" : consumedFixed ? "oklch(0.88 0.02 150)" : takenByOther ? "oklch(0.93 0.04 150)" : "white",
+                                      color: isMe ? "white" : consumedFixed ? "oklch(0.65 0.04 150)" : takenByOther ? "oklch(0.45 0.08 150)" : "oklch(0.28 0.1 150)",
                                       fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.78rem",
-                                      cursor: (cd.past || unavailable) ? "not-allowed" : "pointer", transition: "all 0.15s",
+                                      cursor: (cd.past || consumedFixed) ? "not-allowed" : "pointer", transition: "all 0.15s",
                                       textDecoration: consumedFixed ? "line-through" : "none",
                                     }}
-                                    title={consumedFixed ? `Rd ${round} consumed by fixed-cost player` : takenByOther ? "Already assigned to another player" : `Assign Rd ${round}`}
+                                    title={consumedFixed ? `Rd ${round} consumed by fixed-cost player` : takenByOther ? `Swap: assign Rd ${round} to this player` : `Assign Rd ${round}`}
                                   >
                                     Rd {round}
                                   </button>
