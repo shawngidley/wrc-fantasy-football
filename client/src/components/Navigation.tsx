@@ -5,7 +5,7 @@
  */
 import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { X, Menu, Settings, ChevronDown } from "lucide-react";
+import { X, Menu, Settings, ChevronDown, ChevronRight } from "lucide-react";
 import TeamLogo from "@/components/TeamLogo";
 
 type NavLink = { label: string; path: string; live?: boolean };
@@ -34,10 +34,11 @@ const secondaryLinks: NavLink[] = [
 ];
 
 // Full ordered list for mobile hamburger menu (user-specified order)
+// Draft is a group — its sub-items are rendered inline when expanded
 const navLinks: NavLink[] = [
   { label: "Standings", path: "/standings" },
   { label: "Live", path: "/live", live: true },
-  { label: "Draft", path: "/draft" },
+  { label: "Draft", path: "/draft" }, // expandable group
   { label: "Playoffs", path: "/playoffs" },
   { label: "Lineup", path: "/lineup" },
   { label: "Rosters", path: "/rosters" },
@@ -51,6 +52,108 @@ const navLinks: NavLink[] = [
   { label: "Rules", path: "/rules" },
   { label: "NFL Sites", path: "/nfl-sites" },
 ];
+
+// ── Mobile Nav List with expandable Draft group ───────────────────────────────
+const DRAFT_SUB_ITEMS = [
+  { label: "Draft Order", path: "/draft" },
+  { label: "Protections", path: "/draft?tab=protections" },
+  { label: "Draft Recap", path: "/draft?tab=recap" },
+];
+
+function MobileNavList({ location, setMobileOpen }: { location: string; setMobileOpen: (v: boolean) => void }) {
+  const [draftOpen, setDraftOpen] = useState(false);
+  const [, navigate] = useLocation();
+
+  const isDraftActive = location === "/draft" || location.startsWith("/draft?");
+
+  return (
+    <>
+      {navLinks.map((link) => {
+        if (link.label === "Draft") {
+          return (
+            <div key="draft-group">
+              {/* Draft header — tapping toggles sub-menu */}
+              <button
+                onClick={() => setDraftOpen(o => !o)}
+                style={{
+                  width: "100%", background: "none", border: "none", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "0.75rem 0",
+                  borderBottom: "1px solid rgba(255,255,255,0.08)",
+                  fontFamily: "Barlow Condensed, sans-serif",
+                  fontWeight: 700,
+                  fontSize: "1.05rem",
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase",
+                  color: isDraftActive ? "oklch(0.78 0.15 85)" : "rgba(255,255,255,0.85)",
+                }}
+              >
+                DRAFT
+                <ChevronDown
+                  size={16}
+                  style={{
+                    color: "rgba(255,255,255,0.5)",
+                    transform: draftOpen ? "rotate(180deg)" : "rotate(0deg)",
+                    transition: "transform 0.2s",
+                  }}
+                />
+              </button>
+              {/* Sub-items */}
+              {draftOpen && (
+                <div style={{ paddingLeft: "1rem", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+                  {DRAFT_SUB_ITEMS.map(sub => (
+                    <button
+                      key={sub.path}
+                      onClick={() => {
+                        navigate(sub.path);
+                        setMobileOpen(false);
+                        setDraftOpen(false);
+                      }}
+                      style={{
+                        width: "100%", background: "none", border: "none", cursor: "pointer",
+                        display: "flex", alignItems: "center", gap: "0.5rem",
+                        padding: "0.6rem 0",
+                        borderBottom: "1px solid rgba(255,255,255,0.05)",
+                        fontFamily: "Barlow Condensed, sans-serif",
+                        fontWeight: 600,
+                        fontSize: "0.9rem",
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        color: "rgba(255,255,255,0.65)",
+                        textAlign: "left",
+                      }}
+                    >
+                      <ChevronRight size={12} style={{ color: "oklch(0.78 0.15 85)", flexShrink: 0 }} />
+                      {sub.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          );
+        }
+        return (
+          <Link
+            key={link.path}
+            href={link.path}
+            className={`wrc-mobile-nav-link ${location === link.path ? "active" : ""}`}
+            onClick={() => setMobileOpen(false)}
+            style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
+          >
+            {link.live && (
+              <span style={{
+                width: 8, height: 8, borderRadius: "50%",
+                background: "#ef4444", display: "inline-block",
+                animation: "pulse 1.5s infinite",
+              }} />
+            )}
+            {link.label}
+          </Link>
+        );
+      })}
+    </>
+  );
+}
 
 // ── More ▾ Dropdown ───────────────────────────────────────────────────────────
 function MoreDropdown({ location }: { location: string }) {
@@ -259,24 +362,7 @@ export default function Navigation({
             <X size={28} />
           </button>
         </div>
-        {navLinks.map((link) => (
-          <Link
-            key={link.path}
-            href={link.path}
-            className={`wrc-mobile-nav-link ${location === link.path ? "active" : ""}`}
-            onClick={() => setMobileOpen(false)}
-            style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}
-          >
-            {link.live && (
-              <span style={{
-                width: 8, height: 8, borderRadius: "50%",
-                background: "#ef4444", display: "inline-block",
-                animation: "pulse 1.5s infinite",
-              }} />
-            )}
-            {link.label}
-          </Link>
-        ))}
+        <MobileNavList location={location} setMobileOpen={setMobileOpen} />
       </div>
 
       {/* Overlay — z-index must be BELOW the mobile nav (999) */}
