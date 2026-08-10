@@ -26,9 +26,7 @@ const primaryLinks: NavLink[] = [
 
 // Secondary links — shown in "More ▾" dropdown on desktop, and inline on mobile
 const secondaryLinks: NavLink[] = [
-  { label: "Protections", path: "/protections" },
   { label: "Draft", path: "/draft" },
-  { label: "Draft Recap", path: "/draft-recap" },
   { label: "History", path: "/history" },
   { label: "Money", path: "/money" },
   { label: "Rules", path: "/rules" },
@@ -39,7 +37,6 @@ const secondaryLinks: NavLink[] = [
 const navLinks: NavLink[] = [
   { label: "Standings", path: "/standings" },
   { label: "Live", path: "/live", live: true },
-  { label: "Protections", path: "/protections" },
   { label: "Draft", path: "/draft" },
   { label: "Playoffs", path: "/playoffs" },
   { label: "Lineup", path: "/lineup" },
@@ -51,7 +48,6 @@ const navLinks: NavLink[] = [
   { label: "Trades", path: "/trades" },
   { label: "History", path: "/history" },
   { label: "Money", path: "/money" },
-  { label: "Draft Recap", path: "/draft-recap" },
   { label: "Rules", path: "/rules" },
   { label: "NFL Sites", path: "/nfl-sites" },
 ];

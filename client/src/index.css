@@ -200,6 +200,12 @@
 }
 
 /* WRC Navigation */
+/* Hide inner Navigation when rendered inside the Draft Hub */
+.draft-hub-child .wrc-nav,
+.draft-hub-child .wrc-mobile-nav {
+  display: none !important;
+}
+
 .wrc-nav {
   background: rgba(20, 42, 25, 0.92);
   backdrop-filter: blur(12px);

@@ -13,8 +13,7 @@ import Login from "./pages/Login";
 import Standings from "./pages/Standings";
 import LiveScoring from "./pages/LiveScoring";
 import Lineup from "./pages/Lineup";
-import DraftBoard from "./pages/DraftBoard";
-import Protections from "./pages/Protections";
+import DraftHub from "./pages/DraftHub";
 import Rundown from "./pages/Rundown";
 import PlayerNews from "./pages/PlayerNews";
 import Transactions from "./pages/Transactions";
@@ -27,7 +26,6 @@ import NFLSites from "./pages/NFLSites";
 import Rosters from "./pages/Rosters";
 import Money from "./pages/Money";
 import Settings from "./pages/Settings";
-import DraftRecap from "./pages/DraftRecap";
 import PlayerPage from "./pages/PlayerPage";
 import FreeAgents from "./pages/FreeAgents";
 
@@ -57,8 +55,8 @@ function Router() {
       <Route path="/live" component={LiveScoring} />
       <Route path="/lineup">{() => <ProtectedRoute component={Lineup} />}</Route>
       <Route path="/lineup/:teamId" component={Lineup} />
-      <Route path="/draft" component={DraftBoard} />
-      <Route path="/protections" component={Protections} />
+      <Route path="/draft" component={DraftHub} />
+      <Route path="/protections">{() => { window.location.replace("/draft?tab=protections"); return null; }}</Route>
       <Route path="/rundown" component={Rundown} />
       <Route path="/news" component={PlayerNews} />
       <Route path="/transactions" component={Transactions} />
@@ -72,7 +70,7 @@ function Router() {
       <Route path="/rosters" component={Rosters} />
       <Route path="/money" component={Money} />
       <Route path="/settings">{() => <ProtectedRoute component={Settings} />}</Route>
-      <Route path="/draft-recap" component={DraftRecap} />
+      <Route path="/draft-recap">{() => { window.location.replace("/draft?tab=recap"); return null; }}</Route>
       <Route path="/player/:playerName" component={PlayerPage} />
       <Route path="/free-agents" component={FreeAgents} />
       <Route path="/404" component={NotFound} />
