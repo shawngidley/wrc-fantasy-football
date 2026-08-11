@@ -282,8 +282,8 @@ export default function FreeAgents() {
   const [playerScope, setPlayerScope] = useState<"fa" | "all">("fa");
   const [ownershipMap, setOwnershipMap] = useState<Record<string, string>>({});
   const [activeView, setActiveView] = useState<"pool" | "watchlist">("pool");
-  const topStatsScrollRef = useRef<HTMLDivElement>(null);
   const tableStatsScrollRef = useRef<HTMLDivElement>(null);
+  const [statsScrollPercent, setStatsScrollPercent] = useState(0);
 
   // Watchlist hook
   const { watchlist, isWatched, toggleWatch } = useWatchlist(franchise?.id);
@@ -364,12 +364,18 @@ export default function FreeAgents() {
     [seasonColumns]
   );
 
-  const syncStatsScroll = (source: "top" | "table") => {
-    const sourceElement = source === "top" ? topStatsScrollRef.current : tableStatsScrollRef.current;
-    const targetElement = source === "top" ? tableStatsScrollRef.current : topStatsScrollRef.current;
-    if (sourceElement && targetElement && targetElement.scrollLeft !== sourceElement.scrollLeft) {
-      targetElement.scrollLeft = sourceElement.scrollLeft;
-    }
+  const setTableScrollPercent = (percent: number) => {
+    const nextPercent = Math.min(100, Math.max(0, percent));
+    const table = tableStatsScrollRef.current;
+    if (table) table.scrollLeft = (table.scrollWidth - table.clientWidth) * (nextPercent / 100);
+    setStatsScrollPercent(nextPercent);
+  };
+
+  const handleTableScroll = () => {
+    const table = tableStatsScrollRef.current;
+    if (!table) return;
+    const scrollableWidth = table.scrollWidth - table.clientWidth;
+    setStatsScrollPercent(scrollableWidth > 0 ? (table.scrollLeft / scrollableWidth) * 100 : 0);
   };
 
   const filtered = useMemo(() => {
@@ -626,15 +632,18 @@ export default function FreeAgents() {
             {/* ── Top horizontal scroll rail ── */}
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.45rem", color: "rgba(255,255,255,0.78)" }}>
               <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.67rem", fontWeight: 800, letterSpacing: "0.07em", whiteSpace: "nowrap" }}>STATS SCROLL</span>
-              <div
-                ref={topStatsScrollRef}
-                onScroll={() => syncStatsScroll("top")}
+              <input
+                className="wrc-stats-scroll-slider"
+                type="range"
+                min="0"
+                max="100"
+                step="0.1"
+                value={statsScrollPercent}
+                onChange={(event) => setTableScrollPercent(Number(event.target.value))}
                 aria-label="Scroll Free Agents stat columns horizontally"
-                style={{ flex: 1, overflowX: "auto", overflowY: "hidden", height: 20, padding: "6px 0", touchAction: "pan-x", WebkitOverflowScrolling: "touch", scrollbarWidth: "thin" }}
-              >
-                <div style={{ width: statsTableMinWidth, height: 6, borderRadius: 999, background: "repeating-linear-gradient(90deg, oklch(0.72 0.16 85) 0 46px, oklch(0.42 0.1 150) 46px 54px)" }} />
-              </div>
-              <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.67rem", fontWeight: 800, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>← SWIPE →</span>
+                style={{ flex: 1 }}
+              />
+              <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.67rem", fontWeight: 800, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>← MOVE →</span>
             </div>
 
             {/* ── Player list ── */}
@@ -653,7 +662,7 @@ export default function FreeAgents() {
                   <p style={{ fontSize: "0.8rem", color: "oklch(0.55 0.06 150)", marginTop: "0.25rem" }}>Try a different search or position filter</p>
                 </div>
               ) : (
-                <div ref={tableStatsScrollRef} onScroll={() => syncStatsScroll("table")} style={{ overflowX: "auto", overscrollBehaviorX: "contain", touchAction: "pan-x", WebkitOverflowScrolling: "touch" }}>
+                <div ref={tableStatsScrollRef} onScroll={handleTableScroll} style={{ overflowX: "auto", overscrollBehaviorX: "contain", touchAction: "pan-x", WebkitOverflowScrolling: "touch" }}>
                   <div style={{ minWidth: statsTableMinWidth }}>
                     {/* Header row */}
                     <div style={{ display: "grid", gridTemplateColumns: statsGridColumns, gap: "0.25rem", padding: "0.35rem 0.75rem", background: "oklch(0.96 0.02 150)", borderBottom: "1px solid oklch(0.9 0.04 150)", alignItems: "center" }}>

@@ -36,3 +36,9 @@
 - [x] Add a top horizontal scroll rail synchronized with the stats table.
 - [x] Preserve direct table swiping and keep both controls in sync.
 - [x] Verify the control on mobile and desktop.
+
+# Free Agents Custom Scroll Slider
+
+- [x] Replace the browser-native scroll track with a custom WRC-styled slider.
+- [x] Preserve drag, swipe, and synchronized table scrolling.
+- [x] Verify slider contrast and behavior on mobile and desktop.

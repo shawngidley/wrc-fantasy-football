@@ -202,8 +202,58 @@
 /* WRC Navigation */
 /* Hide inner Navigation when rendered inside the Draft Hub */
 .draft-hub-child .wrc-nav,
-.draft-hub-child .wrc-mobile-nav {
+.draft-hub-child .wrc-nav {
   display: none !important;
+}
+
+/* WRC Free Agents custom horizontal stats slider */
+.wrc-stats-scroll-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 18px;
+  margin: 0;
+  background: transparent;
+  cursor: grab;
+  touch-action: pan-x;
+}
+
+.wrc-stats-scroll-slider:active {
+  cursor: grabbing;
+}
+
+.wrc-stats-scroll-slider::-webkit-slider-runnable-track {
+  height: 6px;
+  border: 1px solid oklch(0.48 0.11 150);
+  border-radius: 999px;
+  background: linear-gradient(90deg, oklch(0.20 0.07 150), oklch(0.31 0.09 150));
+}
+
+.wrc-stats-scroll-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 42px;
+  height: 14px;
+  margin-top: -5px;
+  border: 2px solid oklch(0.88 0.17 85);
+  border-radius: 999px;
+  background: linear-gradient(180deg, oklch(0.78 0.17 85), oklch(0.58 0.15 75));
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.45);
+}
+
+.wrc-stats-scroll-slider::-moz-range-track {
+  height: 6px;
+  border: 1px solid oklch(0.48 0.11 150);
+  border-radius: 999px;
+  background: linear-gradient(90deg, oklch(0.20 0.07 150), oklch(0.31 0.09 150));
+}
+
+.wrc-stats-scroll-slider::-moz-range-thumb {
+  width: 38px;
+  height: 10px;
+  border: 2px solid oklch(0.88 0.17 85);
+  border-radius: 999px;
+  background: linear-gradient(180deg, oklch(0.78 0.17 85), oklch(0.58 0.15 75));
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.45);
 }
 
 .wrc-nav {
