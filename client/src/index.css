@@ -214,7 +214,7 @@
   margin: 0;
   background: transparent;
   cursor: grab;
-  touch-action: pan-x;
+  touch-action: auto;
 }
 
 .wrc-stats-scroll-slider:active {

@@ -42,3 +42,9 @@
 - [x] Replace the browser-native scroll track with a custom WRC-styled slider.
 - [x] Preserve drag, swipe, and synchronized table scrolling.
 - [x] Verify slider contrast and behavior on mobile and desktop.
+
+# Free Agents Scroll Reliability
+
+- [x] Remove touch behavior that prevents normal vertical page scrolling.
+- [x] Pin the Player header and player cells while the stats table scrolls horizontally.
+- [x] Verify horizontal and vertical gestures on mobile and desktop.

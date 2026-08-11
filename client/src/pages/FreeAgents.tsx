@@ -662,7 +662,7 @@ export default function FreeAgents() {
                   <p style={{ fontSize: "0.8rem", color: "oklch(0.55 0.06 150)", marginTop: "0.25rem" }}>Try a different search or position filter</p>
                 </div>
               ) : (
-                <div ref={tableStatsScrollRef} onScroll={handleTableScroll} style={{ overflowX: "auto", overscrollBehaviorX: "contain", touchAction: "pan-x", WebkitOverflowScrolling: "touch" }}>
+                <div ref={tableStatsScrollRef} onScroll={handleTableScroll} style={{ overflowX: "auto", overscrollBehaviorX: "contain", WebkitOverflowScrolling: "touch" }}>
                   <div style={{ minWidth: statsTableMinWidth }}>
                     {/* Header row */}
                     <div style={{ display: "grid", gridTemplateColumns: statsGridColumns, gap: "0.25rem", padding: "0.35rem 0.75rem", background: "oklch(0.96 0.02 150)", borderBottom: "1px solid oklch(0.9 0.04 150)", alignItems: "center" }}>
@@ -670,6 +670,7 @@ export default function FreeAgents() {
                         const active = header.key === sortKey;
                         const column = "column" in header ? header.column : undefined;
                         const alignment = ("align" in header ? header.align : undefined) ?? "center";
+                        const isPlayerColumn = index === 0;
                         const headerColor = active
                           ? "oklch(0.43 0.16 85)"
                           : column?.gold ? "oklch(0.55 0.16 85)"
@@ -682,7 +683,7 @@ export default function FreeAgents() {
                             type="button"
                             onClick={() => handleSort(header.key!)}
                             title={`Sort by ${header.label}`}
-                            style={{ display: "flex", alignItems: "center", justifyContent: alignment === "left" ? "flex-start" : "center", gap: "0.15rem", minHeight: 26, padding: "0.12rem", border: "none", background: active ? "oklch(0.90 0.06 85)" : "transparent", borderRadius: 4, color: headerColor, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" as const, textAlign: alignment, whiteSpace: "nowrap" as const, cursor: "pointer" }}
+                            style={{ display: "flex", alignItems: "center", justifyContent: alignment === "left" ? "flex-start" : "center", gap: "0.15rem", minHeight: 26, padding: "0.12rem", border: "none", background: active ? "oklch(0.90 0.06 85)" : isPlayerColumn ? "oklch(0.96 0.02 150)" : "transparent", borderRadius: 4, color: headerColor, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" as const, textAlign: alignment, whiteSpace: "nowrap" as const, cursor: "pointer", position: isPlayerColumn ? "sticky" : "relative", left: isPlayerColumn ? 0 : undefined, zIndex: isPlayerColumn ? 5 : 1, boxShadow: isPlayerColumn ? "7px 0 9px -9px rgb(0 0 0 / 0.72)" : "none" }}
                           >
                             {header.label}
                             {active ? (sortDirection === "asc" ? <ArrowUp size={11} strokeWidth={3} /> : <ArrowDown size={11} strokeWidth={3} />) : <ArrowUpDown size={10} opacity={0.45} />}
@@ -706,7 +707,7 @@ export default function FreeAgents() {
                         {/* Player info */}
                         <Link
                           href={`/player/${encodeURIComponent(player.name)}`}
-                          style={{ display: "flex", alignItems: "center", gap: "0.4rem", textDecoration: "none", minWidth: 0, overflow: "hidden" }}
+                          style={{ display: "flex", alignItems: "center", gap: "0.4rem", textDecoration: "none", minWidth: 0, overflow: "hidden", position: "sticky", left: 0, zIndex: 3, background: isOwned ? "oklch(0.97 0.02 240)" : "white", boxShadow: "7px 0 9px -9px rgb(0 0 0 / 0.72)" }}
                         >
                           <img
                             src={getTeamLogoUrl(player.nflTeam)}
