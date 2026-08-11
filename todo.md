@@ -11,3 +11,16 @@
 - [x] Add complete current-season columns to the Player Card.
 - [x] Add complete current-season columns to the Free Agents page.
 - [ ] Ensure both tables scroll horizontally on mobile and validate the responsive layout.
+
+# Supabase Security Alert
+
+- [x] Inventory public tables, RLS state, and existing public policies.
+- [x] Map browser-side Supabase writes that must be protected.
+- [ ] Propose a PIN-compatible authorization and migration path.
+- [ ] Obtain approval before changing RLS policies or client access.
+
+# Free Agents Sorting
+
+- [x] Replace the limited sort controls with sortable market and season-stat table headers.
+- [x] Add ascending and descending direction indicators to the active header.
+- [x] Validate desktop and mobile sorting behavior.

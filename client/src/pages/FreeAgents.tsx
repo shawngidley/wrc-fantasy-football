@@ -21,13 +21,13 @@ import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } 
 import FAABBidModal from "@/components/FAABBidModal";
 import { supabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
-import { Search, DollarSign, ChevronRight, Trophy, Clock, ArrowUpDown, Users, ArrowLeftRight, Star, Bookmark } from "lucide-react";
+import { Search, DollarSign, ChevronRight, Trophy, Clock, ArrowUpDown, ArrowUp, ArrowDown, Users, ArrowLeftRight, Star, Bookmark } from "lucide-react";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { toast } from "sonner";
 import Navigation from "@/components/Navigation";
 import { useNFLDepthCharts } from "@/hooks/useNFLDepthCharts";
 import { useNFLSeasonStats } from "@/hooks/useNFLSeasonStats";
-import { formatSeasonStatColumn, getSeasonStatColumns, type SeasonStatColumn } from "@/lib/playerSeasonStats";
+import { formatSeasonStatColumn, getSeasonStatColumns, type SeasonStatColumn, type SeasonStatKey } from "@/lib/playerSeasonStats";
 
 // ── Position badge colors ────────────────────────────────────────────────────
 const POS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -250,7 +250,8 @@ function CommissionerBids({ week }: { week: number }) {
 }
 
 // ── Sort options ─────────────────────────────────────────────────────────────
-type SortKey = "proj" | "adp" | "name";
+type SortKey = "name" | "bye" | "proj" | "adp" | SeasonStatKey;
+type SortDirection = "asc" | "desc";
 
 const ALL_POSITION_COLUMNS: SeasonStatColumn[] = [
   { label: "GP", key: "gp" },
@@ -278,6 +279,7 @@ export default function FreeAgents() {
   const [posFilter, setPosFilter] = useState<string>("ALL");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("proj");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [bidPlayer, setBidPlayer] = useState<NFLPlayer | null>(null);
   const [activeTab, setActiveTab] = useState<"pool" | "bids">("pool");
   const [ownedNames, setOwnedNames] = useState<Set<string>>(new Set());
@@ -329,8 +331,9 @@ export default function FreeAgents() {
 
   const allPlayers = useMemo(() => NFL_PLAYERS_2026, []);
 
-  // Filter + search + sort
-  const filtered = useMemo(() => {
+  // Filter + search. Sorting is applied after Tank01 season stats load so every
+  // market and stat column can be used as a sort key.
+  const baseFiltered = useMemo(() => {
     let list = playerScope === "fa" ? freeAgents : allPlayers;
     if (posFilter !== "ALL") {
       list = list.filter((p) => p.pos === posFilter);
@@ -341,20 +344,12 @@ export default function FreeAgents() {
         (p) => p.name.toLowerCase().includes(q) || p.nflTeam.toLowerCase().includes(q)
       );
     }
-    return [...list].sort((a, b) => {
-      if (sortKey === "proj") {
-        const pa = getProjectedPoints(projections, a.name, a.pos, a.nflTeam);
-        const pb = getProjectedPoints(projections, b.name, b.pos, b.nflTeam);
-        return pb - pa;
-      }
-      if (sortKey === "adp") return a.adp - b.adp;
-      return a.name.localeCompare(b.name);
-    });
-  }, [freeAgents, allPlayers, playerScope, posFilter, search, sortKey, projections]);
+    return list;
+  }, [freeAgents, allPlayers, playerScope, posFilter, search]);
 
   const seasonStatPlayers = useMemo(
-    () => filtered.map((player) => ({ name: player.name, pos: player.pos })),
-    [filtered]
+    () => baseFiltered.map((player) => ({ name: player.name, pos: player.pos })),
+    [baseFiltered]
   );
   const { statMap: seasonStatMap, loading: seasonStatsLoading, loadedCount: seasonStatsLoaded } = useNFLSeasonStats(seasonStatPlayers, true);
   const seasonColumns = useMemo(
@@ -363,6 +358,47 @@ export default function FreeAgents() {
   );
   const statsGridColumns = useMemo(
     () => `minmax(270px, 1fr) 48px 62px 62px ${seasonColumns.map(() => "minmax(76px, auto)").join(" ")} 76px 30px`,
+    [seasonColumns]
+  );
+
+  const filtered = useMemo(() => {
+    const getValue = (player: NFLPlayer): string | number => {
+      if (sortKey === "name") return player.name;
+      if (sortKey === "bye") return player.bye ?? 99;
+      if (sortKey === "proj") return getProjectedPoints(projections, player.name, player.pos, player.nflTeam);
+      if (sortKey === "adp") return player.adp;
+      return seasonStatMap[player.name.toLowerCase()]?.[sortKey] ?? -1;
+    };
+
+    return [...baseFiltered].sort((a, b) => {
+      const aValue = getValue(a);
+      const bValue = getValue(b);
+      const comparison = typeof aValue === "string" && typeof bValue === "string"
+        ? aValue.localeCompare(bValue)
+        : Number(aValue) - Number(bValue);
+      return sortDirection === "asc" ? comparison : -comparison;
+    });
+  }, [baseFiltered, projections, seasonStatMap, sortDirection, sortKey]);
+
+  const handleSort = (nextKey: SortKey) => {
+    if (nextKey === sortKey) {
+      setSortDirection((direction) => direction === "asc" ? "desc" : "asc");
+      return;
+    }
+    setSortKey(nextKey);
+    setSortDirection(nextKey === "name" || nextKey === "bye" || nextKey === "adp" ? "asc" : "desc");
+  };
+
+  const tableHeaders = useMemo(
+    () => [
+      { label: "Player", key: "name" as SortKey, align: "left" as const },
+      { label: "Bye", key: "bye" as SortKey },
+      { label: "Proj", key: "proj" as SortKey },
+      { label: "ADP", key: "adp" as SortKey },
+      ...seasonColumns.map((column) => ({ label: column.label, key: column.key as SortKey, column })),
+      { label: "Action" },
+      { label: "" },
+    ],
     [seasonColumns]
   );
 
@@ -520,7 +556,7 @@ export default function FreeAgents() {
           <>
             {/* ── Filters ── */}
             <div style={{ display: "flex", flexDirection: "column" as const, gap: "0.6rem", marginBottom: "1rem" }}>
-              {/* Search + sort row */}
+              {/* Search row — sorting is controlled from every table header */}
               <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" as const }}>
                 <div style={{ position: "relative" as const, flex: 1, minWidth: 200 }}>
                   <Search size={14} color="oklch(0.55 0.06 150)" style={{ position: "absolute" as const, left: 10, top: "50%", transform: "translateY(-50%)" }} />
@@ -531,25 +567,9 @@ export default function FreeAgents() {
                     style={{ paddingLeft: "2rem", background: "white", borderColor: "oklch(0.85 0.04 150)" }}
                   />
                 </div>
-                {/* Sort selector */}
-                <div style={{ display: "flex", gap: "0.3rem", alignItems: "center" }}>
-                  <ArrowUpDown size={13} color="rgba(255,255,255,0.6)" />
-                  {([["proj", "Projected"], ["adp", "ADP"], ["name", "Name"]] as [SortKey, string][]).map(([key, label]) => (
-                    <button
-                      key={key}
-                      onClick={() => setSortKey(key)}
-                      style={{
-                        padding: "0.35rem 0.65rem", borderRadius: 7,
-                        border: sortKey === key ? "2px solid oklch(0.55 0.16 85)" : "2px solid rgba(255,255,255,0.2)",
-                        background: sortKey === key ? "oklch(0.55 0.16 85)" : "rgba(255,255,255,0.1)",
-                        color: sortKey === key ? "white" : "rgba(255,255,255,0.75)",
-                        fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700,
-                        letterSpacing: "0.04em", cursor: "pointer",
-                      }}
-                    >
-                      {label}
-                    </button>
-                  ))}
+                <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", padding: "0 0.2rem", color: "rgba(255,255,255,0.72)", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.04em" }}>
+                  <ArrowUpDown size={13} />
+                  TAP A COLUMN TO SORT
                 </div>
               </div>
               {/* Position tabs */}
@@ -611,11 +631,28 @@ export default function FreeAgents() {
                 <div style={{ overflowX: "auto", overscrollBehaviorX: "contain" }}>
                   <div style={{ minWidth: `calc(270px + ${48 + 62 + 62 + 76 * seasonColumns.length + 76 + 30}px)` }}>
                     {/* Header row */}
-                    <div style={{ display: "grid", gridTemplateColumns: statsGridColumns, gap: "0.25rem", padding: "0.5rem 0.75rem", background: "oklch(0.96 0.02 150)", borderBottom: "1px solid oklch(0.9 0.04 150)", alignItems: "center" }}>
-                      {["Player", "Bye", "Proj", "ADP", ...seasonColumns.map((column) => column.label), "Action", ""].map((header, index) => {
-                        const column = seasonColumns[index - 4];
+                    <div style={{ display: "grid", gridTemplateColumns: statsGridColumns, gap: "0.25rem", padding: "0.35rem 0.75rem", background: "oklch(0.96 0.02 150)", borderBottom: "1px solid oklch(0.9 0.04 150)", alignItems: "center" }}>
+                      {tableHeaders.map((header, index) => {
+                        const active = header.key === sortKey;
+                        const column = "column" in header ? header.column : undefined;
+                        const alignment = ("align" in header ? header.align : undefined) ?? "center";
+                        const headerColor = active
+                          ? "oklch(0.43 0.16 85)"
+                          : column?.gold ? "oklch(0.55 0.16 85)"
+                            : column?.highlight ? "oklch(0.36 0.14 150)"
+                              : "oklch(0.42 0.06 150)";
+                        if (!header.key) return <span key={`empty-${index}`} />;
                         return (
-                          <span key={`${header}-${index}`} style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: column?.gold ? "oklch(0.55 0.16 85)" : column?.highlight ? "oklch(0.36 0.14 150)" : "oklch(0.42 0.06 150)", textAlign: index > 0 ? "center" as const : "left" as const, whiteSpace: "nowrap" as const }}>{header}</span>
+                          <button
+                            key={`${header.label}-${index}`}
+                            type="button"
+                            onClick={() => handleSort(header.key!)}
+                            title={`Sort by ${header.label}`}
+                            style={{ display: "flex", alignItems: "center", justifyContent: alignment === "left" ? "flex-start" : "center", gap: "0.15rem", minHeight: 26, padding: "0.12rem", border: "none", background: active ? "oklch(0.90 0.06 85)" : "transparent", borderRadius: 4, color: headerColor, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" as const, textAlign: alignment, whiteSpace: "nowrap" as const, cursor: "pointer" }}
+                          >
+                            {header.label}
+                            {active ? (sortDirection === "asc" ? <ArrowUp size={11} strokeWidth={3} /> : <ArrowDown size={11} strokeWidth={3} />) : <ArrowUpDown size={10} opacity={0.45} />}
+                          </button>
                         );
                       })}
                     </div>
