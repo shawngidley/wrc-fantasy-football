@@ -30,3 +30,9 @@
 - [x] Replace ALL with a QB/RB/WR/TE-only SFLEX filter.
 - [x] Remove K and DST categories from the combined SFLEX stats table.
 - [x] Verify position filters and mobile table behavior.
+
+# Free Agents Top Scroll Rail
+
+- [x] Add a top horizontal scroll rail synchronized with the stats table.
+- [x] Preserve direct table swiping and keep both controls in sync.
+- [x] Verify the control on mobile and desktop.
