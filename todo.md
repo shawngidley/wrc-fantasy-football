@@ -48,3 +48,9 @@
 - [x] Remove touch behavior that prevents normal vertical page scrolling.
 - [x] Pin the Player header and player cells while the stats table scrolls horizontally.
 - [x] Verify horizontal and vertical gestures on mobile and desktop.
+
+# Free Agents Player Column Width
+
+- [x] Reduce the width of the pinned Player column for mobile stat visibility.
+- [x] Tighten the logo and player identity layout without losing readability.
+- [x] Verify the narrower column on mobile and desktop.

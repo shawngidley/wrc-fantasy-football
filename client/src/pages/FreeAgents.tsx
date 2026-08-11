@@ -356,11 +356,11 @@ export default function FreeAgents() {
     [posFilter]
   );
   const statsGridColumns = useMemo(
-    () => `minmax(270px, 1fr) 48px 62px 62px ${seasonColumns.map(() => "minmax(76px, auto)").join(" ")} 76px 30px`,
+    () => `210px 48px 62px 62px ${seasonColumns.map(() => "minmax(76px, auto)").join(" ")} 76px 30px`,
     [seasonColumns]
   );
   const statsTableMinWidth = useMemo(
-    () => 270 + 48 + 62 + 62 + 76 * seasonColumns.length + 76 + 30,
+    () => 210 + 48 + 62 + 62 + 76 * seasonColumns.length + 76 + 30,
     [seasonColumns]
   );
 
@@ -665,7 +665,7 @@ export default function FreeAgents() {
                 <div ref={tableStatsScrollRef} onScroll={handleTableScroll} style={{ overflowX: "auto", overscrollBehaviorX: "contain", WebkitOverflowScrolling: "touch" }}>
                   <div style={{ minWidth: statsTableMinWidth }}>
                     {/* Header row */}
-                    <div style={{ display: "grid", gridTemplateColumns: statsGridColumns, gap: "0.25rem", padding: "0.35rem 0.75rem", background: "oklch(0.96 0.02 150)", borderBottom: "1px solid oklch(0.9 0.04 150)", alignItems: "center" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: statsGridColumns, gap: "0.25rem", padding: "0.35rem 0.5rem", background: "oklch(0.96 0.02 150)", borderBottom: "1px solid oklch(0.9 0.04 150)", alignItems: "center" }}>
                       {tableHeaders.map((header, index) => {
                         const active = header.key === sortKey;
                         const column = "column" in header ? header.column : undefined;
@@ -702,22 +702,22 @@ export default function FreeAgents() {
                         key={player.id}
                         onMouseEnter={e => (e.currentTarget.style.background = isOwned ? "oklch(0.96 0.03 240)" : "oklch(0.97 0.02 150)")}
                         onMouseLeave={e => (e.currentTarget.style.background = isOwned ? "oklch(0.97 0.02 240)" : "white")}
-                        style={{ display: "grid", gridTemplateColumns: statsGridColumns, gap: "0.25rem", padding: "0.5rem 0.75rem", alignItems: "center", borderBottom: "1px solid oklch(0.94 0.02 150)", transition: "background 0.15s", background: isOwned ? "oklch(0.97 0.02 240)" : "white" }}
+                        style={{ display: "grid", gridTemplateColumns: statsGridColumns, gap: "0.25rem", padding: "0.45rem 0.5rem", alignItems: "center", borderBottom: "1px solid oklch(0.94 0.02 150)", transition: "background 0.15s", background: isOwned ? "oklch(0.97 0.02 240)" : "white" }}
                       >
                         {/* Player info */}
                         <Link
                           href={`/player/${encodeURIComponent(player.name)}`}
-                          style={{ display: "flex", alignItems: "center", gap: "0.4rem", textDecoration: "none", minWidth: 0, overflow: "hidden", position: "sticky", left: 0, zIndex: 3, background: isOwned ? "oklch(0.97 0.02 240)" : "white", boxShadow: "7px 0 9px -9px rgb(0 0 0 / 0.72)" }}
+                          style={{ display: "flex", alignItems: "center", gap: "0.3rem", textDecoration: "none", minWidth: 0, overflow: "hidden", position: "sticky", left: 0, zIndex: 3, background: isOwned ? "oklch(0.97 0.02 240)" : "white", boxShadow: "7px 0 9px -9px rgb(0 0 0 / 0.72)" }}
                         >
                           <img
                             src={getTeamLogoUrl(player.nflTeam)}
                             alt={player.nflTeam}
-                            style={{ width: 24, height: 24, objectFit: "contain", flexShrink: 0 }}
+                            style={{ width: 22, height: 22, objectFit: "contain", flexShrink: 0 }}
                             onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                           />
                           <div style={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                              <p style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.22 0.08 150)", margin: 0, flex: 1, minWidth: 0, lineHeight: 1.2 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: "0.25rem" }}>
+                              <p style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.84rem", color: "oklch(0.22 0.08 150)", margin: 0, flex: 1, minWidth: 0, lineHeight: 1.15, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                                 {player.name}
                               </p>
                               {(() => {
