@@ -26,6 +26,8 @@ import { useWatchlist } from "@/hooks/useWatchlist";
 import { toast } from "sonner";
 import Navigation from "@/components/Navigation";
 import { useNFLDepthCharts } from "@/hooks/useNFLDepthCharts";
+import { useNFLSeasonStats } from "@/hooks/useNFLSeasonStats";
+import { formatSeasonStatColumn, getSeasonStatColumns, type SeasonStatColumn } from "@/lib/playerSeasonStats";
 
 // ── Position badge colors ────────────────────────────────────────────────────
 const POS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -250,6 +252,26 @@ function CommissionerBids({ week }: { week: number }) {
 // ── Sort options ─────────────────────────────────────────────────────────────
 type SortKey = "proj" | "adp" | "name";
 
+const ALL_POSITION_COLUMNS: SeasonStatColumn[] = [
+  { label: "GP", key: "gp" },
+  { label: "PASS YDS", key: "passYds" },
+  { label: "PASS TD", key: "passTD" },
+  { label: "INT", key: "passInt" },
+  { label: "RUSH YDS", key: "rushYds" },
+  { label: "RUSH TD", key: "rushTD" },
+  { label: "REC", key: "receptions" },
+  { label: "TGT", key: "targets" },
+  { label: "REC YDS", key: "recYds" },
+  { label: "REC TD", key: "recTD" },
+  { label: "FGM/FGA", key: "fgMade", pair: ["fgMade", "fgAtt"] },
+  { label: "SACK", key: "sacks" },
+  { label: "DEF INT", key: "defInt" },
+  { label: "FR", key: "fumblesRecovered" },
+  { label: "DEF TD", key: "defTD" },
+  { label: "WRC PTS", key: "wrcPts", decimals: 1, gold: true },
+  { label: "PTS/G", key: "ptsPerGame", decimals: 1, gold: true },
+];
+
 // ── Main FreeAgents page ─────────────────────────────────────────────────────
 export default function FreeAgents() {
   const { franchise } = useAuth();
@@ -329,6 +351,20 @@ export default function FreeAgents() {
       return a.name.localeCompare(b.name);
     });
   }, [freeAgents, allPlayers, playerScope, posFilter, search, sortKey, projections]);
+
+  const seasonStatPlayers = useMemo(
+    () => filtered.map((player) => ({ name: player.name, pos: player.pos })),
+    [filtered]
+  );
+  const { statMap: seasonStatMap, loading: seasonStatsLoading, loadedCount: seasonStatsLoaded } = useNFLSeasonStats(seasonStatPlayers, true);
+  const seasonColumns = useMemo(
+    () => posFilter !== "ALL" ? getSeasonStatColumns(posFilter) : ALL_POSITION_COLUMNS,
+    [posFilter]
+  );
+  const statsGridColumns = useMemo(
+    () => `minmax(270px, 1fr) 48px 62px 62px ${seasonColumns.map(() => "minmax(76px, auto)").join(" ")} 76px 30px`,
+    [seasonColumns]
+  );
 
   const positions = ["ALL", "QB", "RB", "WR", "TE", "K", "DST"];
   const isCommissioner = franchise?.is_commissioner;
@@ -551,6 +587,11 @@ export default function FreeAgents() {
               {search ? ` matching "${search}"` : ""}
             </p>
 
+            <p style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.7)", margin: "-0.1rem 0 0.65rem" }}>
+              <strong style={{ color: "oklch(0.78 0.15 85)" }}>FULL STATS:</strong> Swipe the table right to see every stat column.
+              {seasonStatsLoading ? ` Loading season totals (${seasonStatsLoaded}/${filtered.length})…` : ""}
+            </p>
+
             {/* ── Player list ── */}
             <div className="wrc-card" style={{ overflow: "hidden", marginBottom: "2rem" }}>
               <div className="wrc-card-gold-stripe" />
@@ -567,24 +608,29 @@ export default function FreeAgents() {
                   <p style={{ fontSize: "0.8rem", color: "oklch(0.55 0.06 150)", marginTop: "0.25rem" }}>Try a different search or position filter</p>
                 </div>
               ) : (
-                <>
-                 {/* Header row */}
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 48px 60px 64px", gap: "0.25rem", padding: "0.5rem 0.75rem", background: "oklch(0.96 0.02 150)", borderBottom: "1px solid oklch(0.9 0.04 150)" }}>
-                    {["Player", "Bye", sortKey === "proj" ? "Proj" : "ADP", ""].map((h, i) => (
-                      <span key={i} style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: "oklch(0.55 0.06 150)", textAlign: i > 0 ? "center" as const : "left" as const }}>{h}</span>
-                    ))}
-                  </div>
+                <div style={{ overflowX: "auto", overscrollBehaviorX: "contain" }}>
+                  <div style={{ minWidth: `calc(270px + ${48 + 62 + 62 + 76 * seasonColumns.length + 76 + 30}px)` }}>
+                    {/* Header row */}
+                    <div style={{ display: "grid", gridTemplateColumns: statsGridColumns, gap: "0.25rem", padding: "0.5rem 0.75rem", background: "oklch(0.96 0.02 150)", borderBottom: "1px solid oklch(0.9 0.04 150)", alignItems: "center" }}>
+                      {["Player", "Bye", "Proj", "ADP", ...seasonColumns.map((column) => column.label), "Action", ""].map((header, index) => {
+                        const column = seasonColumns[index - 4];
+                        return (
+                          <span key={`${header}-${index}`} style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: column?.gold ? "oklch(0.55 0.16 85)" : column?.highlight ? "oklch(0.36 0.14 150)" : "oklch(0.42 0.06 150)", textAlign: index > 0 ? "center" as const : "left" as const, whiteSpace: "nowrap" as const }}>{header}</span>
+                        );
+                      })}
+                    </div>
 
-                  {filtered.map((player) => {
+                    {filtered.map((player) => {
                     const proj = getProjectedPoints(projections, player.name, player.pos, player.nflTeam);
                     const ownerTeam = ownershipMap[player.name.toLowerCase()];
                     const isOwned = !!ownerTeam;
+                    const seasonStats = seasonStatMap[player.name.toLowerCase()];
                     return (
                       <div
                         key={player.id}
                         onMouseEnter={e => (e.currentTarget.style.background = isOwned ? "oklch(0.96 0.03 240)" : "oklch(0.97 0.02 150)")}
                         onMouseLeave={e => (e.currentTarget.style.background = isOwned ? "oklch(0.97 0.02 240)" : "white")}
-                        style={{ display: "grid", gridTemplateColumns: "1fr 48px 60px 64px", gap: "0.25rem", padding: "0.5rem 0.75rem", alignItems: "center", borderBottom: "1px solid oklch(0.94 0.02 150)", transition: "background 0.15s", background: isOwned ? "oklch(0.97 0.02 240)" : "white" }}
+                        style={{ display: "grid", gridTemplateColumns: statsGridColumns, gap: "0.25rem", padding: "0.5rem 0.75rem", alignItems: "center", borderBottom: "1px solid oklch(0.94 0.02 150)", transition: "background 0.15s", background: isOwned ? "oklch(0.97 0.02 240)" : "white" }}
                       >
                         {/* Player info */}
                         <Link
@@ -643,22 +689,28 @@ export default function FreeAgents() {
                           {player.bye ?? "—"}
                         </span>
 
-                        {/* Proj / ADP */}
+                        {/* Projected points */}
                         <div style={{ textAlign: "center" as const }}>
-                          {sortKey === "proj" ? (
-                            projectionsLoading ? (
-                              <span className="skeleton-shimmer" style={{ display: "inline-block", width: 36, height: 16, borderRadius: 4 }} />
-                            ) : (
-                              <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.95rem", color: proj > 0 ? "oklch(0.38 0.14 150)" : "oklch(0.65 0.06 150)" }}>
-                                {proj > 0 ? proj.toFixed(1) : "—"}
-                              </span>
-                            )
+                          {projectionsLoading ? (
+                            <span className="skeleton-shimmer" style={{ display: "inline-block", width: 36, height: 16, borderRadius: 4 }} />
                           ) : (
-                            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.85rem", color: "oklch(0.5 0.06 150)" }}>
-                              {player.adp.toFixed(1)}
+                            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.95rem", color: proj > 0 ? "oklch(0.38 0.14 150)" : "oklch(0.65 0.06 150)" }}>
+                              {proj > 0 ? proj.toFixed(1) : "—"}
                             </span>
                           )}
                         </div>
+
+                        {/* ADP */}
+                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.85rem", color: "oklch(0.5 0.06 150)", textAlign: "center" as const }}>
+                          {player.adp.toFixed(1)}
+                        </span>
+
+                        {/* Position-aware Tank01 season totals */}
+                        {seasonColumns.map((column) => (
+                          <span key={column.label} style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: column.gold || column.highlight ? 800 : 600, fontSize: "0.84rem", color: column.gold ? "oklch(0.48 0.15 85)" : column.highlight ? "oklch(0.28 0.11 150)" : "oklch(0.38 0.05 150)", textAlign: "center" as const, whiteSpace: "nowrap" as const }}>
+                            {seasonStats ? formatSeasonStatColumn(seasonStats, column) : seasonStatsLoading ? "…" : "—"}
+                          </span>
+                        ))}
 
                         {/* Bid button */}
                         {isOwned ? (
@@ -696,8 +748,9 @@ export default function FreeAgents() {
                         )}
                       </div>
                     );
-                  })}
-                </>
+                    })}
+                  </div>
+                </div>
               )}
             </div>
           </>

@@ -39,6 +39,7 @@ export interface Tank01Stats {
     passingTwoPointConversion?: string | number;
     passCompletions?: string | number;
     passAttempts?: string | number;
+    rtg?: string | number;
   };
   Rushing?: {
     rushYds?: string | number;
@@ -68,6 +69,9 @@ export interface Tank01Stats {
     defTD?: string | number;
     safeties?: string | number;
     fumblesLost?: string | number;
+    returnTD?: string | number;
+    blockKick?: string | number;
+    ptsAgainst?: string | number;
   };
   gamesPlayed?: string | number;
   teamID?: string;

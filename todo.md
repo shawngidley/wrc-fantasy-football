@@ -1,0 +1,13 @@
+# Player Stat Column Evaluation
+
+- [x] Inspect Tank01 player, projection, game-log, and live-score response fields.
+- [x] Review the Player Card and Free Agents layouts for desktop and mobile constraints.
+- [x] Define recommended season, weekly, and availability columns by position.
+- [x] Present the field inventory and a responsive implementation proposal for approval.
+
+# Full Player Stat Tables
+
+- [x] Create shared schemas and parsers for current-season position-specific stat columns.
+- [x] Add complete current-season columns to the Player Card.
+- [x] Add complete current-season columns to the Free Agents page.
+- [ ] Ensure both tables scroll horizontally on mobile and validate the responsive layout.

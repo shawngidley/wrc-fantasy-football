@@ -10,8 +10,9 @@
 import { useParams, useLocation } from "wouter";
 import { useTank01PlayerByName, getTeamLogoUrl } from "@/hooks/useTank01Player";
 import { useWatchlist } from "@/hooks/useWatchlist";
-import { calcFantasyPoints, getStatLine, getPerGameAvg, injuryColor, injuryLabel } from "@/lib/scoringEngine";
+import { calcFantasyPoints, injuryColor, injuryLabel } from "@/lib/scoringEngine";
 import type { Tank01Stats } from "@/lib/scoringEngine";
+import { formatSeasonStatColumn, getSeasonStatColumns, normalizeTankSeasonStats } from "@/lib/playerSeasonStats";
 import { getCurrentWeek } from "@/lib/scheduleData2026";
 import { supabase } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
@@ -38,16 +39,6 @@ const POS_COLORS: Record<string, string> = {
   DST: "bg-slate-700 text-white",
 };
 
-// ── Stat card component ──────────────────────────────────────────────────────
-function StatCard({ label, value, sub }: { label: string; value: string | number; sub?: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center bg-white rounded-xl border border-slate-200 p-4 shadow-sm min-w-[90px]">
-      <span className="text-2xl font-bold text-slate-900 tabular-nums">{value}</span>
-      <span className="text-xs font-semibold text-slate-500 uppercase tracking-wide mt-0.5">{label}</span>
-      {sub && <span className="text-xs text-slate-400 mt-0.5">{sub}</span>}
-    </div>
-  );
-}
 
 // ── Live ownership lookup via Supabase ──────────────────────────────────────
 type OwnershipResult = {
@@ -99,112 +90,46 @@ function StatsSection({ player }: { player: { pos: string; stats?: Tank01Stats; 
   if (!stats) return null;
 
   const totalPts = calcFantasyPoints(stats, pos);
-  const perGame = getPerGameAvg(stats, pos);
-  const gp = parseInt(String(stats.gamesPlayed ?? "0"), 10);
-  const statLine = getStatLine(stats, pos);
-
-  const renderStatRows = () => {
-    switch (pos) {
-      case "QB": {
-        const p = stats.Passing ?? {};
-        const r = stats.Rushing ?? {};
-        return (
-          <>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-              <StatCard label="Pass Yds" value={Number(p.passYds ?? 0).toLocaleString()} />
-              <StatCard label="Pass TD" value={String(p.passTD ?? 0)} />
-              <StatCard label="INT" value={String(p.int ?? 0)} />
-              <StatCard label="Rush Yds" value={String(r.rushYds ?? 0)} />
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <StatCard label="Rush TD" value={String(r.rushTD ?? 0)} />
-              <StatCard label="Comp" value={`${p.passCompletions ?? 0}/${p.passAttempts ?? 0}`} />
-              <StatCard label="Games" value={String(gp)} />
-              <StatCard label="Pts/Gm" value={perGame} />
-            </div>
-          </>
-        );
-      }
-      case "RB": {
-        const r = stats.Rushing ?? {};
-        const rec = stats.Receiving ?? {};
-        return (
-          <>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-              <StatCard label="Rush Yds" value={Number(r.rushYds ?? 0).toLocaleString()} />
-              <StatCard label="Rush TD" value={String(r.rushTD ?? 0)} />
-              <StatCard label="Carries" value={String(r.carries ?? 0)} />
-              <StatCard label="Rec" value={String(rec.receptions ?? 0)} />
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <StatCard label="Rec Yds" value={String(rec.recYds ?? 0)} />
-              <StatCard label="Rec TD" value={String(rec.recTD ?? 0)} />
-              <StatCard label="Games" value={String(gp)} />
-              <StatCard label="Pts/Gm" value={perGame} />
-            </div>
-          </>
-        );
-      }
-      case "WR":
-      case "TE": {
-        const rec = stats.Receiving ?? {};
-        return (
-          <>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-              <StatCard label="Rec" value={String(rec.receptions ?? 0)} />
-              <StatCard label="Targets" value={String(rec.targets ?? 0)} />
-              <StatCard label="Rec Yds" value={Number(rec.recYds ?? 0).toLocaleString()} />
-              <StatCard label="Rec TD" value={String(rec.recTD ?? 0)} />
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <StatCard label="Yds/Rec" value={rec.receptions && Number(rec.receptions) > 0 ? Math.round(Number(rec.recYds ?? 0) / Number(rec.receptions)).toString() : "—"} />
-              <StatCard label="Games" value={String(gp)} />
-              <StatCard label="Pts/Gm" value={perGame} />
-              <StatCard label="Total Pts" value={totalPts} />
-            </div>
-          </>
-        );
-      }
-      case "K": {
-        const k = stats.Kicking ?? {};
-        return (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <StatCard label="FG Made" value={String(k.fgMade ?? 0)} sub={`of ${k.fgAttempts ?? 0}`} />
-            <StatCard label="XP Made" value={String(k.xpMade ?? 0)} sub={`of ${k.xpAttempts ?? 0}`} />
-            <StatCard label="Games" value={String(gp)} />
-            <StatCard label="Pts/Gm" value={perGame} />
-          </div>
-        );
-      }
-      case "DST": {
-        const d = stats.Defense ?? {};
-        return (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <StatCard label="Sacks" value={String(d.sacks ?? 0)} />
-            <StatCard label="INT" value={String(d.defensiveInterceptions ?? 0)} />
-            <StatCard label="Fum Rec" value={String(d.fumblesRecovered ?? 0)} />
-            <StatCard label="DST TD" value={String(d.defTD ?? 0)} />
-          </div>
-        );
-      }
-      default:
-        return <p className="text-slate-500 text-sm">{statLine}</p>;
-    }
-  };
+  const seasonStats = normalizeTankSeasonStats(stats, pos);
+  const columns = getSeasonStatColumns(pos);
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-      <div className="flex items-center justify-between mb-5">
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100 gap-3">
         <div className="flex items-center gap-2">
           <TrendingUp className="w-5 h-5 text-emerald-600" />
-          <h2 className="text-base font-bold text-slate-900">2025 Season Stats</h2>
+          <div>
+            <h2 className="text-base font-bold text-slate-900">Season Stats</h2>
+            <p className="text-[11px] text-slate-400 uppercase tracking-wide">Tank01 totals · swipe for all columns</p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-slate-500">{gp} games</span>
+          <span className="text-sm text-slate-500 whitespace-nowrap">{seasonStats.gp} games</span>
           <span className="text-lg font-bold text-emerald-700">{totalPts} pts</span>
         </div>
       </div>
-      {renderStatRows()}
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm" style={{ minWidth: `${columns.length * 86}px` }}>
+          <thead>
+            <tr className="bg-slate-50 border-b border-slate-100">
+              {columns.map((column) => (
+                <th key={column.label} className={`px-3 py-2.5 text-right text-[11px] font-bold uppercase tracking-wide whitespace-nowrap ${column.gold ? "text-amber-600 bg-amber-50/70" : column.highlight ? "text-emerald-700" : "text-slate-500"}`}>
+                  {column.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="bg-white">
+              {columns.map((column) => (
+                <td key={column.label} className={`px-3 py-3 text-right font-semibold tabular-nums whitespace-nowrap ${column.gold ? "text-amber-700 bg-amber-50/40" : column.highlight ? "text-slate-900" : "text-slate-600"}`}>
+                  {formatSeasonStatColumn(seasonStats, column)}
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
