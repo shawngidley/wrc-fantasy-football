@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { PlayerNewsRow, type PlayerNewsItem } from "@/components/PlayerNewsRow";
 import { supabase } from "@/lib/supabase";
 import { RefreshCw, Newspaper } from "lucide-react";
+import { fetchTank01News } from "@/hooks/useNFLNews";
 
 // ── ESPN types ────────────────────────────────────────────────────────────────
 interface ESPNArticle {
@@ -54,11 +55,13 @@ export default function PlayerNews() {
   const fetchNews = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch(
-        "https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=200"
-      );
-      const json = await res.json();
-      const allArticles: ESPNArticle[] = json.articles ?? [];
+      // Fetch ESPN and Tank01 in parallel
+      const [espnResult, tank01Result] = await Promise.allSettled([
+        fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=200").then(r => r.json()),
+        fetchTank01News(),
+      ]);
+      const allArticles: ESPNArticle[] = espnResult.status === "fulfilled" ? (espnResult.value.articles ?? []) : [];
+      const tank01News = tank01Result.status === "fulfilled" ? tank01Result.value : [];
 
       const found: PlayerNewsItem[] = [];
       const seen = new Set<string>();
@@ -96,9 +99,26 @@ export default function PlayerNews() {
         });
       }
 
-      setItems(
-        found.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime())
-      );
+      // Add Tank01 news items not already seen in ESPN feed
+      const injuryKeywords = ["injured","injury","questionable","doubtful","out","ir","placed on","ruled out","limited","missed","surgery","knee","hamstring","ankle","shoulder","concussion","rib","back","wrist","hip","illness"];
+      for (const t of tank01News) {
+        if (!t.title || seen.has(t.title)) continue;
+        seen.add(t.title);
+        const isInjury = injuryKeywords.some(kw => t.title.toLowerCase().includes(kw));
+        found.push({
+          playerName: "",
+          pos: "",
+          nflTeam: "",
+          headline: t.title,
+          description: undefined,
+          published: new Date().toISOString(),
+          url: t.link,
+          athleteId: t.playerIDs?.[0] ? parseInt(t.playerIDs[0]) : undefined,
+          isInjury,
+        });
+      }
+
+      setItems(found.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime()));
     } catch {
       setItems([]);
     } finally {
@@ -143,7 +163,7 @@ export default function PlayerNews() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem", flexWrap: "wrap", gap: "0.75rem" }}>
           <div className="wrc-page-title" style={{ padding: 0 }}>
             <h1>News</h1>
-            <p>ESPN NFL news — fantasy-relevant players</p>
+          <p>NFL news — ESPN + Tank01 fantasy updates</p>
           </div>
           <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
             {franchise && (

@@ -619,6 +619,23 @@ export default function PlayerPage() {
     gameLogSeason
   );
 
+  // Depth chart position from Tank01
+  const [depthPosition, setDepthPosition] = useState<string | null>(null);
+  useEffect(() => {
+    if (!player?.team || !player?.longName) return;
+    import("@/hooks/useNFLDepthCharts").then(({ fetchTeamDepthChart }) => {
+      fetchTeamDepthChart(player.team).then(positions => {
+        const nameLower = player.longName.toLowerCase();
+        for (const entries of Object.values(positions)) {
+          const match = (entries as { depthPosition: string; longName: string }[]).find(
+            e => e.longName.toLowerCase() === nameLower
+          );
+          if (match) { setDepthPosition(match.depthPosition); break; }
+        }
+      });
+    });
+  }, [player?.team, player?.longName]);
+
   // Fetch ESPN news for this specific player
   const fetchPlayerNews = useCallback(async (name: string) => {
     if (!name) return;
@@ -789,6 +806,19 @@ export default function PlayerPage() {
                         />
                         <span className="text-slate-300 text-sm font-medium">{player.team}</span>
                       </div>
+                      {/* Depth chart position */}
+                      {depthPosition && (
+                        <span style={{
+                          display: "inline-flex", alignItems: "center",
+                          background: "oklch(0.22 0.08 150)", color: "oklch(0.78 0.15 85)",
+                          fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700,
+                          fontSize: "0.72rem", letterSpacing: "0.06em",
+                          padding: "2px 8px", borderRadius: 4,
+                          border: "1px solid oklch(0.35 0.1 150)",
+                        }}>
+                          DEPTH: {depthPosition}
+                        </span>
+                      )}
                       {/* Physical */}
                       {player.height && (
                         <span className="text-slate-400 text-sm">{player.height}, {player.weight} lbs</span>

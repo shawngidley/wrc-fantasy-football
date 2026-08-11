@@ -25,6 +25,7 @@ import { Search, DollarSign, ChevronRight, Trophy, Clock, ArrowUpDown, Users, Ar
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { toast } from "sonner";
 import Navigation from "@/components/Navigation";
+import { useNFLDepthCharts } from "@/hooks/useNFLDepthCharts";
 
 // ── Position badge colors ────────────────────────────────────────────────────
 const POS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -296,6 +297,7 @@ export default function FreeAgents() {
 
   // Injury designations
   const { injuries } = useNFLInjuries();
+  const { depthMap } = useNFLDepthCharts();
 
   // Free agents = players in NFL_PLAYERS_2026 not owned
   const freeAgents = useMemo(() => {
@@ -616,6 +618,16 @@ export default function FreeAgents() {
                             <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", marginTop: 1 }}>
                               <PosBadge pos={player.pos} />
                               <span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.06 150)" }}>{player.nflTeam}</span>
+                              {depthMap.get(player.name.toLowerCase())?.depthPosition && (
+                                <span style={{
+                                  fontSize: "0.62rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif",
+                                  padding: "1px 4px", borderRadius: 3, flexShrink: 0,
+                                  background: "oklch(0.22 0.08 150)", color: "oklch(0.78 0.15 85)",
+                                  border: "1px solid oklch(0.35 0.1 150)",
+                                }}>
+                                  {depthMap.get(player.name.toLowerCase())?.depthPosition}
+                                </span>
+                              )}
                               {isOwned && (
                                 <span style={{ fontSize: "0.65rem", color: "oklch(0.42 0.1 240)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.03em", background: "oklch(0.92 0.04 240)", border: "1px solid oklch(0.78 0.08 240)", borderRadius: 4, padding: "0px 4px" }}>
                                   {ownerTeam}
