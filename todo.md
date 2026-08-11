@@ -24,3 +24,9 @@
 - [x] Replace the limited sort controls with sortable market and season-stat table headers.
 - [x] Add ascending and descending direction indicators to the active header.
 - [x] Validate desktop and mobile sorting behavior.
+
+# Free Agents Superflex Filter
+
+- [x] Replace ALL with a QB/RB/WR/TE-only SFLEX filter.
+- [x] Remove K and DST categories from the combined SFLEX stats table.
+- [x] Verify position filters and mobile table behavior.

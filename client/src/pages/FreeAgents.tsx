@@ -253,7 +253,7 @@ function CommissionerBids({ week }: { week: number }) {
 type SortKey = "name" | "bye" | "proj" | "adp" | SeasonStatKey;
 type SortDirection = "asc" | "desc";
 
-const ALL_POSITION_COLUMNS: SeasonStatColumn[] = [
+const SFLEX_COLUMNS: SeasonStatColumn[] = [
   { label: "GP", key: "gp" },
   { label: "PASS YDS", key: "passYds" },
   { label: "PASS TD", key: "passTD" },
@@ -264,11 +264,6 @@ const ALL_POSITION_COLUMNS: SeasonStatColumn[] = [
   { label: "TGT", key: "targets" },
   { label: "REC YDS", key: "recYds" },
   { label: "REC TD", key: "recTD" },
-  { label: "FGM/FGA", key: "fgMade", pair: ["fgMade", "fgAtt"] },
-  { label: "SACK", key: "sacks" },
-  { label: "DEF INT", key: "defInt" },
-  { label: "FR", key: "fumblesRecovered" },
-  { label: "DEF TD", key: "defTD" },
   { label: "WRC PTS", key: "wrcPts", decimals: 1, gold: true },
   { label: "PTS/G", key: "ptsPerGame", decimals: 1, gold: true },
 ];
@@ -276,7 +271,7 @@ const ALL_POSITION_COLUMNS: SeasonStatColumn[] = [
 // ── Main FreeAgents page ─────────────────────────────────────────────────────
 export default function FreeAgents() {
   const { franchise } = useAuth();
-  const [posFilter, setPosFilter] = useState<string>("ALL");
+  const [posFilter, setPosFilter] = useState<string>("SFLEX");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("proj");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
@@ -335,7 +330,9 @@ export default function FreeAgents() {
   // market and stat column can be used as a sort key.
   const baseFiltered = useMemo(() => {
     let list = playerScope === "fa" ? freeAgents : allPlayers;
-    if (posFilter !== "ALL") {
+    if (posFilter === "SFLEX") {
+      list = list.filter((p) => ["QB", "RB", "WR", "TE"].includes(p.pos));
+    } else {
       list = list.filter((p) => p.pos === posFilter);
     }
     if (search.trim()) {
@@ -353,7 +350,7 @@ export default function FreeAgents() {
   );
   const { statMap: seasonStatMap, loading: seasonStatsLoading, loadedCount: seasonStatsLoaded } = useNFLSeasonStats(seasonStatPlayers, true);
   const seasonColumns = useMemo(
-    () => posFilter !== "ALL" ? getSeasonStatColumns(posFilter) : ALL_POSITION_COLUMNS,
+    () => posFilter === "SFLEX" ? SFLEX_COLUMNS : getSeasonStatColumns(posFilter),
     [posFilter]
   );
   const statsGridColumns = useMemo(
@@ -402,7 +399,7 @@ export default function FreeAgents() {
     [seasonColumns]
   );
 
-  const positions = ["ALL", "QB", "RB", "WR", "TE", "K", "DST"];
+  const positions = ["SFLEX", "QB", "RB", "WR", "TE", "K", "DST"];
   const isCommissioner = franchise?.is_commissioner;
   const faabBalance = franchise?.faab ?? 1000;
 
@@ -603,7 +600,7 @@ export default function FreeAgents() {
             {/* ── Player count ── */}
             <p style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.55)", marginBottom: "0.5rem" }}>
               Showing <strong style={{ color: "rgba(255,255,255,0.85)" }}>{filtered.length}</strong> {playerScope === "all" ? "player" : "free agent"}{filtered.length !== 1 ? "s" : ""}
-              {posFilter !== "ALL" ? ` at ${posFilter}` : ""}
+              {posFilter === "SFLEX" ? " · Superflex eligible" : ` at ${posFilter}`}
               {search ? ` matching "${search}"` : ""}
             </p>
 
