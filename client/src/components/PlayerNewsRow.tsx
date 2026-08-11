@@ -60,6 +60,15 @@ export function PlayerNewsRow({
     setExpanded(v => !v);
   }
 
+  function handleHeadlineClick(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (item.url) {
+      window.open(item.url, "_blank", "noopener,noreferrer");
+    } else {
+      setExpanded(v => !v);
+    }
+  }
+
   return (
     <div
       style={{
@@ -129,13 +138,42 @@ export function PlayerNewsRow({
           whiteSpace: expanded ? "normal" : "nowrap" as const,
           maxWidth: "100%",
         }}>
-          {item.headline}
+          <span
+            onClick={item.url ? handleHeadlineClick : undefined}
+            style={{ cursor: item.url ? "pointer" : "default", textDecoration: item.url ? "underline" : "none", textDecorationColor: "oklch(0.65 0.06 240)" }}
+          >
+            {item.headline}
+          </span>
         </div>
-        {expanded && item.description && (
-          <div style={{ fontSize: "0.7rem", color: "oklch(0.45 0.04 150)", lineHeight: 1.5, marginTop: "0.3rem" }}>
-            {item.description}
-          </div>
-        )}
+          {expanded && item.description && (
+            <div style={{ fontSize: "0.7rem", color: "oklch(0.45 0.04 150)", lineHeight: 1.5, marginTop: "0.3rem" }}>
+              {item.description}
+              {item.url && (
+                <a
+                  href={item.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  style={{ display: "inline-block", marginTop: "0.35rem", fontSize: "0.68rem", color: "oklch(0.42 0.18 240)", fontWeight: 700, textDecoration: "none", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.03em" }}
+                >
+                  Read full article →
+                </a>
+              )}
+            </div>
+          )}
+          {expanded && !item.description && item.url && (
+            <div style={{ marginTop: "0.3rem" }}>
+              <a
+                href={item.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                style={{ fontSize: "0.68rem", color: "oklch(0.42 0.18 240)", fontWeight: 700, textDecoration: "none", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.03em" }}
+              >
+                Read full article →
+              </a>
+            </div>
+          )}
       </div>
 
       {/* Expand chevron */}
