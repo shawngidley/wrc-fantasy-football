@@ -43,6 +43,19 @@ export const appRouter = router({
     logout: publicProcedure.mutation(({ ctx }) => { clearLeagueSessionCookie(ctx); return { success: true } as const; }),
   }),
 
+  lineups: router({
+    save: publicProcedure.input(z.object({ teamId: z.string(), week: z.number().int(), season: z.number().int(), rows: z.array(z.object({ slot: z.string(), player_id: z.string(), player_name: z.string(), is_bench: z.boolean() })) })).mutation(async ({ input, ctx }) => {
+      const session = await readLeagueSession(ctx);
+      if (!session || session.teamId !== input.teamId) throw new Error("Not authorized to save this lineup");
+      const admin = getSupabaseAdmin();
+      const { error: deleted } = await admin.from("lineups").delete().eq("team_id", input.teamId).eq("week", input.week).eq("season", input.season);
+      if (deleted) throw new Error("Unable to replace lineup");
+      const { error: inserted } = await admin.from("lineups").insert(input.rows.map(row => ({ ...row, team_id: input.teamId, week: input.week, season: input.season })));
+      if (inserted) throw new Error("Unable to save lineup");
+      return { success: true } as const;
+    }),
+  }),
+
   fantasyPros: router({
     news: publicProcedure
       .input(z.object({ limit: z.number().int().min(1).max(100).optional() }).optional())
