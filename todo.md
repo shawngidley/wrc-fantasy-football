@@ -223,3 +223,9 @@
 - [x] Show several current roster injuries and news results rather than the minimal preview.
 - [x] Include the available FantasyPros impact, description, practice, and availability blurbs in feed panels.
 - [ ] Verify roster briefing feeds on a mobile owner view.
+
+# Vipers Player News Feed Regression
+
+- [x] Inspect the exact Vipers roster names and FantasyPros player-ID resolution in production.
+- [x] Correct global roster-news matching when a deployed owner roster receives no player-specific updates.
+- [ ] Verify detailed Player News renders for the Vipers mobile roster briefing.
