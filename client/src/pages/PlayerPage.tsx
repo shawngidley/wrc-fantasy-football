@@ -726,16 +726,6 @@ export default function PlayerPage() {
                           DEPTH: {depthPosition}
                         </span>
                       )}
-                      {fantasyRank?.ecr && (
-                        <span style={{
-                          display: "inline-flex", alignItems: "center", background: "oklch(0.31 0.11 85)",
-                          color: "oklch(0.96 0.05 85)", fontFamily: "Barlow Condensed, sans-serif",
-                          fontWeight: 800, fontSize: "0.72rem", letterSpacing: "0.05em", padding: "2px 8px",
-                          borderRadius: 4, border: "1px solid oklch(0.55 0.16 85)",
-                        }}>
-                          FP ECR #{fantasyRank.ecr}{fantasyRank.tier ? ` · T${fantasyRank.tier}` : ""}
-                        </span>
-                      )}
                       {fantasyProjection?.pprPoints != null && (
                         <span style={{
                           display: "inline-flex", alignItems: "center", background: "oklch(0.22 0.08 240)",
@@ -827,13 +817,13 @@ export default function PlayerPage() {
               </div>
             </div>
 
-            {playerNews[0] && (
+            {(fantasyInjury || playerNews[0]) && (
               <div className="relative z-10 rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-[10px] font-bold tracking-[0.16em] uppercase text-indigo-700">FantasyPros Outlook</span>
                   <span className="text-[10px] font-medium text-indigo-500">Latest player context</span>
                 </div>
-                <p className="mt-1.5 text-sm leading-relaxed text-indigo-950">{playerNews[0].description || playerNews[0].headline}</p>
+                <p className="mt-1.5 text-sm leading-relaxed text-indigo-950">{fantasyInjury?.comment || playerNews[0]?.description || playerNews[0]?.headline || "Latest FantasyPros context is not available yet."}</p>
               </div>
             )}
 

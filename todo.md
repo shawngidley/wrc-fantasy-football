@@ -107,3 +107,9 @@
 - [ ] Fix Outlook stacking and spacing so the next card cannot cover it.
 - [ ] Show a headline-based Outlook fallback when no FantasyPros description is present.
 - [ ] Verify the visible card hierarchy on desktop and mobile.
+
+# Player Card ECR and Outlook Revision
+
+- [ ] Remove the duplicate FantasyPros ECR badge from the player header.
+- [ ] Build the Outlook from the available FantasyPros news or injury context.
+- [ ] Verify the revised Player Card hierarchy with a player who has an active injury update.
