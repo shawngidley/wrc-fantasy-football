@@ -79,7 +79,7 @@
 
 # Player Card FantasyPros Layout
 
-- [ ] Add the horizontal FantasyPros Insights strip below the player header.
-- [ ] Add conditional FantasyPros injury and availability information.
-- [ ] Use FantasyPros as the sole Player Card news source with visible source labels.
+- [x] Add the horizontal FantasyPros Insights strip below the player header.
+- [x] Add conditional FantasyPros injury and availability information.
+- [x] Use FantasyPros as the sole Player Card news source with visible source labels.
 - [ ] Verify desktop and mobile Player Card layout with a healthy and injured player.

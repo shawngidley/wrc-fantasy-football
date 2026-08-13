@@ -550,10 +550,12 @@ export default function PlayerPage() {
     { enabled: Boolean(player?.longName), staleTime: 60 * 60_000 },
   );
   const fantasyProsNews = trpc.fantasyPros.news.useQuery({ limit: 100 }, { staleTime: 15 * 60_000 });
+  const fantasyProsInjuries = trpc.fantasyPros.injuries.useQuery({ year: 2026, week: nflWeek }, { staleTime: 20 * 60_000 });
   const normalizePlayerName = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
   const normalizedPlayerName = normalizePlayerName(player?.longName ?? "");
   const fantasyRank = (fantasyProsRanks.data ?? []).find(item => normalizePlayerName(item.name) === normalizedPlayerName);
   const fantasyProjection = (fantasyProsProjections.data ?? []).find(item => normalizePlayerName(item.name) === normalizedPlayerName);
+  const fantasyInjury = (fantasyProsInjuries.data ?? []).find(item => normalizePlayerName(item.name) === normalizedPlayerName);
 
   // Schedule and game log
   const { schedule, loading: scheduleLoading } = useNFLTeamSchedule(player?.team ?? null, 2026);
@@ -825,12 +827,12 @@ export default function PlayerPage() {
               </div>
             </div>
 
-            {hasInjury && (
+            {(hasInjury || fantasyInjury) && (
               <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 flex items-start gap-3">
                 <AlertCircle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-bold text-amber-900">Injury & Availability · {injuryLabel(injury.designation)}</p>
-                  <p className="text-xs text-amber-800 mt-0.5">{injury.description || "FantasyPros and team availability updates will appear here."}</p>
+                  <p className="text-sm font-bold text-amber-900">Injury & Availability · {fantasyInjury?.shortStatus || injuryLabel(injury?.designation ?? "")}</p>
+                  <p className="text-xs text-amber-800 mt-0.5">{fantasyInjury ? [fantasyInjury.injuryType, fantasyInjury.comment, fantasyInjury.probabilityOfPlaying != null ? `${fantasyInjury.probabilityOfPlaying}% chance to play` : "", fantasyInjury.practices.length ? `Practice: ${fantasyInjury.practices.join(" / ")}` : ""].filter(Boolean).join(" · ") : injury?.description || "FantasyPros availability updates will appear here."}</p>
                 </div>
               </div>
             )}
