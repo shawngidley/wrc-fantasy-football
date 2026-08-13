@@ -837,6 +837,16 @@ export default function PlayerPage() {
               </div>
             )}
 
+            {playerNews[0]?.description && (
+              <div className="rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[10px] font-bold tracking-[0.16em] uppercase text-indigo-700">FantasyPros Outlook</span>
+                  <span className="text-[10px] font-medium text-indigo-500">Latest player context</span>
+                </div>
+                <p className="mt-1.5 text-sm leading-relaxed text-indigo-950">{playerNews[0].description}</p>
+              </div>
+            )}
+
             {/* ── Ownership card ── */}
             <div className={`rounded-2xl border shadow-sm px-4 py-3 ${isFreeAgent ? "bg-amber-50 border-amber-200" : "bg-emerald-50 border-emerald-200"}`}>
               <div className="flex items-center justify-between gap-3">

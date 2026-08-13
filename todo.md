@@ -90,3 +90,9 @@
 - [ ] Match FantasyPros news to every player on the logged-in owner’s roster.
 - [ ] Render all matched injuries and news in the homepage sections with FantasyPros attribution.
 - [ ] Verify feeds for an owner roster on desktop and mobile.
+
+# Player Card FantasyPros Outlook
+
+- [ ] Extract the latest player-specific FantasyPros impact context.
+- [ ] Render a concise FantasyPros Outlook blurb on Player Cards.
+- [ ] Verify an outlook is shown only when a player has matched FantasyPros context.
