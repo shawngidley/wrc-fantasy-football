@@ -11,7 +11,7 @@ export function filterNewsBySource(items: PlayerNewsItem[], source: NewsSourceFi
 /** FantasyPros generic news may omit player_name; recover a headline-leading name for display. */
 export function inferFantasyProsPlayerName(title: string): string {
   const cleaned = title.replace(/\s*\([^)]*\)/g, "").trim();
-  const verbs = "is|signs|released|waived|misses|suffers|works|returns|dealing|placed|goes|not|will|plays|starts|exits|practices|participated|expected|day";
+  const verbs = "is|to|signing|signs|released|waived|misses|suffers|works|returns|dealing|placed|goes|not|will|plays|starts|exits|practices|participated|expected|day";
   const match = cleaned.match(new RegExp(`^([A-Z][A-Za-z.'-]*(?:\\s+(?:[A-Z][A-Za-z.'-]*|Jr\\.?|Sr\\.?|II|III)){1,3})(?=\\s+(?:${verbs})\\b)`));
   return match?.[1] ?? "FantasyPros Update";
 }

@@ -272,6 +272,23 @@
 - [x] Verify the FantasyPros-default News source dropdown at a true mobile viewport.
 - [ ] Verify Tank01 and All News switching remains usable alongside position filters on mobile.
 
+# FantasyPros Linked Player Identity
+
+- [x] Inspect FantasyPros generic-news link metadata for authoritative player identity.
+- [x] Resolve generic FantasyPros stories to the linked player before headline or neutral fallback naming.
+- [x] Verify Kenneth Walker and another linked FantasyPros story show actual player names and headshots.
+
+# FantasyPros Linked Player UI Verification
+
+- [x] Verify Kenneth Walker and a second formerly unnamed FantasyPros story render with resolved names and headshots in the News UI.
+- [x] Investigate and resolve any remaining generic FantasyPros rows that fail player-name resolution.
+
+# Complete FantasyPros Player Identity Audit
+
+- [x] Verify Spencer Rattler renders with both his resolved name and ESPN headshot in the News UI.
+- [x] Audit the full populated FantasyPros feed for remaining generic fallback labels.
+- [x] Add focused coverage for multiple unnamed generic FantasyPros player-ID resolutions.
+
 # Live Scoring Lineup Headshots
 
 - [x] Resolve ESPN headshots for every offensive and defensive Live Scoring lineup player.

@@ -19,6 +19,8 @@ describe("filterNewsBySource", () => {
 
   it("recovers a player name from generic FantasyPros headlines when needed", () => {
     expect(inferFantasyProsPlayerName("John Michael Schmitz Jr. (concussion) misses practice Wednesday")).toBe("John Michael Schmitz Jr.");
+    expect(inferFantasyProsPlayerName("Spencer Rattler to start preseason opener Saturday")).toBe("Spencer Rattler");
+    expect(inferFantasyProsPlayerName("Zamir White signing with 49ers")).toBe("Zamir White");
     expect(inferFantasyProsPlayerName("Source: Panthers add to TE room")).toBe("FantasyPros Update");
   });
 });
