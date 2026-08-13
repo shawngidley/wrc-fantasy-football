@@ -83,3 +83,10 @@
 - [x] Add conditional FantasyPros injury and availability information.
 - [x] Use FantasyPros as the sole Player Card news source with visible source labels.
 - [ ] Verify desktop and mobile Player Card layout with a healthy and injured player.
+
+# Homepage FantasyPros Roster Feeds
+
+- [ ] Match FantasyPros injury availability to every player on the logged-in owner’s roster.
+- [ ] Match FantasyPros news to every player on the logged-in owner’s roster.
+- [ ] Render all matched injuries and news in the homepage sections with FantasyPros attribution.
+- [ ] Verify feeds for an owner roster on desktop and mobile.

@@ -17,6 +17,9 @@ import { SCHEDULE_2026, OWNER_TO_TEAM, getCurrentWeek } from "@/lib/scheduleData
 import { Link } from "wouter";
 import { TEAM_NAME_TO_ID } from "@/pages/Lineup";
 import TeamLogo from "@/components/TeamLogo";
+import { trpc } from "@/lib/trpc";
+
+const normalizeRosterName = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -219,6 +222,7 @@ function InjuryReport({ ownerKey }: { ownerKey: string }) {
 
   const teamId = OWNER_TO_TEAM_ID[ownerKey] ?? `team-${ownerKey.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
   const [myPlayers, setMyPlayers] = useState<{ name: string; pos: string; nflTeam: string }[]>([]);
+  const fantasyProsInjuries = trpc.fantasyPros.injuries.useQuery({ year: 2026, week: getCurrentWeek() || 1 }, { staleTime: 20 * 60_000 });
   useEffect(() => {
     supabase.from("players").select("name,position,nfl_team").eq("team_id", teamId).then(({ data }) => {
       if (data) setMyPlayers(data.map((p: { name: string; position: string; nfl_team: string }) => ({ name: p.name, pos: p.position, nflTeam: p.nfl_team })));
@@ -228,50 +232,18 @@ function InjuryReport({ ownerKey }: { ownerKey: string }) {
   const fetchInjuries = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=100");
-      const json = await res.json();
-      const articles: (ESPNArticle & { categories?: { type?: string; athleteId?: number; description: string }[] })[] = json.articles ?? [];
-
-      const injuryKeywords = ["injur", "questionable", "doubtful", "out ", "ir ", "placed on", "ruled out", "limited", "missed practice", "did not practice", "dnp", "hamstring", "knee", "ankle", "shoulder", "concussion", "rib", "surgery"];
-
-      // Build injury items for all NFL players (for "All League" view)
-      // and filter to myPlayers for "My Team" view
-      const found: PlayerNewsItem[] = [];
-      const seen = new Set<string>();
-
-      // Process articles that match injury keywords
-      for (const a of articles) {
-        const text = (a.headline + " " + (a.description ?? "")).toLowerCase();
-        if (!injuryKeywords.some(kw => text.includes(kw))) continue;
-        const athleteId = getAthleteId(a.categories);
-        // Try to match to a known player name from article categories
-        const athleteCat = (a.categories ?? []).find(c => c.type === "athlete");
-        const playerName = athleteCat?.description ?? "";
-        if (!playerName) continue;
-        if (seen.has(a.headline)) continue;
-        seen.add(a.headline);
-        // Find pos/team from myPlayers if available
-        const myP = myPlayers.find(p => p.name.toLowerCase() === playerName.toLowerCase());
-        found.push({
-          playerName,
-          pos: myP?.pos ?? "",
-          nflTeam: myP?.nflTeam ?? "",
-          headline: a.headline,
-          description: a.description,
-          published: a.published,
-          url: a.links?.web?.href,
-          athleteId,
-          isInjury: true,
-        });
-      }
-
-      setItems(found.slice(0, 30));
+      const roster = new Map(myPlayers.map(p => [normalizeRosterName(p.name), p]));
+      const found = (fantasyProsInjuries.data ?? []).filter(i => roster.has(normalizeRosterName(i.name))).map(i => {
+        const player = roster.get(normalizeRosterName(i.name));
+        return { playerName: i.name, pos: player?.pos ?? "", nflTeam: player?.nflTeam ?? i.team, headline: `${i.shortStatus || "Injury update"}${i.injuryType ? ` · ${i.injuryType}` : ""}`, description: [i.comment, i.probabilityOfPlaying != null ? `${i.probabilityOfPlaying}% chance to play` : "", i.practices.length ? `Practice: ${i.practices.join(" / ")}` : ""].filter(Boolean).join(" · "), published: new Date().toISOString(), isInjury: true, source: "FantasyPros" } as PlayerNewsItem;
+      });
+      setItems(found);
     } catch {
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [myPlayers]);
+  }, [myPlayers, fantasyProsInjuries.data]);
 
   useEffect(() => { fetchInjuries(); }, [fetchInjuries]);
 
@@ -329,6 +301,7 @@ function MyTeamNews({ ownerKey }: { ownerKey: string }) {
 
   const teamId = OWNER_TO_TEAM_ID[ownerKey] ?? `team-${ownerKey.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
   const [myPlayers, setMyPlayers] = useState<{ name: string; pos: string; nflTeam: string }[]>([]);
+  const fantasyProsNews = trpc.fantasyPros.news.useQuery({ limit: 100 }, { staleTime: 15 * 60_000 });
   useEffect(() => {
     supabase.from("players").select("name,position,nfl_team").eq("team_id", teamId).then(({ data }) => {
       if (data) setMyPlayers(data.map((p: { name: string; position: string; nfl_team: string }) => ({ name: p.name, pos: p.position, nflTeam: p.nfl_team })));
@@ -338,6 +311,13 @@ function MyTeamNews({ ownerKey }: { ownerKey: string }) {
   const fetchNews = useCallback(async () => {
     setLoading(true);
     try {
+      const roster = new Map(myPlayers.map(p => [normalizeRosterName(p.name), p]));
+      const found: PlayerNewsItem[] = (fantasyProsNews.data ?? []).filter(a => roster.has(normalizeRosterName(a.playerName))).map(a => {
+        const myP = roster.get(normalizeRosterName(a.playerName));
+        return { playerName: a.playerName, pos: myP?.pos ?? "", nflTeam: myP?.nflTeam ?? a.team, headline: a.title, description: [a.description, a.impact].filter(Boolean).join(" "), published: a.published, url: a.link, source: "FantasyPros" } as PlayerNewsItem;
+      });
+      setItems(found.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime()));
+    /*
       const res = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=100");
       const json = await res.json();
       const allArticles: ESPNArticle[] = json.articles ?? [];
@@ -369,13 +349,13 @@ function MyTeamNews({ ownerKey }: { ownerKey: string }) {
         });
       }
 
-      setItems(found.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime()).slice(0, 50));
+      setItems(found.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime()).slice(0, 50));*/
     } catch {
       setItems([]);
     } finally {
       setLoading(false);
     }
-  }, [myPlayers]);
+  }, [myPlayers, fantasyProsNews.data]);
 
   useEffect(() => { fetchNews(); }, [fetchNews]);
 
