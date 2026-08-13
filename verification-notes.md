@@ -37,3 +37,17 @@ The published card was loaded at `/player/Trey-McBride?v=cde2c289`, which forced
 The historical Player Card hook had versioned session-storage keys but did not actively remove obsolete schemas. The parser correction changed the cached data shape from `wrc_espn_gl_v3_` to `wrc_espn_gl_v4_`; on the next current-client run, the hook now removes all older `wrc_espn_gl_` keys before reading the current schema. The new behavior is covered by a Vitest cache-purge test.
 
 Browser inspection of Trey McBride’s published Player Card found the prior cache schema still present: `wrc_espn_gl_v3_4361307_2022`, `_2023`, `_2024`, and `_2025`. After the new client bundle loads, it removes those stale keys, fetches the corrected game-log values under the `v4` schema, and then reuses only the fresh entries.
+
+After the v4 recovery bundle published, the normal production URL `/player/Trey-McBride` was loaded without a query string. It returned the corrected historical rows directly: 2024 — 111 REC, 147 TGTS, 1,146 YDS, 10.3 AVG, 2 TD; 2023 — 81 REC, 106 TGTS, 825 YDS, 10.2 AVG, 3 TD; 2022 — 29 REC, 39 TGTS, 265 YDS, 9.1 AVG, 1 TD.
+
+## All-Player Player Card Audit — 2026-08-13
+
+The Player Card uses shared FantasyPros rank queries and the shared ESPN season-stats hook for all player positions. Initial Josh Allen inspection confirmed the quarterback row enters the shared renderer; the external ranking response and historical game-log requests had not completed at initial capture, so final cross-position verification remains pending.
+
+Josh Allen’s completed Player Card shows the shared quarterback historical parser and team-logo row data. Saquon Barkley verified the shared running-back parser after cache refresh: his 2024 row now reads 345 CAR, 2,005 rushing YDS, 5.8 AVG, 13 rushing TD, 33 REC, 278 receiving YDS, and 2 receiving TD. DOM inspection confirmed the season-logo column resolves PHI for 2025–2024 and NYG for 2023–2020, without any player-specific lookup table.
+
+Davante Adams identified a general veteran-player edge case: ESPN’s game-log endpoint returned a season filter without event data for athlete ID 16800, while its season-total endpoint returned complete category totals and team metadata. The shared hook now falls back to that season-total endpoint for any player whose game log has no labels, so older and veteran players receive prior-year stats and a primary-season team logo without a custom player map.
+
+Davante Adams’s completed fallback rows verify the shared veteran path: 2024 — 85 REC, 141 TGTS, 1,063 YDS, 12.5 AVG, 8 TD; 2023 — 103 REC, 175 TGTS, 1,144 YDS, 11.1 AVG, 8 TD; 2022 — 100 REC, 180 TGTS, 1,516 YDS, 15.2 AVG, 14 TD. Comma-formatted ESPN totals are now parsed numerically before averages and WRC points are calculated.
+
+The FantasyPros Overall ECR and Position Rank fields are produced through the shared Player Card queries for every supported position. Historical parsing has now been covered by unit tests for quarterback passing/rushing groups, running-back rushing/receiving groups, wide-receiver/tight-end receiving-first groups, kicker accuracy, and defensive categories. Representative live cards verified Josh Allen (QB), Saquon Barkley (RB, PHI/NYG season logos), Davante Adams (WR, LAR/NYJ/LV/GB season logos), and Trey McBride (TE).

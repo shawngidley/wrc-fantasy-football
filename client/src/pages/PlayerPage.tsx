@@ -165,6 +165,7 @@ function MultiSeasonStatsTable({
   const currentRow: SeasonStatRow | null = currentStats
     ? {
         season: 2025,
+        team: currentNflTeam,
         gp: parseInt(String(currentStats.gamesPlayed ?? "0"), 10),
         passYds:    Number(currentStats.Passing?.passYds ?? 0),
         passTD:     Number(currentStats.Passing?.passTD ?? 0),
@@ -214,50 +215,6 @@ function MultiSeasonStatsTable({
     ...seasons.filter(s => !currentRow || s.season !== currentRow.season),
   ];
   const allRows: SeasonStatRow[] = merged.sort((a, b) => b.season - a.season);
-
-  // ── NFL team per season lookup ──────────────────────────────────────────────
-  // Static map: espnId → { year: teamAbv }. Covers all WRC rostered players.
-  // Current season always uses currentNflTeam from Tank01 live data.
-  const TEAM_HISTORY: Record<string, Record<number, string>> = {
-    "3052587": { 2016:"CLE",2017:"CLE",2018:"CLE",2019:"CLE",2020:"CLE",2021:"CLE",2022:"CAR",2023:"TB",2024:"TB" }, // Baker Mayfield
-    "3916387": { 2018:"BAL",2019:"BAL",2020:"BAL",2021:"BAL",2022:"BAL",2023:"BAL",2024:"BAL" }, // Lamar Jackson
-    "3918298": { 2018:"BUF",2019:"BUF",2020:"BUF",2021:"BUF",2022:"BUF",2023:"BUF",2024:"BUF" }, // Josh Allen
-    "3139477": { 2017:"KC",2018:"KC",2019:"KC",2020:"KC",2021:"KC",2022:"KC",2023:"KC",2024:"KC" }, // Patrick Mahomes
-    "2577417": { 2016:"DAL",2017:"DAL",2018:"DAL",2019:"DAL",2020:"DAL",2021:"DAL",2022:"DAL",2023:"DAL",2024:"DAL" }, // Dak Prescott
-    "4040715": { 2020:"PHI",2021:"PHI",2022:"PHI",2023:"PHI",2024:"PHI" }, // Jalen Hurts
-    "4038941": { 2020:"LAC",2021:"LAC",2022:"LAC",2023:"LAC",2024:"LAC" }, // Justin Herbert
-    "4426348": { 2024:"WAS" }, // Jayden Daniels
-    "4426338": { 2024:"DEN" }, // Bo Nix
-    "4431611": { 2024:"CHI" }, // Caleb Williams
-    "4432577": { 2023:"HOU",2024:"HOU" }, // C.J. Stroud
-    "4036378": { 2020:"GB",2021:"GB",2022:"GB",2023:"GB",2024:"GB" }, // Jordan Love
-    "4361741": { 2022:"SF",2023:"SF",2024:"SF" }, // Brock Purdy
-    "3917315": { 2019:"ARI",2020:"ARI",2021:"ARI",2022:"ARI",2023:"ARI",2024:"ARI" }, // Kyler Murray
-    "4431452": { 2024:"NE" }, // Drake Maye
-    "3929630": { 2018:"NYG",2019:"NYG",2020:"NYG",2021:"NYG",2022:"NYG",2023:"NYG",2024:"PHI" }, // Saquon Barkley
-    "3043078": { 2016:"TEN",2017:"TEN",2018:"TEN",2019:"TEN",2020:"TEN",2021:"TEN",2022:"TEN",2023:"TEN",2024:"BAL" }, // Derrick Henry
-    "3117251": { 2017:"CAR",2018:"CAR",2019:"CAR",2020:"CAR",2021:"CAR",2022:"CAR",2023:"SF",2024:"SF" }, // Christian McCaffrey
-    "4890973": { 2024:"LV" }, // Ashton Jeanty
-    "4242335": { 2020:"IND",2021:"IND",2022:"IND",2023:"IND",2024:"IND" }, // Jonathan Taylor
-    "4427366": { 2022:"NYJ",2023:"NYJ",2024:"NYJ" }, // Breece Hall
-    "4047365": { 2019:"LV",2020:"LV",2021:"LV",2022:"LV",2023:"GB",2024:"GB" }, // Josh Jacobs
-    "4429795": { 2023:"DET",2024:"DET" }, // Jahmyr Gibbs
-    "4430807": { 2023:"ATL",2024:"ATL" }, // Bijan Robinson
-    "4362628": { 2021:"CIN",2022:"CIN",2023:"CIN",2024:"CIN" }, // Ja'Marr Chase
-    "4262921": { 2020:"MIN",2021:"MIN",2022:"MIN",2023:"MIN",2024:"MIN" }, // Justin Jefferson
-    "4241389": { 2020:"DAL",2021:"DAL",2022:"DAL",2023:"DAL",2024:"DAL" }, // CeeDee Lamb
-    "16800":   { 2014:"GB",2015:"GB",2016:"GB",2017:"GB",2018:"GB",2019:"GB",2020:"GB",2021:"GB",2022:"LV",2023:"LV",2024:"NYJ" }, // Davante Adams
-    "15847":   { 2013:"KC",2014:"KC",2015:"KC",2016:"KC",2017:"KC",2018:"KC",2019:"KC",2020:"KC",2021:"KC",2022:"KC",2023:"KC",2024:"KC" }, // Travis Kelce
-    "3040151": { 2017:"SF",2018:"SF",2019:"SF",2020:"SF",2021:"SF",2022:"SF",2023:"SF",2024:"SF" }, // George Kittle
-    "4361307": { 2022:"ARI",2023:"ARI",2024:"ARI" }, // Trey McBride
-    "4432665": { 2024:"LV" }, // Brock Bowers
-  };
-
-  function getTeamForSeason(season: number): string {
-    if (season === 2025 && currentNflTeam) return currentNflTeam;
-    const history = TEAM_HISTORY[espnId];
-    return history?.[season] ?? (season === 2025 && currentNflTeam ? currentNflTeam : "");
-  }
 
   // Define columns per position
   type Col = { label: string; key: keyof SeasonStatRow; dec?: number; highlight?: boolean; gold?: boolean };
@@ -378,12 +335,12 @@ function MultiSeasonStatsTable({
                   {i === 0 && <span className="ml-1.5 text-xs font-semibold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded">Latest</span>}
                 </td>
                 <td className={`px-3 py-2.5 text-left ${i === 0 ? "bg-emerald-50/60" : i % 2 === 0 ? "bg-white" : "bg-slate-50/40"}`}>
-                  {getTeamForSeason(row.season) ? (
+                  {row.team ? (
                     <img
-                      src={getTeamLogoUrl(getTeamForSeason(row.season))}
-                      alt={getTeamForSeason(row.season)}
+                      src={getTeamLogoUrl(row.team)}
+                      alt={row.team}
                       className="w-6 h-6 object-contain"
-                      title={getTeamForSeason(row.season)}
+                      title={row.team}
                     />
                   ) : <span className="text-slate-400 text-xs">—</span>}
                 </td>

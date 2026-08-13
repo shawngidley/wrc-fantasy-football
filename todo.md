@@ -195,4 +195,11 @@
 
 - [x] Inspect session-storage cache behavior for pre-parser Player Card data and document the recovery path.
 - [x] Automatically clear obsolete historical-stat cache keys when the cache schema changes.
-- [ ] Verify Trey McBride’s published page loads corrected prior-season rows without a cache-busting query string.
+- [x] Verify Trey McBride’s published page loads corrected prior-season rows without a cache-busting query string.
+
+# All-Player Player Card Consistency
+
+- [x] Confirm overall ECR and position rank use shared FantasyPros logic for every player position.
+- [x] Audit shared ESPN historical-stat parsing across quarterback, running back, wide receiver, tight end, kicker, and defense cards.
+- [x] Populate an NFL team logo for every historical season row using the team recorded for that season.
+- [x] Verify the standard with representative Player Cards across positions and team changes.
