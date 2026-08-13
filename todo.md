@@ -289,6 +289,23 @@
 - [x] Audit the full populated FantasyPros feed for remaining generic fallback labels.
 - [x] Add focused coverage for multiple unnamed generic FantasyPros player-ID resolutions.
 
+# Production Mobile FantasyPros Zero-Result Failure
+
+- [x] Compare the production and development FantasyPros News request lifecycle and result payloads.
+- [x] Prevent mobile clients from reaching an empty FantasyPros state when the source request is delayed or transiently fails.
+- [ ] Verify the published mobile FantasyPros News view displays current items after a fresh load.
+
+# FantasyPros News Failure-State Recovery
+
+- [x] Prevent a failed FantasyPros query from rendering the ordinary zero-article empty state.
+- [x] Retain the last successful FantasyPros feed while a refresh or retry is in progress.
+- [x] Verify delayed and failed FantasyPros query states display clear recovery feedback.
+
+# Browser FantasyPros Failure Recovery Verification
+
+- [x] Force a failed FantasyPros News query and verify the temporary-unavailable message instead of the zero-article state.
+- [x] Verify last successful FantasyPros rows stay visible during a delayed or failed refresh.
+
 # Live Scoring Lineup Headshots
 
 - [x] Resolve ESPN headshots for every offensive and defensive Live Scoring lineup player.

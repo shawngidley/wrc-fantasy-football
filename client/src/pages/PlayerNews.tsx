@@ -5,7 +5,7 @@
  * No player browser, no search filters, no FAAB balance.
  * Just the news list with a My Team toggle.
  */
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { PlayerNewsRow, type PlayerNewsItem } from "@/components/PlayerNewsRow";
@@ -14,6 +14,7 @@ import { RefreshCw, Newspaper } from "lucide-react";
 import { fetchTank01News } from "@/hooks/useNFLNews";
 import { trpc } from "@/lib/trpc";
 import { filterNewsBySource, inferFantasyProsPlayerName, type NewsSourceFilter } from "@/lib/newsSourceFilter";
+import { getFantasyProsFeedState, retainLastSuccessfulItems } from "@/lib/fantasyProsFeedState";
 
 // ── ESPN types ────────────────────────────────────────────────────────────────
 interface ESPNArticle {
@@ -32,14 +33,18 @@ function getAthleteId(cats?: { type?: string; athleteId?: number }[]): number | 
 export default function PlayerNews() {
   const { franchise } = useAuth();
 
-  const [items, setItems] = useState<PlayerNewsItem[]>([]);
+  const [nonFantasyProsItems, setNonFantasyProsItems] = useState<PlayerNewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [myTeamOnly, setMyTeamOnly] = useState(false);
   const [posFilter, setPosFilter] = useState<string>("ALL");
   const [sourceFilter, setSourceFilter] = useState<NewsSourceFilter>("FANTASYPROS");
   const [myPlayers, setMyPlayers] = useState<{ name: string; pos: string; nflTeam: string }[]>([]);
   const newsRequestId = useRef(0);
-  const fantasyProsNews = trpc.fantasyPros.news.useQuery({ limit: 50 }, { staleTime: 15 * 60_000 });
+  const lastSuccessfulFantasyProsItems = useRef<PlayerNewsItem[]>([]);
+  const fantasyProsNews = trpc.fantasyPros.news.useQuery(
+    { limit: 50 },
+    { staleTime: 15 * 60_000, retry: 3, retryDelay: attempt => Math.min(1_000 * 2 ** attempt, 8_000) },
+  );
 
   // Load the logged-in owner's players for "My Team" filter
   useEffect(() => {
@@ -61,14 +66,13 @@ export default function PlayerNews() {
     const requestId = ++newsRequestId.current;
     setLoading(true);
     try {
-      // Fetch ESPN and Tank01 in parallel; FantasyPros is server-proxied and cached.
+      // Fetch non-FantasyPros sources in parallel. FantasyPros renders directly from its query below.
       const [espnResult, tank01Result] = await Promise.allSettled([
         fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=200").then(r => r.json()),
         fetchTank01News(),
       ]);
       const allArticles: ESPNArticle[] = espnResult.status === "fulfilled" ? (espnResult.value.articles ?? []) : [];
       const tank01News = tank01Result.status === "fulfilled" ? tank01Result.value : [];
-      const fpNews = fantasyProsNews.data ?? [];
 
       const found: PlayerNewsItem[] = [];
       const seen = new Set<string>();
@@ -127,38 +131,55 @@ export default function PlayerNews() {
         });
       }
 
-      // FantasyPros adds structured fantasy impact and injury context.
-      for (const fp of fpNews) {
-        if (!fp.title || seen.has(fp.title)) continue;
-        seen.add(fp.title);
-        const playerName = fp.playerName || inferFantasyProsPlayerName(fp.title);
-        const myP = myPlayers.find(p => p.name.toLowerCase() === playerName.toLowerCase());
-        const text = `${fp.title} ${fp.description} ${fp.impact}`.toLowerCase();
-        const isInjury = injuryKeywords.some(kw => text.includes(kw));
-        found.push({
-          playerName,
-          pos: myP?.pos ?? "",
-          nflTeam: myP?.nflTeam ?? fp.team,
-          headline: fp.title,
-          description: fp.impact || fp.description || undefined,
-          published: fp.published,
-          url: fp.link,
-          isInjury,
-          source: "FantasyPros",
-        });
-      }
-
       if (newsRequestId.current === requestId) {
-        setItems(found.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime()));
+        setNonFantasyProsItems(found.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime()));
       }
     } catch {
-      if (newsRequestId.current === requestId) setItems([]);
+      if (newsRequestId.current === requestId) setNonFantasyProsItems([]);
     } finally {
       if (newsRequestId.current === requestId) setLoading(false);
     }
-  }, [myPlayers, fantasyProsNews.data]);
+  }, [myPlayers]);
 
   useEffect(() => { fetchNews(); }, [fetchNews]);
+
+  const fantasyProsItems = useMemo<PlayerNewsItem[]>(() => {
+    const injuryKeywords = ["injured","injury","questionable","doubtful","out","ir","placed on","ruled out","limited","missed","surgery","knee","hamstring","ankle","shoulder","concussion","rib","back","wrist","hip","illness"];
+    return (fantasyProsNews.data ?? []).filter(fp => fp.title).map(fp => {
+      const playerName = fp.playerName || inferFantasyProsPlayerName(fp.title);
+      const myP = myPlayers.find(p => p.name.toLowerCase() === playerName.toLowerCase());
+      const text = `${fp.title} ${fp.description} ${fp.impact}`.toLowerCase();
+      return {
+        playerName,
+        pos: myP?.pos ?? "",
+        nflTeam: myP?.nflTeam ?? fp.team,
+        headline: fp.title,
+        description: fp.impact || fp.description || undefined,
+        published: fp.published,
+        url: fp.link,
+        isInjury: injuryKeywords.some(kw => text.includes(kw)),
+        source: "FantasyPros" as const,
+      };
+    });
+  }, [fantasyProsNews.data, myPlayers]);
+
+  useEffect(() => {
+    if (fantasyProsItems.length > 0) lastSuccessfulFantasyProsItems.current = fantasyProsItems;
+  }, [fantasyProsItems]);
+
+  const visibleFantasyProsItems = retainLastSuccessfulItems(fantasyProsItems, lastSuccessfulFantasyProsItems.current);
+
+  const items = useMemo(
+    () => [...nonFantasyProsItems, ...visibleFantasyProsItems].sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime()),
+    [nonFantasyProsItems, visibleFantasyProsItems],
+  );
+  const fantasyProsFeedState = getFantasyProsFeedState({
+    itemCount: visibleFantasyProsItems.length,
+    isLoading: fantasyProsNews.isLoading,
+    isError: fantasyProsNews.isError,
+  });
+  const isSourceLoading = loading || (sourceFilter === "FANTASYPROS" && fantasyProsFeedState === "loading");
+  const isSourceUnavailable = sourceFilter === "FANTASYPROS" && fantasyProsFeedState === "unavailable";
 
   // My Team filter
   const myPlayerNames = new Set(myPlayers.map(p => p.name.toLowerCase()));
@@ -274,14 +295,20 @@ export default function PlayerNews() {
               NFL PLAYER NEWS
             </span>
             <span style={{ fontSize: "0.7rem", color: "oklch(0.55 0.04 150)" }}>
-            {loading ? "Loading…" : `${posFiltered.length} articles`}
+            {isSourceLoading ? "Loading…" : `${posFiltered.length} articles`}
             </span>
           </div>
 
-          {loading ? (
+          {isSourceLoading ? (
             <div style={{ padding: "2rem 1rem", textAlign: "center" }}>
               <div style={{ display: "inline-block", width: 24, height: 24, border: "3px solid oklch(0.88 0.04 150)", borderTopColor: "oklch(0.42 0.15 150)", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
               <p style={{ marginTop: "0.75rem", fontSize: "0.85rem", color: "oklch(0.55 0.04 150)" }}>Loading player news…</p>
+            </div>
+          ) : isSourceUnavailable ? (
+            <div style={{ padding: "2rem 1rem", textAlign: "center", color: "oklch(0.48 0.04 150)" }}>
+              <Newspaper size={32} style={{ margin: "0 auto 0.75rem", opacity: 0.35 }} />
+              <p style={{ margin: 0, fontSize: "0.9rem", fontWeight: 600 }}>FantasyPros news is temporarily unavailable.</p>
+              <p style={{ margin: "0.45rem 0 0", fontSize: "0.78rem" }}>Tap refresh to try again. Your last loaded updates will remain visible when available.</p>
             </div>
           ) : posFiltered.length === 0 ? (
             <div style={{ padding: "2rem 1rem", textAlign: "center", color: "oklch(0.55 0.04 150)" }}>

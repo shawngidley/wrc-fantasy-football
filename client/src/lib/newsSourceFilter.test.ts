@@ -21,6 +21,8 @@ describe("filterNewsBySource", () => {
     expect(inferFantasyProsPlayerName("John Michael Schmitz Jr. (concussion) misses practice Wednesday")).toBe("John Michael Schmitz Jr.");
     expect(inferFantasyProsPlayerName("Spencer Rattler to start preseason opener Saturday")).toBe("Spencer Rattler");
     expect(inferFantasyProsPlayerName("Zamir White signing with 49ers")).toBe("Zamir White");
+    expect(inferFantasyProsPlayerName("Kenneth Walker III primed for workhorse role")).toBe("Kenneth Walker III");
+    expect(inferFantasyProsPlayerName("Chuba Hubbard (hamstring) week-to-week with hamstring injury")).toBe("Chuba Hubbard");
     expect(inferFantasyProsPlayerName("Source: Panthers add to TE room")).toBe("FantasyPros Update");
   });
 });
