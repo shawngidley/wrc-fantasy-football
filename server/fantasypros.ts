@@ -96,8 +96,13 @@ async function request<T>(path: string, cacheTtlMs: number): Promise<T> {
   return value;
 }
 
-export async function getFantasyProsNews(limit = 50): Promise<FantasyProsNewsItem[]> {
-  const data = asRecord(await request<unknown>(`/nfl/news?limit=${Math.min(Math.max(limit, 1), 100)}&order_by=updated`, 15 * 60_000));
+export async function getFantasyProsNews(limit = 50, fpid?: number): Promise<FantasyProsNewsItem[]> {
+  const query = new URLSearchParams({
+    limit: String(Math.min(Math.max(limit, 1), 100)),
+    order_by: "updated",
+  });
+  if (fpid != null) query.set("fpid", String(fpid));
+  const data = asRecord(await request<unknown>(`/nfl/news?${query.toString()}`, 15 * 60_000));
   return asArray(data.items).map(item => {
     const row = asRecord(item);
     return {

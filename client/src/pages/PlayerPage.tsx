@@ -556,6 +556,11 @@ export default function PlayerPage() {
   const fantasyRank = (fantasyProsRanks.data ?? []).find(item => normalizePlayerName(item.name) === normalizedPlayerName);
   const fantasyProjection = (fantasyProsProjections.data ?? []).find(item => normalizePlayerName(item.name) === normalizedPlayerName);
   const fantasyInjury = (fantasyProsInjuries.data ?? []).find(item => normalizePlayerName(item.name) === normalizedPlayerName);
+  const fantasyProsPlayerNews = trpc.fantasyPros.news.useQuery(
+    { limit: 10, fpid: fantasyRank?.playerId ?? undefined },
+    { enabled: Boolean(fantasyRank?.playerId), staleTime: 15 * 60_000 },
+  );
+  const fantasyProsExpertNoteUrl = `https://www.fantasypros.com/nfl/notes/${playerName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}.php`;
 
   // Schedule and game log
   const { schedule, loading: scheduleLoading } = useNFLTeamSchedule(player?.team ?? null, 2026);
@@ -585,8 +590,9 @@ export default function PlayerPage() {
   useEffect(() => {
     const name = normalizePlayerName(player?.longName ?? "");
     const injuryWords = /injur|questionable|doubtful|out|ir|limited|missed practice|dnp|hamstring|knee|ankle|shoulder|concussion/i;
-    setPlayerNews((fantasyProsNews.data ?? []).filter(item => normalizePlayerName(item.playerName) === name).map(item => ({ playerName: item.playerName, pos: player?.pos ?? "", nflTeam: item.team, headline: item.title, description: [item.description, item.impact].filter(Boolean).join(" "), published: item.published, url: item.link, isInjury: injuryWords.test(`${item.title} ${item.description} ${item.impact}`), source: "FantasyPros" } as PlayerNewsItem)));
-  }, [player?.longName, player?.pos, fantasyProsNews.data]);
+    const playerSpecificNews = fantasyProsPlayerNews.data ?? (fantasyProsNews.data ?? []).filter(item => normalizePlayerName(item.playerName) === name);
+    setPlayerNews(playerSpecificNews.map(item => ({ playerName: item.playerName, pos: player?.pos ?? "", nflTeam: item.team, headline: item.title, description: [item.description, item.impact].filter(Boolean).join(" "), published: item.published, url: item.link, isInjury: injuryWords.test(`${item.title} ${item.description} ${item.impact}`), source: "FantasyPros" } as PlayerNewsItem)));
+  }, [player?.longName, player?.pos, fantasyProsNews.data, fantasyProsPlayerNews.data]);
 
   // Injury info
   const injury = player?.injury;
@@ -744,6 +750,12 @@ export default function PlayerPage() {
                       {player.age && (
                         <span className="text-slate-400 text-sm">Age {player.age} · {player.exp === "R" ? "Rookie" : `${player.exp} yr${Number(player.exp) !== 1 ? "s" : ""}`}</span>
                       )}
+                      {ownership && !isFreeAgent && (
+                        <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-emerald-200">
+                          <TeamLogo teamName={ownership.teamName} size={22} round />
+                          {ownership.teamName}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -817,13 +829,16 @@ export default function PlayerPage() {
               </div>
             </div>
 
-            {(fantasyInjury?.comment || playerNews[0]?.description || playerNews[0]?.headline) && (
+            {(fantasyProsPlayerNews.data?.[0]?.impact || fantasyInjury?.comment) && (
               <div className="relative z-10 rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-[10px] font-bold tracking-[0.16em] uppercase text-indigo-700">FantasyPros Outlook</span>
-                  <span className="text-[10px] font-medium text-indigo-500">Latest player context</span>
+                  <span className="text-[10px] font-bold tracking-[0.16em] uppercase text-indigo-700">FantasyPros Expert Impact</span>
+                  <span className="text-[10px] font-medium text-indigo-500">{fantasyProsPlayerNews.data?.[0]?.author || "FantasyPros"}</span>
                 </div>
-                <p className="mt-1.5 text-sm leading-relaxed text-indigo-950">{fantasyInjury?.comment || playerNews[0]?.description || playerNews[0]?.headline}</p>
+                <p className="mt-1.5 text-sm leading-relaxed text-indigo-950">{fantasyProsPlayerNews.data?.[0]?.impact || fantasyInjury?.comment}</p>
+                <a href={fantasyProsExpertNoteUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-flex text-xs font-semibold text-indigo-700 hover:text-indigo-900 hover:underline">
+                  Read the full Expert Note on FantasyPros →
+                </a>
               </div>
             )}
 
@@ -832,13 +847,13 @@ export default function PlayerPage() {
                 <AlertCircle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-bold text-amber-900">Injury & Availability · {fantasyInjury?.shortStatus || injuryLabel(injury?.designation ?? "")}</p>
-                  <p className="text-xs text-amber-800 mt-0.5">{fantasyInjury ? [fantasyInjury.injuryType, fantasyInjury.comment, fantasyInjury.probabilityOfPlaying != null ? `${fantasyInjury.probabilityOfPlaying}% chance to play` : "", fantasyInjury.practices.length ? `Practice: ${fantasyInjury.practices.join(" / ")}` : ""].filter(Boolean).join(" · ") : injury?.description || "FantasyPros availability updates will appear here."}</p>
+                  <p className="text-xs text-amber-800 mt-0.5">{fantasyInjury ? [fantasyInjury.injuryType, fantasyInjury.comment, fantasyInjury.probabilityOfPlaying != null ? `${fantasyInjury.probabilityOfPlaying}% chance to play` : "", fantasyInjury.practices.length ? `Practice: ${fantasyInjury.practices.join(" / ")}` : ""].filter(Boolean).join(" · ") : "Official status is shown above. FantasyPros has not published a separate availability note for this player."}</p>
                 </div>
               </div>
             )}
 
             {/* ── Ownership card ── */}
-            <div className={`rounded-2xl border shadow-sm px-4 py-3 ${isFreeAgent ? "bg-amber-50 border-amber-200" : "bg-emerald-50 border-emerald-200"}`}>
+            <div className={`hidden rounded-2xl border shadow-sm px-4 py-3 ${isFreeAgent ? "bg-amber-50 border-amber-200" : "bg-emerald-50 border-emerald-200"}`}>
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   {/* Logo or star icon */}

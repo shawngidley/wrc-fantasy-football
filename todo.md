@@ -125,3 +125,10 @@
 - [ ] Remove rank-repetition text from the FantasyPros Outlook fallback.
 - [ ] Show the Outlook only when written FantasyPros player context is available.
 - [ ] Verify rank-only players retain Insights without a redundant Outlook card.
+
+# Player Card Source and Ownership Header
+
+- [x] Use FantasyPros expert-impact fields only for the Outlook, excluding third-party attribution text.
+- [x] Remove the standalone ownership row from Player Cards.
+- [x] Add the roster team logo and team name to the Player Card header.
+- [x] Verify source labeling and ownership header layout.

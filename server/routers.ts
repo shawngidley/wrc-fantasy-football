@@ -26,8 +26,8 @@ export const appRouter = router({
 
   fantasyPros: router({
     news: publicProcedure
-      .input(z.object({ limit: z.number().int().min(1).max(100).optional() }).optional())
-      .query(({ input }) => getFantasyProsNews(input?.limit ?? 50)),
+      .input(z.object({ limit: z.number().int().min(1).max(100).optional(), fpid: z.number().int().positive().optional() }).optional())
+      .query(({ input }) => getFantasyProsNews(input?.limit ?? 50, input?.fpid)),
     injuries: publicProcedure
       .input(z.object({ year: z.number().int(), week: z.number().int().min(0).max(18) }))
       .query(({ input }) => getFantasyProsInjuries(input.year, input.week)),
