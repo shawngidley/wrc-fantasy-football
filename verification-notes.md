@@ -87,3 +87,9 @@ The dedicated News page loaded 138 items and exposed each row as a disclosure co
 The fragile React-managed expand state was replaced with native `details` and `summary` markup. A forced News-page reload activated the new component; the development page was still waiting for its external news request at immediate capture, so final populated-row interaction verification remains pending the response load.
 
 After the feed loaded, the first native News summary was tapped. It opened visibly, showed an explicit source-summary fallback for the Tank01 item, and revealed its `Read full article` link. This native control avoids the React local-state path that had remained closed after every tap. Final phone-sized confirmation remains pending.
+
+## News Source Dropdown — 2026-08-13
+
+The News page now defaults to FantasyPros through a `News Source` dropdown. The first generic source request completed after the concurrently refreshed ESPN and Tank01 fetches, which allowed an earlier page request to set the empty state afterward. Request-version protection now ignores stale completions. The default FantasyPros view returned 49 current detailed items; Tank01 returned 50 items; and All News returned 140 combined items. When FantasyPros omits a player name in generic news, the page safely derives a leading name from the headline for display and headshot resolution, otherwise showing a neutral FantasyPros Update label.
+
+At a 375×812 mobile viewport, the FantasyPros-default dropdown rendered above the position filter pills without clipping and remained legible. The data request was still loading at capture; desktop interaction separately verified Tank01 and All News content switches. Final hands-on mobile source-switch confirmation remains pending.

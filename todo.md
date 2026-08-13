@@ -255,6 +255,23 @@
 - [x] Make the complete news row expand on tap while preserving a separate full-article link.
 - [ ] Verify the repaired interaction with a mobile-sized News-page row.
 
+# News Source Dropdown
+
+- [x] Add a News source dropdown with FantasyPros as the default selection.
+- [x] Support FantasyPros, Tank01, and All News source options alongside position filters.
+- [x] Verify source-switching content and default FantasyPros behavior on mobile.
+
+# FantasyPros Default News Population
+
+- [x] Diagnose the empty generic FantasyPros News response in the deployed News page.
+- [x] Ensure the default FantasyPros source option returns current detailed player-news items.
+- [x] Verify the FantasyPros default, Tank01, and All News options with populated results.
+
+# Mobile News Source Dropdown Verification
+
+- [x] Verify the FantasyPros-default News source dropdown at a true mobile viewport.
+- [ ] Verify Tank01 and All News switching remains usable alongside position filters on mobile.
+
 # Live Scoring Lineup Headshots
 
 - [x] Resolve ESPN headshots for every offensive and defensive Live Scoring lineup player.

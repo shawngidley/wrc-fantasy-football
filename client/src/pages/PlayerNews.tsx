@@ -5,7 +5,7 @@
  * No player browser, no search filters, no FAAB balance.
  * Just the news list with a My Team toggle.
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { PlayerNewsRow, type PlayerNewsItem } from "@/components/PlayerNewsRow";
@@ -13,6 +13,7 @@ import { supabase } from "@/lib/supabase";
 import { RefreshCw, Newspaper } from "lucide-react";
 import { fetchTank01News } from "@/hooks/useNFLNews";
 import { trpc } from "@/lib/trpc";
+import { filterNewsBySource, inferFantasyProsPlayerName, type NewsSourceFilter } from "@/lib/newsSourceFilter";
 
 // ── ESPN types ────────────────────────────────────────────────────────────────
 interface ESPNArticle {
@@ -35,7 +36,9 @@ export default function PlayerNews() {
   const [loading, setLoading] = useState(true);
   const [myTeamOnly, setMyTeamOnly] = useState(false);
   const [posFilter, setPosFilter] = useState<string>("ALL");
+  const [sourceFilter, setSourceFilter] = useState<NewsSourceFilter>("FANTASYPROS");
   const [myPlayers, setMyPlayers] = useState<{ name: string; pos: string; nflTeam: string }[]>([]);
+  const newsRequestId = useRef(0);
   const fantasyProsNews = trpc.fantasyPros.news.useQuery({ limit: 50 }, { staleTime: 15 * 60_000 });
 
   // Load the logged-in owner's players for "My Team" filter
@@ -55,6 +58,7 @@ export default function PlayerNews() {
   }, [franchise?.id]);
 
   const fetchNews = useCallback(async () => {
+    const requestId = ++newsRequestId.current;
     setLoading(true);
     try {
       // Fetch ESPN and Tank01 in parallel; FantasyPros is server-proxied and cached.
@@ -127,7 +131,7 @@ export default function PlayerNews() {
       for (const fp of fpNews) {
         if (!fp.title || seen.has(fp.title)) continue;
         seen.add(fp.title);
-        const playerName = fp.playerName || "NFL Player";
+        const playerName = fp.playerName || inferFantasyProsPlayerName(fp.title);
         const myP = myPlayers.find(p => p.name.toLowerCase() === playerName.toLowerCase());
         const text = `${fp.title} ${fp.description} ${fp.impact}`.toLowerCase();
         const isInjury = injuryKeywords.some(kw => text.includes(kw));
@@ -144,11 +148,13 @@ export default function PlayerNews() {
         });
       }
 
-      setItems(found.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime()));
+      if (newsRequestId.current === requestId) {
+        setItems(found.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime()));
+      }
     } catch {
-      setItems([]);
+      if (newsRequestId.current === requestId) setItems([]);
     } finally {
-      setLoading(false);
+      if (newsRequestId.current === requestId) setLoading(false);
     }
   }, [myPlayers, fantasyProsNews.data]);
 
@@ -169,15 +175,16 @@ export default function PlayerNews() {
       )
     : items;
 
-  // Position filter — applied after My Team filter
+  // Source and position filters are applied after the roster filter.
   const POS_COLORS: Record<string, string> = {
     QB: "oklch(0.42 0.18 260)", RB: "oklch(0.38 0.15 150)",
     WR: "oklch(0.42 0.18 220)", TE: "oklch(0.55 0.16 85)",
     K:  "oklch(0.50 0.04 150)", DST: "oklch(0.45 0.18 25)",
   };
+  const sourceFiltered = filterNewsBySource(displayed, sourceFilter);
   const posFiltered = posFilter === "ALL"
-    ? displayed
-    : displayed.filter(it => it.pos === posFilter);
+    ? sourceFiltered
+    : sourceFiltered.filter(it => it.pos === posFilter);
 
   return (
     <div className="bg-turf bg-overlay" style={{ minHeight: "100vh" }}>
@@ -215,6 +222,23 @@ export default function PlayerNews() {
               <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
             </button>
           </div>
+        </div>
+
+        {/* Source filter */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", marginBottom: "0.85rem" }}>
+          <label htmlFor="news-source" style={{ fontFamily: "Barlow Condensed, sans-serif", color: "white", fontSize: "0.78rem", fontWeight: 700, letterSpacing: "0.06em", whiteSpace: "nowrap" }}>
+            NEWS SOURCE
+          </label>
+          <select
+            id="news-source"
+            value={sourceFilter}
+            onChange={event => setSourceFilter(event.target.value as NewsSourceFilter)}
+            style={{ flex: 1, maxWidth: 240, minHeight: 38, borderRadius: 10, border: "1.5px solid oklch(0.82 0.04 150)", background: "white", color: "oklch(0.28 0.06 150)", padding: "0.35rem 0.65rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", fontWeight: 700, letterSpacing: "0.03em" }}
+          >
+            <option value="FANTASYPROS">FantasyPros</option>
+            <option value="TANK01">Tank01</option>
+            <option value="ALL">All News</option>
+          </select>
         </div>
 
         {/* Position filter pills */}
@@ -259,11 +283,11 @@ export default function PlayerNews() {
               <div style={{ display: "inline-block", width: 24, height: 24, border: "3px solid oklch(0.88 0.04 150)", borderTopColor: "oklch(0.42 0.15 150)", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
               <p style={{ marginTop: "0.75rem", fontSize: "0.85rem", color: "oklch(0.55 0.04 150)" }}>Loading player news…</p>
             </div>
-          ) : displayed.length === 0 ? (
+          ) : posFiltered.length === 0 ? (
             <div style={{ padding: "2rem 1rem", textAlign: "center", color: "oklch(0.55 0.04 150)" }}>
               <Newspaper size={32} style={{ margin: "0 auto 0.75rem", opacity: 0.3 }} />
               <p style={{ margin: 0, fontSize: "0.9rem" }}>
-                {myTeamOnly ? "No recent news for your team players." : "No news articles found."}
+                {myTeamOnly ? "No recent news for your team players." : `No ${sourceFilter === "ALL" ? "" : sourceFilter === "FANTASYPROS" ? "FantasyPros " : "Tank01 "}news articles found.`}
               </p>
             </div>
           ) : (
