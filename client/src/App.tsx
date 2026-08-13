@@ -44,8 +44,8 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   if (!franchise) return <Redirect to="/" />;
   return <Component />;
 }
-
 function Router() {
+  // make sure to consider if you need authentication for certain routes
   return (
     <>
       <ScrollToTop />

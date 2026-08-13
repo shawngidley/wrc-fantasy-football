@@ -28,6 +28,7 @@ import Navigation from "@/components/Navigation";
 import { useNFLDepthCharts } from "@/hooks/useNFLDepthCharts";
 import { useNFLSeasonStats } from "@/hooks/useNFLSeasonStats";
 import { formatSeasonStatColumn, getSeasonStatColumns, type SeasonStatColumn, type SeasonStatKey } from "@/lib/playerSeasonStats";
+import { trpc } from "@/lib/trpc";
 
 // ── Position badge colors ────────────────────────────────────────────────────
 const POS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -48,6 +49,10 @@ function PosBadge({ pos }: { pos: string }) {
       fontSize: "0.72rem", fontWeight: 800, letterSpacing: "0.06em",
     }}>{pos}</span>
   );
+}
+
+function normalizePlayerName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
 // ── Pending bid interface ────────────────────────────────────────────────────
@@ -250,7 +255,7 @@ function CommissionerBids({ week }: { week: number }) {
 }
 
 // ── Sort options ─────────────────────────────────────────────────────────────
-type SortKey = "name" | "bye" | "proj" | "adp" | SeasonStatKey;
+type SortKey = "name" | "bye" | "proj" | "adp" | "ecr" | SeasonStatKey;
 type SortDirection = "asc" | "desc";
 
 const SFLEX_COLUMNS: SeasonStatColumn[] = [
@@ -290,6 +295,18 @@ export default function FreeAgents() {
 
   const currentWeek = getCurrentWeek();
   const week = currentWeek > 0 ? currentWeek : 1;
+  const fantasyProsQbRanks = trpc.fantasyPros.ranks.useQuery({ position: "QB", week }, { staleTime: 60 * 60_000 });
+  const fantasyProsRbRanks = trpc.fantasyPros.ranks.useQuery({ position: "RB", week }, { staleTime: 60 * 60_000 });
+  const fantasyProsWrRanks = trpc.fantasyPros.ranks.useQuery({ position: "WR", week }, { staleTime: 60 * 60_000 });
+  const fantasyProsTeRanks = trpc.fantasyPros.ranks.useQuery({ position: "TE", week }, { staleTime: 60 * 60_000 });
+  const fantasyProsRankMap = useMemo(() => new Map(
+    [
+      ...(fantasyProsQbRanks.data ?? []),
+      ...(fantasyProsRbRanks.data ?? []),
+      ...(fantasyProsWrRanks.data ?? []),
+      ...(fantasyProsTeRanks.data ?? []),
+    ].map(item => [normalizePlayerName(item.name), item]),
+  ), [fantasyProsQbRanks.data, fantasyProsRbRanks.data, fantasyProsWrRanks.data, fantasyProsTeRanks.data]);
 
   // Load owned player names from Supabase
   useEffect(() => {
@@ -356,11 +373,11 @@ export default function FreeAgents() {
     [posFilter]
   );
   const statsGridColumns = useMemo(
-    () => `210px 48px 62px 62px ${seasonColumns.map(() => "minmax(76px, auto)").join(" ")} 76px 30px`,
+    () => `210px 48px 62px 62px 62px ${seasonColumns.map(() => "minmax(76px, auto)").join(" ")} 76px 30px`,
     [seasonColumns]
   );
   const statsTableMinWidth = useMemo(
-    () => 210 + 48 + 62 + 62 + 76 * seasonColumns.length + 76 + 30,
+    () => 210 + 48 + 62 + 62 + 62 + 76 * seasonColumns.length + 76 + 30,
     [seasonColumns]
   );
 
@@ -384,6 +401,7 @@ export default function FreeAgents() {
       if (sortKey === "bye") return player.bye ?? 99;
       if (sortKey === "proj") return getProjectedPoints(projections, player.name, player.pos, player.nflTeam);
       if (sortKey === "adp") return player.adp;
+      if (sortKey === "ecr") return fantasyProsRankMap.get(normalizePlayerName(player.name))?.ecr ?? 9999;
       return seasonStatMap[player.name.toLowerCase()]?.[sortKey] ?? -1;
     };
 
@@ -395,7 +413,7 @@ export default function FreeAgents() {
         : Number(aValue) - Number(bValue);
       return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [baseFiltered, projections, seasonStatMap, sortDirection, sortKey]);
+  }, [baseFiltered, projections, fantasyProsRankMap, seasonStatMap, sortDirection, sortKey]);
 
   const handleSort = (nextKey: SortKey) => {
     if (nextKey === sortKey) {
@@ -403,7 +421,7 @@ export default function FreeAgents() {
       return;
     }
     setSortKey(nextKey);
-    setSortDirection(nextKey === "name" || nextKey === "bye" || nextKey === "adp" ? "asc" : "desc");
+    setSortDirection(nextKey === "name" || nextKey === "bye" || nextKey === "adp" || nextKey === "ecr" ? "asc" : "desc");
   };
 
   const tableHeaders = useMemo(
@@ -412,6 +430,7 @@ export default function FreeAgents() {
       { label: "Bye", key: "bye" as SortKey },
       { label: "Proj", key: "proj" as SortKey },
       { label: "ADP", key: "adp" as SortKey },
+      { label: "ECR", key: "ecr" as SortKey },
       ...seasonColumns.map((column) => ({ label: column.label, key: column.key as SortKey, column })),
       { label: "Action" },
       { label: "" },
@@ -628,6 +647,9 @@ export default function FreeAgents() {
               <strong style={{ color: "oklch(0.78 0.15 85)" }}>FULL STATS:</strong> Use the scroll rail below or swipe the table to see every stat column.
               {seasonStatsLoading ? ` Loading season totals (${seasonStatsLoaded}/${filtered.length})…` : ""}
             </p>
+            <p style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.52)", margin: "-0.4rem 0 0.6rem" }}>
+              ECR column and injury designations powered by FantasyPros.
+            </p>
 
             {/* ── Top horizontal scroll rail ── */}
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.45rem", color: "rgba(255,255,255,0.78)" }}>
@@ -697,6 +719,7 @@ export default function FreeAgents() {
                     const ownerTeam = ownershipMap[player.name.toLowerCase()];
                     const isOwned = !!ownerTeam;
                     const seasonStats = seasonStatMap[player.name.toLowerCase()];
+                    const fantasyRank = fantasyProsRankMap.get(normalizePlayerName(player.name));
                     return (
                       <div
                         key={player.id}
@@ -775,6 +798,11 @@ export default function FreeAgents() {
                         {/* ADP */}
                         <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.85rem", color: "oklch(0.5 0.06 150)", textAlign: "center" as const }}>
                           {player.adp.toFixed(1)}
+                        </span>
+
+                        {/* FantasyPros expert consensus rank */}
+                        <span title={fantasyRank?.tier ? `FantasyPros Tier ${fantasyRank.tier}` : "FantasyPros ECR"} style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.85rem", color: fantasyRank?.ecr ? "oklch(0.48 0.15 85)" : "oklch(0.65 0.06 150)", textAlign: "center" as const }}>
+                          {fantasyRank?.ecr ?? "—"}
                         </span>
 
                         {/* Position-aware Tank01 season totals */}

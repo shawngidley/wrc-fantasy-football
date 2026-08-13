@@ -17,6 +17,7 @@ export interface PlayerNewsItem {
   url?: string;
   athleteId?: number;  // ESPN athlete ID for headshot
   isInjury?: boolean;  // red flag icon if true
+  source?: "ESPN" | "Tank01" | "FantasyPros";
 }
 
 function formatDate(iso: string): string {
@@ -128,6 +129,11 @@ export function PlayerNewsRow({
           <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 600, color: "oklch(0.5 0.04 150)" }}>
             {item.pos}· {item.nflTeam}
           </span>
+          {item.source && (
+            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.56rem", fontWeight: 800, color: item.source === "FantasyPros" ? "oklch(0.5 0.16 85)" : "oklch(0.5 0.04 150)", letterSpacing: "0.03em" }}>
+              {item.source === "FantasyPros" ? "FP" : item.source}
+            </span>
+          )}
         </div>
         <div style={{
           fontSize: "0.72rem",

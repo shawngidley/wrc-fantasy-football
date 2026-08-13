@@ -10,7 +10,7 @@
 - [x] Create shared schemas and parsers for current-season position-specific stat columns.
 - [x] Add complete current-season columns to the Player Card.
 - [x] Add complete current-season columns to the Free Agents page.
-- [ ] Ensure both tables scroll horizontally on mobile and validate the responsive layout.
+- [x] Ensure both tables scroll horizontally on mobile and validate the responsive layout.
 
 # Supabase Security Alert
 
@@ -54,3 +54,25 @@
 - [x] Reduce the width of the pinned Player column for mobile stat visibility.
 - [x] Tighten the logo and player identity layout without losing readability.
 - [x] Verify the narrower column on mobile and desktop.
+
+# Fantasy Data Source Research
+
+- [x] Research authoritative fantasy-player news, injury, and analysis sources.
+- [x] Compare source speed, reliability, player context, and API availability.
+- [x] Present a recommended WRC source stack.
+
+# FantasyPros Usage Terms Review
+
+- [x] Review the current FantasyPros API terms for account, project, and redistribution limits.
+- [x] Give a terms-aligned recommendation for three private league builds.
+
+# FantasyPros Secure Integration
+
+- [x] Upgrade the static app for server-side secrets and API proxying.
+- [x] Store the FantasyPros API key in a server-side secret.
+- [x] Add cached server endpoints for FantasyPros news, injuries, rankings, and projections.
+- [x] Integrate FantasyPros data into WRC views with visible attribution.
+- [x] Verify no API key or raw API response is exposed to the browser.
+- [x] Add clear FantasyPros attribution beside Free Agents ECR and injury-powered data.
+- [x] Confirm the Player Card attribution renders with resolved player data.
+- [x] Verify built client assets and browser requests contain no FantasyPros API key or direct API request.

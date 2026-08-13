@@ -12,6 +12,7 @@ import { PlayerNewsRow, type PlayerNewsItem } from "@/components/PlayerNewsRow";
 import { supabase } from "@/lib/supabase";
 import { RefreshCw, Newspaper } from "lucide-react";
 import { fetchTank01News } from "@/hooks/useNFLNews";
+import { trpc } from "@/lib/trpc";
 
 // ── ESPN types ────────────────────────────────────────────────────────────────
 interface ESPNArticle {
@@ -35,6 +36,7 @@ export default function PlayerNews() {
   const [myTeamOnly, setMyTeamOnly] = useState(false);
   const [posFilter, setPosFilter] = useState<string>("ALL");
   const [myPlayers, setMyPlayers] = useState<{ name: string; pos: string; nflTeam: string }[]>([]);
+  const fantasyProsNews = trpc.fantasyPros.news.useQuery({ limit: 50 }, { staleTime: 15 * 60_000 });
 
   // Load the logged-in owner's players for "My Team" filter
   useEffect(() => {
@@ -55,13 +57,14 @@ export default function PlayerNews() {
   const fetchNews = useCallback(async () => {
     setLoading(true);
     try {
-      // Fetch ESPN and Tank01 in parallel
+      // Fetch ESPN and Tank01 in parallel; FantasyPros is server-proxied and cached.
       const [espnResult, tank01Result] = await Promise.allSettled([
         fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=200").then(r => r.json()),
         fetchTank01News(),
       ]);
       const allArticles: ESPNArticle[] = espnResult.status === "fulfilled" ? (espnResult.value.articles ?? []) : [];
       const tank01News = tank01Result.status === "fulfilled" ? tank01Result.value : [];
+      const fpNews = fantasyProsNews.data ?? [];
 
       const found: PlayerNewsItem[] = [];
       const seen = new Set<string>();
@@ -96,6 +99,7 @@ export default function PlayerNews() {
           url: a.links?.web?.href,
           athleteId,
           isInjury,
+          source: "ESPN",
         });
       }
 
@@ -115,6 +119,28 @@ export default function PlayerNews() {
           url: t.link,
           athleteId: t.playerIDs?.[0] ? parseInt(t.playerIDs[0]) : undefined,
           isInjury,
+          source: "Tank01",
+        });
+      }
+
+      // FantasyPros adds structured fantasy impact and injury context.
+      for (const fp of fpNews) {
+        if (!fp.title || seen.has(fp.title)) continue;
+        seen.add(fp.title);
+        const playerName = fp.playerName || "NFL Player";
+        const myP = myPlayers.find(p => p.name.toLowerCase() === playerName.toLowerCase());
+        const text = `${fp.title} ${fp.description} ${fp.impact}`.toLowerCase();
+        const isInjury = injuryKeywords.some(kw => text.includes(kw));
+        found.push({
+          playerName,
+          pos: myP?.pos ?? "",
+          nflTeam: myP?.nflTeam ?? fp.team,
+          headline: fp.title,
+          description: fp.impact || fp.description || undefined,
+          published: fp.published,
+          url: fp.link,
+          isInjury,
+          source: "FantasyPros",
         });
       }
 
@@ -124,7 +150,7 @@ export default function PlayerNews() {
     } finally {
       setLoading(false);
     }
-  }, [myPlayers]);
+  }, [myPlayers, fantasyProsNews.data]);
 
   useEffect(() => { fetchNews(); }, [fetchNews]);
 
@@ -163,7 +189,7 @@ export default function PlayerNews() {
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem", flexWrap: "wrap", gap: "0.75rem" }}>
           <div className="wrc-page-title" style={{ padding: 0 }}>
             <h1>News</h1>
-          <p>NFL news — ESPN + Tank01 fantasy updates</p>
+          <p>NFL news — ESPN, Tank01 & FantasyPros updates</p>
           </div>
           <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
             {franchise && (
@@ -182,7 +208,7 @@ export default function PlayerNews() {
               </button>
             )}
             <button
-              onClick={fetchNews}
+              onClick={() => { void fantasyProsNews.refetch(); void fetchNews(); }}
               style={{ background: "white", border: "1.5px solid oklch(0.82 0.04 150)", borderRadius: 20, padding: "0.4rem 0.75rem", cursor: "pointer", color: "oklch(0.45 0.06 150)", display: "flex", alignItems: "center", gap: "0.3rem" }}
               title="Refresh news"
             >
@@ -231,7 +257,7 @@ export default function PlayerNews() {
           {loading ? (
             <div style={{ padding: "2rem 1rem", textAlign: "center" }}>
               <div style={{ display: "inline-block", width: 24, height: 24, border: "3px solid oklch(0.88 0.04 150)", borderTopColor: "oklch(0.42 0.15 150)", borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-              <p style={{ marginTop: "0.75rem", fontSize: "0.85rem", color: "oklch(0.55 0.04 150)" }}>Loading ESPN news…</p>
+              <p style={{ marginTop: "0.75rem", fontSize: "0.85rem", color: "oklch(0.55 0.04 150)" }}>Loading player news…</p>
             </div>
           ) : displayed.length === 0 ? (
             <div style={{ padding: "2rem 1rem", textAlign: "center", color: "oklch(0.55 0.04 150)" }}>
@@ -247,6 +273,9 @@ export default function PlayerNews() {
               ))}
             </div>
           )}
+          <div style={{ borderTop: "1px solid oklch(0.93 0.005 150)", padding: "0.55rem 1rem", fontSize: "0.62rem", color: "oklch(0.52 0.04 150)" }}>
+            FantasyPros data is used under its personal, non-commercial API license.
+          </div>
         </div>
 
       </div>

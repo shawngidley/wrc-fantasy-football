@@ -28,6 +28,7 @@ import { useNFLTeamSchedule, parseDate, type ScheduleGame } from "@/hooks/useNFL
 import { useNFLGameLog, type GameLogEntry } from "@/hooks/useNFLGameLog";
 import TeamLogo from "@/components/TeamLogo";
 import { PlayerNewsRow, type PlayerNewsItem } from "@/components/PlayerNewsRow";
+import { trpc } from "@/lib/trpc";
 
 // ── Position badge colors ────────────────────────────────────────────────────
 const POS_COLORS: Record<string, string> = {
@@ -535,6 +536,19 @@ export default function PlayerPage() {
   const nflWeek = currentWeek > 0 ? currentWeek : 1; // default to week 1 pre-season
   const { matchups: matchupMap, loading: matchupLoading } = useNFLMatchups(nflWeek);
   const matchup = player?.team ? matchupMap[player.team] : undefined;
+  const fantasyProsPosition = (["QB", "RB", "WR", "TE", "K", "DST"].includes(player?.pos ?? "") ? player?.pos : "OP") as "QB" | "RB" | "WR" | "TE" | "K" | "DST" | "OP";
+  const fantasyProsRanks = trpc.fantasyPros.ranks.useQuery(
+    { position: fantasyProsPosition, week: nflWeek },
+    { enabled: Boolean(player?.longName), staleTime: 60 * 60_000 },
+  );
+  const fantasyProsProjections = trpc.fantasyPros.projections.useQuery(
+    { position: fantasyProsPosition, week: nflWeek },
+    { enabled: Boolean(player?.longName), staleTime: 60 * 60_000 },
+  );
+  const normalizePlayerName = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const normalizedPlayerName = normalizePlayerName(player?.longName ?? "");
+  const fantasyRank = (fantasyProsRanks.data ?? []).find(item => normalizePlayerName(item.name) === normalizedPlayerName);
+  const fantasyProjection = (fantasyProsProjections.data ?? []).find(item => normalizePlayerName(item.name) === normalizedPlayerName);
 
   // Schedule and game log
   const { schedule, loading: scheduleLoading } = useNFLTeamSchedule(player?.team ?? null, 2026);
@@ -744,6 +758,26 @@ export default function PlayerPage() {
                           DEPTH: {depthPosition}
                         </span>
                       )}
+                      {fantasyRank?.ecr && (
+                        <span style={{
+                          display: "inline-flex", alignItems: "center", background: "oklch(0.31 0.11 85)",
+                          color: "oklch(0.96 0.05 85)", fontFamily: "Barlow Condensed, sans-serif",
+                          fontWeight: 800, fontSize: "0.72rem", letterSpacing: "0.05em", padding: "2px 8px",
+                          borderRadius: 4, border: "1px solid oklch(0.55 0.16 85)",
+                        }}>
+                          FP ECR #{fantasyRank.ecr}{fantasyRank.tier ? ` · T${fantasyRank.tier}` : ""}
+                        </span>
+                      )}
+                      {fantasyProjection?.pprPoints != null && (
+                        <span style={{
+                          display: "inline-flex", alignItems: "center", background: "oklch(0.22 0.08 240)",
+                          color: "oklch(0.88 0.07 240)", fontFamily: "Barlow Condensed, sans-serif",
+                          fontWeight: 800, fontSize: "0.72rem", letterSpacing: "0.05em", padding: "2px 8px",
+                          borderRadius: 4, border: "1px solid oklch(0.38 0.12 240)",
+                        }}>
+                          FP PPR {fantasyProjection.pprPoints.toFixed(1)}
+                        </span>
+                      )}
                       {/* Physical */}
                       {player.height && (
                         <span className="text-slate-400 text-sm">{player.height}, {player.weight} lbs</span>
@@ -782,6 +816,7 @@ export default function PlayerPage() {
                   </div>
                 )}
                 <div className="flex-1" />
+                <span className="text-[10px] text-slate-400 font-medium">FantasyPros data</span>
                 {/* ESPN link */}
                 <a
                   href={player.espnLink}
