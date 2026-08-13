@@ -311,3 +311,9 @@
 - [x] Resolve ESPN headshots for every offensive and defensive Live Scoring lineup player.
 - [x] Preserve initials fallback for D/ST and unresolved player images.
 - [ ] Verify headshot layout on both opposing lineups at mobile size.
+
+# Fantasy-Position-Only News Feed
+
+- [x] Restrict every News source to QB, RB, WR, TE, and K player updates.
+- [x] Exclude defensive and other non-fantasy-position updates from FantasyPros, Tank01, and All News.
+- [x] Verify all source options and position filters display only eligible fantasy positions.

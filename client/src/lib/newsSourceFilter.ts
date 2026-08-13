@@ -1,11 +1,20 @@
 import type { PlayerNewsItem } from "@/components/PlayerNewsRow";
 
 export type NewsSourceFilter = "FANTASYPROS" | "TANK01" | "ALL";
+export const FANTASY_NEWS_POSITIONS = ["QB", "RB", "WR", "TE", "K"] as const;
+
+export function isEligibleFantasyNewsPosition(pos: string): boolean {
+  return FANTASY_NEWS_POSITIONS.includes(pos as (typeof FANTASY_NEWS_POSITIONS)[number]);
+}
 
 export function filterNewsBySource(items: PlayerNewsItem[], source: NewsSourceFilter): PlayerNewsItem[] {
   if (source === "ALL") return items;
   const expectedSource = source === "FANTASYPROS" ? "FantasyPros" : "Tank01";
   return items.filter(item => item.source === expectedSource);
+}
+
+export function filterFantasyPositionNews(items: PlayerNewsItem[]): PlayerNewsItem[] {
+  return items.filter(item => isEligibleFantasyNewsPosition(item.pos));
 }
 
 /** FantasyPros generic news may omit player_name; recover a headline-leading name for display. */

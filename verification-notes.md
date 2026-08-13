@@ -108,4 +108,10 @@ The production and development FantasyPros news endpoints returned equal nonempt
 
 The recovery behavior now distinguishes four states: populated data, loading, temporary unavailability, and genuinely empty data. Last successful FantasyPros items are retained through a subsequent refresh so an in-flight or failed retry cannot clear the visible feed. Unit coverage verifies state selection and cache retention; a fresh News load displayed the 50-item FantasyPros feed after the spinner completed.
 
+## Fantasy-Position-Only News Feed — 2026-08-13
+
+The FantasyPros News view was verified after the eligibility filter. It removed the DST pill and displayed only QB, RB, WR, TE, and K rows, reducing the 50-item generic source to 13 eligible updates. Examples included Patrick Mahomes II (QB), Kenneth Walker III (RB), Jaylen Waddle (WR), Darren Waller (TE), and no defensive or unclassified players.
+
+Tank01 selection returned a single current Deshaun Watson QB update and excluded the remaining non-fantasy-position items. All News combined 39 eligible FantasyPros, ESPN, and Tank01 entries. Every rendered row in the inspected lists carried one of QB, RB, WR, TE, or K; the dedicated DST filter pill was removed.
+
 A development-only failure exercise was used and then removed before publishing. With no cached items, a forced failed query displayed `FantasyPros news is temporarily unavailable` and the refresh guidance instead of the zero-article empty copy. With populated rows retained during a forced failure, all 50 FantasyPros rows remained visible. The normal, non-test News page was then revalidated with TypeScript plus focused recovery and source-filter tests passing.

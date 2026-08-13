@@ -13,7 +13,8 @@ import { supabase } from "@/lib/supabase";
 import { RefreshCw, Newspaper } from "lucide-react";
 import { fetchTank01News } from "@/hooks/useNFLNews";
 import { trpc } from "@/lib/trpc";
-import { filterNewsBySource, inferFantasyProsPlayerName, type NewsSourceFilter } from "@/lib/newsSourceFilter";
+import { NFL_PLAYERS_2026 } from "@/lib/nflPlayers2026";
+import { filterFantasyPositionNews, filterNewsBySource, inferFantasyProsPlayerName, isEligibleFantasyNewsPosition, type NewsSourceFilter } from "@/lib/newsSourceFilter";
 import { getFantasyProsFeedState, retainLastSuccessfulItems } from "@/lib/fantasyProsFeedState";
 
 // ── ESPN types ────────────────────────────────────────────────────────────────
@@ -27,6 +28,15 @@ interface ESPNArticle {
 
 function getAthleteId(cats?: { type?: string; athleteId?: number }[]): number | undefined {
   return (cats ?? []).find(c => c.type === "athlete" && c.athleteId)?.athleteId;
+}
+
+function normalizeNewsPlayerName(name: string): string {
+  return name.toLowerCase().replace(/\./g, "").replace(/\b(jr|sr|ii|iii|iv)\b/g, "").replace(/\s+/g, " ").trim();
+}
+
+function findFantasyPlayer(name: string) {
+  const normalized = normalizeNewsPlayerName(name);
+  return NFL_PLAYERS_2026.find(player => normalizeNewsPlayerName(player.name) === normalized);
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -92,6 +102,8 @@ export default function PlayerNews() {
           (p.name.split(" ").slice(-1)[0].length >= 5 &&
            playerName.toLowerCase() === `${p.name[0].toLowerCase()}. ${p.name.split(" ").slice(-1)[0].toLowerCase()}`)
         );
+        const fantasyPlayer = myP ?? findFantasyPlayer(playerName);
+        if (!fantasyPlayer || !isEligibleFantasyNewsPosition(fantasyPlayer.pos)) continue;
 
         const injuryKeywords = ["injured","injury","questionable","doubtful","out","ir","placed on","ruled out","limited","missed","surgery","knee","hamstring","ankle","shoulder","concussion","rib","back","wrist","hip","illness"];
         const text = (a.headline + " " + (a.description ?? "")).toLowerCase();
@@ -99,8 +111,8 @@ export default function PlayerNews() {
 
         found.push({
           playerName,
-          pos: myP?.pos ?? "",
-          nflTeam: myP?.nflTeam ?? "",
+          pos: fantasyPlayer.pos,
+          nflTeam: fantasyPlayer.nflTeam,
           headline: a.headline,
           description: a.description,
           published: a.published,
@@ -115,12 +127,15 @@ export default function PlayerNews() {
       const injuryKeywords = ["injured","injury","questionable","doubtful","out","ir","placed on","ruled out","limited","missed","surgery","knee","hamstring","ankle","shoulder","concussion","rib","back","wrist","hip","illness"];
       for (const t of tank01News) {
         if (!t.title || seen.has(t.title)) continue;
+        const playerName = inferFantasyProsPlayerName(t.title);
+        const fantasyPlayer = findFantasyPlayer(playerName);
+        if (!fantasyPlayer || !isEligibleFantasyNewsPosition(fantasyPlayer.pos)) continue;
         seen.add(t.title);
         const isInjury = injuryKeywords.some(kw => t.title.toLowerCase().includes(kw));
         found.push({
-          playerName: "",
-          pos: "",
-          nflTeam: "",
+          playerName,
+          pos: fantasyPlayer.pos,
+          nflTeam: fantasyPlayer.nflTeam,
           headline: t.title,
           description: undefined,
           published: new Date().toISOString(),
@@ -145,22 +160,25 @@ export default function PlayerNews() {
 
   const fantasyProsItems = useMemo<PlayerNewsItem[]>(() => {
     const injuryKeywords = ["injured","injury","questionable","doubtful","out","ir","placed on","ruled out","limited","missed","surgery","knee","hamstring","ankle","shoulder","concussion","rib","back","wrist","hip","illness"];
-    return (fantasyProsNews.data ?? []).filter(fp => fp.title).map(fp => {
+    return (fantasyProsNews.data ?? []).filter(fp => fp.title).map<PlayerNewsItem | null>(fp => {
       const playerName = fp.playerName || inferFantasyProsPlayerName(fp.title);
       const myP = myPlayers.find(p => p.name.toLowerCase() === playerName.toLowerCase());
+      const fantasyPlayer = myP ?? findFantasyPlayer(playerName);
+      if (!fantasyPlayer || !isEligibleFantasyNewsPosition(fantasyPlayer.pos)) return null;
       const text = `${fp.title} ${fp.description} ${fp.impact}`.toLowerCase();
+      const description = fp.impact || fp.description || undefined;
       return {
         playerName,
-        pos: myP?.pos ?? "",
-        nflTeam: myP?.nflTeam ?? fp.team,
+        pos: fantasyPlayer.pos,
+        nflTeam: fantasyPlayer.nflTeam,
         headline: fp.title,
-        description: fp.impact || fp.description || undefined,
+        ...(description ? { description } : {}),
         published: fp.published,
         url: fp.link,
         isInjury: injuryKeywords.some(kw => text.includes(kw)),
         source: "FantasyPros" as const,
       };
-    });
+    }).filter((item): item is PlayerNewsItem => item !== null);
   }, [fantasyProsNews.data, myPlayers]);
 
   useEffect(() => {
@@ -200,9 +218,9 @@ export default function PlayerNews() {
   const POS_COLORS: Record<string, string> = {
     QB: "oklch(0.42 0.18 260)", RB: "oklch(0.38 0.15 150)",
     WR: "oklch(0.42 0.18 220)", TE: "oklch(0.55 0.16 85)",
-    K:  "oklch(0.50 0.04 150)", DST: "oklch(0.45 0.18 25)",
+    K:  "oklch(0.50 0.04 150)",
   };
-  const sourceFiltered = filterNewsBySource(displayed, sourceFilter);
+  const sourceFiltered = filterFantasyPositionNews(filterNewsBySource(displayed, sourceFilter));
   const posFiltered = posFilter === "ALL"
     ? sourceFiltered
     : sourceFiltered.filter(it => it.pos === posFilter);
@@ -264,7 +282,7 @@ export default function PlayerNews() {
 
         {/* Position filter pills */}
         <div style={{ display: "flex", gap: "0.4rem", flexWrap: "wrap", marginBottom: "1rem" }}>
-          {["ALL", "QB", "RB", "WR", "TE", "K", "DST"].map(pos => {
+          {["ALL", "QB", "RB", "WR", "TE", "K"].map(pos => {
             const isActive = posFilter === pos;
             const color = pos === "ALL" ? "oklch(0.28 0.09 150)" : POS_COLORS[pos];
             return (

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterNewsBySource, inferFantasyProsPlayerName } from "./newsSourceFilter";
+import { filterFantasyPositionNews, filterNewsBySource, inferFantasyProsPlayerName } from "./newsSourceFilter";
 
 const items = [
   { playerName: "Mike Evans", pos: "WR", nflTeam: "SF", headline: "FantasyPros update", published: "2026-08-13T12:00:00Z", source: "FantasyPros" as const },
@@ -24,5 +24,15 @@ describe("filterNewsBySource", () => {
     expect(inferFantasyProsPlayerName("Kenneth Walker III primed for workhorse role")).toBe("Kenneth Walker III");
     expect(inferFantasyProsPlayerName("Chuba Hubbard (hamstring) week-to-week with hamstring injury")).toBe("Chuba Hubbard");
     expect(inferFantasyProsPlayerName("Source: Panthers add to TE room")).toBe("FantasyPros Update");
+  });
+
+  it("keeps only QB, RB, WR, TE, and K news items", () => {
+    const mixedPositions = [
+      ...items,
+      { playerName: "Bills D/ST", pos: "DST", nflTeam: "BUF", headline: "Defense update", published: "2026-08-13T09:00:00Z", source: "ESPN" as const },
+      { playerName: "Chris Freeman", pos: "", nflTeam: "HOU", headline: "Lineman update", published: "2026-08-13T08:00:00Z", source: "FantasyPros" as const },
+      { playerName: "Harrison Butker", pos: "K", nflTeam: "KC", headline: "Kicker update", published: "2026-08-13T07:00:00Z", source: "FantasyPros" as const },
+    ];
+    expect(filterFantasyPositionNews(mixedPositions).map(item => item.playerName)).toEqual(["Mike Evans", "Mike Evans", "Mike Evans", "Harrison Butker"]);
   });
 });
