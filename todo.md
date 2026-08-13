@@ -119,3 +119,9 @@
 - [ ] Render the Outlook whenever FantasyPros rank, injury, or news data exists.
 - [ ] Use a meaningful rank or injury fallback when no news blurb is returned.
 - [ ] Verify the Outlook appears for Mike Evans and a healthy player.
+
+# Non-Redundant Player Card Outlook
+
+- [ ] Remove rank-repetition text from the FantasyPros Outlook fallback.
+- [ ] Show the Outlook only when written FantasyPros player context is available.
+- [ ] Verify rank-only players retain Insights without a redundant Outlook card.
