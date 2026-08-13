@@ -245,9 +245,15 @@
 
 # Dedicated Player News Row Interaction
 
-- [ ] Inspect dedicated News-page player row click and dropdown event handling.
-- [ ] Restore reliable player-news disclosure and article-link behavior.
+- [x] Inspect dedicated News-page player row click and dropdown event handling.
+- [x] Restore reliable player-news disclosure and article-link behavior.
 - [ ] Verify the interaction on mobile and desktop.
+
+# Persistent Mobile News Row Tap Failure
+
+- [x] Inspect the dedicated News-page mobile row hit targets and event propagation.
+- [x] Make the complete news row expand on tap while preserving a separate full-article link.
+- [ ] Verify the repaired interaction with a mobile-sized News-page row.
 
 # Live Scoring Lineup Headshots
 

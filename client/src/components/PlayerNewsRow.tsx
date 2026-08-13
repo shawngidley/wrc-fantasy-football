@@ -1,10 +1,8 @@
 /**
- * PlayerNewsRow — shared component for Injuries and Player News sections.
- * Design: matches the reference screenshot with date column, circular headshot,
- * blue bold player name, pos/team badge, truncated headline with inline expand chevron.
+ * Shared disclosure row for Injuries and Player News. Native details/summary
+ * ensures reliable touch behavior even when parent feeds rerender.
  */
-import { useEffect, useState } from "react";
-import { ChevronDown, ChevronUp } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { fetchPlayerByName } from "@/hooks/useTank01Player";
 import { getEspnHeadshotUrl } from "@/lib/playerHeadshot";
@@ -15,46 +13,32 @@ export interface PlayerNewsItem {
   nflTeam: string;
   headline: string;
   description?: string;
-  published: string;   // ISO date string
+  published: string;
   url?: string;
-  athleteId?: number;  // ESPN athlete ID for headshot
-  isInjury?: boolean;  // red flag icon if true
+  athleteId?: number;
+  isInjury?: boolean;
   source?: "ESPN" | "Tank01" | "FantasyPros";
 }
 
 function formatDate(iso: string): string {
   const d = new Date(iso);
   const now = new Date();
-  const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-  // If same year, show "Aug 5"; if different year, show "Aug 5 '24"
-  const sameYear = d.getFullYear() === now.getFullYear();
-  return `${months[d.getMonth()]} ${d.getDate()}${sameYear ? "" : ` '${String(d.getFullYear()).slice(2)}`}`;
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${months[d.getMonth()]} ${d.getDate()}${d.getFullYear() === now.getFullYear() ? "" : ` '${String(d.getFullYear()).slice(2)}`}`;
 }
 
 function abbreviateName(fullName: string): string {
   const parts = fullName.trim().split(" ");
   if (parts.length < 2) return fullName;
-  // Handle "Jr.", "Sr.", "II", "III" suffixes
-  const suffixes = new Set(["jr.", "sr.", "ii", "iii", "iv"]);
-  const last = parts[parts.length - 1];
-  if (suffixes.has(last.toLowerCase()) && parts.length >= 3) {
-    return `${parts[0][0]}. ${parts.slice(1).join(" ")}`;
-  }
   return `${parts[0][0]}. ${parts.slice(1).join(" ")}`;
 }
 
-export function PlayerNewsRow({
-  item,
-  isFirst = false,
-  showDetails = false,
-}: {
-  item: PlayerNewsItem;
-  isFirst?: boolean;
-  showDetails?: boolean;
-}) {
-  const [expanded, setExpanded] = useState(showDetails);
+export function PlayerNewsRow({ item, isFirst = false, showDetails = false }: { item: PlayerNewsItem; isFirst?: boolean; showDetails?: boolean }) {
   const [resolvedHeadshot, setResolvedHeadshot] = useState<string | null>(null);
   const [headshotFailed, setHeadshotFailed] = useState(false);
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  const playerSlug = encodeURIComponent(item.playerName);
+  const detailsId = `news-details-${item.playerName.replace(/[^a-z0-9]/gi, "-")}-${item.published}`;
 
   useEffect(() => {
     let cancelled = false;
@@ -62,143 +46,58 @@ export function PlayerNewsRow({
     setHeadshotFailed(false);
     if (item.athleteId || item.pos === "DST") return;
     fetchPlayerByName(item.playerName).then(player => {
-      if (cancelled) return;
-      setResolvedHeadshot(player?.espnHeadshot || getEspnHeadshotUrl(player?.espnID));
+      if (!cancelled) setResolvedHeadshot(player?.espnHeadshot || getEspnHeadshotUrl(player?.espnID));
     });
     return () => { cancelled = true; };
   }, [item.athleteId, item.playerName, item.pos]);
 
+  useEffect(() => {
+    if (showDetails && detailsRef.current) detailsRef.current.open = true;
+  }, [showDetails]);
+
   const headshotUrl = getEspnHeadshotUrl(item.athleteId) || resolvedHeadshot;
-
-  const playerSlug = encodeURIComponent(item.playerName);
-
-  function handleToggle(e?: React.MouseEvent) {
-    e?.stopPropagation();
-    setExpanded(v => !v);
-  }
+  const initials = item.playerName.split(" ").filter(Boolean).map(part => part[0]).slice(0, 2).join("");
 
   return (
-    <div
-      style={{
-        borderTop: isFirst ? "none" : "1px solid oklch(0.93 0.005 150)",
-        padding: "0.55rem 1rem",
-        display: "flex",
-        alignItems: "flex-start",
-        gap: "0.6rem",
-        cursor: "pointer",
-        transition: "background 0.12s",
-      }}
-      className="wrc-row-hover"
-      onClick={() => handleToggle()}
+    <details
+      ref={detailsRef}
+      className="wrc-row-hover news-disclosure"
+      style={{ borderTop: isFirst ? "none" : "1px solid oklch(0.93 0.005 150)", transition: "background 0.12s" }}
     >
-      {/* Date column */}
-      <div style={{ flexShrink: 0, width: 44, paddingTop: 2 }}>
-        <span style={{
-          fontFamily: "Barlow Condensed, sans-serif",
-          fontSize: "0.65rem",
-          fontWeight: 600,
-          color: "oklch(0.55 0.04 150)",
-          whiteSpace: "nowrap" as const,
-        }}>
-          {formatDate(item.published)}
-        </span>
-      </div>
+      <summary style={{ padding: "0.55rem 1rem", display: "flex", alignItems: "flex-start", gap: "0.6rem", cursor: "pointer", listStyle: "none" }}>
+        <div style={{ flexShrink: 0, width: 44, paddingTop: 2 }}>
+          <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 600, color: "oklch(0.55 0.04 150)", whiteSpace: "nowrap" }}>{formatDate(item.published)}</span>
+        </div>
 
-      {/* Circular headshot */}
-      <div style={{ flexShrink: 0, width: 36, height: 36, borderRadius: "50%", overflow: "hidden", background: "oklch(0.93 0.02 150)", border: "1.5px solid oklch(0.88 0.03 150)" }}>
-        {headshotUrl && !headshotFailed ? (
-          <img
-            src={headshotUrl}
-            alt={item.playerName}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            onError={() => setHeadshotFailed(true)}
-          />
-        ) : (
-          <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem", fontWeight: 800, color: "oklch(0.45 0.06 150)" }}>
-            {item.playerName.split(" ").map(p => p[0]).slice(0, 2).join("")}
+        <div style={{ flexShrink: 0, width: 36, height: 36, borderRadius: "50%", overflow: "hidden", background: "oklch(0.93 0.02 150)", border: "1.5px solid oklch(0.88 0.03 150)" }}>
+          {headshotUrl && !headshotFailed ? (
+            <img src={headshotUrl} alt={item.playerName} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={() => setHeadshotFailed(true)} />
+          ) : (
+            <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem", fontWeight: 800, color: "oklch(0.45 0.06 150)" }}>{initials}</div>
+          )}
+        </div>
+
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", marginBottom: "0.15rem", flexWrap: "wrap" }}>
+            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: 800, color: "oklch(0.38 0.18 240)", letterSpacing: "0.01em" }}>{abbreviateName(item.playerName)}</span>
+            {item.isInjury && <span style={{ fontSize: "0.7rem" }}>🚩</span>}
+            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 600, color: "oklch(0.5 0.04 150)" }}>{item.pos}· {item.nflTeam}</span>
+            {item.source && <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.56rem", fontWeight: 800, color: item.source === "FantasyPros" ? "oklch(0.5 0.16 85)" : "oklch(0.5 0.04 150)", letterSpacing: "0.03em" }}>{item.source === "FantasyPros" ? "FP" : item.source}</span>}
           </div>
+          <div style={{ fontSize: "0.72rem", color: "oklch(0.35 0.04 150)", lineHeight: 1.45, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%", textDecoration: "underline", textDecorationColor: "oklch(0.65 0.06 240)" }}>{item.headline}</div>
+        </div>
+
+        <span aria-hidden="true" className="news-disclosure-icon" style={{ flexShrink: 0, marginTop: 1, color: "oklch(0.6 0.04 150)", fontSize: "1rem", lineHeight: 1 }}>⌄</span>
+      </summary>
+
+      <div id={detailsId} style={{ margin: "-0.1rem 1rem 0.7rem 6.2rem", fontSize: "0.7rem", color: "oklch(0.45 0.04 150)", lineHeight: 1.5 }}>
+        {item.description || "No written summary is available from this news source for this headline."}
+        {item.url ? (
+          <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", marginTop: "0.35rem", fontSize: "0.68rem", color: "oklch(0.42 0.18 240)", fontWeight: 700, textDecoration: "none", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.03em" }}>Read full article →</a>
+        ) : (
+          <Link href={`/player/${playerSlug}`} style={{ display: "inline-block", marginTop: "0.35rem", fontSize: "0.68rem", color: "oklch(0.42 0.18 240)", fontWeight: 700, textDecoration: "none", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.03em" }}>Open player card →</Link>
         )}
       </div>
-
-      {/* Name + pos/team + headline */}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", marginBottom: "0.15rem", flexWrap: "wrap" as const }}>
-          <Link
-            href={`/player/${playerSlug}`}
-            onClick={e => e.stopPropagation()}
-            style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: 800, color: "oklch(0.38 0.18 240)", textDecoration: "none", letterSpacing: "0.01em" }}
-          >
-            {abbreviateName(item.playerName)}
-          </Link>
-          {item.isInjury && (
-            <span style={{ fontSize: "0.7rem" }}>🚩</span>
-          )}
-          <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 600, color: "oklch(0.5 0.04 150)" }}>
-            {item.pos}· {item.nflTeam}
-          </span>
-          {item.source && (
-            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.56rem", fontWeight: 800, color: item.source === "FantasyPros" ? "oklch(0.5 0.16 85)" : "oklch(0.5 0.04 150)", letterSpacing: "0.03em" }}>
-              {item.source === "FantasyPros" ? "FP" : item.source}
-            </span>
-          )}
-        </div>
-        <div style={{
-          fontSize: "0.72rem",
-          color: "oklch(0.35 0.04 150)",
-          lineHeight: 1.45,
-          overflow: expanded ? "visible" : "hidden",
-          textOverflow: expanded ? "unset" : "ellipsis",
-          whiteSpace: expanded ? "normal" : "nowrap" as const,
-          maxWidth: "100%",
-        }}>
-          <span
-            onClick={event => handleToggle(event)}
-            style={{ cursor: "pointer", textDecoration: "underline", textDecorationColor: "oklch(0.65 0.06 240)" }}
-          >
-            {item.headline}
-          </span>
-        </div>
-          {expanded && item.description && (
-            <div style={{ fontSize: "0.7rem", color: "oklch(0.45 0.04 150)", lineHeight: 1.5, marginTop: "0.3rem" }}>
-              {item.description}
-              {item.url && (
-                <a
-                  href={item.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={e => e.stopPropagation()}
-                  style={{ display: "inline-block", marginTop: "0.35rem", fontSize: "0.68rem", color: "oklch(0.42 0.18 240)", fontWeight: 700, textDecoration: "none", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.03em" }}
-                >
-                  Read full article →
-                </a>
-              )}
-            </div>
-          )}
-          {expanded && !item.description && item.url && (
-            <div style={{ marginTop: "0.3rem" }}>
-              <a
-                href={item.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={e => e.stopPropagation()}
-                style={{ fontSize: "0.68rem", color: "oklch(0.42 0.18 240)", fontWeight: 700, textDecoration: "none", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.03em" }}
-              >
-                Read full article →
-              </a>
-            </div>
-          )}
-      </div>
-
-      {/* Explicit mobile-friendly disclosure button */}
-      <button
-        type="button"
-        aria-label={`${expanded ? "Collapse" : "Expand"} ${item.playerName} news`}
-        aria-expanded={expanded}
-        onClick={handleToggle}
-        style={{ flexShrink: 0, marginTop: 1, padding: 4, border: "none", background: "transparent", color: "oklch(0.6 0.04 150)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-      >
-        {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-      </button>
-    </div>
+    </details>
   );
 }

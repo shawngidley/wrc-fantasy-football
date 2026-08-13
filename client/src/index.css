@@ -199,6 +199,11 @@
   color: oklch(0.15 0.02 150);
 }
 
+/* Native News disclosures remain reliably tappable on mobile browsers. */
+.news-disclosure > summary::-webkit-details-marker { display: none; }
+.news-disclosure[open] .news-disclosure-icon { transform: rotate(180deg); }
+.news-disclosure-icon { transition: transform 160ms var(--ease-out); }
+
 /* WRC Navigation */
 /* Hide inner Navigation when rendered inside the Draft Hub */
 .draft-hub-child .wrc-nav,

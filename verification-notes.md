@@ -79,3 +79,11 @@ The shared PlayerNewsRow now resolves player images from Tank01’s ESPN fields 
 ## Live Scoring Headshots — 2026-08-13
 
 The Live Scoring page was loaded with two opposing lineups. After player-profile resolution, visible ESPN headshot image sources populated for individual players on both sides, including Jared Goff, Jordan Love, Jonathan Taylor, Ashton Jeanty, De'Von Achane, Jahmyr Gibbs, Justin Jefferson, Davante Adams, and multiple bench players. D/ST rows retained their initials fallback as designed.
+
+## Dedicated News Disclosure Reproduction — 2026-08-13
+
+The dedicated News page loaded 138 items and exposed each row as a disclosure control. The first explicit arrow button retained `aria-expanded="false"` after both a browser tap attempt and a programmatic `button.click()` followed by a 100ms React update wait. This confirms the reported no-open behavior is reproducible and not a mobile-only perception issue. Tank01 items also lack player-name and body fields in the current page mapping, so expanded rows must be given an explicit visible action even when no source summary exists.
+
+The fragile React-managed expand state was replaced with native `details` and `summary` markup. A forced News-page reload activated the new component; the development page was still waiting for its external news request at immediate capture, so final populated-row interaction verification remains pending the response load.
+
+After the feed loaded, the first native News summary was tapped. It opened visibly, showed an explicit source-summary fallback for the Tank01 item, and revealed its `Read full article` link. This native control avoids the React local-state path that had remained closed after every tap. Final phone-sized confirmation remains pending.
