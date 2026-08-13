@@ -96,3 +96,8 @@
 - [ ] Extract the latest player-specific FantasyPros impact context.
 - [ ] Render a concise FantasyPros Outlook blurb on Player Cards.
 - [ ] Verify an outlook is shown only when a player has matched FantasyPros context.
+
+# Player Card Outlook Placement
+
+- [ ] Place the conditional FantasyPros Outlook directly below the Insights strip.
+- [ ] Verify the ownership card remains below the Outlook when it is available.

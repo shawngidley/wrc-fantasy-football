@@ -827,16 +827,6 @@ export default function PlayerPage() {
               </div>
             </div>
 
-            {(hasInjury || fantasyInjury) && (
-              <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-bold text-amber-900">Injury & Availability · {fantasyInjury?.shortStatus || injuryLabel(injury?.designation ?? "")}</p>
-                  <p className="text-xs text-amber-800 mt-0.5">{fantasyInjury ? [fantasyInjury.injuryType, fantasyInjury.comment, fantasyInjury.probabilityOfPlaying != null ? `${fantasyInjury.probabilityOfPlaying}% chance to play` : "", fantasyInjury.practices.length ? `Practice: ${fantasyInjury.practices.join(" / ")}` : ""].filter(Boolean).join(" · ") : injury?.description || "FantasyPros availability updates will appear here."}</p>
-                </div>
-              </div>
-            )}
-
             {playerNews[0]?.description && (
               <div className="rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3">
                 <div className="flex items-center justify-between gap-3">
@@ -844,6 +834,16 @@ export default function PlayerPage() {
                   <span className="text-[10px] font-medium text-indigo-500">Latest player context</span>
                 </div>
                 <p className="mt-1.5 text-sm leading-relaxed text-indigo-950">{playerNews[0].description}</p>
+              </div>
+            )}
+
+            {(hasInjury || fantasyInjury) && (
+              <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold text-amber-900">Injury & Availability · {fantasyInjury?.shortStatus || injuryLabel(injury?.designation ?? "")}</p>
+                  <p className="text-xs text-amber-800 mt-0.5">{fantasyInjury ? [fantasyInjury.injuryType, fantasyInjury.comment, fantasyInjury.probabilityOfPlaying != null ? `${fantasyInjury.probabilityOfPlaying}% chance to play` : "", fantasyInjury.practices.length ? `Practice: ${fantasyInjury.practices.join(" / ")}` : ""].filter(Boolean).join(" · ") : injury?.description || "FantasyPros availability updates will appear here."}</p>
+                </div>
               </div>
             )}
 
