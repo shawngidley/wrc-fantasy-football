@@ -242,3 +242,15 @@
 - [x] Preserve readable initials as the fallback if a headshot cannot load.
 - [x] Apply headshots globally for every owner’s Standings injury and Player News feeds.
 - [ ] Verify the mobile briefing layout with headshots and detailed blurbs.
+
+# Dedicated Player News Row Interaction
+
+- [ ] Inspect dedicated News-page player row click and dropdown event handling.
+- [ ] Restore reliable player-news disclosure and article-link behavior.
+- [ ] Verify the interaction on mobile and desktop.
+
+# Live Scoring Lineup Headshots
+
+- [x] Resolve ESPN headshots for every offensive and defensive Live Scoring lineup player.
+- [x] Preserve initials fallback for D/ST and unresolved player images.
+- [ ] Verify headshot layout on both opposing lineups at mobile size.

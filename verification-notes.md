@@ -75,3 +75,7 @@ The corrected production server endpoint returned a 67,574-byte Vipers response 
 ## Standings Roster Briefing Headshots — 2026-08-13
 
 The shared PlayerNewsRow now resolves player images from Tank01’s ESPN fields and displays the returned ESPN headshot URL. Baker Mayfield’s profile verification returned `espnID` 3052587 and `https://a.espncdn.com/i/headshots/nfl/players/full/3052587.png`. The component uses visible player initials whenever no player ID is available, for D/ST, or after an image load failure. Because both the Injury and Player News panels use this shared component, the behavior applies to every owner roster.
+
+## Live Scoring Headshots — 2026-08-13
+
+The Live Scoring page was loaded with two opposing lineups. After player-profile resolution, visible ESPN headshot image sources populated for individual players on both sides, including Jared Goff, Jordan Love, Jonathan Taylor, Ashton Jeanty, De'Von Achane, Jahmyr Gibbs, Justin Jefferson, Davante Adams, and multiple bench players. D/ST rows retained their initials fallback as designed.

@@ -72,18 +72,9 @@ export function PlayerNewsRow({
 
   const playerSlug = encodeURIComponent(item.playerName);
 
-  function handleToggle(e: React.MouseEvent) {
-    e.stopPropagation();
+  function handleToggle(e?: React.MouseEvent) {
+    e?.stopPropagation();
     setExpanded(v => !v);
-  }
-
-  function handleHeadlineClick(e: React.MouseEvent) {
-    e.stopPropagation();
-    if (item.url) {
-      window.open(item.url, "_blank", "noopener,noreferrer");
-    } else {
-      setExpanded(v => !v);
-    }
   }
 
   return (
@@ -98,7 +89,7 @@ export function PlayerNewsRow({
         transition: "background 0.12s",
       }}
       className="wrc-row-hover"
-      onClick={handleToggle}
+      onClick={() => handleToggle()}
     >
       {/* Date column */}
       <div style={{ flexShrink: 0, width: 44, paddingTop: 2 }}>
@@ -161,8 +152,8 @@ export function PlayerNewsRow({
           maxWidth: "100%",
         }}>
           <span
-            onClick={item.url ? handleHeadlineClick : undefined}
-            style={{ cursor: item.url ? "pointer" : "default", textDecoration: item.url ? "underline" : "none", textDecorationColor: "oklch(0.65 0.06 240)" }}
+            onClick={event => handleToggle(event)}
+            style={{ cursor: "pointer", textDecoration: "underline", textDecorationColor: "oklch(0.65 0.06 240)" }}
           >
             {item.headline}
           </span>
@@ -198,10 +189,16 @@ export function PlayerNewsRow({
           )}
       </div>
 
-      {/* Expand chevron */}
-      <div style={{ flexShrink: 0, paddingTop: 3, color: "oklch(0.6 0.04 150)" }}>
+      {/* Explicit mobile-friendly disclosure button */}
+      <button
+        type="button"
+        aria-label={`${expanded ? "Collapse" : "Expand"} ${item.playerName} news`}
+        aria-expanded={expanded}
+        onClick={handleToggle}
+        style={{ flexShrink: 0, marginTop: 1, padding: 4, border: "none", background: "transparent", color: "oklch(0.6 0.04 150)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+      >
         {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-      </div>
+      </button>
     </div>
   );
 }

@@ -16,6 +16,8 @@ import { useNFLMatchups } from "@/hooks/useNFLMatchups";
 import { useNFLLiveScores, getLivePoints } from "@/hooks/useNFLLiveScores";
 import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections";
 import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } from "@/hooks/useNFLInjuries";
+import { fetchPlayerByName } from "@/hooks/useTank01Player";
+import { getEspnHeadshotUrl } from "@/lib/playerHeadshot";
 
 const REFRESH_SECONDS = 300;
 
@@ -341,9 +343,24 @@ const MOCK_MATCHUPS: Matchup[] = [
   },
 ];
 
-// ── Helper: initials avatar ────────────────────────────────────────────────────
-function PlayerAvatar({ name, size = 36 }: { name: string; size?: number }) {
+// ── Headshot avatar with initials fallback ─────────────────────────────────────
+function PlayerAvatar({ name, pos, size = 36 }: { name: string; pos: string; size?: number }) {
   const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
+  const [headshotUrl, setHeadshotUrl] = useState<string | null>(null);
+  const [headshotFailed, setHeadshotFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setHeadshotUrl(null);
+    setHeadshotFailed(false);
+    if (pos === "DST") return;
+    fetchPlayerByName(name).then(player => {
+      if (cancelled) return;
+      setHeadshotUrl(player?.espnHeadshot || getEspnHeadshotUrl(player?.espnID));
+    });
+    return () => { cancelled = true; };
+  }, [name, pos]);
+
   return (
     <div style={{
       width: size, height: size, borderRadius: "50%",
@@ -355,7 +372,14 @@ function PlayerAvatar({ name, size = 36 }: { name: string; size?: number }) {
       fontSize: size * 0.35, color: "oklch(0.32 0.09 150)",
       letterSpacing: "0.02em",
     }}>
-      {initials}
+      {headshotUrl && !headshotFailed ? (
+        <img
+          src={headshotUrl}
+          alt={name}
+          style={{ width: "100%", height: "100%", objectFit: "cover" }}
+          onError={() => setHeadshotFailed(true)}
+        />
+      ) : initials}
     </div>
   );
 }
@@ -408,7 +432,7 @@ function PlayerCell({ player, side, injuries = {} }: { player: SlotPlayer | null
         width: "100%",
         flexDirection: isHome ? "row" : "row-reverse",
       }}>
-        <PlayerAvatar name={player.fullName} size={34} />
+        <PlayerAvatar name={player.fullName} pos={player.pos} size={34} />
           <div style={{ flex: 1, minWidth: 0, textAlign: isHome ? "left" : "right" }}>
             <div style={{
               fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700,
