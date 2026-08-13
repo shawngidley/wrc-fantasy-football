@@ -16,19 +16,8 @@
 
 - [x] Inventory public tables, RLS state, and existing public policies.
 - [x] Map browser-side Supabase writes that must be protected.
-- [x] Propose a PIN-compatible authorization and migration path.
-- [x] Obtain approval before changing RLS policies or client access.
-
-# Supabase Security Migration
-
-- [x] Inventory every direct client-side Supabase read/write and classify public versus protected access.
-- [x] Document every direct client-side Supabase access by workflow, table/bucket, operation type, and target access level.
-- [x] Create a migration matrix covering login, lineup, draft, FAAB, trades, protections, money, and transactions.
-- [ ] Add server-side Supabase service-role secret handling and a server-verified PIN session flow.
-- [ ] Replace owner and commissioner direct writes with validated server procedures.
-- [ ] Add hashed team PIN storage and remove browser-visible PIN queries.
-- [ ] Apply RLS policies only after validated server workflow coverage is in place.
-- [ ] Run login, lineup, draft, FAAB, trade, protections, money, and transaction regression tests.
+- [ ] Propose a PIN-compatible authorization and migration path.
+- [ ] Obtain approval before changing RLS policies or client access.
 
 # Free Agents Sorting
 

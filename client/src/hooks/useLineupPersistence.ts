@@ -8,7 +8,6 @@
  */
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { trpc } from "@/lib/trpc";
 
 export interface LineupRow {
   team_id: string;
@@ -36,7 +35,6 @@ export function useLineupPersistence(
   week: number,
   season = 2026
 ): UseLineupPersistenceResult {
-  const saveMutation = trpc.lineups.save.useMutation();
   const [savedLineup, setSavedLineup] = useState<SavedLineupMap | null>(null);
   const [loadingLineup, setLoadingLineup] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -96,7 +94,27 @@ export function useLineupPersistence(
         }));
 
         console.log("[useLineupPersistence] upserting", upsertRows.length, "rows for", teamId, "week", week);
-        await saveMutation.mutateAsync({ teamId, week, season, rows });
+        // Delete existing rows for this team/week/season, then insert fresh
+        const { error: delError } = await supabase
+          .from("lineups")
+          .delete()
+          .eq("team_id", teamId)
+          .eq("week", week)
+          .eq("season", season);
+
+        if (delError) {
+          console.error("[useLineupPersistence] delete error:", delError);
+          throw delError;
+        }
+
+        const { error: insError } = await supabase
+          .from("lineups")
+          .insert(upsertRows);
+
+        if (insError) {
+          console.error("[useLineupPersistence] insert error:", insError);
+          throw insError;
+        }
 
         // Update local state so UI reflects saved state (keyed by player_name)
         const map: SavedLineupMap = {};
@@ -115,7 +133,7 @@ export function useLineupPersistence(
         setSaving(false);
       }
     },
-    [teamId, week, season, saveMutation]
+    [teamId, week, season]
   );
 
   return { savedLineup, loadingLineup, saveLineup, saveError, saving };

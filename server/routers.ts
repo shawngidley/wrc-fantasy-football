@@ -3,8 +3,6 @@ import { z } from "zod";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
-import { clearLeagueSessionCookie, issueLeagueSession, readLeagueSession, setLeagueSessionCookie } from "./leagueSession";
-import { getSupabaseAdmin } from "./supabaseAdmin";
 import {
   getFantasyProsInjuries,
   getFantasyProsNews,
@@ -23,36 +21,6 @@ export const appRouter = router({
       return {
         success: true,
       } as const;
-    }),
-  }),
-
-  league: router({
-    teams: publicProcedure.query(async () => {
-      const { data, error } = await getSupabaseAdmin().from("teams").select("id, name, owner, division, faab, wins, losses, ties, points_for, points_against, is_commissioner").order("name");
-      if (error) throw new Error("Unable to load league teams");
-      return data;
-    }),
-    login: publicProcedure.input(z.object({ teamId: z.string().uuid(), pin: z.string().min(1).max(32) })).mutation(async ({ input, ctx }) => {
-      const { data, error } = await getSupabaseAdmin().rpc("verify_wrc_team_pin", { p_team_id: input.teamId, p_pin: input.pin });
-      const team = data?.[0];
-      if (error || !team) throw new Error("Incorrect PIN");
-      setLeagueSessionCookie(ctx, await issueLeagueSession(team.id, team.is_commissioner === true));
-      return team;
-    }),
-    session: publicProcedure.query(async ({ ctx }) => readLeagueSession(ctx)),
-    logout: publicProcedure.mutation(({ ctx }) => { clearLeagueSessionCookie(ctx); return { success: true } as const; }),
-  }),
-
-  lineups: router({
-    save: publicProcedure.input(z.object({ teamId: z.string(), week: z.number().int(), season: z.number().int(), rows: z.array(z.object({ slot: z.string(), player_id: z.string(), player_name: z.string(), is_bench: z.boolean() })) })).mutation(async ({ input, ctx }) => {
-      const session = await readLeagueSession(ctx);
-      if (!session || session.teamId !== input.teamId) throw new Error("Not authorized to save this lineup");
-      const admin = getSupabaseAdmin();
-      const { error: deleted } = await admin.from("lineups").delete().eq("team_id", input.teamId).eq("week", input.week).eq("season", input.season);
-      if (deleted) throw new Error("Unable to replace lineup");
-      const { error: inserted } = await admin.from("lineups").insert(input.rows.map(row => ({ ...row, team_id: input.teamId, week: input.week, season: input.season })));
-      if (inserted) throw new Error("Unable to save lineup");
-      return { success: true } as const;
     }),
   }),
 

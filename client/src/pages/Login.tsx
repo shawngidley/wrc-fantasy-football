@@ -8,8 +8,8 @@ import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { Lock, ChevronDown, Trophy } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 import type { LoggedInTeam } from "@/contexts/AuthContext";
-import { trpc } from "@/lib/trpc";
 
 interface TeamRow {
   id: string;
@@ -23,13 +23,12 @@ interface TeamRow {
   points_for: number;
   points_against: number;
   is_commissioner: boolean;
+  pin: string;
 }
 
 export default function Login() {
   const [, navigate] = useLocation();
   const { login, franchise, authLoading } = useAuth();
-  const teamsQuery = trpc.league.teams.useQuery(undefined, { staleTime: 5 * 60_000 });
-  const loginMutation = trpc.league.login.useMutation();
 
   // Auto-redirect if already logged in — skip login screen entirely
   useEffect(() => {
@@ -44,11 +43,17 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [loadingTeams, setLoadingTeams] = useState(true);
 
-  // Load display-safe team fields from the server. PINs never reach the browser.
+  // Load teams from Supabase on mount
   useEffect(() => {
-    if (teamsQuery.data) setTeams(teamsQuery.data as TeamRow[]);
-    if (!teamsQuery.isLoading) setLoadingTeams(false);
-  }, [teamsQuery.data, teamsQuery.isLoading]);
+    supabase
+      .from("teams")
+      .select("id, name, owner, division, faab, wins, losses, ties, points_for, points_against, is_commissioner, pin")
+      .order("name")
+      .then(({ data, error: err }) => {
+        if (!err && data) setTeams(data as TeamRow[]);
+        setLoadingTeams(false);
+      });
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,13 +62,21 @@ export default function Login() {
     if (!pin) { setError("Please enter your PIN."); return; }
     setLoading(true);
 
-    try {
-      const team = await loginMutation.mutateAsync({ teamId: selectedId, pin });
-      login({ ...team, pin: "", auth_pin: "", team_name: team.name, owner_name: team.owner } as LoggedInTeam);
-      navigate("/standings");
-    } catch {
+    const team = teams.find(t => t.id === selectedId);
+    if (!team || team.pin !== pin) {
       setError("Incorrect PIN. Please try again.");
-    } finally { setLoading(false); }
+      setLoading(false);
+      return;
+    }
+
+    const loggedIn: LoggedInTeam = {
+      ...team,
+      team_name: team.name,
+      owner_name: team.owner,
+      auth_pin: team.pin,
+    };
+    login(loggedIn);
+    navigate("/standings");
   };
 
   return (
