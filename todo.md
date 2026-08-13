@@ -132,3 +132,9 @@
 - [x] Remove the standalone ownership row from Player Cards.
 - [x] Add the roster team logo and team name to the Player Card header.
 - [x] Verify source labeling and ownership header layout.
+
+# Compact Player Card News
+
+- [x] Show only the three newest FantasyPros updates initially on Player Cards.
+- [x] Add a control to reveal and collapse the complete player-news history.
+- [ ] Verify the compact and expanded views on a loaded mobile session.
