@@ -40,6 +40,10 @@ const POS_COLORS: Record<string, string> = {
   DST: "bg-slate-700 text-white",
 };
 
+function Insight({ label, value }: { label: string; value: string }) {
+  return <div className="px-4 py-3"><p className="text-[10px] uppercase tracking-wide text-slate-400">{label}</p><p className="mt-0.5 text-base font-bold text-white">{value}</p></div>;
+}
+
 
 // ── Live ownership lookup via Supabase ──────────────────────────────────────
 type OwnershipResult = {
@@ -807,6 +811,29 @@ export default function PlayerPage() {
                 )}
               </div>
             </div>
+
+            <div className="bg-slate-950 text-white rounded-2xl border border-slate-700 shadow-sm overflow-hidden">
+              <div className="px-4 py-2 border-b border-slate-700 flex items-center justify-between">
+                <span className="text-[10px] font-bold tracking-[0.16em] uppercase text-amber-300">FantasyPros Insights</span>
+                <span className="text-[10px] text-slate-400">PPR · Expert consensus</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-slate-800">
+                <Insight label="Expert Rank" value={fantasyRank?.ecr != null ? `#${fantasyRank.ecr}` : "—"} />
+                <Insight label="Position Rank" value={fantasyRank?.positionRank || "—"} />
+                <Insight label="Tier" value={fantasyRank?.tier != null ? `Tier ${fantasyRank.tier}` : "—"} />
+                <Insight label="Week Projection" value={fantasyProjection?.pprPoints != null ? `${fantasyProjection.pprPoints.toFixed(1)} PPR` : "—"} />
+              </div>
+            </div>
+
+            {hasInjury && (
+              <div className="rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold text-amber-900">Injury & Availability · {injuryLabel(injury.designation)}</p>
+                  <p className="text-xs text-amber-800 mt-0.5">{injury.description || "FantasyPros and team availability updates will appear here."}</p>
+                </div>
+              </div>
+            )}
 
             {/* ── Ownership card ── */}
             <div className={`rounded-2xl border shadow-sm px-4 py-3 ${isFreeAgent ? "bg-amber-50 border-amber-200" : "bg-emerald-50 border-emerald-200"}`}>
