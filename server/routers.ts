@@ -3,6 +3,8 @@ import { z } from "zod";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, router } from "./_core/trpc";
+import { clearLeagueSessionCookie, issueLeagueSession, readLeagueSession, setLeagueSessionCookie } from "./leagueSession";
+import { getSupabaseAdmin } from "./supabaseAdmin";
 import {
   getFantasyProsInjuries,
   getFantasyProsNews,
@@ -22,6 +24,23 @@ export const appRouter = router({
         success: true,
       } as const;
     }),
+  }),
+
+  league: router({
+    teams: publicProcedure.query(async () => {
+      const { data, error } = await getSupabaseAdmin().from("teams").select("id, name, owner, division, faab, wins, losses, ties, points_for, points_against, is_commissioner").order("name");
+      if (error) throw new Error("Unable to load league teams");
+      return data;
+    }),
+    login: publicProcedure.input(z.object({ teamId: z.string().uuid(), pin: z.string().min(1).max(32) })).mutation(async ({ input, ctx }) => {
+      const { data, error } = await getSupabaseAdmin().rpc("verify_wrc_team_pin", { p_team_id: input.teamId, p_pin: input.pin });
+      const team = data?.[0];
+      if (error || !team) throw new Error("Incorrect PIN");
+      setLeagueSessionCookie(ctx, await issueLeagueSession(team.id, team.is_commissioner === true));
+      return team;
+    }),
+    session: publicProcedure.query(async ({ ctx }) => readLeagueSession(ctx)),
+    logout: publicProcedure.mutation(({ ctx }) => { clearLeagueSessionCookie(ctx); return { success: true } as const; }),
   }),
 
   fantasyPros: router({
