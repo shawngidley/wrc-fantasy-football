@@ -19,6 +19,7 @@ import { TEAM_NAME_TO_ID } from "@/pages/Lineup";
 import TeamLogo from "@/components/TeamLogo";
 import { trpc } from "@/lib/trpc";
 import { getRosterBriefingPreview } from "@/lib/rosterBriefing";
+import { mapRosterNewsForDisplay } from "@/lib/rosterNewsMapping";
 
 const normalizeRosterName = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -293,8 +294,6 @@ function InjuryReport({ ownerKey }: { ownerKey: string }) {
 // ── Player News ───────────────────────────────────────────────────────────────
 
 function MyTeamNews({ ownerKey }: { ownerKey: string }) {
-  const [items, setItems] = useState<PlayerNewsItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [showAllNews, setShowAllNews] = useState(false);
 
   const teamId = OWNER_TO_TEAM_ID[ownerKey] ?? `team-${ownerKey.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
@@ -305,22 +304,16 @@ function MyTeamNews({ ownerKey }: { ownerKey: string }) {
     });
   }, [teamId]);
 
-  const rosterInput = useMemo(() => ({ players: myPlayers.map(player => ({ name: player.name, pos: player.pos })) }), [myPlayers]);
+  const rosterInput = useMemo(() => ({ players: myPlayers.map(player => ({ name: player.name, pos: player.pos })), feedVersion: 2 as const }), [myPlayers]);
   const fantasyProsRosterNews = trpc.fantasyPros.rosterNews.useQuery(rosterInput, {
     enabled: rosterInput.players.length > 0,
     staleTime: 15 * 60_000,
   });
 
-  const fetchNews = useCallback(async () => {
-    setLoading(true);
-    try {
-      const roster = new Map(myPlayers.map(p => [normalizeRosterName(p.name), p]));
-      const found: PlayerNewsItem[] = (fantasyProsRosterNews.data ?? []).filter(a => roster.has(normalizeRosterName(a.playerName))).map(a => {
-        const myP = roster.get(normalizeRosterName(a.playerName));
-        return { playerName: a.playerName, pos: myP?.pos ?? "", nflTeam: myP?.nflTeam ?? a.team, headline: a.title, description: a.impact || a.description || a.title, published: a.published, url: a.link, source: "FantasyPros" } as PlayerNewsItem;
-      });
-      setItems(found.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime()));
-    /*
+  const items = useMemo(() => mapRosterNewsForDisplay(fantasyProsRosterNews.data ?? [], myPlayers) as PlayerNewsItem[], [fantasyProsRosterNews.data, myPlayers]);
+  const loading = fantasyProsRosterNews.isLoading || (myPlayers.length === 0 && !fantasyProsRosterNews.isFetched);
+
+  /*
       const res = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=100");
       const json = await res.json();
       const allArticles: ESPNArticle[] = json.articles ?? [];
@@ -351,16 +344,7 @@ function MyTeamNews({ ownerKey }: { ownerKey: string }) {
           athleteId,
         });
       }
-
       setItems(found.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime()).slice(0, 50));*/
-    } catch {
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [myPlayers, fantasyProsRosterNews.data]);
-
-  useEffect(() => { fetchNews(); }, [fetchNews]);
 
   const preview = useMemo(() => getRosterBriefingPreview(items, 8, 2), [items]);
   const displayed = showAllNews ? items : preview;
@@ -371,7 +355,7 @@ function MyTeamNews({ ownerKey }: { ownerKey: string }) {
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.875rem 1rem 0.6rem" }}>
         <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1rem", fontWeight: 800, color: "oklch(0.18 0.06 150)", flex: 1 }}>Player News</span>
         <span style={{ padding: "0.3rem 0.75rem", borderRadius: 20, border: "1.5px solid oklch(0.82 0.04 150)", background: "white", color: "oklch(0.35 0.06 150)", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.02em" }}>My Roster</span>
-        <button onClick={fetchNews} style={{ background: "none", border: "none", cursor: "pointer", color: "oklch(0.55 0.06 150)", padding: "0.2rem", borderRadius: 4, display: "flex", alignItems: "center" }} title="Refresh">
+        <button onClick={() => fantasyProsRosterNews.refetch()} style={{ background: "none", border: "none", cursor: "pointer", color: "oklch(0.55 0.06 150)", padding: "0.2rem", borderRadius: 4, display: "flex", alignItems: "center" }} title="Refresh">
           <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
         </button>
       </div>

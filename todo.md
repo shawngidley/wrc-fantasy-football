@@ -229,3 +229,9 @@
 - [x] Inspect the exact Vipers roster names and FantasyPros player-ID resolution in production.
 - [x] Correct global roster-news matching when a deployed owner roster receives no player-specific updates.
 - [ ] Verify detailed Player News renders for the Vipers mobile roster briefing.
+
+# Vipers Production Player News Persistence
+
+- [x] Compare the exact production and development Vipers roster-news responses.
+- [x] Correct the live server or client response path still leaving the production Player News panel empty.
+- [ ] Verify visible detailed Vipers Player News in production on mobile.

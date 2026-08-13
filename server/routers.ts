@@ -46,6 +46,7 @@ export const appRouter = router({
     rosterNews: publicProcedure
       .input(z.object({
         players: z.array(z.object({ name: z.string().min(1), pos: z.string().optional() })).min(1).max(30),
+        feedVersion: z.literal(2).optional(),
       }))
       .query(async ({ input }) => {
         const rosterKeys = new Set(input.players.map(player => normalizePlayerKey(player.name)));
