@@ -216,3 +216,10 @@
 - [x] Remove the present-day team fallback from completed 2025 Player Card season rows.
 - [x] Add a regression test for a post-2025 team change that keeps the 2025 row on the completed-season team.
 - [x] Verify a second Jaguars player across Player Card, FantasyPros news labels, matchup, and logo display.
+
+# Standings Roster Briefing Feeds
+
+- [x] Expand FantasyPros roster-news matching so all current player updates can appear on the Standings page.
+- [x] Show several current roster injuries and news results rather than the minimal preview.
+- [x] Include the available FantasyPros impact, description, practice, and availability blurbs in feed panels.
+- [ ] Verify roster briefing feeds on a mobile owner view.

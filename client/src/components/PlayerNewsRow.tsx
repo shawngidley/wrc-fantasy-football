@@ -44,11 +44,13 @@ function abbreviateName(fullName: string): string {
 export function PlayerNewsRow({
   item,
   isFirst = false,
+  showDetails = false,
 }: {
   item: PlayerNewsItem;
   isFirst?: boolean;
+  showDetails?: boolean;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(showDetails);
 
   const headshotUrl = item.athleteId
     ? `https://a.espncdn.com/i/headshots/nfl/players/full/${item.athleteId}.png`

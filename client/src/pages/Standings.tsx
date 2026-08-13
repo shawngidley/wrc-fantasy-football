@@ -18,6 +18,7 @@ import { Link } from "wouter";
 import { TEAM_NAME_TO_ID } from "@/pages/Lineup";
 import TeamLogo from "@/components/TeamLogo";
 import { trpc } from "@/lib/trpc";
+import { getRosterBriefingPreview } from "@/lib/rosterBriefing";
 
 const normalizeRosterName = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -235,7 +236,9 @@ function InjuryReport({ ownerKey }: { ownerKey: string }) {
       const roster = new Map(myPlayers.map(p => [normalizeRosterName(p.name), p]));
       const found = (fantasyProsInjuries.data ?? []).filter(i => roster.has(normalizeRosterName(i.name))).map(i => {
         const player = roster.get(normalizeRosterName(i.name));
-        return { playerName: i.name, pos: player?.pos ?? "", nflTeam: player?.nflTeam ?? i.team, headline: `${i.shortStatus || "Injury update"}${i.injuryType ? ` · ${i.injuryType}` : ""}`, description: [i.comment, i.probabilityOfPlaying != null ? `${i.probabilityOfPlaying}% chance to play` : "", i.practices.length ? `Practice: ${i.practices.join(" / ")}` : ""].filter(Boolean).join(" · "), published: new Date().toISOString(), isInjury: true, source: "FantasyPros" } as PlayerNewsItem;
+        const status = i.shortStatus || i.status || "Injury update";
+        const context = [i.comment || `${i.name} is currently listed as ${status}.`, i.practiceInjuryType ? `Practice injury: ${i.practiceInjuryType}` : "", i.probabilityOfPlaying != null ? `${i.probabilityOfPlaying}% chance to play` : "", i.practices.length ? `Practice: ${i.practices.join(" / ")}` : ""].filter(Boolean).join(" · ");
+        return { playerName: i.name, pos: player?.pos ?? "", nflTeam: player?.nflTeam ?? i.team, headline: `${status}${i.injuryType ? ` · ${i.injuryType}` : ""}`, description: context, published: i.updated || new Date().toISOString(), isInjury: true, source: "FantasyPros" } as PlayerNewsItem;
       });
       setItems(found);
     } catch {
@@ -247,11 +250,7 @@ function InjuryReport({ ownerKey }: { ownerKey: string }) {
 
   useEffect(() => { fetchInjuries(); }, [fetchInjuries]);
 
-  // Filter to my team if toggle is on
-  const myPlayerNames = new Set(myPlayers.map(p => p.name.toLowerCase()));
-  const displayed = myTeamOnly
-    ? items.filter(it => myPlayerNames.has(it.playerName.toLowerCase()))
-    : items;
+  const displayed = items;
 
   return (
     <div className="wrc-card" style={{ marginBottom: "1.25rem" }}>
@@ -259,11 +258,10 @@ function InjuryReport({ ownerKey }: { ownerKey: string }) {
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.875rem 1rem 0.6rem" }}>
         <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1rem", fontWeight: 800, color: "oklch(0.18 0.06 150)", flex: 1 }}>Injuries</span>
         <button
-          onClick={() => setMyTeamOnly(v => !v)}
+          disabled
           style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "0.3rem 0.75rem", borderRadius: 20, border: "1.5px solid oklch(0.82 0.04 150)", background: "white", color: "oklch(0.35 0.06 150)", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer", letterSpacing: "0.02em" }}
         >
-          <ChevronDown size={12} />
-          {myTeamOnly ? "My Team" : "All League"}
+          My Roster
         </button>
         <button onClick={fetchInjuries} style={{ background: "none", border: "none", cursor: "pointer", color: "oklch(0.55 0.06 150)", padding: "0.2rem", borderRadius: 4, display: "flex", alignItems: "center" }} title="Refresh">
           <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
@@ -284,7 +282,7 @@ function InjuryReport({ ownerKey }: { ownerKey: string }) {
       ) : (
         <div style={{ paddingBottom: "0.25rem" }}>
           {displayed.map((item, i) => (
-            <PlayerNewsRow key={i} item={item} isFirst={i === 0} />
+            <PlayerNewsRow key={i} item={item} isFirst={i === 0} showDetails />
           ))}
         </div>
       )}
@@ -297,24 +295,29 @@ function InjuryReport({ ownerKey }: { ownerKey: string }) {
 function MyTeamNews({ ownerKey }: { ownerKey: string }) {
   const [items, setItems] = useState<PlayerNewsItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [myTeamOnly, setMyTeamOnly] = useState(true);
+  const [showAllNews, setShowAllNews] = useState(false);
 
   const teamId = OWNER_TO_TEAM_ID[ownerKey] ?? `team-${ownerKey.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
   const [myPlayers, setMyPlayers] = useState<{ name: string; pos: string; nflTeam: string }[]>([]);
-  const fantasyProsNews = trpc.fantasyPros.news.useQuery({ limit: 100 }, { staleTime: 15 * 60_000 });
   useEffect(() => {
     supabase.from("players").select("name,position,nfl_team").eq("team_id", teamId).then(({ data }) => {
       if (data) setMyPlayers(data.map((p: { name: string; position: string; nfl_team: string }) => ({ name: p.name, pos: p.position, nflTeam: p.nfl_team })));
     });
   }, [teamId]);
 
+  const rosterInput = useMemo(() => ({ players: myPlayers.map(player => ({ name: player.name, pos: player.pos })) }), [myPlayers]);
+  const fantasyProsRosterNews = trpc.fantasyPros.rosterNews.useQuery(rosterInput, {
+    enabled: rosterInput.players.length > 0,
+    staleTime: 15 * 60_000,
+  });
+
   const fetchNews = useCallback(async () => {
     setLoading(true);
     try {
       const roster = new Map(myPlayers.map(p => [normalizeRosterName(p.name), p]));
-      const found: PlayerNewsItem[] = (fantasyProsNews.data ?? []).filter(a => roster.has(normalizeRosterName(a.playerName))).map(a => {
+      const found: PlayerNewsItem[] = (fantasyProsRosterNews.data ?? []).filter(a => roster.has(normalizeRosterName(a.playerName))).map(a => {
         const myP = roster.get(normalizeRosterName(a.playerName));
-        return { playerName: a.playerName, pos: myP?.pos ?? "", nflTeam: myP?.nflTeam ?? a.team, headline: a.title, description: [a.description, a.impact].filter(Boolean).join(" "), published: a.published, url: a.link, source: "FantasyPros" } as PlayerNewsItem;
+        return { playerName: a.playerName, pos: myP?.pos ?? "", nflTeam: myP?.nflTeam ?? a.team, headline: a.title, description: a.impact || a.description || a.title, published: a.published, url: a.link, source: "FantasyPros" } as PlayerNewsItem;
       });
       setItems(found.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime()));
     /*
@@ -355,28 +358,19 @@ function MyTeamNews({ ownerKey }: { ownerKey: string }) {
     } finally {
       setLoading(false);
     }
-  }, [myPlayers, fantasyProsNews.data]);
+  }, [myPlayers, fantasyProsRosterNews.data]);
 
   useEffect(() => { fetchNews(); }, [fetchNews]);
 
-  // Filter to my team if toggle is on
-  const myPlayerNames = new Set(myPlayers.map(p => p.name.toLowerCase()));
-  const displayed = myTeamOnly
-    ? items.filter(it => myPlayerNames.has(it.playerName.toLowerCase()))
-    : items;
+  const preview = useMemo(() => getRosterBriefingPreview(items, 8, 2), [items]);
+  const displayed = showAllNews ? items : preview;
 
   return (
     <div className="wrc-card" style={{ marginBottom: "1.25rem" }}>
       <div className="wrc-card-gold-stripe" />
       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.875rem 1rem 0.6rem" }}>
         <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1rem", fontWeight: 800, color: "oklch(0.18 0.06 150)", flex: 1 }}>Player News</span>
-        <button
-          onClick={() => setMyTeamOnly(v => !v)}
-          style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "0.3rem 0.75rem", borderRadius: 20, border: "1.5px solid oklch(0.82 0.04 150)", background: "white", color: "oklch(0.35 0.06 150)", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer", letterSpacing: "0.02em" }}
-        >
-          <ChevronDown size={12} />
-          {myTeamOnly ? "My Team" : "All League"}
-        </button>
+        <span style={{ padding: "0.3rem 0.75rem", borderRadius: 20, border: "1.5px solid oklch(0.82 0.04 150)", background: "white", color: "oklch(0.35 0.06 150)", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.02em" }}>My Roster</span>
         <button onClick={fetchNews} style={{ background: "none", border: "none", cursor: "pointer", color: "oklch(0.55 0.06 150)", padding: "0.2rem", borderRadius: 4, display: "flex", alignItems: "center" }} title="Refresh">
           <RefreshCw size={13} style={{ animation: loading ? "spin 1s linear infinite" : "none" }} />
         </button>
@@ -391,13 +385,18 @@ function MyTeamNews({ ownerKey }: { ownerKey: string }) {
       ) : displayed.length === 0 ? (
         <div style={{ padding: "1.25rem 1.25rem 1rem", textAlign: "center" as const, color: "oklch(0.55 0.04 150)", fontSize: "0.82rem" }}>
           <Newspaper size={20} style={{ margin: "0 auto 0.4rem", display: "block", opacity: 0.35 }} />
-          {myTeamOnly ? "No recent news found for your players" : "No recent news found"}
+          No current FantasyPros news found for your roster
         </div>
       ) : (
         <div style={{ paddingBottom: "0.25rem" }}>
           {displayed.map((item, i) => (
-            <PlayerNewsRow key={i} item={item} isFirst={i === 0} />
+            <PlayerNewsRow key={i} item={item} isFirst={i === 0} showDetails />
           ))}
+          {items.length > preview.length && (
+            <button onClick={() => setShowAllNews(value => !value)} style={{ width: "calc(100% - 2rem)", margin: "0.5rem 1rem 0.25rem", padding: "0.55rem", borderRadius: 8, border: "1px solid oklch(0.85 0.04 150)", background: "oklch(0.98 0.01 150)", color: "oklch(0.32 0.08 150)", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, cursor: "pointer" }}>
+              {showAllNews ? "Show fewer updates" : `Show all ${items.length} updates`}
+            </button>
+          )}
         </div>
       )}
     </div>
