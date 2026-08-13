@@ -30,6 +30,7 @@ import TeamLogo from "@/components/TeamLogo";
 import { PlayerNewsRow, type PlayerNewsItem } from "@/components/PlayerNewsRow";
 import { trpc } from "@/lib/trpc";
 import { getVisiblePlayerNews } from "@/lib/playerNewsDisplay";
+import { getOverallEcrDisplay } from "@/lib/playerRankDisplay";
 
 // ── Position badge colors ────────────────────────────────────────────────────
 const POS_COLORS: Record<string, string> = {
@@ -829,7 +830,7 @@ export default function PlayerPage() {
                 <span className="text-[10px] text-slate-400">PPR · Expert consensus</span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-slate-800">
-                <Insight label="Overall ECR" value={fantasyOverallRank?.ecr != null ? `#${fantasyOverallRank.ecr}` : "—"} />
+                <Insight label="Overall ECR" value={getOverallEcrDisplay(fantasyOverallRank?.ecr, fantasyRank?.positionRank)} />
                 <Insight label="Position Rank" value={fantasyRank?.positionRank || "—"} />
                 <Insight label="Tier" value={fantasyRank?.tier != null ? `Tier ${fantasyRank.tier}` : "—"} />
                 <Insight label="Week Projection" value={fantasyProjection?.pprPoints != null ? `${fantasyProjection.pprPoints.toFixed(1)} PPR` : "—"} />

@@ -144,3 +144,15 @@
 - [x] Retrieve a true FantasyPros overall consensus rank separately from position rank.
 - [x] Label the Player Card rank values as Overall ECR and Position Rank.
 - [x] Verify a player with differing overall and positional rank values.
+
+# Duplicate Player Card Rank Values
+
+- [x] Inspect why the user still sees identical overall and position rank values.
+- [x] Prevent a duplicate overall-rank display when FantasyPros rank data cannot be distinguished.
+- [x] Verify the corrected Player Card rank presentation with the reported player.
+
+# Rank Duplicate Fallback
+
+- [x] Document the most likely stale-build or cached-data explanation for the reported duplicate display.
+- [x] Suppress the Overall ECR value when it exactly duplicates the numeric position rank.
+- [x] Add and verify a unit test for duplicate-rank fallback behavior.
