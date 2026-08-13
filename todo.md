@@ -113,3 +113,9 @@
 - [ ] Remove the duplicate FantasyPros ECR badge from the player header.
 - [ ] Build the Outlook from the available FantasyPros news or injury context.
 - [ ] Verify the revised Player Card hierarchy with a player who has an active injury update.
+
+# Reliable Player Card Outlook
+
+- [ ] Render the Outlook whenever FantasyPros rank, injury, or news data exists.
+- [ ] Use a meaningful rank or injury fallback when no news blurb is returned.
+- [ ] Verify the Outlook appears for Mike Evans and a healthy player.

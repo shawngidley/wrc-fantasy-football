@@ -817,13 +817,13 @@ export default function PlayerPage() {
               </div>
             </div>
 
-            {(fantasyInjury || playerNews[0]) && (
+            {(fantasyRank || fantasyInjury || playerNews[0]) && (
               <div className="relative z-10 rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-[10px] font-bold tracking-[0.16em] uppercase text-indigo-700">FantasyPros Outlook</span>
                   <span className="text-[10px] font-medium text-indigo-500">Latest player context</span>
                 </div>
-                <p className="mt-1.5 text-sm leading-relaxed text-indigo-950">{fantasyInjury?.comment || playerNews[0]?.description || playerNews[0]?.headline || "Latest FantasyPros context is not available yet."}</p>
+                <p className="mt-1.5 text-sm leading-relaxed text-indigo-950">{fantasyInjury?.comment || playerNews[0]?.description || playerNews[0]?.headline || (fantasyRank?.ecr ? `FantasyPros ranks ${player.longName} #${fantasyRank.ecr} overall and ${fantasyRank.positionRank || `among ${player.pos}s`} in PPR expert consensus.` : "FantasyPros context is loading.")}</p>
               </div>
             )}
 
