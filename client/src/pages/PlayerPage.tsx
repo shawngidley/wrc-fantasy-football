@@ -545,6 +545,7 @@ export default function PlayerPage() {
     { position: fantasyProsPosition, week: nflWeek },
     { enabled: Boolean(player?.longName), staleTime: 60 * 60_000 },
   );
+  const fantasyProsNews = trpc.fantasyPros.news.useQuery({ limit: 100 }, { staleTime: 15 * 60_000 });
   const normalizePlayerName = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
   const normalizedPlayerName = normalizePlayerName(player?.longName ?? "");
   const fantasyRank = (fantasyProsRanks.data ?? []).find(item => normalizePlayerName(item.name) === normalizedPlayerName);
@@ -575,50 +576,11 @@ export default function PlayerPage() {
     });
   }, [player?.team, player?.longName]);
 
-  // Fetch ESPN news for this specific player
-  const fetchPlayerNews = useCallback(async (name: string) => {
-    if (!name) return;
-    setNewsLoading(true);
-    try {
-      const res = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=200");
-      const json = await res.json();
-      const articles: { headline: string; description?: string; published: string; links?: { web?: { href: string } }; categories?: { type?: string; athleteId?: number; description: string }[] }[] = json.articles ?? [];
-      const nameLower = name.toLowerCase();
-      const found: PlayerNewsItem[] = [];
-      const seen = new Set<string>();
-      for (const a of articles) {
-        const athleteCat = (a.categories ?? []).find(c => c.type === "athlete");
-        const articlePlayerName = athleteCat?.description ?? "";
-        if (articlePlayerName.toLowerCase() !== nameLower) continue;
-        if (seen.has(a.headline)) continue;
-        seen.add(a.headline);
-        const injuryKeywords = ["injur", "questionable", "doubtful", "out ", "ir ", "placed on", "ruled out", "limited", "missed practice", "did not practice", "dnp", "hamstring", "knee", "ankle", "shoulder", "concussion", "rib", "surgery"];
-        const text = (a.headline + " " + (a.description ?? "")).toLowerCase();
-        found.push({
-          playerName: articlePlayerName,
-          pos: "",
-          nflTeam: "",
-          headline: a.headline,
-          description: a.description,
-          published: a.published,
-          url: a.links?.web?.href,
-          athleteId: athleteCat?.athleteId,
-          isInjury: injuryKeywords.some(kw => text.includes(kw)),
-        });
-      }
-      // Sort newest first
-      found.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime());
-      setPlayerNews(found);
-    } catch {
-      setPlayerNews([]);
-    } finally {
-      setNewsLoading(false);
-    }
-  }, []);
-
   useEffect(() => {
-    if (player?.longName) fetchPlayerNews(player.longName);
-  }, [player?.longName, fetchPlayerNews]);
+    const name = normalizePlayerName(player?.longName ?? "");
+    const injuryWords = /injur|questionable|doubtful|out|ir|limited|missed practice|dnp|hamstring|knee|ankle|shoulder|concussion/i;
+    setPlayerNews((fantasyProsNews.data ?? []).filter(item => normalizePlayerName(item.playerName) === name).map(item => ({ playerName: item.playerName, pos: player?.pos ?? "", nflTeam: item.team, headline: item.title, description: [item.description, item.impact].filter(Boolean).join(" "), published: item.published, url: item.link, isInjury: injuryWords.test(`${item.title} ${item.description} ${item.impact}`), source: "FantasyPros" } as PlayerNewsItem)));
+  }, [player?.longName, player?.pos, fantasyProsNews.data]);
 
   // Injury info
   const injury = player?.injury;

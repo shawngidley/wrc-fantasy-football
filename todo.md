@@ -76,3 +76,10 @@
 - [x] Add clear FantasyPros attribution beside Free Agents ECR and injury-powered data.
 - [x] Confirm the Player Card attribution renders with resolved player data.
 - [x] Verify built client assets and browser requests contain no FantasyPros API key or direct API request.
+
+# Player Card FantasyPros Layout
+
+- [ ] Add the horizontal FantasyPros Insights strip below the player header.
+- [ ] Add conditional FantasyPros injury and availability information.
+- [ ] Use FantasyPros as the sole Player Card news source with visible source labels.
+- [ ] Verify desktop and mobile Player Card layout with a healthy and injured player.
