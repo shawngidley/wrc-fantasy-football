@@ -47,7 +47,6 @@ const AuthContext = createContext<AuthContextType>({
 function normalise(raw: Record<string, unknown>): LoggedInTeam {
   const name = (raw.name ?? raw.team_name ?? "") as string;
   const owner = (raw.owner ?? raw.owner_name ?? "") as string;
-  const pin = (raw.pin ?? raw.auth_pin ?? "1234") as string;
   return {
     id: raw.id as string,
     name,
@@ -60,11 +59,11 @@ function normalise(raw: Record<string, unknown>): LoggedInTeam {
     points_for: (raw.points_for ?? 0) as number,
     points_against: (raw.points_against ?? 0) as number,
     is_commissioner: (raw.is_commissioner ?? false) as boolean,
-    pin,
+    pin: "",
     // aliases
     team_name: name,
     owner_name: owner,
-    auth_pin: pin,
+    auth_pin: "",
   };
 }
 
@@ -82,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (teamId) {
         supabase
           .from("teams")
-          .select("id, name, owner, division, faab, wins, losses, ties, points_for, points_against, is_commissioner, pin")
+          .select("id, name, owner, division, faab, wins, losses, ties, points_for, points_against, is_commissioner")
           .eq("id", teamId)
           .single()
           .then(({ data }) => {
