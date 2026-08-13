@@ -4,6 +4,7 @@
  * Caches results in sessionStorage to avoid redundant API calls.
  */
 import { useState, useEffect } from "react";
+import { normalizeNFLTeamCode } from "@/lib/nflTeamCodes";
 import type { Tank01Stats } from "@/lib/scoringEngine";
 
 const RAPIDAPI_KEY = "7e46b980d9mshee27c75e8b169f3p17558bjsnc4344991f4d3";
@@ -74,11 +75,15 @@ function cacheSet(key: string, data: unknown) {
   }
 }
 
+function normalizeTankPlayer(player: Tank01Player): Tank01Player {
+  return { ...player, team: normalizeNFLTeamCode(player.team) };
+}
+
 // ── Fetch player by ESPN playerID ────────────────────────────────────────────
 export async function fetchPlayerById(playerID: string): Promise<Tank01Player | null> {
   const cacheKey = `player_${playerID}`;
   const cached = cacheGet<Tank01Player>(cacheKey);
-  if (cached) return cached;
+  if (cached) return normalizeTankPlayer(cached);
 
   try {
     const res = await fetch(
@@ -89,8 +94,9 @@ export async function fetchPlayerById(playerID: string): Promise<Tank01Player | 
     const json = await res.json();
     const player: Tank01Player = json.body;
     if (!player || !player.playerID) return null;
-    cacheSet(cacheKey, player);
-    return player;
+    const normalizedPlayer = normalizeTankPlayer(player);
+    cacheSet(cacheKey, normalizedPlayer);
+    return normalizedPlayer;
   } catch {
     return null;
   }
@@ -100,7 +106,7 @@ export async function fetchPlayerById(playerID: string): Promise<Tank01Player | 
 export async function fetchPlayerByName(name: string): Promise<Tank01Player | null> {
   const cacheKey = `name_${name.toLowerCase().replace(/\s+/g, "_")}`;
   const cached = cacheGet<Tank01Player>(cacheKey);
-  if (cached) return cached;
+  if (cached) return normalizeTankPlayer(cached);
 
   try {
     const res = await fetch(
@@ -113,8 +119,9 @@ export async function fetchPlayerByName(name: string): Promise<Tank01Player | nu
     const list: Tank01Player[] = Array.isArray(json.body) ? json.body : [json.body];
     const player = list[0];
     if (!player || !player.playerID) return null;
-    cacheSet(cacheKey, player);
-    return player;
+    const normalizedPlayer = normalizeTankPlayer(player);
+    cacheSet(cacheKey, normalizedPlayer);
+    return normalizedPlayer;
   } catch {
     return null;
   }
@@ -130,7 +137,10 @@ export async function fetchNFLTeams(): Promise<Tank01TeamInfo[]> {
     const res = await fetch(`${BASE_URL}/getNFLTeams`, { headers: HEADERS });
     if (!res.ok) return [];
     const json = await res.json();
-    const teams: Tank01TeamInfo[] = json.body ?? [];
+    const teams: Tank01TeamInfo[] = (json.body ?? []).map((team: Tank01TeamInfo) => ({
+      ...team,
+      teamAbv: normalizeNFLTeamCode(team.teamAbv),
+    }));
     cacheSet(cacheKey, teams);
     return teams;
   } catch {
@@ -205,7 +215,7 @@ export function useNFLTeams() {
 
 // ── Helper: get ESPN team logo URL ───────────────────────────────────────────
 export function getTeamLogoUrl(teamAbv: string): string {
-  const abv = teamAbv?.toLowerCase();
+  const abv = normalizeNFLTeamCode(teamAbv).toLowerCase();
   // Map common abbreviation differences
   const abvMap: Record<string, string> = {
     wsh: "wsh", was: "wsh", wsn: "wsh",
@@ -232,7 +242,7 @@ export function getTeamLogoUrl(teamAbv: string): string {
     det: "det",
     hou: "hou",
     ind: "ind",
-    jac: "jac", jax: "jac",
+    jac: "jac",
     min: "min",
     mia: "mia",
     nyg: "nyg",

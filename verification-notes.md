@@ -51,3 +51,11 @@ Davante Adams identified a general veteran-player edge case: ESPN’s game-log e
 Davante Adams’s completed fallback rows verify the shared veteran path: 2024 — 85 REC, 141 TGTS, 1,063 YDS, 12.5 AVG, 8 TD; 2023 — 103 REC, 175 TGTS, 1,144 YDS, 11.1 AVG, 8 TD; 2022 — 100 REC, 180 TGTS, 1,516 YDS, 15.2 AVG, 14 TD. Comma-formatted ESPN totals are now parsed numerically before averages and WRC points are calculated.
 
 The FantasyPros Overall ECR and Position Rank fields are produced through the shared Player Card queries for every supported position. Historical parsing has now been covered by unit tests for quarterback passing/rushing groups, running-back rushing/receiving groups, wide-receiver/tight-end receiving-first groups, kicker accuracy, and defensive categories. Representative live cards verified Josh Allen (QB), Saquon Barkley (RB, PHI/NYG season logos), Davante Adams (WR, LAR/NYJ/LV/GB season logos), and Trey McBride (TE).
+
+## Global Season-Team Identity and Jaguars Normalization — 2026-08-13
+
+Chris Rodriguez Jr.’s initial Player Card load showed his current 2026 Jacksonville assignment while historical season data was still loading. The completed 2025 row must resolve to Washington from ESPN’s 2025 season data, so the shared season table now gives a completed season’s team priority over a present-day team. All Player Card team display, logos, matchups, schedules, depth-chart lookups, watchlist entries, and FantasyPros news tags pass through the canonical NFL team-code normalizer, which maps upstream `JAX` to `JAC`.
+
+After the shared Tank01 and Player Card normalization updates, Chris Rodriguez Jr.’s active profile, FantasyPros news labels, and Week 1 matchup display use `JAC` consistently. His 2025 historical row displays Washington’s logo, while 2024 and 2023 rows also remain Washington. TypeScript and all 17 tests pass, including the shared JAC normalization test.
+
+The 2025 Player Card row now renders only after the ESPN 2025 historical team is resolved; it has no present-day-team fallback. The regression test uses Chris Rodriguez Jr.’s WSH 2025 row after his 2026 Jacksonville move. Trevor Lawrence independently verified a second Jaguars player: Player Card header/logo, FantasyPros news tags, all historical season logos, and Week 1 matchup consistently use `JAC`.

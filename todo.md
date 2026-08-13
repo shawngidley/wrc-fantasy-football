@@ -203,3 +203,16 @@
 - [x] Audit shared ESPN historical-stat parsing across quarterback, running back, wide receiver, tight end, kicker, and defense cards.
 - [x] Populate an NFL team logo for every historical season row using the team recorded for that season.
 - [x] Verify the standard with representative Player Cards across positions and team changes.
+
+# Global Season-Team Identity and Jaguars Normalization
+
+- [x] Replace all Jaguars variants with the canonical JAC abbreviation across data, display, matchups, and logos.
+- [x] Ensure every historical season row uses the team returned for that season rather than the player’s later current team.
+- [x] Correct current-season historical rows when the present-day player team differs from the completed season team.
+- [x] Verify Chris Rodriguez Jr. and a Jaguars player across Player Card, news, and matchup views.
+
+# Guaranteed Season-Team Identity and Jaguars Verification
+
+- [x] Remove the present-day team fallback from completed 2025 Player Card season rows.
+- [x] Add a regression test for a post-2025 team change that keeps the 2025 row on the completed-season team.
+- [x] Verify a second Jaguars player across Player Card, FantasyPros news labels, matchup, and logo display.

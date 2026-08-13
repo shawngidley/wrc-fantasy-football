@@ -32,6 +32,8 @@ import { trpc } from "@/lib/trpc";
 import { getVisiblePlayerNews } from "@/lib/playerNewsDisplay";
 import { getOverallEcrDisplay } from "@/lib/playerRankDisplay";
 import { calculateStatAverage } from "@/lib/playerStatMath";
+import { normalizeNFLTeamCode } from "@/lib/nflTeamCodes";
+import { getHistoricalSeasonTeam } from "@/lib/playerSeasonTeam";
 
 // ── Position badge colors ────────────────────────────────────────────────────
 const POS_COLORS: Record<string, string> = {
@@ -160,12 +162,13 @@ function MultiSeasonStatsTable({
   currentNflTeam?: string;
 }) {
   const { seasons, loading } = useESPNSeasonStats(espnId, pos);
+  const completedSeasonTeam = getHistoricalSeasonTeam(seasons, 2025);
 
   // Build current season row from Tank01 data
-  const currentRow: SeasonStatRow | null = currentStats
+  const currentRow: SeasonStatRow | null = currentStats && completedSeasonTeam
     ? {
         season: 2025,
-        team: currentNflTeam,
+        team: completedSeasonTeam,
         gp: parseInt(String(currentStats.gamesPlayed ?? "0"), 10),
         passYds:    Number(currentStats.Passing?.passYds ?? 0),
         passTD:     Number(currentStats.Passing?.passTD ?? 0),
@@ -503,6 +506,7 @@ export default function PlayerPage() {
   const playerName = decodeURIComponent(rawName.replace(/-/g, " "));
 
   const { player, loading, error } = useTank01PlayerByName(playerName || null);
+  const canonicalTeam = normalizeNFLTeamCode(player?.team);
 
   // Find WRC ownership via live Supabase query
   const { ownership, ownerLoading: _ownerLoading } = usePlayerOwnership(playerName || null);
@@ -512,7 +516,7 @@ export default function PlayerPage() {
   const currentWeek = getCurrentWeek();
   const nflWeek = currentWeek > 0 ? currentWeek : 1; // default to week 1 pre-season
   const { matchups: matchupMap, loading: matchupLoading } = useNFLMatchups(nflWeek);
-  const matchup = player?.team ? matchupMap[player.team] : undefined;
+  const matchup = canonicalTeam ? matchupMap[canonicalTeam] : undefined;
   const fantasyProsPosition = (["QB", "RB", "WR", "TE", "K", "DST"].includes(player?.pos ?? "") ? player?.pos : "OP") as "QB" | "RB" | "WR" | "TE" | "K" | "DST" | "OP";
   const fantasyProsRanks = trpc.fantasyPros.ranks.useQuery(
     { position: fantasyProsPosition, week: nflWeek },
@@ -541,7 +545,7 @@ export default function PlayerPage() {
   const fantasyProsExpertNoteUrl = `https://www.fantasypros.com/nfl/notes/${playerName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}.php`;
 
   // Schedule and game log
-  const { schedule, loading: scheduleLoading } = useNFLTeamSchedule(player?.team ?? null, 2026);
+  const { schedule, loading: scheduleLoading } = useNFLTeamSchedule(canonicalTeam || null, 2026);
   const { games: gameLog, loading: gameLogLoading } = useNFLGameLog(
     player?.playerID ?? null,
     player?.pos ?? "",
@@ -551,9 +555,9 @@ export default function PlayerPage() {
   // Depth chart position from Tank01
   const [depthPosition, setDepthPosition] = useState<string | null>(null);
   useEffect(() => {
-    if (!player?.team || !player?.longName) return;
+    if (!canonicalTeam || !player?.longName) return;
     import("@/hooks/useNFLDepthCharts").then(({ fetchTeamDepthChart }) => {
-      fetchTeamDepthChart(player.team).then(positions => {
+      fetchTeamDepthChart(canonicalTeam).then(positions => {
         const nameLower = player.longName.toLowerCase();
         for (const entries of Object.values(positions)) {
           const match = (entries as { depthPosition: string; longName: string }[]).find(
@@ -563,13 +567,13 @@ export default function PlayerPage() {
         }
       });
     });
-  }, [player?.team, player?.longName]);
+  }, [canonicalTeam, player?.longName]);
 
   useEffect(() => {
     const name = normalizePlayerName(player?.longName ?? "");
     const injuryWords = /injur|questionable|doubtful|out|ir|limited|missed practice|dnp|hamstring|knee|ankle|shoulder|concussion/i;
     const playerSpecificNews = fantasyProsPlayerNews.data ?? (fantasyProsNews.data ?? []).filter(item => normalizePlayerName(item.playerName) === name);
-    setPlayerNews(playerSpecificNews.map(item => ({ playerName: item.playerName, pos: player?.pos ?? "", nflTeam: item.team, headline: item.title, description: [item.description, item.impact].filter(Boolean).join(" "), published: item.published, url: item.link, isInjury: injuryWords.test(`${item.title} ${item.description} ${item.impact}`), source: "FantasyPros" } as PlayerNewsItem)));
+    setPlayerNews(playerSpecificNews.map(item => ({ playerName: item.playerName, pos: player?.pos ?? "", nflTeam: normalizeNFLTeamCode(item.team), headline: item.title, description: [item.description, item.impact].filter(Boolean).join(" "), published: item.published, url: item.link, isInjury: injuryWords.test(`${item.title} ${item.description} ${item.impact}`), source: "FantasyPros" } as PlayerNewsItem)));
   }, [player?.longName, player?.pos, fantasyProsNews.data, fantasyProsPlayerNews.data]);
 
   // Injury info
@@ -690,12 +694,12 @@ export default function PlayerPage() {
                       {/* NFL team logo + name */}
                       <div className="flex items-center gap-1.5">
                         <img
-                          src={getTeamLogoUrl(player.team)}
-                          alt={player.team}
+                          src={getTeamLogoUrl(canonicalTeam)}
+                          alt={canonicalTeam}
                           className="w-5 h-5 object-contain"
                           onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                         />
-                        <span className="text-slate-300 text-sm font-medium">{player.team}</span>
+                        <span className="text-slate-300 text-sm font-medium">{canonicalTeam}</span>
                       </div>
                       {/* Depth chart position */}
                       {depthPosition && (
@@ -740,8 +744,8 @@ export default function PlayerPage() {
                   {/* Team logo large */}
                   <div className="hidden sm:block pb-2 opacity-20">
                     <img
-                      src={getTeamLogoUrl(player.team)}
-                      alt={player.team}
+                      src={getTeamLogoUrl(canonicalTeam)}
+                      alt={canonicalTeam}
                       className="w-20 h-20 object-contain"
                     />
                   </div>
@@ -777,7 +781,7 @@ export default function PlayerPage() {
                 {/* Watchlist button */}
                 {franchise && (
                   <button
-                    onClick={() => toggleWatch({ name: player.longName, pos: player.pos, nflTeam: player.team })}
+                    onClick={() => toggleWatch({ name: player.longName, pos: player.pos, nflTeam: canonicalTeam })}
                     className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border transition-all"
                     style={{
                       background: isWatched(player.longName) ? "oklch(0.96 0.06 85)" : "white",
@@ -942,7 +946,7 @@ export default function PlayerPage() {
                     pos={player.pos}
                     espnId={player.espnID || player.playerID}
                     currentStats={player.stats}
-                    currentNflTeam={player.team}
+                    currentNflTeam={canonicalTeam}
                   />
                 </div>
               )}
@@ -1091,7 +1095,7 @@ export default function PlayerPage() {
                 </div>
                 {matchup ? (
                   <div className="flex items-center gap-4">
-                    <img src={getTeamLogoUrl(player.team)} alt={player.team} className="w-10 h-10 object-contain" />
+                    <img src={getTeamLogoUrl(canonicalTeam)} alt={canonicalTeam} className="w-10 h-10 object-contain" />
                     <div>
                       <p className="font-semibold text-slate-900">
                         {formatMatchup(matchup)}
@@ -1105,7 +1109,7 @@ export default function PlayerPage() {
                   <p className="text-slate-500 text-sm">
                     {currentWeek === 0
                       ? "Season starts September 9, 2026 — Week 1 schedule loading..."
-                      : `${player.team} has a bye this week`}
+                      : `${canonicalTeam} has a bye this week`}
                   </p>
                 )}
               </div>
@@ -1134,7 +1138,7 @@ export default function PlayerPage() {
             id: player.playerID,
             name: player.longName,
             pos: player.pos,
-            nflTeam: player.team,
+            nflTeam: canonicalTeam,
           }}
           onClose={() => setBidModalOpen(false)}
         />
