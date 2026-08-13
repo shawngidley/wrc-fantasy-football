@@ -12,8 +12,18 @@ import { useState, useEffect } from "react";
 import { calcFantasyPoints } from "@/lib/scoringEngine";
 
 const ESPN_GAMELOG = "https://site.api.espn.com/apis/common/v3/sports/football/nfl/athletes";
-const CACHE_PREFIX = "wrc_espn_gl_v3_";
+const CACHE_PREFIX = "wrc_espn_gl_v4_";
+const CACHE_NAMESPACE = "wrc_espn_gl_";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+export function clearObsoleteHistoryCaches(storage: Pick<Storage, "length" | "key" | "removeItem">): void {
+  const obsoleteKeys: string[] = [];
+  for (let index = 0; index < storage.length; index += 1) {
+    const key = storage.key(index);
+    if (key?.startsWith(CACHE_NAMESPACE) && !key.startsWith(CACHE_PREFIX)) obsoleteKeys.push(key);
+  }
+  obsoleteKeys.forEach(key => storage.removeItem(key));
+}
 
 export interface SeasonStatRow {
   season: number;
@@ -166,6 +176,7 @@ async function fetchSeasonStats(
 ): Promise<SeasonStatRow | null> {
   const cacheKey = `${CACHE_PREFIX}${espnId}_${year}`;
   try {
+    clearObsoleteHistoryCaches(sessionStorage);
     const cached = sessionStorage.getItem(cacheKey);
     if (cached) {
       const { ts, data } = JSON.parse(cached);

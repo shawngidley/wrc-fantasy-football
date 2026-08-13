@@ -184,3 +184,15 @@
 
 - [x] Verify Trey McBride’s 2023 historical row against the ESPN game-log response.
 - [x] Verify Trey McBride’s 2022 historical row against the ESPN game-log response.
+
+# Trey McBride Live Historical Display
+
+- [x] Inspect the published Trey McBride card and the browser-side historical cache after the reported unsuccessful update.
+- [x] Correct any remaining live client or cache path that serves pre-fix historical rows.
+- [x] Verify the exact published Trey McBride historical rows after the correction.
+
+# Historical Stats Cache Recovery
+
+- [x] Inspect session-storage cache behavior for pre-parser Player Card data and document the recovery path.
+- [x] Automatically clear obsolete historical-stat cache keys when the cache schema changes.
+- [ ] Verify Trey McBride’s published page loads corrected prior-season rows without a cache-busting query string.
