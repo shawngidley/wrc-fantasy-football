@@ -156,3 +156,14 @@
 - [x] Document the most likely stale-build or cached-data explanation for the reported duplicate display.
 - [x] Suppress the Overall ECR value when it exactly duplicates the numeric position rank.
 - [x] Add and verify a unit test for duplicate-rank fallback behavior.
+
+# Player Card Average and Mobile Stat Scroll
+
+- [x] Populate average columns from the applicable player-stat totals and attempts.
+- [x] Fix the pinned Year column layering during horizontal stat-table scrolling.
+- [x] Verify Player Card stat values and mobile scroll behavior.
+
+# True-Mobile Player Card Stat Table Verification
+
+- [ ] Verify a rushing player’s average and pinned Year column in a loaded mobile session.
+- [ ] Verify the receiving average column in a loaded mobile session.

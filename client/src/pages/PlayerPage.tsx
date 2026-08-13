@@ -31,6 +31,7 @@ import { PlayerNewsRow, type PlayerNewsItem } from "@/components/PlayerNewsRow";
 import { trpc } from "@/lib/trpc";
 import { getVisiblePlayerNews } from "@/lib/playerNewsDisplay";
 import { getOverallEcrDisplay } from "@/lib/playerRankDisplay";
+import { calculateStatAverage } from "@/lib/playerStatMath";
 
 // ── Position badge colors ────────────────────────────────────────────────────
 const POS_COLORS: Record<string, string> = {
@@ -189,6 +190,18 @@ function MultiSeasonStatsTable({
 
   // Compute WRC pts for the current season row
   if (currentRow && currentRow.gp > 0 && currentStats) {
+    const rushAtt = currentRow.rushAtt ?? 0;
+    const rushYds = currentRow.rushYds ?? 0;
+    const receptions = currentRow.rec ?? 0;
+    const recYds = currentRow.recYds ?? 0;
+    const passAtt = currentRow.passAtt ?? 0;
+    const passCmp = currentRow.passCmp ?? 0;
+    const fgAtt = currentRow.fgAtt ?? 0;
+    const fgMade = currentRow.fgMade ?? 0;
+    currentRow.rushAvg = calculateStatAverage(rushYds, rushAtt);
+    currentRow.recAvg = calculateStatAverage(recYds, receptions);
+    currentRow.passCmpPct = calculateStatAverage(passCmp * 100, passAtt);
+    currentRow.fgPct = calculateStatAverage(fgMade * 100, fgAtt);
     const wrcPts = calcFantasyPoints(currentStats, pos);
     currentRow.wrcPts = wrcPts;
     currentRow.wrcPtsPerGame = Math.round((wrcPts / currentRow.gp) * 10) / 10;
@@ -336,7 +349,7 @@ function MultiSeasonStatsTable({
           <table className="w-full text-sm" style={{ minWidth: `${cols.length * 72}px` }}>
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100">
-                <th className="px-4 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide sticky left-0 bg-slate-50 z-10 min-w-[56px]">Year</th>
+                <th className="px-4 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide sticky left-0 bg-slate-50 z-30 min-w-[136px] w-[136px] shadow-[7px_0_9px_-9px_rgba(0,0,0,0.72)]">Year</th>
                 <th className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">Team</th>
                 {cols.map((col) => (
                   <th
@@ -358,8 +371,8 @@ function MultiSeasonStatsTable({
                     i === 0 ? "bg-emerald-50/60" : i % 2 === 0 ? "bg-white" : "bg-slate-50/40"
                   }`}
                 >
-                  <td className={`px-4 py-2.5 font-bold text-sm sticky left-0 z-10 ${
-                    i === 0 ? "bg-emerald-50/60 text-emerald-800" : i % 2 === 0 ? "bg-white text-slate-900" : "bg-slate-50/40 text-slate-900"
+                  <td className={`px-4 py-2.5 font-bold text-sm sticky left-0 z-20 min-w-[136px] w-[136px] shadow-[7px_0_9px_-9px_rgba(0,0,0,0.72)] ${
+                    i === 0 ? "bg-emerald-50 text-emerald-800" : i % 2 === 0 ? "bg-white text-slate-900" : "bg-slate-50 text-slate-900"
                   }`}>
                   {row.season}
                   {i === 0 && <span className="ml-1.5 text-xs font-semibold text-emerald-600 bg-emerald-100 px-1.5 py-0.5 rounded">Latest</span>}
