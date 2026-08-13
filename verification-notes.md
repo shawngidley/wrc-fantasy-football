@@ -71,3 +71,7 @@ The published checkpoint used the initial player-specific roster-news path, whic
 ## Persistent Production Empty-State Diagnosis — 2026-08-13
 
 The corrected production server endpoint returned a 67,574-byte Vipers response in 4.60 seconds, including detailed stories for Baker Mayfield, Mike Evans, Alec Pierce, Courtland Sutton, Chris Rodriguez Jr., Javonte Williams, Woody Marks, and others. Therefore, the remaining failure was client-side: the Player News panel copied the asynchronous query response into local state via an effect, allowing its empty-state update to win the render sequence. The panel now derives its items directly from the tRPC query data and adds a versioned query input to invalidate older client query cache entries.
+
+## Standings Roster Briefing Headshots — 2026-08-13
+
+The shared PlayerNewsRow now resolves player images from Tank01’s ESPN fields and displays the returned ESPN headshot URL. Baker Mayfield’s profile verification returned `espnID` 3052587 and `https://a.espncdn.com/i/headshots/nfl/players/full/3052587.png`. The component uses visible player initials whenever no player ID is available, for D/ST, or after an image load failure. Because both the Injury and Player News panels use this shared component, the behavior applies to every owner roster.

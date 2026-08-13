@@ -3,9 +3,11 @@
  * Design: matches the reference screenshot with date column, circular headshot,
  * blue bold player name, pos/team badge, truncated headline with inline expand chevron.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { Link } from "wouter";
+import { fetchPlayerByName } from "@/hooks/useTank01Player";
+import { getEspnHeadshotUrl } from "@/lib/playerHeadshot";
 
 export interface PlayerNewsItem {
   playerName: string;
@@ -51,10 +53,22 @@ export function PlayerNewsRow({
   showDetails?: boolean;
 }) {
   const [expanded, setExpanded] = useState(showDetails);
+  const [resolvedHeadshot, setResolvedHeadshot] = useState<string | null>(null);
+  const [headshotFailed, setHeadshotFailed] = useState(false);
 
-  const headshotUrl = item.athleteId
-    ? `https://a.espncdn.com/i/headshots/nfl/players/full/${item.athleteId}.png`
-    : null;
+  useEffect(() => {
+    let cancelled = false;
+    setResolvedHeadshot(null);
+    setHeadshotFailed(false);
+    if (item.athleteId || item.pos === "DST") return;
+    fetchPlayerByName(item.playerName).then(player => {
+      if (cancelled) return;
+      setResolvedHeadshot(player?.espnHeadshot || getEspnHeadshotUrl(player?.espnID));
+    });
+    return () => { cancelled = true; };
+  }, [item.athleteId, item.playerName, item.pos]);
+
+  const headshotUrl = getEspnHeadshotUrl(item.athleteId) || resolvedHeadshot;
 
   const playerSlug = encodeURIComponent(item.playerName);
 
@@ -101,12 +115,12 @@ export function PlayerNewsRow({
 
       {/* Circular headshot */}
       <div style={{ flexShrink: 0, width: 36, height: 36, borderRadius: "50%", overflow: "hidden", background: "oklch(0.93 0.02 150)", border: "1.5px solid oklch(0.88 0.03 150)" }}>
-        {headshotUrl ? (
+        {headshotUrl && !headshotFailed ? (
           <img
             src={headshotUrl}
             alt={item.playerName}
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+            onError={() => setHeadshotFailed(true)}
           />
         ) : (
           <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem", fontWeight: 800, color: "oklch(0.45 0.06 150)" }}>

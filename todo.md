@@ -235,3 +235,10 @@
 - [x] Compare the exact production and development Vipers roster-news responses.
 - [x] Correct the live server or client response path still leaving the production Player News panel empty.
 - [ ] Verify visible detailed Vipers Player News in production on mobile.
+
+# Standings Roster Briefing Headshots
+
+- [x] Resolve ESPN player headshots for roster briefing injury and news entries without using FantasyPros image URLs.
+- [x] Preserve readable initials as the fallback if a headshot cannot load.
+- [x] Apply headshots globally for every owner’s Standings injury and Player News feeds.
+- [ ] Verify the mobile briefing layout with headshots and detailed blurbs.
