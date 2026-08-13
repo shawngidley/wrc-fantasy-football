@@ -12,7 +12,7 @@ import { useState, useEffect } from "react";
 import { calcFantasyPoints } from "@/lib/scoringEngine";
 
 const ESPN_GAMELOG = "https://site.api.espn.com/apis/common/v3/sports/football/nfl/athletes";
-const CACHE_PREFIX = "wrc_espn_gl_v2_";
+const CACHE_PREFIX = "wrc_espn_gl_v3_";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export interface SeasonStatRow {
@@ -97,7 +97,7 @@ function buildLabelMap(labels: string[]): Record<string, number> {
 }
 
 /** Extract a SeasonStatRow from summed game stats + label map */
-function extractFromGamelog(
+export function extractFromGamelog(
   totals: Record<string, number>,
   gp: number,
   labels: string[]
@@ -120,22 +120,17 @@ function extractFromGamelog(
     r.rushAvg    = r.rushAtt > 0 ? Math.round((r.rushYds / r.rushAtt) * 10) / 10 : 0;
   }
 
-  // RB: CAR YDS AVG TD LNG | REC TGTS YDS AVG TD LNG | FUM LST FF KB
+  // Rushing may follow receiving (RB/TE) or stand alone.
   if ("CAR" in lm && !("CMP" in lm)) {
     r.rushAtt    = totals["CAR"] ?? 0;
-    r.rushYds    = totals["YDS_0"] ?? totals["YDS"] ?? 0;
-    r.rushTD     = totals["TD_0"] ?? totals["TD"] ?? 0;
+    const hasReceiving = "REC" in lm;
+    r.rushYds    = hasReceiving ? (totals["YDS_1"] ?? 0) : (totals["YDS_0"] ?? totals["YDS"] ?? 0);
+    r.rushTD     = hasReceiving ? (totals["TD_1"] ?? 0) : (totals["TD_0"] ?? totals["TD"] ?? 0);
     r.rushAvg    = r.rushAtt > 0 ? Math.round((r.rushYds / r.rushAtt) * 10) / 10 : 0;
-    r.rec        = totals["REC"] ?? 0;
-    r.recTargets = totals["TGTS"] ?? 0;
-    r.recYds     = totals["YDS_1"] ?? 0;
-    r.recTD      = totals["TD_1"] ?? 0;
-    r.recAvg     = r.rec > 0 ? Math.round((r.recYds / r.rec) * 10) / 10 : 0;
-    r.fumblesLost = totals["LST"] ?? 0;
   }
 
-  // WR/TE: REC TGTS YDS AVG TD LNG | CAR YDS AVG TD LNG (optional rush)
-  if ("REC" in lm && !("CAR" in lm)) {
+  // Receiving is the first stat group for WR/TE and follows rushing for RB.
+  if ("REC" in lm) {
     r.rec        = totals["REC"] ?? 0;
     r.recTargets = totals["TGTS"] ?? 0;
     r.recYds     = totals["YDS_0"] ?? totals["YDS"] ?? 0;

@@ -167,3 +167,20 @@
 
 - [ ] Verify a rushing player’s average and pinned Year column in a loaded mobile session.
 - [ ] Verify the receiving average column in a loaded mobile session.
+
+# Missing Live Player Card Table Update
+
+- [ ] Inspect the published Player Card bundle and stat-table output after the reported missing update.
+- [ ] Correct any stale-client or live-rendering issue preventing the average and Year-column changes from appearing.
+- [ ] Verify the updated Player Card in the live site.
+
+# Trey McBride Historical Stats
+
+- [x] Inspect the ESPN game-log response and label sequence for Trey McBride’s prior seasons.
+- [x] Correct tight-end receiving totals, averages, touchdowns, and fumbles in historical rows.
+- [x] Verify Trey McBride’s 2022–2024 Player Card stats against the source response.
+
+# Trey McBride Prior-Season Source Verification
+
+- [x] Verify Trey McBride’s 2023 historical row against the ESPN game-log response.
+- [x] Verify Trey McBride’s 2022 historical row against the ESPN game-log response.
