@@ -827,13 +827,13 @@ export default function PlayerPage() {
               </div>
             </div>
 
-            {playerNews[0]?.description && (
-              <div className="rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3">
+            {playerNews[0] && (
+              <div className="relative z-10 rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3 shadow-sm">
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-[10px] font-bold tracking-[0.16em] uppercase text-indigo-700">FantasyPros Outlook</span>
                   <span className="text-[10px] font-medium text-indigo-500">Latest player context</span>
                 </div>
-                <p className="mt-1.5 text-sm leading-relaxed text-indigo-950">{playerNews[0].description}</p>
+                <p className="mt-1.5 text-sm leading-relaxed text-indigo-950">{playerNews[0].description || playerNews[0].headline}</p>
               </div>
             )}
 

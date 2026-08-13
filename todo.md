@@ -101,3 +101,9 @@
 
 - [ ] Place the conditional FantasyPros Outlook directly below the Insights strip.
 - [ ] Verify the ownership card remains below the Outlook when it is available.
+
+# Player Card Outlook Visibility
+
+- [ ] Fix Outlook stacking and spacing so the next card cannot cover it.
+- [ ] Show a headline-based Outlook fallback when no FantasyPros description is present.
+- [ ] Verify the visible card hierarchy on desktop and mobile.
