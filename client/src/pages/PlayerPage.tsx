@@ -547,6 +547,10 @@ export default function PlayerPage() {
     { position: fantasyProsPosition, week: nflWeek },
     { enabled: Boolean(player?.longName), staleTime: 60 * 60_000 },
   );
+  const fantasyProsOverallRanks = trpc.fantasyPros.ranks.useQuery(
+    { position: "ALL", week: nflWeek },
+    { enabled: Boolean(player?.longName), staleTime: 60 * 60_000 },
+  );
   const fantasyProsProjections = trpc.fantasyPros.projections.useQuery(
     { position: fantasyProsPosition, week: nflWeek },
     { enabled: Boolean(player?.longName), staleTime: 60 * 60_000 },
@@ -556,6 +560,7 @@ export default function PlayerPage() {
   const normalizePlayerName = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
   const normalizedPlayerName = normalizePlayerName(player?.longName ?? "");
   const fantasyRank = (fantasyProsRanks.data ?? []).find(item => normalizePlayerName(item.name) === normalizedPlayerName);
+  const fantasyOverallRank = (fantasyProsOverallRanks.data ?? []).find(item => normalizePlayerName(item.name) === normalizedPlayerName);
   const fantasyProjection = (fantasyProsProjections.data ?? []).find(item => normalizePlayerName(item.name) === normalizedPlayerName);
   const fantasyInjury = (fantasyProsInjuries.data ?? []).find(item => normalizePlayerName(item.name) === normalizedPlayerName);
   const fantasyProsPlayerNews = trpc.fantasyPros.news.useQuery(
@@ -824,7 +829,7 @@ export default function PlayerPage() {
                 <span className="text-[10px] text-slate-400">PPR · Expert consensus</span>
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-y sm:divide-y-0 divide-slate-800">
-                <Insight label="Expert Rank" value={fantasyRank?.ecr != null ? `#${fantasyRank.ecr}` : "—"} />
+                <Insight label="Overall ECR" value={fantasyOverallRank?.ecr != null ? `#${fantasyOverallRank.ecr}` : "—"} />
                 <Insight label="Position Rank" value={fantasyRank?.positionRank || "—"} />
                 <Insight label="Tier" value={fantasyRank?.tier != null ? `Tier ${fantasyRank.tier}` : "—"} />
                 <Insight label="Week Projection" value={fantasyProjection?.pprPoints != null ? `${fantasyProjection.pprPoints.toFixed(1)} PPR` : "—"} />

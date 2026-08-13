@@ -32,7 +32,7 @@ export const appRouter = router({
       .input(z.object({ year: z.number().int(), week: z.number().int().min(0).max(18) }))
       .query(({ input }) => getFantasyProsInjuries(input.year, input.week)),
     ranks: publicProcedure
-      .input(z.object({ position: z.enum(["QB", "RB", "WR", "TE", "K", "DST", "OP"]), week: z.number().int().min(0).max(18) }))
+      .input(z.object({ position: z.enum(["ALL", "QB", "RB", "WR", "TE", "K", "DST", "OP"]), week: z.number().int().min(0).max(18) }))
       .query(({ input }) => getFantasyProsRanks(input.position, input.week)),
     projections: publicProcedure
       .input(z.object({ position: z.enum(["QB", "RB", "WR", "TE", "K", "DST", "OP"]), week: z.number().int().min(0).max(18) }))

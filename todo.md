@@ -138,3 +138,9 @@
 - [x] Show only the three newest FantasyPros updates initially on Player Cards.
 - [x] Add a control to reveal and collapse the complete player-news history.
 - [ ] Verify the compact and expanded views on a loaded mobile session.
+
+# Player Card Rank Distinction
+
+- [x] Retrieve a true FantasyPros overall consensus rank separately from position rank.
+- [x] Label the Player Card rank values as Overall ECR and Position Rank.
+- [x] Verify a player with differing overall and positional rank values.
