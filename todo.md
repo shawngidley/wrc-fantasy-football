@@ -16,8 +16,8 @@
 
 - [x] Inventory public tables, RLS state, and existing public policies.
 - [x] Map browser-side Supabase writes that must be protected.
-- [ ] Propose a PIN-compatible authorization and migration path.
-- [ ] Obtain approval before changing RLS policies or client access.
+- [x] Propose a PIN-compatible authorization and migration path.
+- [x] Obtain approval before changing RLS policies or client access.
 
 # Free Agents Sorting
 
@@ -383,18 +383,18 @@
 
 - [x] Inventory every public Supabase table, client-side read, client-side write, and Storage policy used by the app.
 - [x] Define server-session authorization requirements for owners, commissioners, and public read-only data.
-- [ ] Move sensitive owner and commissioner writes behind validated server procedures.
-- [ ] Remove plaintext PIN fields from browser-accessible Supabase queries and migrate login to server-only verification.
-- [ ] Enable RLS and minimum-necessary policies in reversible table batches after each write path is migrated.
-- [ ] Verify owner, commissioner, and unauthenticated public-access behavior for every secured workflow.
+- [x] Move sensitive owner and commissioner writes behind validated server procedures.
+- [x] Remove plaintext PIN fields from browser-accessible Supabase queries and migrate login to server-only verification.
+- [x] Document the applied single-transaction RLS cutover and an explicit rollback procedure for the secured tables.
+- [ ] Verify owner, commissioner, and unauthenticated public-access behavior for every secured workflow after the final RLS cutover.
 
 # Server-Only Login Session Migration
 
 - [x] Return a redacted server-side team directory with no PIN or PIN-hash fields.
 - [x] Verify selected team PINs through the server-only verification function and establish an httpOnly team session.
 - [x] Replace Login and AuthContext browser PIN queries with server session procedures.
-- [ ] Migrate commissioner and owner Settings PIN controls away from direct browser Supabase access.
-- [ ] Verify a valid owner PIN establishes a server session without browser PIN exposure.
+- [x] Migrate commissioner and owner Settings PIN controls away from direct browser Supabase access.
+- [ ] Verify a valid owner PIN establishes a post-cutover server session without browser PIN exposure.
 
 # Secure Lineup Persistence Migration
 
@@ -476,3 +476,8 @@
 - [x] Replace browser reads of private team, lineup, queue, bid, and trade data with redacted server procedures before the RLS cutover.
 - [x] Retain only intentionally public read access after documenting each table’s permitted browser data.
 - [x] Replace player-page and free-agent browser joins to the protected teams table with redacted server procedures.
+
+# RLS Cutover Schema Reconciliation
+
+- [x] Remove absent database objects from the PostgreSQL RLS cutover script and retry the transaction.
+- [x] Verify the final RLS policy inventory and secured anonymous-access behavior after the corrected cutover.
