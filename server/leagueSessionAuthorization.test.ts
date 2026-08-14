@@ -70,4 +70,14 @@ describe("private league procedures", () => {
     await expect(caller.league.respondToTradeProposal({ proposalId: "00000000-0000-4000-8000-000000000001", action: "declined" }))
       .rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
+
+  it("rejects unauthenticated draft controls and pick submissions", async () => {
+    readWrcTeamSession.mockResolvedValue(null);
+    const caller = appRouter.createCaller({ req: {} as never, res: {} as never, user: null });
+
+    await expect(caller.league.commissionerDraftAction({ action: "start" }))
+      .rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(caller.league.makeDraftPick({ playerName: "Test Player", playerPos: "QB", playerNflTeam: "TEST" }))
+      .rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  });
 });

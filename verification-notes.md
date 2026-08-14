@@ -169,3 +169,7 @@ The Protections page now loads and saves through signed-team server procedures. 
 ## Secure Trade Migration — 2026-08-14
 
 Trade asset pickers, the incoming inbox, proposal creation, counter-offers, decline responses, and acceptance execution now use signed-team server procedures. The server checks both rosters, both FAAB balances, and current ownership of every selected 2026/2027 draft pick at proposal time and again before acceptance. Only the receiving team’s signed session can respond to a pending proposal; accepted trades update rosters, FAAB, picks, proposal status, and transaction history on the server. A direct unauthenticated create-proposal POST returned `UNAUTHORIZED`, and focused authorization coverage guards trade inbox, proposal, and response procedures. The full suite passed with 19 files and 42 tests, and TypeScript completed successfully.
+
+## Secure Draft Control Migration — 2026-08-14
+
+Draft start, pause/resume, skip, and reset controls now require the commissioner session. Owner pick submission is server-authorized: the server reads the current draft state, derives the expected drafting team from the approved 2026 order, rejects an out-of-turn owner, blocks already drafted players, records the pick, assigns the roster, and advances the draft state. A direct unauthenticated commissioner-start request returned `FORBIDDEN`; focused tests also reject unauthenticated draft actions before database access. The full suite passed with 19 files and 43 tests, and TypeScript completed successfully.

@@ -433,3 +433,10 @@
 - [x] Revalidate roster ownership, FAAB balances, and traded-pick ownership before executing an accepted trade.
 - [x] Ensure trade acceptance is authorized only for the receiving team and recorded server-side.
 - [x] Verify unauthenticated and non-recipient trade actions are rejected.
+
+# Secure Draft Control Migration
+
+- [x] Move commissioner draft start, pause, skip, and reset controls behind commissioner procedures.
+- [x] Validate owner picks against the signed session and current draft turn before recording them.
+- [x] Move draft-pick persistence, roster assignment, and clock advance to server procedures.
+- [x] Verify unauthenticated and out-of-turn draft actions are rejected.

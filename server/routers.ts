@@ -15,8 +15,30 @@ import { getPublicLeagueTeam, listPublicLeagueTeams, verifyLeagueTeamPin } from 
 import { clearWrcTeamSession, readWrcTeamSession, writeWrcTeamSession } from "./wrcTeamSession";
 import { supabaseAdmin } from "./supabaseAdmin";
 import { validateProtectionSubmission } from "./protectionRules";
+import { DRAFT_PICKS_2026 } from "../client/src/lib/draftData2026";
 
 const normalizePlayerKey = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
+const WRC_DRAFT_TIMER_SECONDS = 90;
+const WRC_DRAFT_TOTAL_ROUNDS = 18;
+const WRC_DRAFT_TOTAL_TEAMS = 12;
+const WRC_DRAFT_OWNER_TEAM_IDS: Record<string, string> = {
+  "Jonas": "team-jonas", "David R.": "team-davidr", "Jason": "team-jason", "Keith": "team-keith",
+  "Dan": "team-dan", "Scott N.": "team-scottn", "Bill": "team-bill", "Jamie": "team-jamie",
+  "Scott M.": "team-scottm", "David S.": "team-davids", "Shawn": "team-shawn", "Greg": "team-greg",
+};
+
+function nextDraftState(currentRound: number, currentPick: number) {
+  const nextPick = currentPick + 1 >= WRC_DRAFT_TOTAL_TEAMS ? 0 : currentPick + 1;
+  const nextRound = currentPick + 1 >= WRC_DRAFT_TOTAL_TEAMS ? currentRound + 1 : currentRound;
+  const complete = nextRound > WRC_DRAFT_TOTAL_ROUNDS;
+  return {
+    current_round: complete ? currentRound : nextRound,
+    current_pick: complete ? currentPick : nextPick,
+    complete,
+    paused: false,
+    timer_seconds: WRC_DRAFT_TIMER_SECONDS,
+  };
+}
 
 async function mapWithConcurrency<T, R>(items: T[], limit: number, mapper: (item: T) => Promise<R>): Promise<R[]> {
   const results: R[] = [];
@@ -595,6 +617,72 @@ export const appRouter = router({
           if (error) throw new Error("Trade completed, but transaction history could not be written.");
         }
         return { status: "accepted" as const, fromTeamName: fromTeam.name, toTeamName: toTeam.name };
+      }),
+    commissionerDraftAction: commissionerProcedure
+      .input(z.object({ action: z.enum(["start", "togglePause", "skip", "reset"]) }))
+      .mutation(async ({ input }) => {
+        const { data: state, error: stateError } = await supabaseAdmin.from("draft_state").select("started, paused, complete, current_round, current_pick").eq("id", 1).single();
+        if (stateError || !state) throw new Error("Unable to load draft state");
+        if (input.action === "reset") {
+          const { error: deleteError } = await supabaseAdmin.from("draft_picks").delete().neq("id", 0);
+          if (deleteError) throw new Error("Unable to reset draft picks");
+          const { error } = await supabaseAdmin.from("draft_state").update({
+            started: false, paused: false, complete: false, current_round: 1, current_pick: 0,
+            timer_seconds: WRC_DRAFT_TIMER_SECONDS, updated_at: new Date().toISOString(),
+          }).eq("id", 1);
+          if (error) throw new Error("Unable to reset draft state");
+          return { action: "reset" as const };
+        }
+        const patch = input.action === "start"
+          ? { started: true, paused: false, complete: false, current_round: 1, current_pick: 0, timer_seconds: WRC_DRAFT_TIMER_SECONDS }
+          : input.action === "togglePause"
+            ? { paused: !state.paused }
+            : nextDraftState(state.current_round, state.current_pick);
+        const { error } = await supabaseAdmin.from("draft_state").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", 1);
+        if (error) throw new Error("Unable to update draft state");
+        return { action: input.action };
+      }),
+    makeDraftPick: teamProcedure
+      .input(z.object({ playerName: z.string().min(1).max(128), playerPos: z.string().min(1).max(8), playerNflTeam: z.string().min(1).max(8) }))
+      .mutation(async ({ input, ctx }) => {
+        const { data: state, error: stateError } = await supabaseAdmin.from("draft_state")
+          .select("started, paused, complete, current_round, current_pick").eq("id", 1).single();
+        if (stateError || !state) throw new Error("Unable to load draft state");
+        if (!state.started || state.paused || state.complete) throw new Error("The draft is not currently accepting picks.");
+        const overall = (state.current_round - 1) * WRC_DRAFT_TOTAL_TEAMS + state.current_pick + 1;
+        const currentPick = DRAFT_PICKS_2026.find(pick => pick.overall === overall);
+        if (!currentPick) throw new Error("Unable to identify the current draft pick.");
+        const expectedTeamId = WRC_DRAFT_OWNER_TEAM_IDS[currentPick.owner];
+        if (!ctx.teamSession.isCommissioner && ctx.teamSession.teamId !== expectedTeamId) throw new Error("It is not your team’s turn to draft.");
+        const { data: existingPick, error: existingPickError } = await supabaseAdmin.from("draft_picks").select("id").eq("player_name", input.playerName).maybeSingle();
+        if (existingPickError) throw new Error("Unable to verify player availability");
+        if (existingPick) throw new Error("This player has already been drafted.");
+
+        const teamNameResponse = await supabaseAdmin.from("teams").select("name").eq("id", expectedTeamId).single();
+        if (teamNameResponse.error || !teamNameResponse.data) throw new Error("Unable to identify the drafting team.");
+        const { data: savedPick, error: pickError } = await supabaseAdmin.from("draft_picks").insert({
+          round: state.current_round,
+          pick: state.current_pick,
+          overall,
+          team_name: teamNameResponse.data.name,
+          owner: currentPick.owner,
+          player_name: input.playerName,
+          player_pos: input.playerPos,
+          player_nfl_team: input.playerNflTeam,
+        }).select("id, round, pick, overall, team_name, owner, player_name, player_pos, player_nfl_team, picked_at").single();
+        if (pickError || !savedPick) throw new Error("Unable to record draft pick");
+        const { error: rosterError } = await supabaseAdmin.from("players").update({
+          team_id: expectedTeamId,
+          acquisition: `Rd ${state.current_round}`,
+          draft_round: state.current_round,
+        }).ilike("name", input.playerName);
+        if (rosterError) throw new Error("Draft pick was saved, but the team roster could not be updated.");
+        const { error: advanceError } = await supabaseAdmin.from("draft_state").update({
+          ...nextDraftState(state.current_round, state.current_pick),
+          updated_at: new Date().toISOString(),
+        }).eq("id", 1).eq("current_round", state.current_round).eq("current_pick", state.current_pick);
+        if (advanceError) throw new Error("Draft pick was saved, but the draft clock could not advance.");
+        return { pick: savedPick, complete: state.current_round === WRC_DRAFT_TOTAL_ROUNDS && state.current_pick === WRC_DRAFT_TOTAL_TEAMS - 1 };
       }),
   }),
 

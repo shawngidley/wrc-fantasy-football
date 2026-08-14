@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { fetchPlayerByName, getTeamLogoUrl } from "@/hooks/useTank01Player";
 import { useDraftQueue } from "@/hooks/useDraftQueue";
 import { useNFLADP } from "@/hooks/useNFLADP";
+import { trpc } from "@/lib/trpc";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const TIMER_SECONDS = 90;
@@ -180,6 +181,8 @@ export default function DraftBoard() {
   const chimeRef = useRef<HTMLAudioElement | null>(null);
   // Tracks which pick IDs have been revealed (shown in board after overlay)
   const [revealedPickIds, setRevealedPickIds] = useState<Set<number>>(new Set());
+  const draftActionMutation = trpc.league.commissionerDraftAction.useMutation();
+  const makeDraftPickMutation = trpc.league.makeDraftPick.useMutation();
 
   // Draft queue hook
   const franchiseId = franchise?.id ?? null;
@@ -392,45 +395,46 @@ export default function DraftBoard() {
   }, [dbPicks]);
 
   // ── Commissioner actions ──
-  async function updateDraftState(patch: Partial<DbDraftState>) {
-    const { error } = await supabase
-      .from("draft_state")
-      .update({ ...patch, updated_at: new Date().toISOString() })
-      .eq("id", 1);
-    if (error) toast.error("Failed to update draft state: " + error.message);
-  }
-
   async function handleStartDraft() {
-    await updateDraftState({ started: true, paused: false, complete: false, current_round: 1, current_pick: 0, timer_seconds: TIMER_SECONDS });
-    setTimer(TIMER_SECONDS);
-    toast.success("Draft started! 🏈");
+    try {
+      await draftActionMutation.mutateAsync({ action: "start" });
+      setTimer(TIMER_SECONDS);
+      toast.success("Draft started! 🏈");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to start draft.");
+    }
   }
 
   async function handlePauseResume() {
-    await updateDraftState({ paused: !paused });
+    try {
+      await draftActionMutation.mutateAsync({ action: "togglePause" });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update draft clock.");
+    }
   }
 
   async function handleSkip() {
     if (!isCommissioner) return;
-    const nextPick = curPick + 1 >= TOTAL_TEAMS ? 0 : curPick + 1;
-    const nextRound = curPick + 1 >= TOTAL_TEAMS ? curRound + 1 : curRound;
-    if (nextRound > TOTAL_ROUNDS) {
-      await updateDraftState({ complete: true });
-      toast.success("Draft complete! 🏆");
-      return;
+    try {
+      await draftActionMutation.mutateAsync({ action: "skip" });
+      setTimer(TIMER_SECONDS);
+      toast.success("Draft clock advanced.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to skip draft pick.");
     }
-    await updateDraftState({ current_round: nextRound, current_pick: nextPick, paused: false, timer_seconds: TIMER_SECONDS });
-    setTimer(TIMER_SECONDS);
   }
 
   async function handleReset() {
     if (!isCommissioner) return;
     if (!confirm("Reset the entire draft? This will delete all picks and cannot be undone.")) return;
-    await supabase.from("draft_picks").delete().neq("id", 0);
-    await updateDraftState({ started: false, paused: false, complete: false, current_round: 1, current_pick: 0, timer_seconds: TIMER_SECONDS });
-    setDbPicks([]);
-    setTimer(TIMER_SECONDS);
-    toast.success("Draft reset.");
+    try {
+      await draftActionMutation.mutateAsync({ action: "reset" });
+      setDbPicks([]);
+      setTimer(TIMER_SECONDS);
+      toast.success("Draft reset.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to reset draft.");
+    }
   }
 
   // ── Make a pick ──
@@ -439,61 +443,22 @@ export default function DraftBoard() {
     if (!isMyTurn && !isCommissioner) return;
 
     setSubmitting(true);
-    const overall = (curRound - 1) * TOTAL_TEAMS + curPick + 1;
-
-    const { error: pickError } = await supabase.from("draft_picks").insert({
-      round: curRound,
-      pick: curPick,
-      overall,
-      team_name: currentTeamName,
-      owner: currentOwner,
-      player_name: player.name,
-      player_pos: player.pos,
-      player_nfl_team: player.nflTeam,
-    });
-
-    if (pickError) {
-      toast.error("Pick failed: " + pickError.message);
+    try {
+      const result = await makeDraftPickMutation.mutateAsync({
+        playerName: player.name,
+        playerPos: player.pos,
+        playerNflTeam: player.nflTeam,
+      });
+      setDbPicks(prev => prev.some(pick => pick.id === result.pick.id) ? prev : [...prev, result.pick as DbDraftPick]);
+      setShowPlayerPool(false);
+      toast.success(`${player.name} drafted by ${currentTeamName}!`);
+      if (result.complete) toast.success("Draft complete! 🏆");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Pick failed.");
+    } finally {
       setSubmitting(false);
-      return;
     }
-
-    // Update players table: assign player to drafting team so roster/lineup pages update immediately
-    const draftingTeamId = OWNER_TO_TEAM_ID[currentOwner];
-    if (draftingTeamId) {
-      // Try to find the player by name in the players table and update their team_id
-      const { error: rosterError } = await supabase
-        .from("players")
-        .update({
-          team_id: draftingTeamId,
-          acquisition: `Rd ${curRound}`,
-          draft_round: curRound,
-        })
-        .ilike("name", player.name);
-      if (rosterError) {
-        console.warn("[Draft] Could not update players table for", player.name, rosterError.message);
-      }
-    }
-
-    // Advance to next pick
-    const nextPick = curPick + 1 >= TOTAL_TEAMS ? 0 : curPick + 1;
-    const nextRound = curPick + 1 >= TOTAL_TEAMS ? curRound + 1 : curRound;
-    const isDraftComplete = nextRound > TOTAL_ROUNDS;
-
-    await updateDraftState({
-      current_round: isDraftComplete ? curRound : nextRound,
-      current_pick: isDraftComplete ? curPick : nextPick,
-      complete: isDraftComplete,
-      paused: false,
-      timer_seconds: TIMER_SECONDS,
-    });
-
-    setShowPlayerPool(false);
-    setSubmitting(false);
-    toast.success(`${player.name} drafted by ${currentTeamName}!`);
-
-    if (isDraftComplete) toast.success("Draft complete! 🏆");
-  }, [started, complete, submitting, isMyTurn, isCommissioner, curRound, curPick, currentTeamName, currentOwner]);
+  }, [started, complete, submitting, isMyTurn, isCommissioner, currentTeamName, makeDraftPickMutation]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   if (loading) {
