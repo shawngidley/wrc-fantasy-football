@@ -4,11 +4,11 @@
  * Card: Team dropdown + PIN entry
  * Auth: Supabase teams table PIN verification
  */
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { Lock, ChevronDown, Trophy } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { trpc } from "@/lib/trpc";
 import type { LoggedInTeam } from "@/contexts/AuthContext";
 
 interface TeamRow {
@@ -23,7 +23,6 @@ interface TeamRow {
   points_for: number;
   points_against: number;
   is_commissioner: boolean;
-  pin: string;
 }
 
 export default function Login() {
@@ -43,32 +42,14 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [loadingTeams, setLoadingTeams] = useState(true);
   const [teamLoadError, setTeamLoadError] = useState("");
+  const teamsQuery = trpc.league.teams.useQuery(undefined, { retry: 2, retryDelay: (attempt: number) => 750 * (attempt + 1) });
+  const loginMutation = trpc.league.login.useMutation();
 
-  const loadTeams = useCallback(async () => {
-    setLoadingTeams(true);
-    setTeamLoadError("");
-
-    for (let attempt = 0; attempt < 3; attempt += 1) {
-      const { data, error: err } = await supabase
-        .from("teams")
-        .select("id, name, owner, division, faab, wins, losses, ties, points_for, points_against, is_commissioner, pin")
-        .order("name");
-      if (!err && data && data.length > 0) {
-        setTeams(data as TeamRow[]);
-        setLoadingTeams(false);
-        return;
-      }
-      if (attempt < 2) await new Promise(resolve => window.setTimeout(resolve, 750 * (attempt + 1)));
-    }
-
-    setLoadingTeams(false);
-    setTeamLoadError("The team list is temporarily unavailable. Please try again.");
-  }, []);
-
-  // Load teams from Supabase on mount and retry transient connection failures.
   useEffect(() => {
-    void loadTeams();
-  }, [loadTeams]);
+    if (teamsQuery.data) setTeams(teamsQuery.data as TeamRow[]);
+    setLoadingTeams(teamsQuery.isLoading || teamsQuery.isFetching);
+    setTeamLoadError(teamsQuery.isError ? "The team list is temporarily unavailable. Please try again." : "");
+  }, [teamsQuery.data, teamsQuery.isError, teamsQuery.isFetching, teamsQuery.isLoading]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,21 +58,15 @@ export default function Login() {
     if (!pin) { setError("Please enter your PIN."); return; }
     setLoading(true);
 
-    const team = teams.find(t => t.id === selectedId);
-    if (!team || team.pin !== pin) {
+    try {
+      const team = await loginMutation.mutateAsync({ teamId: selectedId, pin });
+      login({ ...team, team_name: team.name, owner_name: team.owner });
+      navigate("/standings");
+    } catch {
       setError("Incorrect PIN. Please try again.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    const loggedIn: LoggedInTeam = {
-      ...team,
-      team_name: team.name,
-      owner_name: team.owner,
-      auth_pin: team.pin,
-    };
-    login(loggedIn);
-    navigate("/standings");
   };
 
   return (
@@ -182,7 +157,7 @@ export default function Login() {
               {teamLoadError && (
                 <div style={{ marginTop: "0.6rem", color: "oklch(0.45 0.18 25)", fontSize: "0.82rem", fontFamily: "DM Sans, sans-serif", lineHeight: 1.35 }}>
                   <div>{teamLoadError}</div>
-                  <button type="button" onClick={() => void loadTeams()} style={{ marginTop: "0.35rem", border: 0, padding: 0, background: "transparent", color: "oklch(0.34 0.12 215)", fontWeight: 700, textDecoration: "underline", cursor: "pointer" }}>
+                  <button type="button" onClick={() => void teamsQuery.refetch()} style={{ marginTop: "0.35rem", border: 0, padding: 0, background: "transparent", color: "oklch(0.34 0.12 215)", fontWeight: 700, textDecoration: "underline", cursor: "pointer" }}>
                     Retry team list
                   </button>
                 </div>

@@ -11,6 +11,8 @@ import {
 } from "./fantasypros";
 import { attachFantasyProsPlayerNames } from "./fantasyprosNewsNames";
 import { archiveFantasyProsNews, getArchivedFantasyProsNews, mergeFantasyProsNews } from "./fantasyprosArchive";
+import { getPublicLeagueTeam, listPublicLeagueTeams, verifyLeagueTeamPin } from "./leagueAuth";
+import { clearWrcTeamSession, readWrcTeamSession, writeWrcTeamSession } from "./wrcTeamSession";
 
 const normalizePlayerKey = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -38,6 +40,26 @@ export const appRouter = router({
       return {
         success: true,
       } as const;
+    }),
+  }),
+
+  league: router({
+    teams: publicProcedure.query(() => listPublicLeagueTeams()),
+    login: publicProcedure
+      .input(z.object({ teamId: z.string().min(1), pin: z.string().min(1).max(8) }))
+      .mutation(async ({ input, ctx }) => {
+        const team = await verifyLeagueTeamPin(input.teamId, input.pin);
+        if (!team) throw new Error("Incorrect PIN. Please try again.");
+        await writeWrcTeamSession(ctx.res, ctx.req, { teamId: team.id, isCommissioner: team.is_commissioner });
+        return team;
+      }),
+    session: publicProcedure.query(async ({ ctx }) => {
+      const session = await readWrcTeamSession(ctx.req);
+      return session ? getPublicLeagueTeam(session.teamId) : null;
+    }),
+    logout: publicProcedure.mutation(({ ctx }) => {
+      clearWrcTeamSession(ctx.res, ctx.req);
+      return { success: true };
     }),
   }),
 

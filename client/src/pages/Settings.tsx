@@ -401,7 +401,7 @@ export default function Settings() {
     if (error) { setPinError("Failed to save PIN: " + error.message); return; }
 
     // Update the session so the new PIN is reflected
-    login({ ...franchise, pin: newPin, auth_pin: newPin });
+    login(franchise);
     setPinSuccess(true);
     setCurrentPin(""); setNewPin(""); setConfirmPin("");
   };

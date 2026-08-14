@@ -382,8 +382,16 @@
 # Phased Supabase RLS Security Migration
 
 - [x] Inventory every public Supabase table, client-side read, client-side write, and Storage policy used by the app.
-- [ ] Define server-session authorization requirements for owners, commissioners, and public read-only data.
+- [x] Define server-session authorization requirements for owners, commissioners, and public read-only data.
 - [ ] Move sensitive owner and commissioner writes behind validated server procedures.
 - [ ] Remove plaintext PIN fields from browser-accessible Supabase queries and migrate login to server-only verification.
 - [ ] Enable RLS and minimum-necessary policies in reversible table batches after each write path is migrated.
 - [ ] Verify owner, commissioner, and unauthenticated public-access behavior for every secured workflow.
+
+# Server-Only Login Session Migration
+
+- [x] Return a redacted server-side team directory with no PIN or PIN-hash fields.
+- [x] Verify selected team PINs through the server-only verification function and establish an httpOnly team session.
+- [x] Replace Login and AuthContext browser PIN queries with server session procedures.
+- [ ] Migrate commissioner and owner Settings PIN controls away from direct browser Supabase access.
+- [ ] Verify a valid owner PIN establishes a server session without browser PIN exposure.

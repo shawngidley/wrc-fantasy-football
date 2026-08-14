@@ -3,7 +3,7 @@
  * Manages team login state (team dropdown + PIN)
  */
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { getStoredTeam, storeTeam, clearTeam, supabase } from "@/lib/supabase";
+import { trpc } from "@/lib/trpc";
 
 export interface LoggedInTeam {
   id: string;
@@ -17,11 +17,9 @@ export interface LoggedInTeam {
   points_for: number;
   points_against: number;
   is_commissioner: boolean;
-  pin: string;
   // backward-compat aliases used across pages
   team_name: string;
   owner_name: string;
-  auth_pin: string;
 }
 
 interface AuthContextType {
@@ -47,7 +45,6 @@ const AuthContext = createContext<AuthContextType>({
 function normalise(raw: Record<string, unknown>): LoggedInTeam {
   const name = (raw.name ?? raw.team_name ?? "") as string;
   const owner = (raw.owner ?? raw.owner_name ?? "") as string;
-  const pin = (raw.pin ?? raw.auth_pin ?? "1234") as string;
   return {
     id: raw.id as string,
     name,
@@ -60,52 +57,29 @@ function normalise(raw: Record<string, unknown>): LoggedInTeam {
     points_for: (raw.points_for ?? 0) as number,
     points_against: (raw.points_against ?? 0) as number,
     is_commissioner: (raw.is_commissioner ?? false) as boolean,
-    pin,
     // aliases
     team_name: name,
     owner_name: owner,
-    auth_pin: pin,
   };
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [team, setTeam] = useState<LoggedInTeam | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const sessionQuery = trpc.league.session.useQuery(undefined, { retry: 1, staleTime: 60_000 });
+  const logoutMutation = trpc.league.logout.useMutation();
 
   useEffect(() => {
-    const stored = getStoredTeam();
-    if (stored) {
-      // Set from cache immediately so UI is instant
-      setTeam(normalise(stored));
-      // Silently refresh from Supabase to pick up name/logo/FAAB changes
-      const teamId = (stored as Record<string, unknown>).id as string;
-      if (teamId) {
-        supabase
-          .from("teams")
-          .select("id, name, owner, division, faab, wins, losses, ties, points_for, points_against, is_commissioner, pin")
-          .eq("id", teamId)
-          .single()
-          .then(({ data }) => {
-            if (data) {
-              const fresh = normalise(data as unknown as Record<string, unknown>);
-              setTeam(fresh);
-              storeTeam(fresh as unknown as Record<string, unknown>);
-            }
-          });
-      }
-    }
-    setAuthLoading(false);
-  }, []);
+    setTeam(sessionQuery.data ? normalise(sessionQuery.data as unknown as Record<string, unknown>) : null);
+  }, [sessionQuery.data]);
 
   const login = (t: LoggedInTeam) => {
     const norm = normalise(t as unknown as Record<string, unknown>);
     setTeam(norm);
-    storeTeam(norm as unknown as Record<string, unknown>);
   };
 
   const logout = () => {
     setTeam(null);
-    clearTeam();
+    logoutMutation.mutate();
   };
 
   return (
@@ -115,7 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       logout,
       isCommissioner: team?.is_commissioner === true,
-      authLoading,
+      authLoading: sessionQuery.isLoading,
     }}>
       {children}
     </AuthContext.Provider>
