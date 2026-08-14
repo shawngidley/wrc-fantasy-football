@@ -345,3 +345,10 @@
 - [x] Measure raw FantasyPros pagination limits and total current eligible QB, RB, WR, TE, and K stories beyond the 50-item window.
 - [x] Expand source retrieval if additional current eligible stories are available.
 - [ ] Verify the News article count reflects the complete current eligible FantasyPros feed.
+
+# Urgent Login Team Selector Recovery
+
+- [x] Inspect production team-list request, Supabase response, and Login page loading state.
+- [x] Add retry and explicit recovery behavior for transient login team-list failures.
+- [ ] Restore a visible selectable team list for the PIN login flow.
+- [ ] Verify a team can be selected and the sign-in flow is available in production.

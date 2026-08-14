@@ -4,7 +4,7 @@
  * Card: Team dropdown + PIN entry
  * Auth: Supabase teams table PIN verification
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { Lock, ChevronDown, Trophy } from "lucide-react";
@@ -42,18 +42,33 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [loadingTeams, setLoadingTeams] = useState(true);
+  const [teamLoadError, setTeamLoadError] = useState("");
 
-  // Load teams from Supabase on mount
-  useEffect(() => {
-    supabase
-      .from("teams")
-      .select("id, name, owner, division, faab, wins, losses, ties, points_for, points_against, is_commissioner, pin")
-      .order("name")
-      .then(({ data, error: err }) => {
-        if (!err && data) setTeams(data as TeamRow[]);
+  const loadTeams = useCallback(async () => {
+    setLoadingTeams(true);
+    setTeamLoadError("");
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const { data, error: err } = await supabase
+        .from("teams")
+        .select("id, name, owner, division, faab, wins, losses, ties, points_for, points_against, is_commissioner, pin")
+        .order("name");
+      if (!err && data && data.length > 0) {
+        setTeams(data as TeamRow[]);
         setLoadingTeams(false);
-      });
+        return;
+      }
+      if (attempt < 2) await new Promise(resolve => window.setTimeout(resolve, 750 * (attempt + 1)));
+    }
+
+    setLoadingTeams(false);
+    setTeamLoadError("The team list is temporarily unavailable. Please try again.");
   }, []);
+
+  // Load teams from Supabase on mount and retry transient connection failures.
+  useEffect(() => {
+    void loadTeams();
+  }, [loadTeams]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,6 +179,14 @@ export default function Login() {
                   style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", color: "oklch(0.5 0.04 150)", pointerEvents: "none" }}
                 />
               </div>
+              {teamLoadError && (
+                <div style={{ marginTop: "0.6rem", color: "oklch(0.45 0.18 25)", fontSize: "0.82rem", fontFamily: "DM Sans, sans-serif", lineHeight: 1.35 }}>
+                  <div>{teamLoadError}</div>
+                  <button type="button" onClick={() => void loadTeams()} style={{ marginTop: "0.35rem", border: 0, padding: 0, background: "transparent", color: "oklch(0.34 0.12 215)", fontWeight: 700, textDecoration: "underline", cursor: "pointer" }}>
+                    Retry team list
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* PIN Entry */}
