@@ -8,6 +8,13 @@
       "when": 1786584155577,
       "tag": "0000_silent_mikhail_rasputin",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1786718707954,
+      "tag": "0001_freezing_master_chief",
+      "breakpoints": true
     }
   ]
 }

@@ -10,6 +10,7 @@ import {
   getFantasyProsRanks,
 } from "./fantasypros";
 import { attachFantasyProsPlayerNames } from "./fantasyprosNewsNames";
+import { archiveFantasyProsNews, getArchivedFantasyProsNews, mergeFantasyProsNews } from "./fantasyprosArchive";
 
 const normalizePlayerKey = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -47,7 +48,12 @@ export const appRouter = router({
         const news = await getFantasyProsNews(input?.limit ?? 100, input?.fpid);
         if (input?.fpid) return news;
         const rankGroups = await Promise.all(["QB", "RB", "WR", "TE", "K"].map(position => getFantasyProsRanks(position, 1)));
-        return attachFantasyProsPlayerNames(news, rankGroups.flat());
+        const current = attachFantasyProsPlayerNames(news, rankGroups.flat());
+        const [archived] = await Promise.all([
+          getArchivedFantasyProsNews(),
+          archiveFantasyProsNews(current).catch(error => console.warn("[FantasyPros archive] Current-feed archive failed:", error)),
+        ]);
+        return mergeFantasyProsNews(current, archived);
       }),
     rosterNews: publicProcedure
       .input(z.object({

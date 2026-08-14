@@ -364,9 +364,17 @@
 - [x] Preserve the generic FantasyPros league-wide source for the all-player News view.
 - [ ] Verify the News My Team view shows the richer multi-entry roster history from Standings.
 
+# Private Rolling FantasyPros News Archive
+
+- [x] Create a private archive schema for attributed FantasyPros news metadata with stable deduplication keys.
+- [x] Merge current and archived eligible QB, RB, WR, TE, and K stories into one chronological News feed.
+- [x] Retain a 30-day rolling archive and remove expired archive records deterministically.
+- [ ] Add an idempotent scheduled collector for current eligible FantasyPros stories.
+- [ ] Verify archive creation, merging, deduplication, and expiry behavior.
+
 # Urgent Login Team Selector Recovery
 
 - [x] Inspect production team-list request, Supabase response, and Login page loading state.
 - [x] Add retry and explicit recovery behavior for transient login team-list failures.
-- [ ] Restore a visible selectable team list for the PIN login flow.
-- [ ] Verify a team can be selected and the sign-in flow is available in production.
+- [x] Restore a visible selectable team list for the PIN login flow.
+- [x] Verify a team can be selected and the sign-in flow is available in production.
