@@ -7,7 +7,7 @@
  * On save, upserts all starter and bench rows atomically.
  */
 import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/lib/supabase";
+import { trpc } from "@/lib/trpc";
 
 export interface LineupRow {
   team_id: string;
@@ -39,43 +39,24 @@ export function useLineupPersistence(
   const [loadingLineup, setLoadingLineup] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const savedLineupQuery = trpc.league.lineups.useQuery(
+    { teamId: teamId ?? "", week, season },
+    { enabled: Boolean(teamId), staleTime: 30_000 },
+  );
+  const saveLineupMutation = trpc.league.saveLineup.useMutation();
 
   // Load saved lineup on mount / when teamId/week changes
   useEffect(() => {
-    if (!teamId) return;
-    let cancelled = false;
-
-    async function load() {
-      setLoadingLineup(true);
-      try {
-        const { data, error } = await supabase
-          .from("lineups")
-          .select("slot, player_name")
-          .eq("team_id", teamId!)
-          .eq("week", week)
-          .eq("season", season);
-
-        if (error) throw error;
-        if (!cancelled && data && data.length > 0) {
-          const map: SavedLineupMap = {};
-          for (const row of data) {
-            map[row.slot] = row.player_name; // slot → player name
-          }
-          setSavedLineup(map);
-        } else if (!cancelled) {
-          setSavedLineup(null); // no saved lineup yet
-        }
-      } catch (err) {
-        console.error("Failed to load saved lineup:", err);
-        if (!cancelled) setSavedLineup(null);
-      } finally {
-        if (!cancelled) setLoadingLineup(false);
-      }
+    setLoadingLineup(savedLineupQuery.isLoading || savedLineupQuery.isFetching);
+    const rows = savedLineupQuery.data ?? [];
+    if (rows.length > 0) {
+      const map: SavedLineupMap = {};
+      for (const row of rows) map[row.slot] = row.player_name;
+      setSavedLineup(map);
+    } else if (!savedLineupQuery.isLoading) {
+      setSavedLineup(null);
     }
-
-    load();
-    return () => { cancelled = true; };
-  }, [teamId, week, season]);
+  }, [savedLineupQuery.data, savedLineupQuery.isFetching, savedLineupQuery.isLoading]);
 
   const saveLineup = useCallback(
     async (rows: Omit<LineupRow, "team_id" | "week" | "season">[]): Promise<boolean> => {
@@ -86,42 +67,15 @@ export function useLineupPersistence(
       setSaving(true);
       setSaveError(null);
       try {
-        const upsertRows: LineupRow[] = rows.map(r => ({
-          ...r,
-          team_id: teamId,
-          week,
-          season,
-        }));
-
-        console.log("[useLineupPersistence] upserting", upsertRows.length, "rows for", teamId, "week", week);
-        // Delete existing rows for this team/week/season, then insert fresh
-        const { error: delError } = await supabase
-          .from("lineups")
-          .delete()
-          .eq("team_id", teamId)
-          .eq("week", week)
-          .eq("season", season);
-
-        if (delError) {
-          console.error("[useLineupPersistence] delete error:", delError);
-          throw delError;
-        }
-
-        const { error: insError } = await supabase
-          .from("lineups")
-          .insert(upsertRows);
-
-        if (insError) {
-          console.error("[useLineupPersistence] insert error:", insError);
-          throw insError;
-        }
+        await saveLineupMutation.mutateAsync({ week, season, rows });
 
         // Update local state so UI reflects saved state (keyed by player_name)
         const map: SavedLineupMap = {};
-        for (const r of upsertRows) {
+        for (const r of rows) {
           map[r.slot] = r.player_name;
         }
         setSavedLineup(map);
+        await savedLineupQuery.refetch();
         console.log("[useLineupPersistence] saved successfully");
         return true;
       } catch (err) {
@@ -133,7 +87,7 @@ export function useLineupPersistence(
         setSaving(false);
       }
     },
-    [teamId, week, season]
+    [teamId, week, season, saveLineupMutation, savedLineupQuery]
   );
 
   return { savedLineup, loadingLineup, saveLineup, saveError, saving };

@@ -2,7 +2,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { z } from "zod";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { publicProcedure, router, teamProcedure } from "./_core/trpc";
 import {
   getFantasyProsInjuries,
   getFantasyProsNews,
@@ -13,6 +13,7 @@ import { attachFantasyProsPlayerNames } from "./fantasyprosNewsNames";
 import { archiveFantasyProsNews, getArchivedFantasyProsNews, mergeFantasyProsNews } from "./fantasyprosArchive";
 import { getPublicLeagueTeam, listPublicLeagueTeams, verifyLeagueTeamPin } from "./leagueAuth";
 import { clearWrcTeamSession, readWrcTeamSession, writeWrcTeamSession } from "./wrcTeamSession";
+import { supabaseAdmin } from "./supabaseAdmin";
 
 const normalizePlayerKey = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -61,6 +62,45 @@ export const appRouter = router({
       clearWrcTeamSession(ctx.res, ctx.req);
       return { success: true };
     }),
+    lineups: publicProcedure
+      .input(z.object({ teamId: z.string().min(1), week: z.number().int().min(1).max(22), season: z.number().int().min(2020).max(2100) }))
+      .query(async ({ input }) => {
+        const { data, error } = await supabaseAdmin
+          .from("lineups")
+          .select("slot, player_name")
+          .eq("team_id", input.teamId)
+          .eq("week", input.week)
+          .eq("season", input.season);
+        if (error) throw new Error("Unable to load lineup");
+        return data ?? [];
+      }),
+    saveLineup: teamProcedure
+      .input(z.object({
+        week: z.number().int().min(1).max(22),
+        season: z.number().int().min(2020).max(2100),
+        rows: z.array(z.object({
+          slot: z.string().min(1).max(32),
+          player_id: z.string().min(1).max(128),
+          player_name: z.string().min(1).max(128),
+          is_bench: z.boolean(),
+        })).min(1).max(30),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const teamId = ctx.teamSession.teamId;
+        const { error: deleteError } = await supabaseAdmin
+          .from("lineups")
+          .delete()
+          .eq("team_id", teamId)
+          .eq("week", input.week)
+          .eq("season", input.season);
+        if (deleteError) throw new Error("Unable to replace lineup");
+
+        const { error: insertError } = await supabaseAdmin.from("lineups").insert(
+          input.rows.map(row => ({ ...row, team_id: teamId, week: input.week, season: input.season })),
+        );
+        if (insertError) throw new Error("Unable to save lineup");
+        return { teamId, saved: input.rows.length };
+      }),
   }),
 
   fantasyPros: router({

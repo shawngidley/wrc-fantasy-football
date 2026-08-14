@@ -145,3 +145,7 @@ The scheduled collector is active under task `J6ryuqqkdbnSVWjptTHL3B` at `0 0 */
 ## Server-Only Login Session Migration — 2026-08-14
 
 The Login page now loads its team selector through a server procedure that returns only redacted identity and standings fields. A direct endpoint inspection returned team IDs, names, and owners only; no `pin` or `pin_hash` fields appeared. PIN submission now routes to the server-only `verify_wrc_team_pin` database function, which writes a 12-hour signed httpOnly WRC team session. AuthContext reads that session through a server procedure rather than restoring a browser-stored team object or refreshing the `teams` table with a PIN field. The login screen was verified with all 12 selectable teams and no client-side PIN query. A valid-PIN session test remains owner-gated because testing requires a real owner credential.
+
+## Secure Lineup Persistence — 2026-08-14
+
+Lineup reads now use a server procedure, while saves use a team-session procedure that discards any browser authority over the target team. The server derives `team_id` solely from the signed session before replacing the requested week and season rows. A direct unauthenticated POST to the save procedure was rejected with `UNAUTHORIZED` and `Please sign in with your league team` before any data operation occurred. A valid owner-save test remains session-gated.

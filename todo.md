@@ -395,3 +395,9 @@
 - [x] Replace Login and AuthContext browser PIN queries with server session procedures.
 - [ ] Migrate commissioner and owner Settings PIN controls away from direct browser Supabase access.
 - [ ] Verify a valid owner PIN establishes a server session without browser PIN exposure.
+
+# Secure Lineup Persistence Migration
+
+- [x] Move lineup reads and writes to server procedures.
+- [x] Derive lineup ownership from the signed WRC team session instead of a browser-supplied team ID.
+- [ ] Verify an owner can save their lineup and cannot save another team’s lineup.
