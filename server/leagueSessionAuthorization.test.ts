@@ -22,4 +22,23 @@ describe("private league procedures", () => {
       nflTeam: "TEST",
     })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
+
+  it("rejects unauthenticated FAAB bids and non-commissioner bid review", async () => {
+    const caller = appRouter.createCaller({ req: {} as never, res: {} as never, user: null });
+    readWrcTeamSession.mockResolvedValue(null);
+    await expect(caller.league.submitFaabBid({
+      playerId: "test-player",
+      playerName: "Test Player",
+      playerPos: "QB",
+      playerNflTeam: "TEST",
+      bidAmount: 1,
+      dropPlayerId: null,
+      week: 1,
+      season: 2026,
+    })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+
+    readWrcTeamSession.mockResolvedValue({ teamId: "team-owner", isCommissioner: false });
+    await expect(caller.league.commissionerFaabBids({ week: 1, season: 2026 }))
+      .rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
 });

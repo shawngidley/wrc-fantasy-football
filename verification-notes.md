@@ -157,3 +157,7 @@ Draft queue reads, adds, removals, and reordering now use signed-team server pro
 ## Secure Watchlist Migration — 2026-08-14
 
 Personal watchlist reads and add/remove actions now use signed-team server procedures. The server scopes every query and write to the session team and never accepts a browser-provided team ID. A direct unauthenticated watchlist mutation was rejected with `UNAUTHORIZED` and `Please sign in with your league team` before a record could be changed. Focused Vitest coverage also asserts that unauthenticated watchlist reads and changes fail before database access.
+
+## Secure FAAB Migration — 2026-08-14
+
+The owner bid modal now loads the owner roster and current FAAB balance through a signed-team server procedure, while bid submission derives the bidder and team name from the session. The server enforces the current FAAB balance, rejects a drop player not on the owner’s roster, requires a drop at the 18-player roster limit, and rejects bids for a player already rostered in WRC. Commissioner bid review and award processing now require the commissioner session; only the server can change bid statuses, team FAAB, player ownership, and transaction history. A direct unauthenticated bid POST was rejected with `UNAUTHORIZED`; focused tests also confirm that an owner session receives `FORBIDDEN` for commissioner bid review. The full Vitest suite passed with 18 files and 37 tests, and TypeScript completed without errors.

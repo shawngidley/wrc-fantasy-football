@@ -65,109 +65,28 @@ interface FaabBid {
   player_pos: string;
   player_nfl_team: string;
   bid_amount: number;
+  drop_player_id: string | null;
   drop_player_name: string | null;
   status: string;
   week: number;
+  season: number;
   created_at: string;
 }
 
 // ── Commissioner bid management ──────────────────────────────────────────────
 function CommissionerBids({ week }: { week: number }) {
-  const [bids, setBids] = useState<FaabBid[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    supabase
-      .from("faab_bids")
-      .select("*")
-      .eq("week", week)
-      .order("player_name", { ascending: true })
-      .order("bid_amount", { ascending: false })
-      .then(({ data, error }) => {
-        if (!error && data) setBids(data as FaabBid[]);
-        setLoading(false);
-      });
-  }, [week]);
+  const bidsQuery = trpc.league.commissionerFaabBids.useQuery({ week, season: 2026 });
+  const awardMutation = trpc.league.awardFaabBid.useMutation();
+  const bids = (bidsQuery.data ?? []) as FaabBid[];
+  const loading = bidsQuery.isLoading;
 
   const handleAward = async (bid: FaabBid) => {
-    const { error: winErr } = await supabase
-      .from("faab_bids")
-      .update({ status: "won", resolved_at: new Date().toISOString() })
-      .eq("id", bid.id);
-
-    const { error: loseErr } = await supabase
-      .from("faab_bids")
-      .update({ status: "lost", resolved_at: new Date().toISOString() })
-      .eq("player_id", bid.player_id)
-      .eq("week", week)
-      .neq("id", bid.id);
-
-    // Deduct FAAB from winning team
-    const { data: teamData } = await supabase
-      .from("teams")
-      .select("faab")
-      .eq("id", bid.team_id)
-      .single();
-
-    if (teamData) {
-      await supabase
-        .from("teams")
-        .update({ faab: Math.max(0, (teamData.faab ?? 1000) - bid.bid_amount) })
-        .eq("id", bid.team_id);
-    }
-
-    // Add player to team's roster in players table
-    const { error: addErr } = await supabase
-      .from("players")
-      .update({ team_id: bid.team_id, acquisition: "FA" })
-      .eq("name", bid.player_name);
-
-    // Drop player if specified
-    if (bid.drop_player_name) {
-      await supabase
-        .from("players")
-        .update({ team_id: null, acquisition: "FA" })
-        .eq("name", bid.drop_player_name)
-        .eq("team_id", bid.team_id);
-    }
-
-    if (winErr || loseErr || addErr) {
-      toast.error("Failed to process bid.");
-    } else {
-      toast.success(`${bid.player_name} awarded to ${bid.team_name}!`);
-      // Write ADD transaction to roster_moves
-      await supabase.from("roster_moves").insert({
-        move_type: "ADD",
-        team_name: bid.team_name,
-        owner: bid.team_name,
-        player_name: bid.player_name,
-        player_pos: bid.player_pos,
-        player_nfl_team: bid.player_nfl_team,
-        faab_spent: bid.bid_amount,
-        note: `FAAB $${bid.bid_amount} — Week ${bid.week}`,
-      });
-      // Write DROP transaction if a player was dropped
-      if (bid.drop_player_name) {
-        await supabase.from("roster_moves").insert({
-          move_type: "DROP",
-          team_name: bid.team_name,
-          owner: bid.team_name,
-          player_name: bid.drop_player_name,
-          player_pos: "—",
-          player_nfl_team: "FA",
-          faab_spent: null,
-          note: `Dropped to make room for ${bid.player_name}`,
-        });
-      }
-      setBids((prev) =>
-        prev.map((b) =>
-          b.id === bid.id
-            ? { ...b, status: "won" }
-            : b.player_id === bid.player_id
-            ? { ...b, status: "lost" }
-            : b
-        )
-      );
+    try {
+      const result = await awardMutation.mutateAsync({ bidId: bid.id });
+      toast.success(`${result.playerName} awarded to ${result.teamName}!`);
+      await bidsQuery.refetch();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to process bid.");
     }
   };
 

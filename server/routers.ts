@@ -2,7 +2,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { z } from "zod";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router, teamProcedure } from "./_core/trpc";
+import { commissionerProcedure, publicProcedure, router, teamProcedure } from "./_core/trpc";
 import {
   getFantasyProsInjuries,
   getFantasyProsNews,
@@ -238,6 +238,147 @@ export const appRouter = router({
           .single();
         if (error || !data) throw new Error("Unable to add player to watchlist");
         return { action: "added" as const, player: data };
+      }),
+    faabBidRoster: teamProcedure.query(async ({ ctx }) => {
+      const teamId = ctx.teamSession.teamId;
+      const [{ data: roster, error: rosterError }, { data: team, error: teamError }] = await Promise.all([
+        supabaseAdmin
+          .from("players")
+          .select("id, name, position, nfl_team")
+          .eq("team_id", teamId)
+          .order("position"),
+        supabaseAdmin
+          .from("teams")
+          .select("faab")
+          .eq("id", teamId)
+          .single(),
+      ]);
+      if (rosterError || teamError || !team) throw new Error("Unable to load FAAB bid details");
+      return { roster: roster ?? [], faab: Number(team.faab ?? 0) };
+    }),
+    submitFaabBid: teamProcedure
+      .input(z.object({
+        playerId: z.string().min(1).max(128),
+        playerName: z.string().min(1).max(128),
+        playerPos: z.string().min(1).max(8),
+        playerNflTeam: z.string().min(1).max(8),
+        bidAmount: z.number().int().min(0).max(10_000),
+        dropPlayerId: z.string().min(1).max(128).nullable(),
+        week: z.number().int().min(1).max(22),
+        season: z.number().int().min(2020).max(2100),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const teamId = ctx.teamSession.teamId;
+        const [{ data: team, error: teamError }, { data: roster, error: rosterError }, { data: targetPlayer, error: targetPlayerError }] = await Promise.all([
+          supabaseAdmin.from("teams").select("name, faab").eq("id", teamId).single(),
+          supabaseAdmin.from("players").select("id").eq("team_id", teamId),
+          supabaseAdmin.from("players").select("team_id").eq("name", input.playerName).maybeSingle(),
+        ]);
+        if (teamError || !team || rosterError || targetPlayerError) throw new Error("Unable to validate this FAAB bid");
+        const faab = Number(team.faab ?? 0);
+        if (input.bidAmount > faab) throw new Error(`Bid exceeds your FAAB balance ($${faab} remaining).`);
+        if (targetPlayer?.team_id) throw new Error("This player is already on a WRC roster.");
+        if ((roster?.length ?? 0) >= 18 && !input.dropPlayerId) throw new Error("Select a player to drop before bidding with a full roster.");
+
+        let dropPlayer: { id: string; name: string } | null = null;
+        if (input.dropPlayerId) {
+          const { data, error } = await supabaseAdmin
+            .from("players")
+            .select("id, name")
+            .eq("id", input.dropPlayerId)
+            .eq("team_id", teamId)
+            .maybeSingle();
+          if (error || !data) throw new Error("The selected drop player is not on your roster.");
+          dropPlayer = data;
+        }
+
+        const { error } = await supabaseAdmin.from("faab_bids").insert({
+          team_id: teamId,
+          team_name: team.name,
+          player_id: input.playerId,
+          player_name: input.playerName,
+          player_pos: input.playerPos,
+          player_nfl_team: input.playerNflTeam,
+          bid_amount: input.bidAmount,
+          drop_player_id: dropPlayer?.id ?? null,
+          drop_player_name: dropPlayer?.name ?? null,
+          status: "pending",
+          week: input.week,
+          season: input.season,
+        });
+        if (error) throw new Error("Unable to submit FAAB bid");
+        return { submitted: true, bidAmount: input.bidAmount };
+      }),
+    commissionerFaabBids: commissionerProcedure
+      .input(z.object({ week: z.number().int().min(1).max(22), season: z.number().int().min(2020).max(2100) }))
+      .query(async ({ input }) => {
+        const { data, error } = await supabaseAdmin
+          .from("faab_bids")
+          .select("id, team_id, team_name, player_id, player_name, player_pos, player_nfl_team, bid_amount, drop_player_id, drop_player_name, status, week, season, created_at")
+          .eq("week", input.week)
+          .eq("season", input.season)
+          .order("player_name", { ascending: true })
+          .order("bid_amount", { ascending: false });
+        if (error) throw new Error("Unable to load FAAB bids");
+        return data ?? [];
+      }),
+    awardFaabBid: commissionerProcedure
+      .input(z.object({ bidId: z.string().min(1).max(128) }))
+      .mutation(async ({ input }) => {
+        const { data: bid, error: bidError } = await supabaseAdmin
+          .from("faab_bids")
+          .select("id, team_id, team_name, player_id, player_name, player_pos, player_nfl_team, bid_amount, drop_player_id, drop_player_name, status, week, season")
+          .eq("id", input.bidId)
+          .single();
+        if (bidError || !bid || bid.status !== "pending") throw new Error("This pending FAAB bid was not found.");
+
+        const resolvedAt = new Date().toISOString();
+        const [{ error: winError }, { error: loseError }, { data: winningTeam, error: teamError }] = await Promise.all([
+          supabaseAdmin.from("faab_bids").update({ status: "won", resolved_at: resolvedAt }).eq("id", bid.id),
+          supabaseAdmin.from("faab_bids").update({ status: "lost", resolved_at: resolvedAt })
+            .eq("player_id", bid.player_id).eq("week", bid.week).eq("season", bid.season).eq("status", "pending").neq("id", bid.id),
+          supabaseAdmin.from("teams").select("faab").eq("id", bid.team_id).single(),
+        ]);
+        if (winError || loseError || teamError || !winningTeam) throw new Error("Unable to resolve FAAB bids");
+        const remainingFaab = Math.max(0, Number(winningTeam.faab ?? 0) - Number(bid.bid_amount));
+        const { error: faabError } = await supabaseAdmin.from("teams").update({ faab: remainingFaab }).eq("id", bid.team_id);
+        if (faabError) throw new Error("Unable to deduct the winning FAAB bid");
+
+        const { error: addError } = await supabaseAdmin.from("players")
+          .update({ team_id: bid.team_id, acquisition: "FA" })
+          .eq("name", bid.player_name);
+        if (addError) throw new Error("Unable to add the awarded player to the roster");
+        if (bid.drop_player_id) {
+          const { error: dropError } = await supabaseAdmin.from("players")
+            .update({ team_id: null, acquisition: "FA" })
+            .eq("id", bid.drop_player_id)
+            .eq("team_id", bid.team_id);
+          if (dropError) throw new Error("Unable to drop the selected player");
+        }
+
+        const moves = [{
+          move_type: "ADD",
+          team_name: bid.team_name,
+          owner: bid.team_name,
+          player_name: bid.player_name,
+          player_pos: bid.player_pos,
+          player_nfl_team: bid.player_nfl_team,
+          faab_spent: bid.bid_amount,
+          note: `FAAB $${bid.bid_amount} — Week ${bid.week}`,
+        }];
+        if (bid.drop_player_name) moves.push({
+          move_type: "DROP",
+          team_name: bid.team_name,
+          owner: bid.team_name,
+          player_name: bid.drop_player_name,
+          player_pos: "—",
+          player_nfl_team: "FA",
+          faab_spent: null,
+          note: `Dropped to make room for ${bid.player_name}`,
+        });
+        const { error: moveError } = await supabaseAdmin.from("roster_moves").insert(moves);
+        if (moveError) throw new Error("FAAB was processed, but transaction history could not be written");
+        return { awarded: true, bidId: bid.id, playerName: bid.player_name, teamName: bid.team_name, remainingFaab };
       }),
   }),
 

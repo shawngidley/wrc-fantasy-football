@@ -413,3 +413,10 @@
 - [x] Move personal watchlist reads and add/remove actions behind signed-session server procedures.
 - [x] Scope every watchlist operation to the signed WRC team session.
 - [x] Verify unauthenticated watchlist changes are rejected.
+
+# Secure FAAB Migration
+
+- [x] Move owner roster lookup and FAAB bid submission behind signed-session server procedures.
+- [x] Derive bidder identity from the session and validate bid amount, roster ownership, and available FAAB server-side.
+- [x] Move commissioner-only FAAB bid review and award processing behind commissioner server procedures.
+- [x] Verify unauthenticated and non-commissioner FAAB requests are rejected.

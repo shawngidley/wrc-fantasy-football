@@ -13,8 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
+import { trpc } from "@/lib/trpc";
 import { getCurrentWeek } from "@/lib/scheduleData2026";
 import { toast } from "sonner";
 import { DollarSign, X, Loader2 } from "lucide-react";
@@ -43,26 +43,19 @@ export default function FAABBidModal({ player, onClose }: FAABBidModalProps) {
   const [submitting, setSubmitting] = useState(false);
   const [myRoster, setMyRoster] = useState<RosterPlayer[]>([]);
   const [loadingRoster, setLoadingRoster] = useState(true);
+  const bidDetailsQuery = trpc.league.faabBidRoster.useQuery(undefined, { enabled: Boolean(franchise?.id) });
+  const submitBidMutation = trpc.league.submitFaabBid.useMutation();
 
   const currentWeek = getCurrentWeek();
   const week = currentWeek > 0 ? currentWeek : 1;
 
-  // FAAB balance from auth context (live from Supabase teams table)
-  const faabRemaining = franchise?.faab ?? 1000;
+  // FAAB balance and roster are session-scoped server data.
+  const faabRemaining = bidDetailsQuery.data?.faab ?? franchise?.faab ?? 1000;
 
-  // Load live roster from Supabase
   useEffect(() => {
-    if (!franchise?.id) return;
-    supabase
-      .from("players")
-      .select("id,name,position,nfl_team")
-      .eq("team_id", franchise.id)
-      .order("position")
-      .then(({ data }) => {
-        setMyRoster((data as RosterPlayer[]) ?? []);
-        setLoadingRoster(false);
-      });
-  }, [franchise?.id]);
+    setLoadingRoster(bidDetailsQuery.isLoading || bidDetailsQuery.isFetching);
+    if (bidDetailsQuery.data) setMyRoster(bidDetailsQuery.data.roster as RosterPlayer[]);
+  }, [bidDetailsQuery.data, bidDetailsQuery.isFetching, bidDetailsQuery.isLoading]);
 
   if (!franchise) return null;
 
@@ -83,34 +76,21 @@ export default function FAABBidModal({ player, onClose }: FAABBidModalProps) {
         ? myRoster.find((p) => p.id === dropPlayerId)
         : null;
 
-      const { error } = await supabase.from("faab_bids").insert({
-        team_id: franchise.id,
-        team_name: franchise.name,
-        player_id: player.id,
-        player_name: player.name,
-        player_pos: player.pos,
-        player_nfl_team: player.nflTeam,
-        bid_amount: amount,
-        drop_player_id: dropPlayer?.id ?? null,
-        drop_player_name: dropPlayer?.name ?? null,
-        status: "pending",
+      await submitBidMutation.mutateAsync({
+        playerId: player.id,
+        playerName: player.name,
+        playerPos: player.pos,
+        playerNflTeam: player.nflTeam,
+        bidAmount: amount,
+        dropPlayerId: dropPlayer?.id ?? null,
         week,
         season: 2026,
       });
 
-      if (error) {
-        if (error.message?.includes("does not exist") || error.code === "42P01") {
-          toast.error("FAAB bidding is not yet enabled. Ask the commissioner to set up the bids table.");
-        } else {
-          toast.error(`Failed to submit bid: ${error.message}`);
-        }
-        return;
-      }
-
       toast.success(`Bid of $${amount} submitted for ${player.name}! The commissioner will process bids after the waiver deadline.`);
       onClose();
-    } catch {
-      toast.error("Failed to submit bid. Please try again.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to submit bid. Please try again.");
     } finally {
       setSubmitting(false);
     }
