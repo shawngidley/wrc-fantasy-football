@@ -328,3 +328,14 @@
 
 - [x] Compare the raw generic FantasyPros payload with rendered default rows to confirm every eligible player story is retained.
 - [x] Add regression coverage that counts eligible FantasyPros stories before and after client filtering.
+
+# Production FantasyPros Full-Feed Persistence
+
+- [ ] Compare production and development FantasyPros source payloads, enriched positions, and rendered eligible counts.
+- [ ] Invalidate any production client or server cache still serving the earlier limited eligible feed.
+- [ ] Verify the published mobile News page displays every current eligible FantasyPros story.
+
+# FantasyPros Manual Refresh Recovery
+
+- [x] Make the News refresh control explicitly re-fetch FantasyPros stories as well as non-FantasyPros sources.
+- [x] Ensure a News-page remount cannot retain an older limited FantasyPros list for fifteen minutes.

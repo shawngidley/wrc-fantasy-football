@@ -52,8 +52,14 @@ export default function PlayerNews() {
   const newsRequestId = useRef(0);
   const lastSuccessfulFantasyProsItems = useRef<PlayerNewsItem[]>([]);
   const fantasyProsNews = trpc.fantasyPros.news.useQuery(
-    { limit: 50 },
-    { staleTime: 15 * 60_000, retry: 3, retryDelay: attempt => Math.min(1_000 * 2 ** attempt, 8_000) },
+    { limit: 50, feedVersion: 3 },
+    {
+      staleTime: 0,
+      refetchOnMount: "always",
+      refetchOnWindowFocus: true,
+      retry: 3,
+      retryDelay: attempt => Math.min(1_000 * 2 ** attempt, 8_000),
+    },
   );
 
   // Load the logged-in owner's players for "My Team" filter

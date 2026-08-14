@@ -42,7 +42,7 @@ export const appRouter = router({
 
   fantasyPros: router({
     news: publicProcedure
-      .input(z.object({ limit: z.number().int().min(1).max(100).optional(), fpid: z.number().int().positive().optional() }).optional())
+      .input(z.object({ limit: z.number().int().min(1).max(100).optional(), fpid: z.number().int().positive().optional(), feedVersion: z.literal(3).optional() }).optional())
       .query(async ({ input }) => {
         const news = await getFantasyProsNews(input?.limit ?? 50, input?.fpid);
         if (input?.fpid) return news;
