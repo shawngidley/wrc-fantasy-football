@@ -50,4 +50,24 @@ describe("private league procedures", () => {
     await expect(caller.league.saveProtections({ slots: [] }))
       .rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
+
+  it("rejects unauthenticated trade access before any trade asset operation", async () => {
+    readWrcTeamSession.mockResolvedValue(null);
+    const caller = appRouter.createCaller({ req: {} as never, res: {} as never, user: null });
+
+    await expect(caller.league.tradeInbox()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    await expect(caller.league.createTradeProposal({
+      toTeamId: "team-other",
+      givePlayerNames: [],
+      receivePlayerNames: [],
+      giveFaab: 0,
+      receiveFaab: 0,
+      givePicks: [],
+      receivePicks: [],
+      note: "",
+      counterToId: null,
+    })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    await expect(caller.league.respondToTradeProposal({ proposalId: "00000000-0000-4000-8000-000000000001", action: "declined" }))
+      .rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  });
 });

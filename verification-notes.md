@@ -165,3 +165,7 @@ The owner bid modal now loads the owner roster and current FAAB balance through 
 ## Secure Protection Migration — 2026-08-14
 
 The Protections page now loads and saves through signed-team server procedures. The server ignores browser-provided team identity and checks selected player ownership against the current team roster before replacing the saved selections. Shared rules tests cover fixed-cost protections, valid round assignments, a fixed round-seven cost consuming round six, and rejection of an out-of-roster player. An unauthenticated direct protection-save request returned `UNAUTHORIZED` before any data action; focused authorization coverage also rejects unauthenticated protection reads and saves.
+
+## Secure Trade Migration — 2026-08-14
+
+Trade asset pickers, the incoming inbox, proposal creation, counter-offers, decline responses, and acceptance execution now use signed-team server procedures. The server checks both rosters, both FAAB balances, and current ownership of every selected 2026/2027 draft pick at proposal time and again before acceptance. Only the receiving team’s signed session can respond to a pending proposal; accepted trades update rosters, FAAB, picks, proposal status, and transaction history on the server. A direct unauthenticated create-proposal POST returned `UNAUTHORIZED`, and focused authorization coverage guards trade inbox, proposal, and response procedures. The full suite passed with 19 files and 42 tests, and TypeScript completed successfully.

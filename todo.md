@@ -426,3 +426,10 @@
 - [x] Move protection reads and submissions behind signed-session server procedures.
 - [x] Revalidate keeper eligibility, round assignments, and roster ownership on the server.
 - [x] Verify unauthenticated protection changes are rejected.
+
+# Secure Trade Migration
+
+- [x] Move personal trade-proposal reads, creation, counters, and responses behind signed-session server procedures.
+- [x] Revalidate roster ownership, FAAB balances, and traded-pick ownership before executing an accepted trade.
+- [x] Ensure trade acceptance is authorized only for the receiving team and recorded server-side.
+- [x] Verify unauthenticated and non-recipient trade actions are rejected.
