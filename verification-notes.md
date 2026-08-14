@@ -197,3 +197,7 @@ Commissioner Money-page edits for balances owed and Game of the Week now use com
 ## Supabase RLS Cutover — 2026-08-14
 
 The corrected PostgreSQL cutover script completed after automatically skipping the absent `fp_news_archive` table. The returned policy inventory contains exactly the twelve intended `wrc_public_read_*` SELECT-only policies for public league-display tables and no policy for sensitive tables such as `teams`, `watchlist`, `faab_bids`, `protections`, `trade_proposals`, or `draft_queue`. Direct anonymous REST verification returned a normal public `players` result (`200`) while a direct request for `teams` fields including `pin` and `pin_hash` returned `[]`. This confirms sensitive team rows are no longer browser-readable; server procedures retain service-role access for authorized workflows.
+
+## Post-Cutover Owner Session Smoke Test — 2026-08-14
+
+The league owner confirmed that a normal owner PIN login, harmless Lineup save, and refresh persistence check all succeeded after the final RLS cutover. This validates the signed server session and server-authorized lineup persistence in the live workflow. Combined with direct anonymous REST denials and focused commissioner authorization coverage, the post-cutover access matrix is complete.

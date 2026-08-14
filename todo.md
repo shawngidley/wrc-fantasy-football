@@ -386,7 +386,7 @@
 - [x] Move sensitive owner and commissioner writes behind validated server procedures.
 - [x] Remove plaintext PIN fields from browser-accessible Supabase queries and migrate login to server-only verification.
 - [x] Document the applied single-transaction RLS cutover and an explicit rollback procedure for the secured tables.
-- [ ] Verify owner, commissioner, and unauthenticated public-access behavior for every secured workflow after the final RLS cutover.
+- [x] Verify owner, commissioner, and unauthenticated public-access behavior for every secured workflow after the final RLS cutover.
 
 # Server-Only Login Session Migration
 
@@ -394,13 +394,13 @@
 - [x] Verify selected team PINs through the server-only verification function and establish an httpOnly team session.
 - [x] Replace Login and AuthContext browser PIN queries with server session procedures.
 - [x] Migrate commissioner and owner Settings PIN controls away from direct browser Supabase access.
-- [ ] Verify a valid owner PIN establishes a post-cutover server session without browser PIN exposure.
+- [x] Verify a valid owner PIN establishes a post-cutover server session without browser PIN exposure.
 
 # Secure Lineup Persistence Migration
 
 - [x] Move lineup reads and writes to server procedures.
 - [x] Derive lineup ownership from the signed WRC team session instead of a browser-supplied team ID.
-- [ ] Verify an owner can save their lineup and cannot save another team’s lineup.
+- [x] Verify an owner can save their lineup and cannot save another team’s lineup.
 
 # Secure Draft Queue Migration
 
