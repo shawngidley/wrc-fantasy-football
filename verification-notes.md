@@ -149,3 +149,7 @@ The Login page now loads its team selector through a server procedure that retur
 ## Secure Lineup Persistence — 2026-08-14
 
 Lineup reads now use a server procedure, while saves use a team-session procedure that discards any browser authority over the target team. The server derives `team_id` solely from the signed session before replacing the requested week and season rows. A direct unauthenticated POST to the save procedure was rejected with `UNAUTHORIZED` and `Please sign in with your league team` before any data operation occurred. A valid owner-save test remains session-gated.
+
+## Secure Draft Queue Migration — 2026-08-14
+
+Draft queue reads, adds, removals, and reordering now use signed-team server procedures. Reads are scoped to the session team; mutations never accept a browser team ID. The reorder operation verifies that every submitted queue item belongs to that session team before updating ranks. A direct unauthenticated attempt to add a test player was rejected with `UNAUTHORIZED` and `Please sign in with your league team` before any draft-queue record was written.

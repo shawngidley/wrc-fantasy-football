@@ -101,6 +101,93 @@ export const appRouter = router({
         if (insertError) throw new Error("Unable to save lineup");
         return { teamId, saved: input.rows.length };
       }),
+    draftQueue: teamProcedure
+      .input(z.object({ season: z.number().int().min(2020).max(2100) }))
+      .query(async ({ input, ctx }) => {
+        const { data, error } = await supabaseAdmin
+          .from("draft_queue")
+          .select("id, team_id, player_name, player_pos, player_nfl_team, rank, season")
+          .eq("team_id", ctx.teamSession.teamId)
+          .eq("season", input.season)
+          .order("rank", { ascending: true });
+        if (error) throw new Error("Unable to load draft queue");
+        return data ?? [];
+      }),
+    addDraftQueueItem: teamProcedure
+      .input(z.object({
+        season: z.number().int().min(2020).max(2100),
+        playerName: z.string().min(1).max(128),
+        playerPos: z.string().min(1).max(8),
+        playerNflTeam: z.string().max(8).nullable(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const teamId = ctx.teamSession.teamId;
+        const { data: existing, error: existingError } = await supabaseAdmin
+          .from("draft_queue")
+          .select("id, rank")
+          .eq("team_id", teamId)
+          .eq("season", input.season)
+          .eq("player_name", input.playerName)
+          .maybeSingle();
+        if (existingError) throw new Error("Unable to check draft queue");
+        if (existing) throw new Error("This player is already in your queue");
+
+        const { data: last, error: lastError } = await supabaseAdmin
+          .from("draft_queue")
+          .select("rank")
+          .eq("team_id", teamId)
+          .eq("season", input.season)
+          .order("rank", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (lastError) throw new Error("Unable to load draft queue");
+        const { data, error } = await supabaseAdmin
+          .from("draft_queue")
+          .insert({
+            team_id: teamId,
+            season: input.season,
+            player_name: input.playerName,
+            player_pos: input.playerPos,
+            player_nfl_team: input.playerNflTeam,
+            rank: Number(last?.rank ?? 0) + 1,
+          })
+          .select("id, team_id, player_name, player_pos, player_nfl_team, rank, season")
+          .single();
+        if (error || !data) throw new Error("Unable to add draft queue player");
+        return data;
+      }),
+    removeDraftQueueItem: teamProcedure
+      .input(z.object({ id: z.number().int().positive(), season: z.number().int().min(2020).max(2100) }))
+      .mutation(async ({ input, ctx }) => {
+        const { data, error } = await supabaseAdmin
+          .from("draft_queue")
+          .delete()
+          .eq("id", input.id)
+          .eq("season", input.season)
+          .eq("team_id", ctx.teamSession.teamId)
+          .select("id");
+        if (error || !data?.length) throw new Error("Draft queue item was not found");
+        return { id: input.id };
+      }),
+    reorderDraftQueue: teamProcedure
+      .input(z.object({ season: z.number().int().min(2020).max(2100), orderedIds: z.array(z.number().int().positive()).min(1).max(300) }))
+      .mutation(async ({ input, ctx }) => {
+        const { data: ownedRows, error: ownedError } = await supabaseAdmin
+          .from("draft_queue")
+          .select("id")
+          .eq("team_id", ctx.teamSession.teamId)
+          .eq("season", input.season)
+          .in("id", input.orderedIds);
+        if (ownedError || (ownedRows?.length ?? 0) !== input.orderedIds.length) throw new Error("One or more draft queue items are not owned by your team");
+        const results = await Promise.all(input.orderedIds.map((id, index) => supabaseAdmin
+          .from("draft_queue")
+          .update({ rank: index + 1 })
+          .eq("id", id)
+          .eq("team_id", ctx.teamSession.teamId)
+          .eq("season", input.season)));
+        if (results.some(result => result.error)) throw new Error("Unable to reorder draft queue");
+        return { saved: input.orderedIds.length };
+      }),
   }),
 
   fantasyPros: router({

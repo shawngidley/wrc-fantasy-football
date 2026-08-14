@@ -401,3 +401,9 @@
 - [x] Move lineup reads and writes to server procedures.
 - [x] Derive lineup ownership from the signed WRC team session instead of a browser-supplied team ID.
 - [ ] Verify an owner can save their lineup and cannot save another team’s lineup.
+
+# Secure Draft Queue Migration
+
+- [x] Move private draft-queue reads, adds, removals, and rank changes behind signed-session server procedures.
+- [x] Derive draft-queue team ownership from the signed WRC session for every mutation.
+- [x] Verify unauthenticated and cross-team draft-queue changes are rejected.
