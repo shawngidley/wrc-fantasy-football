@@ -446,3 +446,8 @@
 - [x] Move commissioner score finalization and standings updates behind a commissioner server procedure.
 - [x] Calculate league median and standings changes server-side from the authoritative result state.
 - [x] Verify unauthenticated and non-commissioner result-finalization requests are rejected.
+
+# Secure Transaction Adjustment Migration
+
+- [x] Move commissioner manual add/drop transaction recording and FAAB deductions behind a commissioner server procedure.
+- [x] Verify unauthenticated and non-commissioner transaction adjustments are rejected.

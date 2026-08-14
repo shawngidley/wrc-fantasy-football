@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabase";
 import { ArrowUpCircle, ArrowDownCircle, ArrowLeftRight, Plus, X, RefreshCw, Search } from "lucide-react";
 import { NFL_PLAYERS_2026 } from "@/lib/nflPlayers2026";
 import { toast } from "sonner";
+import { trpc } from "@/lib/trpc";
 
 interface RosterMove {
   id: number;
@@ -49,8 +50,8 @@ function fmt(iso: string) {
 // ── Add/Drop Modal ────────────────────────────────────────────────────────────
 function AddDropModal({ onClose, onSubmit, franchise, isCommissioner }: {
   onClose: () => void;
-  onSubmit: (data: { addPlayer: typeof NFL_PLAYERS_2026[0]; dropPlayerName: string; faab: number; teamName: string; owner: string }) => Promise<void>;
-  franchise: { team_name: string; owner: string; faab?: number } | null;
+  onSubmit: (data: { addPlayer: typeof NFL_PLAYERS_2026[0]; dropPlayerName: string; faab: number; targetTeamId: string }) => Promise<void>;
+  franchise: { id: string; team_name: string; owner: string; faab?: number } | null;
   isCommissioner: boolean;
 }) {
   const [addSearch, setAddSearch] = useState("");
@@ -85,8 +86,12 @@ function AddDropModal({ onClose, onSubmit, franchise, isCommissioner }: {
     if (!selectedAdd) { toast.error("Select a player to add."); return; }
     if (!dropPlayerName.trim()) { toast.error("Enter the player you are dropping."); return; }
     if (!selectedTeam) { toast.error("Select a team."); return; }
+    const targetTeamId = isCommissioner
+      ? liveTeams.find(team => team.team_name === selectedTeam)?.id ?? ""
+      : franchise?.id ?? "";
+    if (!targetTeamId) { toast.error("Select a valid team."); return; }
     setSubmitting(true);
-    await onSubmit({ addPlayer: selectedAdd, dropPlayerName: dropPlayerName.trim(), faab, teamName: selectedTeam, owner: selectedOwner });
+    await onSubmit({ addPlayer: selectedAdd, dropPlayerName: dropPlayerName.trim(), faab, targetTeamId });
     setSubmitting(false);
   };
 
@@ -222,6 +227,7 @@ export default function Transactions() {
   const [showModal, setShowModal] = useState(false);
   const [filterType, setFilterType] = useState<"ALL" | "ADD" | "DROP" | "TRADE">("ALL");
   const [filterTeam, setFilterTeam] = useState("ALL");
+  const manualTransactionMutation = trpc.league.submitManualTransaction.useMutation();
 
   const loadMoves = async () => {
     const { data } = await supabase
@@ -243,47 +249,27 @@ export default function Transactions() {
     return () => { supabase.removeChannel(channel); };
   }, []);
 
-  const handleSubmitClaim = async ({ addPlayer, dropPlayerName, faab, teamName, owner }: {
+  const handleSubmitClaim = async ({ addPlayer, dropPlayerName, faab, targetTeamId }: {
     addPlayer: typeof NFL_PLAYERS_2026[0];
     dropPlayerName: string;
     faab: number;
-    teamName: string;
-    owner: string;
+    targetTeamId: string;
   }) => {
-    // Insert ADD move
-    const { error: addErr } = await supabase.from("roster_moves").insert({
-      move_type: "ADD",
-      team_name: teamName,
-      owner,
-      player_name: addPlayer.name,
-      player_pos: addPlayer.pos,
-      player_nfl_team: addPlayer.nflTeam,
-      faab_spent: faab,
-    });
-    if (addErr) { toast.error("Failed to submit add: " + addErr.message); return; }
-
-    // Insert DROP move
-    const { error: dropErr } = await supabase.from("roster_moves").insert({
-      move_type: "DROP",
-      team_name: teamName,
-      owner,
-      player_name: dropPlayerName,
-      player_pos: "—",
-      player_nfl_team: "FA",
-      faab_spent: null,
-    });
-    if (dropErr) { toast.error("Failed to submit drop: " + dropErr.message); return; }
-
-    // Deduct FAAB from teams table (read current balance first, then decrement)
-    if (faab > 0) {
-      const { data: teamRow } = await supabase.from("teams").select("faab").eq("team_name", teamName).single();
-      const currentFaab = (teamRow as { faab?: number } | null)?.faab ?? 1000;
-      await supabase.from("teams").update({ faab: Math.max(0, currentFaab - faab) }).eq("team_name", teamName);
+    try {
+      await manualTransactionMutation.mutateAsync({
+        targetTeamId,
+        addPlayerName: addPlayer.name,
+        addPlayerPos: addPlayer.pos,
+        addPlayerNflTeam: addPlayer.nflTeam,
+        dropPlayerName,
+        faab,
+      });
+      toast.success(`${addPlayer.name} added, ${dropPlayerName} dropped!`);
+      setShowModal(false);
+      loadMoves();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to submit transaction.");
     }
-
-    toast.success(`${addPlayer.name} added, ${dropPlayerName} dropped!`);
-    setShowModal(false);
-    loadMoves();
   };
 
   const filtered = moves.filter(m => {
@@ -410,7 +396,7 @@ export default function Transactions() {
         <AddDropModal
           onClose={() => setShowModal(false)}
           onSubmit={handleSubmitClaim}
-          franchise={franchise ? { team_name: franchise.team_name, owner: franchise.owner, faab: franchise.faab } : null}
+          franchise={franchise ? { id: franchise.id, team_name: franchise.team_name, owner: franchise.owner, faab: franchise.faab } : null}
           isCommissioner={!!isCommissioner}
         />
       )}

@@ -756,6 +756,60 @@ export const appRouter = router({
         await supabaseAdmin.from("weekly_results").update({ league_median: median }).eq("season", target.season).eq("week", target.week);
         return { saved: true, median };
       }),
+    submitManualTransaction: teamProcedure
+      .input(z.object({
+        targetTeamId: z.string().min(1).max(128),
+        addPlayerName: z.string().min(1).max(128),
+        addPlayerPos: z.string().min(1).max(8),
+        addPlayerNflTeam: z.string().min(1).max(8),
+        dropPlayerName: z.string().min(1).max(128),
+        faab: z.number().int().min(0).max(10_000),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (!ctx.teamSession.isCommissioner && input.targetTeamId !== ctx.teamSession.teamId) {
+          throw new Error("You may only submit a transaction for your own team.");
+        }
+        const { data: targetTeam, error: teamError } = await supabaseAdmin.from("teams")
+          .select("id, team_name, owner, faab").eq("id", input.targetTeamId).single();
+        if (teamError || !targetTeam) throw new Error("The selected team was not found.");
+        const balance = Number(targetTeam.faab ?? 0);
+        if (input.faab > balance) throw new Error(`FAAB bid exceeds the team’s available balance ($${balance}).`);
+        const { data: addPlayer, error: addPlayerError } = await supabaseAdmin.from("players")
+          .select("team_id").ilike("name", input.addPlayerName).maybeSingle();
+        if (addPlayerError) throw new Error("Unable to verify the added player.");
+        if (addPlayer?.team_id) throw new Error("The selected player is already on a WRC roster.");
+        const { data: dropPlayer, error: dropPlayerError } = await supabaseAdmin.from("players")
+          .select("id").ilike("name", input.dropPlayerName).eq("team_id", targetTeam.id).maybeSingle();
+        if (dropPlayerError) throw new Error("Unable to verify the drop player.");
+        if (!dropPlayer) throw new Error("The selected drop player is not on this roster.");
+        const { error: movesError } = await supabaseAdmin.from("roster_moves").insert([
+          {
+            move_type: "ADD",
+            team_name: targetTeam.team_name,
+            owner: targetTeam.owner,
+            player_name: input.addPlayerName,
+            player_pos: input.addPlayerPos,
+            player_nfl_team: input.addPlayerNflTeam,
+            faab_spent: input.faab,
+          },
+          {
+            move_type: "DROP",
+            team_name: targetTeam.team_name,
+            owner: targetTeam.owner,
+            player_name: input.dropPlayerName,
+            player_pos: "—",
+            player_nfl_team: "FA",
+            faab_spent: null,
+          },
+        ]);
+        if (movesError) throw new Error("Unable to write the transaction history.");
+        if (input.faab > 0) {
+          const { error: faabError } = await supabaseAdmin.from("teams")
+            .update({ faab: balance - input.faab }).eq("id", targetTeam.id);
+          if (faabError) throw new Error("Transaction was recorded, but FAAB could not be deducted.");
+        }
+        return { submitted: true, teamName: targetTeam.team_name, remainingFaab: balance - input.faab };
+      }),
   }),
 
   fantasyPros: router({

@@ -88,4 +88,18 @@ describe("private league procedures", () => {
     await expect(caller.league.commissionerFinalizeWeeklyResult({ resultId: 1, homeScore: 100, awayScore: 90 }))
       .rejects.toMatchObject({ code: "FORBIDDEN" });
   });
+
+  it("rejects unauthenticated manual transaction submissions", async () => {
+    readWrcTeamSession.mockResolvedValue(null);
+    const caller = appRouter.createCaller({ req: {} as never, res: {} as never, user: null });
+
+    await expect(caller.league.submitManualTransaction({
+      targetTeamId: "team-owner",
+      addPlayerName: "Test Add",
+      addPlayerPos: "QB",
+      addPlayerNflTeam: "TEST",
+      dropPlayerName: "Test Drop",
+      faab: 0,
+    })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  });
 });

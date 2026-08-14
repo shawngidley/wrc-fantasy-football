@@ -21,6 +21,7 @@ import { CheckCircle2, Clock, Edit3, Trophy, X, Zap, RefreshCw, Calendar, User }
 import { toast } from "sonner";
 import { Link, useLocation } from "wouter";
 import TeamLogo from "@/components/TeamLogo";
+import { trpc } from "@/lib/trpc";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -83,6 +84,7 @@ function ScoreModal({ result, onClose, onSaved }: {
   const [homeScore, setHomeScore] = useState(result.home_score?.toString() ?? "");
   const [awayScore, setAwayScore] = useState(result.away_score?.toString() ?? "");
   const [saving, setSaving] = useState(false);
+  const finalizeMutation = trpc.league.commissionerFinalizeWeeklyResult.useMutation();
 
   async function handleSave() {
     const hs = parseFloat(homeScore);
@@ -90,72 +92,7 @@ function ScoreModal({ result, onClose, onSaved }: {
     if (isNaN(hs) || isNaN(as_)) { toast.error("Enter valid scores"); return; }
     setSaving(true);
     try {
-      const homeWon = hs > as_;
-      const { error: resErr } = await supabase.from("weekly_results").update({
-        home_score: hs, away_score: as_, is_final: true,
-      }).eq("id", result.id);
-      if (resErr) throw resErr;
-
-      const { data: weekRows } = await supabase.from("weekly_results")
-        .select("home_score,away_score,home_owner,away_owner,home_team_id,away_team_id,league_median")
-        .eq("week", result.week).eq("season", result.season).eq("is_final", true);
-
-      const allScores = (weekRows ?? []).flatMap(r => [r.home_score, r.away_score]).filter(Boolean) as number[];
-      const median = allScores.length ? allScores.sort((a, b) => a - b)[Math.floor(allScores.length / 2)] : null;
-
-      const homeDiv = OWNER_DIVISION[result.home_owner] ?? "";
-      const awayDiv = OWNER_DIVISION[result.away_owner] ?? "";
-      const isDivGame = homeDiv === awayDiv && homeDiv !== "";
-
-      const homeUpdate: Partial<DbStanding> = {
-        wins: undefined, losses: undefined, pts_for: undefined, pts_against: undefined,
-        h2h_wins: undefined, h2h_losses: undefined,
-        median_wins: undefined, median_losses: undefined,
-        div_wins: undefined, div_losses: undefined, streak: undefined,
-      };
-      const awayUpdate: Partial<DbStanding> = { ...homeUpdate };
-
-      const { data: homeStanding } = await supabase.from("team_standings").select("*").eq("team_id", result.home_team_id).single();
-      const { data: awayStanding } = await supabase.from("team_standings").select("*").eq("team_id", result.away_team_id).single();
-
-      if (homeStanding && awayStanding) {
-        const hWins = (homeStanding.wins ?? 0) + (homeWon ? 1 : 0);
-        const hLoss = (homeStanding.losses ?? 0) + (!homeWon ? 1 : 0);
-        const aWins = (awayStanding.wins ?? 0) + (!homeWon ? 1 : 0);
-        const aLoss = (awayStanding.losses ?? 0) + (homeWon ? 1 : 0);
-        const hMedianW = (homeStanding.median_wins ?? 0) + (median !== null && hs > median ? 1 : 0);
-        const hMedianL = (homeStanding.median_losses ?? 0) + (median !== null && hs <= median ? 1 : 0);
-        const aMedianW = (awayStanding.median_wins ?? 0) + (median !== null && as_ > median ? 1 : 0);
-        const aMedianL = (awayStanding.median_losses ?? 0) + (median !== null && as_ <= median ? 1 : 0);
-
-        Object.assign(homeUpdate, {
-          wins: hWins, losses: hLoss,
-          pts_for: (homeStanding.pts_for ?? 0) + hs,
-          pts_against: (homeStanding.pts_against ?? 0) + as_,
-          h2h_wins: (homeStanding.h2h_wins ?? 0) + (homeWon ? 1 : 0),
-          h2h_losses: (homeStanding.h2h_losses ?? 0) + (!homeWon ? 1 : 0),
-          median_wins: hMedianW, median_losses: hMedianL,
-          div_wins: (homeStanding.div_wins ?? 0) + (isDivGame && homeWon ? 1 : 0),
-          div_losses: (homeStanding.div_losses ?? 0) + (isDivGame && !homeWon ? 1 : 0),
-          streak: newStreak(homeStanding.streak ?? "", homeWon),
-        });
-        Object.assign(awayUpdate, {
-          wins: aWins, losses: aLoss,
-          pts_for: (awayStanding.pts_for ?? 0) + as_,
-          pts_against: (awayStanding.pts_against ?? 0) + hs,
-          h2h_wins: (awayStanding.h2h_wins ?? 0) + (!homeWon ? 1 : 0),
-          h2h_losses: (awayStanding.h2h_losses ?? 0) + (homeWon ? 1 : 0),
-          median_wins: aMedianW, median_losses: aMedianL,
-          div_wins: (awayStanding.div_wins ?? 0) + (isDivGame && !homeWon ? 1 : 0),
-          div_losses: (awayStanding.div_losses ?? 0) + (isDivGame && homeWon ? 1 : 0),
-          streak: newStreak(awayStanding.streak ?? "", !homeWon),
-        });
-
-        await Promise.all([
-          supabase.from("team_standings").update(homeUpdate).eq("team_id", result.home_team_id),
-          supabase.from("team_standings").update(awayUpdate).eq("team_id", result.away_team_id),
-        ]);
-      }
+      await finalizeMutation.mutateAsync({ resultId: result.id, homeScore: hs, awayScore: as_ });
 
       toast.success("Score saved!");
       onSaved();

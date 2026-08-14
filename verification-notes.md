@@ -177,3 +177,7 @@ Draft start, pause/resume, skip, and reset controls now require the commissioner
 ## Secure Results Finalization Migration — 2026-08-14
 
 Commissioner score entry now calls a server-only finalization procedure. The server saves the score, recomputes every finalized 2026 weekly result from authoritative rows, recalculates each week’s league median, and replaces the affected standings totals, division records, median records, and streaks deterministically instead of incrementing browser-calculated values. A direct unauthenticated finalization request returned `FORBIDDEN`; focused authorization coverage also rejects it before data access. The full suite passed with 19 files and 44 tests, and TypeScript completed successfully.
+
+## Secure Transaction Adjustment Migration — 2026-08-14
+
+Manual add/drop adjustments now submit through a signed-team server procedure. An owner may submit only for the team in that session, while a commissioner may select another team. The server verifies the target team, FAAB balance, current free-agent status of the addition, and ownership of the drop before writing the paired transaction rows and deducting FAAB. A direct unauthenticated manual-transaction request returned `UNAUTHORIZED`; focused authorization coverage also rejects it before data access. The full suite passed with 19 files and 45 tests, and TypeScript completed successfully.
