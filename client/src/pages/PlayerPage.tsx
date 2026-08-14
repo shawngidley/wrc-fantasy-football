@@ -14,7 +14,6 @@ import { calcFantasyPoints, injuryColor, injuryLabel } from "@/lib/scoringEngine
 import type { Tank01Stats } from "@/lib/scoringEngine";
 import { formatSeasonStatColumn, getSeasonStatColumns, normalizeTankSeasonStats } from "@/lib/playerSeasonStats";
 import { getCurrentWeek } from "@/lib/scheduleData2026";
-import { supabase } from "@/lib/supabase";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -50,7 +49,7 @@ function Insight({ label, value }: { label: string; value: string }) {
 }
 
 
-// ── Live ownership lookup via Supabase ──────────────────────────────────────
+// ── Redacted server-side ownership lookup ────────────────────────────────────
 type OwnershipResult = {
   teamName: string;
   owner: string;
@@ -60,35 +59,15 @@ type OwnershipResult = {
 
   function usePlayerOwnership(playerName: string | null): { ownership: OwnershipResult; ownerLoading: boolean } {
   const [ownership, setOwnership] = useState<OwnershipResult>(null);
-  const [ownerLoading, setOwnerLoading] = useState(true);
+  const ownershipQuery = trpc.league.playerOwnership.useQuery({ playerName: playerName ?? "unknown" }, { enabled: Boolean(playerName), staleTime: 60_000 });
 
   useEffect(() => {
-    if (!playerName) { setOwnerLoading(false); return; }
-    setOwnerLoading(true);
-    supabase
-      .from("players")
-      .select("team_id, acquisition, draft_round, teams(name, owner)")
-      .ilike("name", playerName)
-      .limit(1)
-      .then(({ data, error }) => {
-        if (error) { console.error("ownership query error:", error); setOwnerLoading(false); return; }
-        const row = data?.[0];
-        if (row && row.team_id) {
-          const t = Array.isArray(row.teams) ? (row.teams[0] as { name: string; owner: string } | undefined) : (row.teams as { name: string; owner: string } | null);
-          setOwnership({
-            teamName: t?.name ?? row.team_id,
-            owner: t?.owner ?? "",
-            acquisition: row.acquisition ?? "Draft",
-            round: row.draft_round ?? null,
-          });
-        } else {
-          setOwnership(null);
-        }
-        setOwnerLoading(false);
-      });
-  }, [playerName]);
+    const row = ownershipQuery.data;
+    if (!row?.teamId) { setOwnership(null); return; }
+    setOwnership({ teamName: row.teamName ?? row.teamId, owner: row.owner ?? "", acquisition: row.acquisition ?? "Draft", round: row.draftRound ?? null });
+  }, [ownershipQuery.data]);
 
-  return { ownership, ownerLoading };
+  return { ownership, ownerLoading: Boolean(playerName) && (ownershipQuery.isLoading || ownershipQuery.isFetching) };
 }
 
 // getThisWeekMatchup stub removed — replaced by live useNFLMatchups hook

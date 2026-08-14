@@ -226,28 +226,15 @@ export default function FreeAgents() {
       ...(fantasyProsTeRanks.data ?? []),
     ].map(item => [normalizePlayerName(item.name), item]),
   ), [fantasyProsQbRanks.data, fantasyProsRbRanks.data, fantasyProsWrRanks.data, fantasyProsTeRanks.data]);
+  const rosteredPlayersQuery = trpc.league.rosteredPlayers.useQuery(undefined, { staleTime: 60_000 });
 
-  // Load owned player names from Supabase
   useEffect(() => {
-    supabase
-      .from("players")
-      .select("name, team_id, teams(name)")
-      .not("team_id", "is", null)
-      .then(({ data }) => {
-        if (data) {
-          const names = new Set<string>();
-          const ownerMap: Record<string, string> = {};
-          for (const p of (data as unknown) as Array<{ name: string; team_id: string; teams: { name: string } | { name: string }[] | null }>) {
-            names.add(p.name.toLowerCase());
-            const teamName = Array.isArray(p.teams) ? (p.teams[0]?.name ?? p.team_id) : (p.teams?.name ?? p.team_id);
-            ownerMap[p.name.toLowerCase()] = teamName;
-          }
-          setOwnedNames(names);
-          setOwnershipMap(ownerMap);
-        }
-        setLoadingOwned(false);
-      });
-  }, []);
+    const rosteredPlayers = rosteredPlayersQuery.data;
+    if (!rosteredPlayers) return;
+    setOwnedNames(new Set(rosteredPlayers.map(player => player.name.toLowerCase())));
+    setOwnershipMap(Object.fromEntries(rosteredPlayers.map(player => [player.name.toLowerCase(), player.teamName ?? player.teamId])));
+    setLoadingOwned(false);
+  }, [rosteredPlayersQuery.data]);
 
   // Live projections for sorting
   const { projections, loading: projectionsLoading } = useNFLProjections(week);

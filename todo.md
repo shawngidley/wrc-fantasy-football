@@ -475,3 +475,4 @@
 
 - [x] Replace browser reads of private team, lineup, queue, bid, and trade data with redacted server procedures before the RLS cutover.
 - [x] Retain only intentionally public read access after documenting each table’s permitted browser data.
+- [x] Replace player-page and free-agent browser joins to the protected teams table with redacted server procedures.

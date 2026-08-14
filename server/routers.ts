@@ -827,6 +827,30 @@ export const appRouter = router({
       if (error) throw new Error("Unable to load public team data.");
       return data ?? [];
     }),
+    rosteredPlayers: publicProcedure.query(async () => {
+      const { data, error } = await supabaseAdmin.from("players")
+        .select("name, team_id, teams(name)")
+        .not("team_id", "is", null);
+      if (error) throw new Error("Unable to load rostered player data.");
+      return (data ?? []).map(row => ({ name: row.name, teamId: row.team_id, teamName: (row.teams as { name?: string | null } | null)?.name ?? null }));
+    }),
+    playerOwnership: publicProcedure
+      .input(z.object({ playerName: z.string().min(1).max(128) }))
+      .query(async ({ input }) => {
+        const { data, error } = await supabaseAdmin.from("players")
+          .select("team_id, acquisition, draft_round, teams(name, owner)")
+          .ilike("name", input.playerName)
+          .limit(1)
+          .maybeSingle();
+        if (error) throw new Error("Unable to load player ownership.");
+        return data ? {
+          teamId: data.team_id,
+          acquisition: data.acquisition,
+          draftRound: data.draft_round,
+          teamName: (data.teams as { name?: string | null } | null)?.name ?? null,
+          owner: (data.teams as { owner?: string | null } | null)?.owner ?? null,
+        } : null;
+      }),
     commissionerProtectionsOverview: commissionerProcedure.query(async () => {
       const [{ data: teams, error: teamsError }, { data: protections, error: protectionsError }] = await Promise.all([
         supabaseAdmin.from("teams").select("id, name, owner").order("name"),
