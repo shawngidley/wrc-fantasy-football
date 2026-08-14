@@ -820,6 +820,21 @@ export const appRouter = router({
       if (error || !data) throw new Error("Unable to load team settings.");
       return { logoUrl: data.logo_url ?? null, themeSongUrl: data.theme_song_url ?? null };
     }),
+    publicTeams: publicProcedure.query(async () => {
+      const { data, error } = await supabaseAdmin.from("teams")
+        .select("id, name, owner, division, wins, losses, ties, points_for, points_against, logo_url")
+        .order("name");
+      if (error) throw new Error("Unable to load public team data.");
+      return data ?? [];
+    }),
+    commissionerProtectionsOverview: commissionerProcedure.query(async () => {
+      const [{ data: teams, error: teamsError }, { data: protections, error: protectionsError }] = await Promise.all([
+        supabaseAdmin.from("teams").select("id, name, owner").order("name"),
+        supabaseAdmin.from("protections").select("team_id, player_id, tier, forfeited_round, submitted, players(name)"),
+      ]);
+      if (teamsError || protectionsError) throw new Error("Unable to load protection overview.");
+      return { teams: teams ?? [], protections: protections ?? [] };
+    }),
     changeTeamPin: teamProcedure
       .input(z.object({ currentPin: z.string().min(1).max(12), newPin: z.string().min(4).max(12) }))
       .mutation(async ({ input, ctx }) => {

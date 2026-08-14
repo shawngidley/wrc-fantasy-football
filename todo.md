@@ -470,3 +470,8 @@
 - [x] Move commissioner money-owed and Game of the Week edits behind commissioner server procedures.
 - [x] Remove legacy browser PIN helper reads that expose the raw teams table.
 - [x] Re-run the full mutation audit, including upserts, before RLS cutover.
+
+# Sensitive Browser Read Migration
+
+- [x] Replace browser reads of private team, lineup, queue, bid, and trade data with redacted server procedures before the RLS cutover.
+- [x] Retain only intentionally public read access after documenting each table’s permitted browser data.

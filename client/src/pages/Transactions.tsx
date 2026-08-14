@@ -62,12 +62,11 @@ function AddDropModal({ onClose, onSubmit, franchise, isCommissioner }: {
   const [submitting, setSubmitting] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState(franchise?.team_name ?? "");
   const [selectedOwner, setSelectedOwner] = useState(franchise?.owner ?? "");
-  // Live teams from Supabase (for commissioner team selector)
   const [liveTeams, setLiveTeams] = useState<{ id: string; team_name: string; owner: string }[]>([]);
+  const publicTeamsQuery = trpc.league.publicTeams.useQuery();
   useEffect(() => {
-    supabase.from("teams").select("id, team_name, owner").order("team_name")
-      .then(({ data }) => { if (data) setLiveTeams(data); });
-  }, []);
+    if (publicTeamsQuery.data) setLiveTeams(publicTeamsQuery.data.map(team => ({ id: team.id, team_name: team.name, owner: team.owner })));
+  }, [publicTeamsQuery.data]);
 
   const addResults = addSearch.length >= 2
     ? NFL_PLAYERS_2026.filter(p =>

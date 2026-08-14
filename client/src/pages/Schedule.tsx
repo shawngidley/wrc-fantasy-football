@@ -21,6 +21,7 @@ import {
 } from "@/lib/scheduleData2026";
 import { supabase } from "@/lib/supabase";
 import { TEAMS } from "@/lib/wrcData";
+import { trpc } from "@/lib/trpc";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -436,35 +437,14 @@ export default function Schedule() {
   const [seeds, setSeeds] = useState<string[]>([]);
   const weekRefs = useRef<Record<number, HTMLDivElement | null>>({});
   const tabsRef = useRef<HTMLDivElement>(null);
+  const publicTeamsQuery = trpc.league.publicTeams.useQuery();
 
-  // Load live standings from Supabase to derive playoff seeds
   useEffect(() => {
-    supabase.from("teams").select("name, owner, division, wins, losses, points_for")
-      .then(({ data }) => {
-        if (data && data.length > 0) {
-          const teams: StandingsTeam[] = data.map((t: Record<string, unknown>) => ({
-            teamName: t.name as string,
-            owner: t.owner as string,
-            division: t.division as string,
-            wins: (t.wins as number) ?? 0,
-            losses: (t.losses as number) ?? 0,
-            ptsFor: (t.points_for as number) ?? 0,
-          }));
-          setSeeds(derivePlayoffSeeds(teams));
-        } else {
-          // Fall back to wrcData static teams
-          const fallback: StandingsTeam[] = TEAMS.map(t => ({
-            teamName: t.teamName,
-            owner: t.owner,
-            division: t.division,
-            wins: t.wins,
-            losses: t.losses,
-            ptsFor: t.ptsFor,
-          }));
-          setSeeds(derivePlayoffSeeds(fallback));
-        }
-      });
-  }, []);
+    const teams: StandingsTeam[] = publicTeamsQuery.data?.length
+      ? publicTeamsQuery.data.map(team => ({ teamName: team.name, owner: team.owner, division: team.division, wins: team.wins ?? 0, losses: team.losses ?? 0, ptsFor: team.points_for ?? 0 }))
+      : TEAMS.map(team => ({ teamName: team.teamName, owner: team.owner, division: team.division, wins: team.wins, losses: team.losses, ptsFor: team.ptsFor }));
+    setSeeds(derivePlayoffSeeds(teams));
+  }, [publicTeamsQuery.data]);
 
   // Scroll to current week tab on mount
   useEffect(() => {

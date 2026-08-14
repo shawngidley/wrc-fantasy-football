@@ -171,17 +171,15 @@ function CommissionerProtectionsPanel() {
   const [teams, setTeams] = useState<TeamRow[]>([]);
   const [protections, setProtections] = useState<ProtRow[]>([]);
   const [loadingData, setLoadingData] = useState(true);
+  const protectionOverviewQuery = trpc.league.commissionerProtectionsOverview.useQuery();
 
   useEffect(() => {
-    Promise.all([
-      supabase.from("teams").select("id, name, owner").order("name"),
-      supabase.from("protections").select("team_id, player_id, tier, forfeited_round, submitted, players(name)"),
-    ]).then(([{ data: tData }, { data: pData }]) => {
-      if (tData) setTeams(tData as TeamRow[]);
-      if (pData) setProtections(pData as unknown as ProtRow[]);
-      setLoadingData(false);
-    });
-  }, []);
+    setLoadingData(protectionOverviewQuery.isLoading || protectionOverviewQuery.isFetching);
+    if (protectionOverviewQuery.data) {
+      setTeams(protectionOverviewQuery.data.teams as TeamRow[]);
+      setProtections(protectionOverviewQuery.data.protections as unknown as ProtRow[]);
+    }
+  }, [protectionOverviewQuery.data, protectionOverviewQuery.isFetching, protectionOverviewQuery.isLoading]);
 
   return (
     <div className="wrc-card" style={{ marginBottom: "1.25rem", border: "2px solid oklch(0.78 0.15 85)" }}>
