@@ -189,3 +189,7 @@ Settings no longer reads PIN values or writes team records through the browser. 
 ## Server-Only Weekly Result Finalization and Final Mutation Audit — 2026-08-14
 
 The automatic weekly result writer no longer exposes the Tank01 key or writes results, standings, Game of the Week, or earnings from browser code. It now calls a signed-session server procedure, which retrieves final Tank01 data using a server secret and writes with the service-role client. The Tank01 credential passed a live lightweight validation request. A direct unauthenticated finalization request returned `UNAUTHORIZED`, focused coverage rejects the procedure before data access, and the full client mutation audit found no live direct Supabase `insert`, `update`, `delete`, or storage mutations; the sole match was a unit-test `Map.delete` stub. The full suite passed with 20 files and 48 tests, and TypeScript completed successfully.
+
+## Secure Money Management and Complete Mutation Audit — 2026-08-14
+
+Commissioner Money-page edits for balances owed and Game of the Week now use commissioner-only server procedures. The old direct browser PIN-login helper and local team persistence helpers were removed because login now relies entirely on the server-issued httpOnly session. The final audit, including `upsert`, identified no live browser Supabase mutation; its only match is a unit-test `Map.delete` mock. The full suite passed with 20 files and 49 tests, and TypeScript completed successfully.

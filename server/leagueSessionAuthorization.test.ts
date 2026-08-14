@@ -126,4 +126,14 @@ describe("private league procedures", () => {
     await expect(caller.league.finalizeWeeklyResultsFromTank({ week: 1, season: 2026 }))
       .rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
+
+  it("rejects unauthenticated commissioner money-management edits", async () => {
+    readWrcTeamSession.mockResolvedValue(null);
+    const caller = appRouter.createCaller({ req: {} as never, res: {} as never, user: null });
+
+    await expect(caller.league.commissionerSaveMoneyOwed({ updates: [{ id: "owner", name: "Owner", owed: 200 }] }))
+      .rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(caller.league.commissionerSaveGowEntry({ week: 1, season: 2026, winner: "Owner", team: "Team", opponent: "Opponent", score: "100.0 – 90.0", amount: 30 }))
+      .rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
 });

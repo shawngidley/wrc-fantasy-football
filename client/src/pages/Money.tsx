@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { trpc } from "@/lib/trpc";
 
 // ─── Static data (fallback until Supabase is connected) ─────────────────────
 
@@ -135,6 +136,8 @@ export default function Money() {
 
   // Earnings state
   const [earnings, setEarnings] = useState<Earnings[]>(DEFAULT_EARNINGS);
+  const saveMoneyMutation = trpc.league.commissionerSaveMoneyOwed.useMutation();
+  const saveGowMutation = trpc.league.commissionerSaveGowEntry.useMutation();
 
   // ── Load from Supabase ──────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
@@ -183,36 +186,30 @@ export default function Money() {
       owed: parseFloat(editOwed[o.id] ?? "0") || 0,
     }));
 
-    // Try Supabase upsert; fall back to local state if not connected
-    const { error } = await supabase.from("money_owed").upsert(updates, { onConflict: "id" });
-    if (!error) {
+    try {
+      await saveMoneyMutation.mutateAsync({ updates });
       setOwners(prev => prev.map(o => ({ ...o, owed: parseFloat(editOwed[o.id] ?? "0") || 0 })));
       setSaveMsg("Saved successfully.");
-    } else {
-      setOwners(prev => prev.map(o => ({ ...o, owed: parseFloat(editOwed[o.id] ?? "0") || 0 })));
-      setSaveMsg("Saved locally (Supabase not connected).");
+    } catch (error) {
+      setSaveMsg(error instanceof Error ? error.message : "Unable to save money owed.");
+    } finally {
+      setEditMode(false);
+      setSaving(false);
+      setTimeout(() => setSaveMsg(""), 3000);
     }
-    setEditMode(false);
-    setSaving(false);
-    setTimeout(() => setSaveMsg(""), 3000);
   };
 
   // ── Commissioner: GOW entry ──────────────────────────────────────────────────
   const saveGowEntry = async (entry: GowEntry) => {
-    const { error } = await supabase.from("gow_history").upsert({ ...entry, season: 2026 }, { onConflict: "week,season" });
-    if (!error) {
+    try {
+      await saveGowMutation.mutateAsync({ ...entry, season: 2026 });
       setGowHistory(prev => {
         const idx = prev.findIndex(g => g.week === entry.week);
         if (idx >= 0) { const next = [...prev]; next[idx] = entry; return next; }
         return [...prev, entry].sort((a, b) => a.week - b.week);
       });
-    } else {
-      // Offline fallback
-      setGowHistory(prev => {
-        const idx = prev.findIndex(g => g.week === entry.week);
-        if (idx >= 0) { const next = [...prev]; next[idx] = entry; return next; }
-        return [...prev, entry].sort((a, b) => a.week - b.week);
-      });
+    } catch (error) {
+      setSaveMsg(error instanceof Error ? error.message : "Unable to save Game of the Week.");
     }
     setEditingGow(null);
     setShowGowForm(false);

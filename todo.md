@@ -464,3 +464,9 @@
 - [x] Move weekly live-result, standings, and earnings updates from the automatic scoring writer to authenticated server procedures.
 - [x] Remove the obsolete browser PIN update helper so no direct client database mutation remains.
 - [x] Re-run a full client-source mutation audit and document the clean result.
+
+# Secure Money Management Migration
+
+- [x] Move commissioner money-owed and Game of the Week edits behind commissioner server procedures.
+- [x] Remove legacy browser PIN helper reads that expose the raw teams table.
+- [x] Re-run the full mutation audit, including upserts, before RLS cutover.

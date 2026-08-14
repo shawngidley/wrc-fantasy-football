@@ -876,6 +876,20 @@ export const appRouter = router({
     finalizeWeeklyResultsFromTank: teamProcedure
       .input(z.object({ week: z.number().int().min(1).max(22), season: z.number().int().min(2020).max(2100) }))
       .mutation(async ({ input }) => finalizeWeeklyResultsFromTank(input.week, input.season)),
+    commissionerSaveMoneyOwed: commissionerProcedure
+      .input(z.object({ updates: z.array(z.object({ id: z.string().min(1).max(128), name: z.string().min(1).max(80), owed: z.number().finite().min(0).max(100_000) })).min(1).max(50) }))
+      .mutation(async ({ input }) => {
+        const { error } = await supabaseAdmin.from("money_owed").upsert(input.updates, { onConflict: "id" });
+        if (error) throw new Error("Unable to save money owed.");
+        return { saved: input.updates.length };
+      }),
+    commissionerSaveGowEntry: commissionerProcedure
+      .input(z.object({ week: z.number().int().min(1).max(22), winner: z.string().min(1).max(80), team: z.string().min(1).max(120), opponent: z.string().max(120), score: z.string().min(1).max(80), amount: z.number().finite().min(0).max(10_000), season: z.number().int().min(2020).max(2100) }))
+      .mutation(async ({ input }) => {
+        const { error } = await supabaseAdmin.from("gow_history").upsert(input, { onConflict: "week,season" });
+        if (error) throw new Error("Unable to save Game of the Week.");
+        return { saved: true };
+      }),
   }),
 
   fantasyPros: router({
