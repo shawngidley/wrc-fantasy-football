@@ -41,4 +41,13 @@ describe("private league procedures", () => {
     await expect(caller.league.commissionerFaabBids({ week: 1, season: 2026 }))
       .rejects.toMatchObject({ code: "FORBIDDEN" });
   });
+
+  it("rejects unauthenticated protection reads and submissions", async () => {
+    readWrcTeamSession.mockResolvedValue(null);
+    const caller = appRouter.createCaller({ req: {} as never, res: {} as never, user: null });
+
+    await expect(caller.league.protections()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    await expect(caller.league.saveProtections({ slots: [] }))
+      .rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  });
 });

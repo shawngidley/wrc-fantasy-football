@@ -14,6 +14,7 @@ import { archiveFantasyProsNews, getArchivedFantasyProsNews, mergeFantasyProsNew
 import { getPublicLeagueTeam, listPublicLeagueTeams, verifyLeagueTeamPin } from "./leagueAuth";
 import { clearWrcTeamSession, readWrcTeamSession, writeWrcTeamSession } from "./wrcTeamSession";
 import { supabaseAdmin } from "./supabaseAdmin";
+import { validateProtectionSubmission } from "./protectionRules";
 
 const normalizePlayerKey = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -379,6 +380,51 @@ export const appRouter = router({
         const { error: moveError } = await supabaseAdmin.from("roster_moves").insert(moves);
         if (moveError) throw new Error("FAAB was processed, but transaction history could not be written");
         return { awarded: true, bidId: bid.id, playerName: bid.player_name, teamName: bid.team_name, remainingFaab };
+      }),
+    protections: teamProcedure.query(async ({ ctx }) => {
+      const { data, error } = await supabaseAdmin
+        .from("protections")
+        .select("player_id, tier, forfeited_round")
+        .eq("team_id", ctx.teamSession.teamId);
+      if (error) throw new Error("Unable to load protections");
+      return (data ?? []).map(row => ({ playerId: row.player_id, assignedRound: row.forfeited_round }));
+    }),
+    saveProtections: teamProcedure
+      .input(z.object({
+        slots: z.array(z.object({
+          playerId: z.string().min(1).max(128),
+          assignedRound: z.number().int().min(1).max(18).nullable(),
+        })).max(3),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const teamId = ctx.teamSession.teamId;
+        const { data: roster, error: rosterError } = await supabaseAdmin
+          .from("players")
+          .select("id, draft_round")
+          .eq("team_id", teamId);
+        if (rosterError) throw new Error("Unable to validate your roster protections");
+        const validated = validateProtectionSubmission(
+          input.slots,
+          (roster ?? []).map(player => ({ id: player.id, draftRound: player.draft_round })),
+        );
+        const { error: deleteError } = await supabaseAdmin
+          .from("protections")
+          .delete()
+          .eq("team_id", teamId);
+        if (deleteError) throw new Error("Unable to replace protections");
+        if (validated.length) {
+          const { error: insertError } = await supabaseAdmin.from("protections").insert(
+            validated.map(slot => ({
+              team_id: teamId,
+              player_id: slot.playerId,
+              tier: slot.tier,
+              forfeited_round: slot.forfeitedRound,
+              submitted: true,
+            })),
+          );
+          if (insertError) throw new Error("Unable to save protections");
+        }
+        return { slots: validated.map(slot => ({ playerId: slot.playerId, assignedRound: slot.forfeitedRound })) };
       }),
   }),
 

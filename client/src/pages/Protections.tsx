@@ -29,8 +29,8 @@ import {
 } from "lucide-react";
 // AlertTriangle already imported above — used in Submit button validation
 import { TEAMS, type RosterPlayer } from "@/lib/wrcData";
-import { supabase } from "@/lib/supabase";
 import { useDraftedRoster } from "@/hooks/useDraftedRoster";
+import { trpc } from "@/lib/trpc";
 
 // ── Deadline ─────────────────────────────────────────────────────────────────
 const DEADLINE = new Date("2026-08-24T20:00:00-04:00");
@@ -141,36 +141,6 @@ const POS_COLORS: Record<string, string> = {
   TE: "oklch(0.65 0.14 85)", K: "#64748b", DST: "#ef4444",
 };
 
-// ── Persistence (Supabase) ────────────────────────────────────────────────────
-async function loadFromSupabase(teamId: string): Promise<ProtectionSlot[]> {
-  const { data } = await supabase
-    .from("protections")
-    .select("player_id, tier, forfeited_round")
-    .eq("team_id", teamId);
-  if (!data) return [];
-  return data.map((r: { player_id: string; tier: string; forfeited_round: number | null }) => ({
-    playerId: r.player_id,
-    assignedRound: r.forfeited_round,
-  }));
-}
-
-async function saveToSupabase(teamId: string, slots: ProtectionSlot[], roster: RosterEntry[]) {
-  // Delete existing protections for this team
-  await supabase.from("protections").delete().eq("team_id", teamId);
-  if (slots.length === 0) return;
-  const rows = slots.map(s => {
-    const entry = roster.find(r => r.id === s.playerId);
-    return {
-      team_id: teamId,
-      player_id: s.playerId,
-      tier: entry?.tier ?? "tier2",
-      forfeited_round: s.assignedRound,
-      submitted: true,
-    };
-  });
-  await supabase.from("protections").insert(rows);
-}
-
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function Protections() {
   const { franchise, authLoading } = useAuth();
@@ -214,15 +184,15 @@ export default function Protections() {
   const [saved, setSaved] = useState(false);
   const [expandRules, setExpandRules] = useState(false);
   const [loadingSlots, setLoadingSlots] = useState(true);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const protectionsQuery = trpc.league.protections.useQuery(undefined, { enabled: Boolean(franchise?.id) });
+  const saveProtectionsMutation = trpc.league.saveProtections.useMutation();
 
   useEffect(() => {
     if (!franchise?.id) { setLoadingSlots(false); return; }
-    setLoadingSlots(true);
-    loadFromSupabase(franchise.id).then(loaded => {
-      setSlots(loaded);
-      setLoadingSlots(false);
-    });
-  }, [franchise?.id]);
+    setLoadingSlots(protectionsQuery.isLoading || protectionsQuery.isFetching);
+    if (protectionsQuery.data) setSlots(protectionsQuery.data);
+  }, [franchise?.id, protectionsQuery.data, protectionsQuery.isFetching, protectionsQuery.isLoading]);
 
   // ── Derived state ──────────────────────────────────────────────────────────
   const selectedIds = slots.map(s => s.playerId);
@@ -314,9 +284,15 @@ export default function Protections() {
 
   const handleSave = async () => {
     if (!franchise?.id || cd.past || !isValid) return;
-    await saveToSupabase(franchise.id, slots, roster);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    setSaveError(null);
+    try {
+      const result = await saveProtectionsMutation.mutateAsync({ slots });
+      setSlots(result.slots);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    } catch (error) {
+      setSaveError(error instanceof Error ? error.message : "Unable to submit protections.");
+    }
   };
 
   // ── Sorted roster ─────────────────────────────────────────────────────────
@@ -359,6 +335,12 @@ export default function Protections() {
             {saved ? <><CheckCircle2 size={14} /> Saved!</> : cd.past ? "Deadline Passed" : "Submit Protections"}
           </button>
         </div>
+
+        {saveError && (
+          <div role="alert" style={{ marginTop: "-0.75rem", marginBottom: "1rem", background: "oklch(0.96 0.04 25)", border: "1px solid oklch(0.78 0.12 25)", borderRadius: 8, padding: "0.65rem 0.9rem", color: "oklch(0.42 0.16 25)", fontSize: "0.8rem", fontWeight: 600 }}>
+            {saveError}
+          </div>
+        )}
 
         {/* Deadline Banner */}
         <DeadlineBanner cd={cd} />

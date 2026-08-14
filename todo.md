@@ -420,3 +420,9 @@
 - [x] Derive bidder identity from the session and validate bid amount, roster ownership, and available FAAB server-side.
 - [x] Move commissioner-only FAAB bid review and award processing behind commissioner server procedures.
 - [x] Verify unauthenticated and non-commissioner FAAB requests are rejected.
+
+# Secure Protection Migration
+
+- [x] Move protection reads and submissions behind signed-session server procedures.
+- [x] Revalidate keeper eligibility, round assignments, and roster ownership on the server.
+- [x] Verify unauthenticated protection changes are rejected.
