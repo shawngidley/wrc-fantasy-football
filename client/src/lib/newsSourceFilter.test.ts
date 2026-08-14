@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterFantasyPositionNews, filterNewsBySource, inferFantasyProsPlayerName } from "./newsSourceFilter";
+import { countEligibleFantasyNews, filterFantasyPositionNews, filterNewsBySource, inferFantasyProsPlayerName } from "./newsSourceFilter";
 
 const items = [
   { playerName: "Mike Evans", pos: "WR", nflTeam: "SF", headline: "FantasyPros update", published: "2026-08-13T12:00:00Z", source: "FantasyPros" as const },
@@ -34,5 +34,17 @@ describe("filterNewsBySource", () => {
       { playerName: "Harrison Butker", pos: "K", nflTeam: "KC", headline: "Kicker update", published: "2026-08-13T07:00:00Z", source: "FantasyPros" as const },
     ];
     expect(filterFantasyPositionNews(mixedPositions).map(item => item.playerName)).toEqual(["Mike Evans", "Mike Evans", "Mike Evans", "Harrison Butker"]);
+  });
+
+  it("reconciles the eligible source count with the rendered filtered count", () => {
+    const sourceItems = [
+      { playerName: "QB", pos: "QB", nflTeam: "A", headline: "", published: "", source: "FantasyPros" as const },
+      { playerName: "WR", pos: "WR", nflTeam: "B", headline: "", published: "", source: "FantasyPros" as const },
+      { playerName: "CB", pos: "CB", nflTeam: "C", headline: "", published: "", source: "FantasyPros" as const },
+      { playerName: "K", pos: "K", nflTeam: "D", headline: "", published: "", source: "FantasyPros" as const },
+    ];
+    const renderedItems = filterFantasyPositionNews(sourceItems);
+    expect(renderedItems).toHaveLength(countEligibleFantasyNews(sourceItems));
+    expect(renderedItems.map(item => item.pos)).toEqual(["QB", "WR", "K"]);
   });
 });

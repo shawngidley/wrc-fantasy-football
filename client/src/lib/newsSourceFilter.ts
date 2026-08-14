@@ -17,6 +17,10 @@ export function filterFantasyPositionNews(items: PlayerNewsItem[]): PlayerNewsIt
   return items.filter(item => isEligibleFantasyNewsPosition(item.pos));
 }
 
+export function countEligibleFantasyNews(items: PlayerNewsItem[]): number {
+  return filterFantasyPositionNews(items).length;
+}
+
 /** FantasyPros generic news may omit player_name; recover a headline-leading name for display. */
 export function inferFantasyProsPlayerName(title: string): string {
   const cleaned = title.replace(/\s*\([^)]*\)/g, "").trim();

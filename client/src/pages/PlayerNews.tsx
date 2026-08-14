@@ -164,13 +164,14 @@ export default function PlayerNews() {
       const playerName = fp.playerName || inferFantasyProsPlayerName(fp.title);
       const myP = myPlayers.find(p => p.name.toLowerCase() === playerName.toLowerCase());
       const fantasyPlayer = myP ?? findFantasyPlayer(playerName);
-      if (!fantasyPlayer || !isEligibleFantasyNewsPosition(fantasyPlayer.pos)) return null;
+      const pos = fp.position || fantasyPlayer?.pos || "";
+      if (!isEligibleFantasyNewsPosition(pos)) return null;
       const text = `${fp.title} ${fp.description} ${fp.impact}`.toLowerCase();
       const description = fp.impact || fp.description || undefined;
       return {
         playerName,
-        pos: fantasyPlayer.pos,
-        nflTeam: fantasyPlayer.nflTeam,
+        pos,
+        nflTeam: fp.team || fantasyPlayer?.nflTeam || "",
         headline: fp.title,
         ...(description ? { description } : {}),
         published: fp.published,

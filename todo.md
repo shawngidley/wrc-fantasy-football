@@ -317,3 +317,14 @@
 - [x] Restrict every News source to QB, RB, WR, TE, and K player updates.
 - [x] Exclude defensive and other non-fantasy-position updates from FantasyPros, Tank01, and All News.
 - [x] Verify all source options and position filters display only eligible fantasy positions.
+
+# FantasyPros Eligible-News Coverage
+
+- [x] Identify valid FantasyPros QB, RB, WR, TE, and K stories discarded by unresolved player-position mapping.
+- [x] Resolve eligible FantasyPros positions from authoritative API metadata before applying local name fallback.
+- [x] Verify the FantasyPros default feed contains all current eligible player stories without defensive or non-fantasy items.
+
+# FantasyPros Eligible-News Reconciliation
+
+- [x] Compare the raw generic FantasyPros payload with rendered default rows to confirm every eligible player story is retained.
+- [x] Add regression coverage that counts eligible FantasyPros stories before and after client filtering.

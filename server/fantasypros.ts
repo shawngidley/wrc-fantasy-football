@@ -8,6 +8,7 @@ export type FantasyProsNewsItem = {
   playerId: number | null;
   playerName: string;
   team: string;
+  position?: string;
   title: string;
   description: string;
   impact: string;

@@ -114,4 +114,10 @@ The FantasyPros News view was verified after the eligibility filter. It removed 
 
 Tank01 selection returned a single current Deshaun Watson QB update and excluded the remaining non-fantasy-position items. All News combined 39 eligible FantasyPros, ESPN, and Tank01 entries. Every rendered row in the inspected lists carried one of QB, RB, WR, TE, or K; the dedicated DST filter pill was removed.
 
+## FantasyPros Eligible-News Coverage — 2026-08-14
+
+The narrow five-item feed was caused by using the local player pool as the only position resolver. Generic FantasyPros stories contain a stable player ID, and the weekly FantasyPros rankings provide authoritative player position and team for that ID. After enriching the generic response with those fields, a fresh News load displayed 12 current eligible stories, including Jaydon Blue (RB), Dontayvion Wicks (WR), Tucker Kraft (TE), Malik Nabers (WR), Puka Nacua (WR), Jordyn Tyson (WR), Patrick Mahomes II (QB), Kenneth Walker III (RB), DJ Moore (WR), James Cook III (RB), Josh Allen (QB), and Chuba Hubbard (RB). No defensive or non-fantasy rows appeared.
+
+Browser reconciliation queried the current generic FantasyPros tRPC source and the rendered News DOM in the same page. The source contained 50 stories, 12 with authoritative QB/RB/WR/TE/K metadata; the rendered default feed contained exactly 12 disclosure rows. Source positions included only the 12 eligible positions plus 38 intentionally missing/non-fantasy metadata records; rendered rows contained RB, WR, TE, and QB only. A regression test now asserts that the eligible input count and filtered render count remain equal.
+
 A development-only failure exercise was used and then removed before publishing. With no cached items, a forced failed query displayed `FantasyPros news is temporarily unavailable` and the refresh guidance instead of the zero-article empty copy. With populated rows retained during a forced failure, all 50 FantasyPros rows remained visible. The normal, non-test News page was then revalidated with TypeScript plus focused recovery and source-filter tests passing.

@@ -1,10 +1,17 @@
-type NewsIdentity = { playerId: number | null; playerName: string };
-type RankIdentity = { playerId: number; name: string };
+type NewsIdentity = { playerId: number | null; playerName: string; team: string; position?: string };
+type RankIdentity = { playerId: number; name: string; team: string; position: string };
 
-/** Fills omitted generic-news player names using FantasyPros' own player IDs. */
+/** Enriches generic-news player metadata using FantasyPros' own player IDs. */
 export function attachFantasyProsPlayerNames<T extends NewsIdentity>(items: T[], ranks: RankIdentity[]): T[] {
-  const namesById = new Map(ranks.filter(rank => rank.playerId && rank.name).map(rank => [rank.playerId, rank.name]));
-  return items.map(item => item.playerName || item.playerId == null
-    ? item
-    : { ...item, playerName: namesById.get(item.playerId) ?? "" });
+  const ranksById = new Map(ranks.filter(rank => rank.playerId && rank.name).map(rank => [rank.playerId, rank]));
+  return items.map(item => {
+    const rank = item.playerId == null ? undefined : ranksById.get(item.playerId);
+    if (!rank) return item;
+    return {
+      ...item,
+      playerName: item.playerName || rank.name,
+      team: item.team || rank.team,
+      position: item.position || rank.position,
+    } as T;
+  });
 }
