@@ -16,6 +16,7 @@ import { useWeeklyResultsWriter } from "@/hooks/useWeeklyResultsWriter";
 import { CheckCircle2, Clock, Edit3, Trophy, X, Zap, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 import TeamLogo from "@/components/TeamLogo";
+import { trpc } from "@/lib/trpc";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -96,6 +97,7 @@ function ScoreModal({
   const [homeScore, setHomeScore] = useState(result.home_score?.toString() ?? "");
   const [awayScore, setAwayScore] = useState(result.away_score?.toString() ?? "");
   const [saving, setSaving] = useState(false);
+  const finalizeMutation = trpc.league.commissionerFinalizeWeeklyResult.useMutation();
 
   async function handleSave() {
     const hs = parseFloat(homeScore);
@@ -107,87 +109,7 @@ function ScoreModal({
 
     setSaving(true);
     try {
-      // 1. Update the weekly_results row
-      const { error: resErr } = await supabase
-        .from("weekly_results")
-        .update({ home_score: hs, away_score: as_, is_final: true })
-        .eq("id", result.id);
-      if (resErr) throw resErr;
-
-      // 2. Load all results for this week to compute league median
-      const { data: weekRows } = await supabase
-        .from("weekly_results")
-        .select("home_score,away_score,is_final")
-        .eq("week", result.week)
-        .eq("season", result.season);
-
-      const allScores: number[] = [];
-      for (const r of weekRows ?? []) {
-        if (r.is_final && r.home_score != null) allScores.push(r.home_score);
-        if (r.is_final && r.away_score != null) allScores.push(r.away_score);
-      }
-      // Include the current scores being saved
-      if (!allScores.includes(hs)) allScores.push(hs);
-      if (!allScores.includes(as_)) allScores.push(as_);
-
-      const sorted = [...allScores].sort((a, b) => a - b);
-      const mid = Math.floor(sorted.length / 2);
-      const median = sorted.length % 2 === 0
-        ? (sorted[mid - 1] + sorted[mid]) / 2
-        : sorted[mid];
-
-      // 3. Load current standings for both teams
-      const { data: standings } = await supabase
-        .from("team_standings")
-        .select("*")
-        .in("team_id", [result.home_team_id, result.away_team_id]);
-
-      if (!standings || standings.length < 2) {
-        toast.error("Could not load standings for update.");
-        setSaving(false);
-        return;
-      }
-
-      const homeStanding = standings.find((s: DbStanding) => s.team_id === result.home_team_id) as DbStanding;
-      const awayStanding = standings.find((s: DbStanding) => s.team_id === result.away_team_id) as DbStanding;
-
-      const homeWon = hs > as_;
-      const awayWon = as_ > hs;
-      const isDivGame = OWNER_DIVISION[result.home_owner] === OWNER_DIVISION[result.away_owner];
-
-      const homeUpdate: Partial<DbStanding> = {
-        wins: homeStanding.wins + (homeWon ? 1 : 0),
-        losses: homeStanding.losses + (awayWon ? 1 : 0),
-        pts_for: homeStanding.pts_for + hs,
-        pts_against: homeStanding.pts_against + as_,
-        h2h_wins: homeStanding.h2h_wins + (homeWon ? 1 : 0),
-        h2h_losses: homeStanding.h2h_losses + (awayWon ? 1 : 0),
-        median_wins: homeStanding.median_wins + (hs > median ? 1 : 0),
-        median_losses: homeStanding.median_losses + (hs <= median ? 1 : 0),
-        div_wins: homeStanding.div_wins + (isDivGame && homeWon ? 1 : 0),
-        div_losses: homeStanding.div_losses + (isDivGame && awayWon ? 1 : 0),
-        streak: newStreak(homeStanding.streak, homeWon),
-      };
-
-      const awayUpdate: Partial<DbStanding> = {
-        wins: awayStanding.wins + (awayWon ? 1 : 0),
-        losses: awayStanding.losses + (homeWon ? 1 : 0),
-        pts_for: awayStanding.pts_for + as_,
-        pts_against: awayStanding.pts_against + hs,
-        h2h_wins: awayStanding.h2h_wins + (awayWon ? 1 : 0),
-        h2h_losses: awayStanding.h2h_losses + (homeWon ? 1 : 0),
-        median_wins: awayStanding.median_wins + (as_ > median ? 1 : 0),
-        median_losses: awayStanding.median_losses + (as_ <= median ? 1 : 0),
-        div_wins: awayStanding.div_wins + (isDivGame && awayWon ? 1 : 0),
-        div_losses: awayStanding.div_losses + (isDivGame && homeWon ? 1 : 0),
-        streak: newStreak(awayStanding.streak, awayWon),
-      };
-
-      const [{ error: e1 }, { error: e2 }] = await Promise.all([
-        supabase.from("team_standings").update(homeUpdate).eq("team_id", result.home_team_id),
-        supabase.from("team_standings").update(awayUpdate).eq("team_id", result.away_team_id),
-      ]);
-      if (e1 || e2) throw e1 ?? e2;
+      await finalizeMutation.mutateAsync({ resultId: result.id, homeScore: hs, awayScore: as_ });
 
       toast.success(`Week ${result.week} result saved!`);
       onSaved();

@@ -80,4 +80,12 @@ describe("private league procedures", () => {
     await expect(caller.league.makeDraftPick({ playerName: "Test Player", playerPos: "QB", playerNflTeam: "TEST" }))
       .rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
+
+  it("rejects unauthenticated commissioner result finalization", async () => {
+    readWrcTeamSession.mockResolvedValue(null);
+    const caller = appRouter.createCaller({ req: {} as never, res: {} as never, user: null });
+
+    await expect(caller.league.commissionerFinalizeWeeklyResult({ resultId: 1, homeScore: 100, awayScore: 90 }))
+      .rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
 });

@@ -684,6 +684,78 @@ export const appRouter = router({
         if (advanceError) throw new Error("Draft pick was saved, but the draft clock could not advance.");
         return { pick: savedPick, complete: state.current_round === WRC_DRAFT_TOTAL_ROUNDS && state.current_pick === WRC_DRAFT_TOTAL_TEAMS - 1 };
       }),
+    commissionerFinalizeWeeklyResult: commissionerProcedure
+      .input(z.object({ resultId: z.number().int().positive(), homeScore: z.number().finite().min(0).max(500), awayScore: z.number().finite().min(0).max(500) }))
+      .mutation(async ({ input }) => {
+        const { data: target, error: targetError } = await supabaseAdmin.from("weekly_results")
+          .select("id, week, season").eq("id", input.resultId).single();
+        if (targetError || !target) throw new Error("The selected weekly result was not found.");
+        const { error: resultError } = await supabaseAdmin.from("weekly_results").update({
+          home_score: input.homeScore,
+          away_score: input.awayScore,
+          is_final: true,
+        }).eq("id", target.id);
+        if (resultError) throw new Error("Unable to finalize the weekly result.");
+
+        const [{ data: seasonResults, error: seasonResultsError }, { data: standings, error: standingsError }] = await Promise.all([
+          supabaseAdmin.from("weekly_results").select("week, home_owner, away_owner, home_team_id, away_team_id, home_score, away_score, is_final").eq("season", target.season).eq("is_final", true).order("week"),
+          supabaseAdmin.from("team_standings").select("team_id, wins, losses, ties, pts_for, pts_against, h2h_wins, h2h_losses, median_wins, median_losses, div_wins, div_losses, streak, division"),
+        ]);
+        if (seasonResultsError || standingsError || !standings) throw new Error("Result saved, but standings could not be recalculated.");
+        const divisionByTeam = new Map(standings.map(standing => [standing.team_id, standing.division]));
+        const recalculated = new Map(standings.map(standing => [standing.team_id, {
+          wins: 0, losses: 0, ties: 0, pts_for: 0, pts_against: 0, h2h_wins: 0, h2h_losses: 0,
+          median_wins: 0, median_losses: 0, div_wins: 0, div_losses: 0, streak: "",
+        }]));
+        const allSeasonResults = seasonResults ?? [];
+        const resultsByWeek = new Map<number, typeof allSeasonResults>();
+        for (const result of allSeasonResults) {
+          const rows = resultsByWeek.get(result.week) ?? [];
+          rows.push(result);
+          resultsByWeek.set(result.week, rows);
+        }
+        const addOutcome = (teamId: string, ownScore: number, opponentScore: number, median: number, divisionGame: boolean) => {
+          const row = recalculated.get(teamId);
+          if (!row) return;
+          row.pts_for += ownScore;
+          row.pts_against += opponentScore;
+          if (ownScore > opponentScore) {
+            row.wins += 1; row.h2h_wins += 1; if (divisionGame) row.div_wins += 1;
+            row.streak = row.streak.startsWith("W") ? `W${Number(row.streak.slice(1)) + 1}` : "W1";
+          } else if (ownScore < opponentScore) {
+            row.losses += 1; row.h2h_losses += 1; if (divisionGame) row.div_losses += 1;
+            row.streak = row.streak.startsWith("L") ? `L${Number(row.streak.slice(1)) + 1}` : "L1";
+          } else {
+            row.ties += 1;
+            row.streak = row.streak.startsWith("T") ? `T${Number(row.streak.slice(1)) + 1}` : "T1";
+          }
+          if (ownScore > median) row.median_wins += 1;
+          else row.median_losses += 1;
+        };
+        Array.from(resultsByWeek.values()).forEach(rows => {
+          const scores: number[] = rows.flatMap(row => [Number(row.home_score), Number(row.away_score)]).sort((a: number, b: number) => a - b);
+          const middle = Math.floor(scores.length / 2);
+          const median = scores.length % 2 ? scores[middle] : (scores[middle - 1] + scores[middle]) / 2;
+          rows.forEach(row => {
+            const home = Number(row.home_score);
+            const away = Number(row.away_score);
+            const divisionGame = divisionByTeam.get(row.home_team_id) === divisionByTeam.get(row.away_team_id);
+            addOutcome(row.home_team_id, home, away, median, divisionGame);
+            addOutcome(row.away_team_id, away, home, median, divisionGame);
+          });
+        });
+        const updates = await Promise.all(Array.from(recalculated.entries()).map(([teamId, values]) => supabaseAdmin.from("team_standings").update({
+          ...values,
+          streak: values.streak || "—",
+        }).eq("team_id", teamId)));
+        if (updates.some(update => update.error)) throw new Error("Result saved, but one or more standings rows could not be updated.");
+        const targetWeekRows = resultsByWeek.get(target.week) ?? [];
+        const targetScores: number[] = targetWeekRows.flatMap(row => [Number(row.home_score), Number(row.away_score)]).sort((a: number, b: number) => a - b);
+        const targetMiddle = Math.floor(targetScores.length / 2);
+        const median = targetScores.length % 2 ? targetScores[targetMiddle] : (targetScores[targetMiddle - 1] + targetScores[targetMiddle]) / 2;
+        await supabaseAdmin.from("weekly_results").update({ league_median: median }).eq("season", target.season).eq("week", target.week);
+        return { saved: true, median };
+      }),
   }),
 
   fantasyPros: router({

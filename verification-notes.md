@@ -173,3 +173,7 @@ Trade asset pickers, the incoming inbox, proposal creation, counter-offers, decl
 ## Secure Draft Control Migration — 2026-08-14
 
 Draft start, pause/resume, skip, and reset controls now require the commissioner session. Owner pick submission is server-authorized: the server reads the current draft state, derives the expected drafting team from the approved 2026 order, rejects an out-of-turn owner, blocks already drafted players, records the pick, assigns the roster, and advances the draft state. A direct unauthenticated commissioner-start request returned `FORBIDDEN`; focused tests also reject unauthenticated draft actions before database access. The full suite passed with 19 files and 43 tests, and TypeScript completed successfully.
+
+## Secure Results Finalization Migration — 2026-08-14
+
+Commissioner score entry now calls a server-only finalization procedure. The server saves the score, recomputes every finalized 2026 weekly result from authoritative rows, recalculates each week’s league median, and replaces the affected standings totals, division records, median records, and streaks deterministically instead of incrementing browser-calculated values. A direct unauthenticated finalization request returned `FORBIDDEN`; focused authorization coverage also rejects it before data access. The full suite passed with 19 files and 44 tests, and TypeScript completed successfully.

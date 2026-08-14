@@ -440,3 +440,9 @@
 - [x] Validate owner picks against the signed session and current draft turn before recording them.
 - [x] Move draft-pick persistence, roster assignment, and clock advance to server procedures.
 - [x] Verify unauthenticated and out-of-turn draft actions are rejected.
+
+# Secure Results Finalization Migration
+
+- [x] Move commissioner score finalization and standings updates behind a commissioner server procedure.
+- [x] Calculate league median and standings changes server-side from the authoritative result state.
+- [x] Verify unauthenticated and non-commissioner result-finalization requests are rejected.
