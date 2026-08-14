@@ -42,9 +42,9 @@ export const appRouter = router({
 
   fantasyPros: router({
     news: publicProcedure
-      .input(z.object({ limit: z.number().int().min(1).max(100).optional(), fpid: z.number().int().positive().optional(), feedVersion: z.literal(3).optional() }).optional())
+      .input(z.object({ limit: z.number().int().min(1).max(100).optional(), fpid: z.number().int().positive().optional(), feedVersion: z.number().int().optional() }).optional())
       .query(async ({ input }) => {
-        const news = await getFantasyProsNews(input?.limit ?? 50, input?.fpid);
+        const news = await getFantasyProsNews(input?.limit ?? 100, input?.fpid);
         if (input?.fpid) return news;
         const rankGroups = await Promise.all(["QB", "RB", "WR", "TE", "K"].map(position => getFantasyProsRanks(position, 1)));
         return attachFantasyProsPlayerNames(news, rankGroups.flat());

@@ -52,7 +52,7 @@ export default function PlayerNews() {
   const newsRequestId = useRef(0);
   const lastSuccessfulFantasyProsItems = useRef<PlayerNewsItem[]>([]);
   const fantasyProsNews = trpc.fantasyPros.news.useQuery(
-    { limit: 50, feedVersion: 3 },
+    { limit: 100, feedVersion: 4 },
     {
       staleTime: 0,
       refetchOnMount: "always",

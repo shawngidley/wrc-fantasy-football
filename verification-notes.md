@@ -120,4 +120,8 @@ The narrow five-item feed was caused by using the local player pool as the only 
 
 Browser reconciliation queried the current generic FantasyPros tRPC source and the rendered News DOM in the same page. The source contained 50 stories, 12 with authoritative QB/RB/WR/TE/K metadata; the rendered default feed contained exactly 12 disclosure rows. Source positions included only the 12 eligible positions plus 38 intentionally missing/non-fantasy metadata records; rendered rows contained RB, WR, TE, and QB only. A regression test now asserts that the eligible input count and filtered render count remain equal.
 
+## FantasyPros Eligible-News Volume — 2026-08-14
+
+The FantasyPros API supports a 100-story request and returned 92 current stories compared with the prior 50-story window. The maximum window contained 23 eligible QB/RB/WR/TE/K stories at measurement, including recent updates for Rashod Bateman, Jaydon Blue, Dontayvion Wicks, Tucker Kraft, Malik Nabers, Puka Nacua, Patrick Mahomes II, Kenneth Walker III, and later stories such as Shedeur Sanders, Bo Nix, Tua Tagovailoa, and Jonathon Brooks. After the source window expansion, a fresh News page load rendered 26 current eligible stories as new API updates arrived, while retaining no defensive or non-fantasy rows.
+
 A development-only failure exercise was used and then removed before publishing. With no cached items, a forced failed query displayed `FantasyPros news is temporarily unavailable` and the refresh guidance instead of the zero-article empty copy. With populated rows retained during a forced failure, all 50 FantasyPros rows remained visible. The normal, non-test News page was then revalidated with TypeScript plus focused recovery and source-filter tests passing.

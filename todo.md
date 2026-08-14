@@ -339,3 +339,9 @@
 
 - [x] Make the News refresh control explicitly re-fetch FantasyPros stories as well as non-FantasyPros sources.
 - [x] Ensure a News-page remount cannot retain an older limited FantasyPros list for fifteen minutes.
+
+# FantasyPros Eligible-News Volume
+
+- [x] Measure raw FantasyPros pagination limits and total current eligible QB, RB, WR, TE, and K stories beyond the 50-item window.
+- [x] Expand source retrieval if additional current eligible stories are available.
+- [ ] Verify the News article count reflects the complete current eligible FantasyPros feed.
