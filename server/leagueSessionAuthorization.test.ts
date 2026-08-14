@@ -118,4 +118,12 @@ describe("private league procedures", () => {
     await expect(caller.league.commissionerSetTeamPin({ teamId: "team-owner", newPin: "5678" }))
       .rejects.toMatchObject({ code: "FORBIDDEN" });
   });
+
+  it("rejects unauthenticated weekly result finalization", async () => {
+    readWrcTeamSession.mockResolvedValue(null);
+    const caller = appRouter.createCaller({ req: {} as never, res: {} as never, user: null });
+
+    await expect(caller.league.finalizeWeeklyResultsFromTank({ week: 1, season: 2026 }))
+      .rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  });
 });

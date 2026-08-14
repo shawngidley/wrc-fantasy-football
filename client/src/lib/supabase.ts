@@ -22,18 +22,6 @@ export async function signInWithPin(teamId: string, pin: string) {
   return { success: true as const, team: data };
 }
 
-export async function updatePin(teamId: string, newPin: string) {
-  const { error } = await supabase
-    .from("teams")
-    .update({ pin: newPin })
-    .eq("id", teamId);
-  return { error };
-}
-
-export async function resetPin(teamId: string) {
-  return updatePin(teamId, "1234");
-}
-
 // ── Session helpers (localStorage) ───────────────────────────────────────────
 
 export function getStoredTeam() {

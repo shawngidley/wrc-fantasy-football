@@ -458,3 +458,9 @@
 - [x] Move team logo and theme-song reads, uploads, and removals behind signed-session server procedures and managed file storage.
 - [x] Replace Settings page browser Supabase PIN, team, and storage operations with server procedures.
 - [x] Verify unauthenticated and non-commissioner Settings operations are rejected.
+
+# Remaining Client Write Audit
+
+- [x] Move weekly live-result, standings, and earnings updates from the automatic scoring writer to authenticated server procedures.
+- [x] Remove the obsolete browser PIN update helper so no direct client database mutation remains.
+- [x] Re-run a full client-source mutation audit and document the clean result.

@@ -17,6 +17,7 @@ import { supabaseAdmin } from "./supabaseAdmin";
 import { validateProtectionSubmission } from "./protectionRules";
 import { DRAFT_PICKS_2026 } from "../client/src/lib/draftData2026";
 import { storagePut } from "./storage";
+import { finalizeWeeklyResultsFromTank } from "./weeklyResultsFinalize";
 
 const normalizePlayerKey = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
 const WRC_DRAFT_TIMER_SECONDS = 90;
@@ -872,6 +873,9 @@ export const appRouter = router({
         if (error) throw new Error("Unable to remove team media.");
         return { removed: true };
       }),
+    finalizeWeeklyResultsFromTank: teamProcedure
+      .input(z.object({ week: z.number().int().min(1).max(22), season: z.number().int().min(2020).max(2100) }))
+      .mutation(async ({ input }) => finalizeWeeklyResultsFromTank(input.week, input.season)),
   }),
 
   fantasyPros: router({
