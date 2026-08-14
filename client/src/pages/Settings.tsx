@@ -14,20 +14,37 @@ import {
 } from "lucide-react";
 import { Image } from "lucide-react";
 import { useRef } from "react";
+import { trpc } from "@/lib/trpc";
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Unable to read the selected file."));
+    reader.onload = () => resolve(String(reader.result).split(",", 2)[1] ?? "");
+    reader.readAsDataURL(file);
+  });
+}
+
+function mediaContentType(file: File): string {
+  if (file.type) return file.type;
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  return ({ mp3: "audio/mpeg", wav: "audio/wav", ogg: "audio/ogg", m4a: "audio/m4a", aac: "audio/aac" } as Record<string, string>)[extension ?? ""] ?? "application/octet-stream";
+}
 
 // ── Commissioner PIN Reset Panel ──────────────────────────────────────────────
 function CommissionerPinPanel({ labelStyle }: { labelStyle: React.CSSProperties }) {
-  const [teams, setTeams] = useState<Array<{ id: string; name: string; owner: string; pin: string }>>([]);
+  const [teams, setTeams] = useState<Array<{ id: string; name: string; owner: string }>>([]);
   const [selectedTeamId, setSelectedTeamId] = useState("");
   const [newPin, setNewPin] = useState("");
   const [resetSuccess, setResetSuccess] = useState("");
   const [resetError, setResetError] = useState("");
   const [loading, setLoading] = useState(false);
+  const directoryQuery = trpc.league.commissionerTeamDirectory.useQuery();
+  const setTeamPinMutation = trpc.league.commissionerSetTeamPin.useMutation();
 
   useEffect(() => {
-    supabase.from("teams").select("id, name, owner, pin").order("name")
-      .then(({ data }) => { if (data) setTeams(data as typeof teams); });
-  }, [resetSuccess]);
+    if (directoryQuery.data) setTeams(directoryQuery.data);
+  }, [directoryQuery.data]);
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,19 +52,24 @@ function CommissionerPinPanel({ labelStyle }: { labelStyle: React.CSSProperties 
     if (!selectedTeamId) { setResetError("Select a team first."); return; }
     if (newPin.length < 4) { setResetError("New PIN must be at least 4 characters."); return; }
     setLoading(true);
-    const { error } = await supabase.from("teams").update({ pin: newPin }).eq("id", selectedTeamId);
-    setLoading(false);
-    if (error) { setResetError("Failed to update PIN: " + error.message); return; }
-    const team = teams.find(t => t.id === selectedTeamId);
-    setResetSuccess(`PIN for ${team?.name ?? selectedTeamId} set to "${newPin}".`);
-    setNewPin(""); setSelectedTeamId("");
+    try {
+      const result = await setTeamPinMutation.mutateAsync({ teamId: selectedTeamId, newPin });
+      setResetSuccess(`PIN for ${result.teamName} was updated.`);
+      setNewPin(""); setSelectedTeamId("");
+    } catch (error) {
+      setResetError(error instanceof Error ? error.message : "Failed to update PIN.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleResetToDefault = async (teamId: string) => {
-    const { error } = await supabase.from("teams").update({ pin: "1234" }).eq("id", teamId);
-    if (error) { setResetError("Failed to reset PIN."); return; }
-    const team = teams.find(t => t.id === teamId);
-    setResetSuccess(`PIN for ${team?.name ?? teamId} reset to default (1234).`);
+    try {
+      const result = await setTeamPinMutation.mutateAsync({ teamId, newPin: "1234" });
+      setResetSuccess(`PIN for ${result.teamName} was reset to the default.`);
+    } catch (error) {
+      setResetError(error instanceof Error ? error.message : "Failed to reset PIN.");
+    }
   };
 
   return (
@@ -67,7 +89,7 @@ function CommissionerPinPanel({ labelStyle }: { labelStyle: React.CSSProperties 
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
             <thead>
               <tr style={{ borderBottom: "2px solid oklch(0.88 0.02 150)" }}>
-                {["Team","Owner","Current PIN","Reset"].map(h => (
+                {["Team","Owner","Reset"].map(h => (
                   <th key={h} style={{ textAlign: "left", padding: "0.35rem 0.75rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.06em", color: "oklch(0.45 0.06 150)", textTransform: "uppercase" }}>{h}</th>
                 ))}
               </tr>
@@ -78,18 +100,12 @@ function CommissionerPinPanel({ labelStyle }: { labelStyle: React.CSSProperties 
                   <td style={{ padding: "0.45rem 0.75rem", fontWeight: 700, color: "oklch(0.22 0.08 150)", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem" }}>{t.name}</td>
                   <td style={{ padding: "0.45rem 0.75rem", color: "oklch(0.45 0.04 150)" }}>{t.owner}</td>
                   <td style={{ padding: "0.45rem 0.75rem" }}>
-                    <span style={{ fontFamily: "monospace", fontWeight: 700, color: t.pin !== "1234" ? "oklch(0.35 0.15 150)" : "oklch(0.55 0.04 150)", fontSize: "0.9rem" }}>{t.pin}</span>
-                    {t.pin !== "1234" && <span style={{ marginLeft: 6, fontSize: "0.65rem", color: "oklch(0.45 0.14 85)", fontWeight: 600 }}>custom</span>}
-                  </td>
-                  <td style={{ padding: "0.45rem 0.75rem" }}>
-                    {t.pin !== "1234" && (
-                      <button
-                        onClick={() => handleResetToDefault(t.id)}
-                        style={{ display: "flex", alignItems: "center", gap: 4, background: "oklch(0.95 0.03 25)", color: "oklch(0.45 0.18 25)", border: "1px solid oklch(0.85 0.08 25)", borderRadius: 5, padding: "2px 8px", fontSize: "0.72rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif", cursor: "pointer" }}
-                      >
-                        <RefreshCw size={11} /> Reset to 1234
-                      </button>
-                    )}
+                    <button
+                      onClick={() => handleResetToDefault(t.id)}
+                      style={{ display: "flex", alignItems: "center", gap: 4, background: "oklch(0.95 0.03 25)", color: "oklch(0.45 0.18 25)", border: "1px solid oklch(0.85 0.08 25)", borderRadius: 5, padding: "2px 8px", fontSize: "0.72rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif", cursor: "pointer" }}
+                    >
+                      <RefreshCw size={11} /> Reset to 1234
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -253,7 +269,7 @@ function CommissionerProtectionsPanel() {
 
 // ── Main Settings Page ────────────────────────────────────────────────────────
 export default function Settings() {
-  const { franchise, login, logout } = useAuth();
+  const { franchise, logout } = useAuth();
   const [, navigate] = useLocation();
 
   const [currentPin, setCurrentPin] = useState("");
@@ -281,30 +297,20 @@ export default function Settings() {
   const [logoError, setLogoError] = useState("");
   const [logoSuccess, setLogoSuccess] = useState("");
   const logoInputRef = useRef<HTMLInputElement | null>(null);
+  const settingsQuery = trpc.league.teamSettings.useQuery(undefined, { enabled: Boolean(franchise?.id) });
+  const changePinMutation = trpc.league.changeTeamPin.useMutation();
+  const uploadMediaMutation = trpc.league.uploadTeamMedia.useMutation();
+  const removeMediaMutation = trpc.league.removeTeamMedia.useMutation();
 
-  // Load existing theme song on mount
   useEffect(() => {
-    if (!franchise) return;
-    supabase.from("teams").select("theme_song_url").eq("id", franchise.id).single()
-      .then(({ data }) => {
-        if (data?.theme_song_url) {
-          setThemeSongUrl(data.theme_song_url);
-          const parts = data.theme_song_url.split("/");
-          setThemeSongName(decodeURIComponent(parts[parts.length - 1]));
-        }
-      });
-  }, [franchise?.id]);
-
-  // Load existing team logo on mount
-  useEffect(() => {
-    if (!franchise) return;
-    supabase.from("teams").select("logo_url").eq("id", franchise.id).single()
-      .then(({ data }) => {
-        if ((data as { logo_url?: string } | null)?.logo_url) {
-          setLogoUrl((data as { logo_url: string }).logo_url);
-        }
-      });
-  }, [franchise?.id]);
+    if (!settingsQuery.data) return;
+    setLogoUrl(settingsQuery.data.logoUrl);
+    setThemeSongUrl(settingsQuery.data.themeSongUrl);
+    if (settingsQuery.data.themeSongUrl) {
+      const parts = settingsQuery.data.themeSongUrl.split("/");
+      setThemeSongName(decodeURIComponent(parts[parts.length - 1]));
+    }
+  }, [settingsQuery.data]);
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -314,25 +320,28 @@ export default function Settings() {
     const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
     if (!allowed.includes(file.type)) { setLogoError("Only JPG, PNG, WEBP, or GIF files are supported."); return; }
     setUploadingLogo(true);
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "jpg";
-    const path = `${franchise.id}/logo-${Date.now()}.${ext}`;
-    const { error: upErr } = await supabase.storage.from("team-logos").upload(path, file, { upsert: true, contentType: file.type });
-    if (upErr) { setLogoError("Upload failed: " + upErr.message); setUploadingLogo(false); return; }
-    const { data: { publicUrl } } = supabase.storage.from("team-logos").getPublicUrl(path);
-    const { error: dbErr } = await supabase.from("teams").update({ logo_url: publicUrl }).eq("id", franchise.id);
-    if (dbErr) { setLogoError("Saved file but failed to update record: " + dbErr.message); setUploadingLogo(false); return; }
-    setLogoUrl(publicUrl);
-    setLogoSuccess("Team logo uploaded! Refresh the page to see it everywhere.");
-    setUploadingLogo(false);
-    if (logoInputRef.current) logoInputRef.current.value = "";
+    try {
+      const result = await uploadMediaMutation.mutateAsync({ kind: "logo", fileName: file.name, contentType: mediaContentType(file), base64Data: await fileToBase64(file) });
+      setLogoUrl(result.url);
+      setLogoSuccess("Team logo uploaded!");
+      if (logoInputRef.current) logoInputRef.current.value = "";
+    } catch (error) {
+      setLogoError(error instanceof Error ? error.message : "Upload failed.");
+    } finally {
+      setUploadingLogo(false);
+    }
   };
 
   const handleRemoveLogo = async () => {
     if (!franchise) return;
     setLogoError(""); setLogoSuccess("");
-    await supabase.from("teams").update({ logo_url: null }).eq("id", franchise.id);
-    setLogoUrl(null);
-    setLogoSuccess("Team logo removed. Default logo restored.");
+    try {
+      await removeMediaMutation.mutateAsync({ kind: "logo" });
+      setLogoUrl(null);
+      setLogoSuccess("Team logo removed. Default logo restored.");
+    } catch (error) {
+      setLogoError(error instanceof Error ? error.message : "Unable to remove team logo.");
+    }
   };
 
   const handleThemeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -345,26 +354,30 @@ export default function Settings() {
       setThemeError("Only MP3, WAV, OGG, M4A, or AAC files are supported."); return;
     }
     setUploadingTheme(true);
-    const path = `${franchise.id}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-    const { error: upErr } = await supabase.storage.from("theme-songs").upload(path, file, { upsert: true, contentType: file.type });
-    if (upErr) { setThemeError("Upload failed: " + upErr.message); setUploadingTheme(false); return; }
-    const { data: { publicUrl } } = supabase.storage.from("theme-songs").getPublicUrl(path);
-    const { error: dbErr } = await supabase.from("teams").update({ theme_song_url: publicUrl }).eq("id", franchise.id);
-    if (dbErr) { setThemeError("Saved file but failed to update record: " + dbErr.message); setUploadingTheme(false); return; }
-    setThemeSongUrl(publicUrl);
-    setThemeSongName(file.name);
-    setThemeSuccess("Theme song uploaded!");
-    setUploadingTheme(false);
-    if (fileInputRef.current) fileInputRef.current.value = "";
+    try {
+      const result = await uploadMediaMutation.mutateAsync({ kind: "theme", fileName: file.name, contentType: mediaContentType(file), base64Data: await fileToBase64(file) });
+      setThemeSongUrl(result.url);
+      setThemeSongName(file.name);
+      setThemeSuccess("Theme song uploaded!");
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } catch (error) {
+      setThemeError(error instanceof Error ? error.message : "Upload failed.");
+    } finally {
+      setUploadingTheme(false);
+    }
   };
 
   const handleRemoveTheme = async () => {
     if (!franchise || !themeSongUrl) return;
     setThemeError(""); setThemeSuccess("");
     if (audioRef.current) { audioRef.current.pause(); setIsPlaying(false); }
-    await supabase.from("teams").update({ theme_song_url: null }).eq("id", franchise.id);
-    setThemeSongUrl(null); setThemeSongName(null);
-    setThemeSuccess("Theme song removed.");
+    try {
+      await removeMediaMutation.mutateAsync({ kind: "theme" });
+      setThemeSongUrl(null); setThemeSongName(null);
+      setThemeSuccess("Theme song removed.");
+    } catch (error) {
+      setThemeError(error instanceof Error ? error.message : "Unable to remove theme song.");
+    }
   };
 
   const handlePlayPause = () => {
@@ -385,25 +398,19 @@ export default function Settings() {
     setPinError(""); setPinSuccess(false);
     if (!franchise) return;
 
-    // Verify current PIN against Supabase
-    const { data } = await supabase.from("teams").select("pin").eq("id", franchise.id).single();
-    if (!data || data.pin !== currentPin) {
-      setPinError("Current PIN is incorrect.");
-      return;
-    }
     if (newPin.length < 4) { setPinError("New PIN must be at least 4 digits."); return; }
     if (newPin !== confirmPin) { setPinError("New PINs do not match."); return; }
 
     setSavingPin(true);
-    const { error } = await supabase.from("teams").update({ pin: newPin }).eq("id", franchise.id);
-    setSavingPin(false);
-
-    if (error) { setPinError("Failed to save PIN: " + error.message); return; }
-
-    // Update the session so the new PIN is reflected
-    login(franchise);
-    setPinSuccess(true);
-    setCurrentPin(""); setNewPin(""); setConfirmPin("");
+    try {
+      await changePinMutation.mutateAsync({ currentPin, newPin });
+      setPinSuccess(true);
+      setCurrentPin(""); setNewPin(""); setConfirmPin("");
+    } catch (error) {
+      setPinError(error instanceof Error ? error.message : "Failed to save PIN.");
+    } finally {
+      setSavingPin(false);
+    }
   };
 
   const handleLogout = () => {

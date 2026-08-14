@@ -451,3 +451,10 @@
 
 - [x] Move commissioner manual add/drop transaction recording and FAAB deductions behind a commissioner server procedure.
 - [x] Verify unauthenticated and non-commissioner transaction adjustments are rejected.
+
+# Secure Settings and Team Media Migration
+
+- [x] Move owner PIN changes and commissioner PIN resets behind signed-session server procedures without exposing PIN values.
+- [x] Move team logo and theme-song reads, uploads, and removals behind signed-session server procedures and managed file storage.
+- [x] Replace Settings page browser Supabase PIN, team, and storage operations with server procedures.
+- [x] Verify unauthenticated and non-commissioner Settings operations are rejected.

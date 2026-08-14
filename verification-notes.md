@@ -181,3 +181,7 @@ Commissioner score entry now calls a server-only finalization procedure. The ser
 ## Secure Transaction Adjustment Migration — 2026-08-14
 
 Manual add/drop adjustments now submit through a signed-team server procedure. An owner may submit only for the team in that session, while a commissioner may select another team. The server verifies the target team, FAAB balance, current free-agent status of the addition, and ownership of the drop before writing the paired transaction rows and deducting FAAB. A direct unauthenticated manual-transaction request returned `UNAUTHORIZED`; focused authorization coverage also rejects it before data access. The full suite passed with 19 files and 45 tests, and TypeScript completed successfully.
+
+## Secure Settings and Team Media Migration — 2026-08-14
+
+Settings no longer reads PIN values or writes team records through the browser. Owner PIN updates verify the current PIN server-side; commissioner resets use commissioner-only procedures and return only redacted team identity. Team logos and theme songs are uploaded through the signed team session to managed storage, then saved through the server; removals are also server-authorized. A direct unauthenticated PIN-change request returned `UNAUTHORIZED`, focused authorization coverage rejects PIN/media operations before data access, and a source audit found no remaining browser-side Supabase `insert`, `update`, `delete`, or storage upload calls. The full suite passed with 19 files and 46 tests, and TypeScript completed successfully.

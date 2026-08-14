@@ -102,4 +102,20 @@ describe("private league procedures", () => {
       faab: 0,
     })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
+
+  it("rejects unauthenticated Settings PIN and team-media operations", async () => {
+    readWrcTeamSession.mockResolvedValue(null);
+    const caller = appRouter.createCaller({ req: {} as never, res: {} as never, user: null });
+
+    await expect(caller.league.changeTeamPin({ currentPin: "1234", newPin: "5678" }))
+      .rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    await expect(caller.league.uploadTeamMedia({
+      kind: "logo",
+      fileName: "logo.png",
+      contentType: "image/png",
+      base64Data: "YWJj",
+    })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    await expect(caller.league.commissionerSetTeamPin({ teamId: "team-owner", newPin: "5678" }))
+      .rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
 });

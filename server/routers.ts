@@ -16,6 +16,7 @@ import { clearWrcTeamSession, readWrcTeamSession, writeWrcTeamSession } from "./
 import { supabaseAdmin } from "./supabaseAdmin";
 import { validateProtectionSubmission } from "./protectionRules";
 import { DRAFT_PICKS_2026 } from "../client/src/lib/draftData2026";
+import { storagePut } from "./storage";
 
 const normalizePlayerKey = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
 const WRC_DRAFT_TIMER_SECONDS = 90;
@@ -809,6 +810,67 @@ export const appRouter = router({
           if (faabError) throw new Error("Transaction was recorded, but FAAB could not be deducted.");
         }
         return { submitted: true, teamName: targetTeam.team_name, remainingFaab: balance - input.faab };
+      }),
+    teamSettings: teamProcedure.query(async ({ ctx }) => {
+      const { data, error } = await supabaseAdmin.from("teams")
+        .select("logo_url, theme_song_url")
+        .eq("id", ctx.teamSession.teamId)
+        .single();
+      if (error || !data) throw new Error("Unable to load team settings.");
+      return { logoUrl: data.logo_url ?? null, themeSongUrl: data.theme_song_url ?? null };
+    }),
+    changeTeamPin: teamProcedure
+      .input(z.object({ currentPin: z.string().min(1).max(12), newPin: z.string().min(4).max(12) }))
+      .mutation(async ({ input, ctx }) => {
+        const verified = await verifyLeagueTeamPin(ctx.teamSession.teamId, input.currentPin);
+        if (!verified) throw new Error("Current PIN is incorrect.");
+        const { error } = await supabaseAdmin.from("teams").update({ pin: input.newPin, pin_hash: input.newPin }).eq("id", ctx.teamSession.teamId);
+        if (error) throw new Error("Unable to save the new PIN.");
+        return { updated: true };
+      }),
+    commissionerTeamDirectory: commissionerProcedure.query(async () => {
+      const { data, error } = await supabaseAdmin.from("teams").select("id, name, owner").order("name");
+      if (error) throw new Error("Unable to load the team directory.");
+      return data ?? [];
+    }),
+    commissionerSetTeamPin: commissionerProcedure
+      .input(z.object({ teamId: z.string().min(1).max(128), newPin: z.string().min(4).max(12) }))
+      .mutation(async ({ input }) => {
+        const { data, error } = await supabaseAdmin.from("teams")
+          .update({ pin: input.newPin, pin_hash: input.newPin })
+          .eq("id", input.teamId)
+          .select("name")
+          .single();
+        if (error || !data) throw new Error("Unable to reset the selected team PIN.");
+        return { updated: true, teamName: data.name };
+      }),
+    uploadTeamMedia: teamProcedure
+      .input(z.object({
+        kind: z.enum(["logo", "theme"]),
+        fileName: z.string().min(1).max(160),
+        contentType: z.string().min(1).max(100),
+        base64Data: z.string().min(1).max(14_000_000),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const mediaRules = input.kind === "logo"
+          ? { allowed: new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]), maxBytes: 5 * 1024 * 1024, column: "logo_url" as const, folder: "logos" }
+          : { allowed: new Set(["audio/mpeg", "audio/mp3", "audio/wav", "audio/ogg", "audio/m4a", "audio/aac", "audio/x-m4a"]), maxBytes: 10 * 1024 * 1024, column: "theme_song_url" as const, folder: "theme-songs" };
+        if (!mediaRules.allowed.has(input.contentType)) throw new Error("This file type is not supported.");
+        const bytes = Buffer.from(input.base64Data, "base64");
+        if (!bytes.length || bytes.length > mediaRules.maxBytes) throw new Error(`File must be under ${mediaRules.maxBytes / (1024 * 1024)}MB.`);
+        const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+        const { url } = await storagePut(`teams/${ctx.teamSession.teamId}/${mediaRules.folder}/${Date.now()}-${safeName}`, bytes, input.contentType);
+        const { error } = await supabaseAdmin.from("teams").update({ [mediaRules.column]: url }).eq("id", ctx.teamSession.teamId);
+        if (error) throw new Error("File uploaded, but team settings could not be saved.");
+        return { url };
+      }),
+    removeTeamMedia: teamProcedure
+      .input(z.object({ kind: z.enum(["logo", "theme"]) }))
+      .mutation(async ({ input, ctx }) => {
+        const column = input.kind === "logo" ? "logo_url" : "theme_song_url";
+        const { error } = await supabaseAdmin.from("teams").update({ [column]: null }).eq("id", ctx.teamSession.teamId);
+        if (error) throw new Error("Unable to remove team media.");
+        return { removed: true };
       }),
   }),
 
