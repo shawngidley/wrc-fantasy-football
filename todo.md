@@ -369,8 +369,8 @@
 - [x] Create a private archive schema for attributed FantasyPros news metadata with stable deduplication keys.
 - [x] Merge current and archived eligible QB, RB, WR, TE, and K stories into one chronological News feed.
 - [x] Retain a 30-day rolling archive and remove expired archive records deterministically.
-- [ ] Add an idempotent scheduled collector for current eligible FantasyPros stories.
-- [ ] Verify archive creation, merging, deduplication, and expiry behavior.
+- [x] Add an idempotent scheduled collector for current eligible FantasyPros stories.
+- [x] Verify archive creation, merging, deduplication, and expiry behavior.
 
 # Urgent Login Team Selector Recovery
 
@@ -378,3 +378,12 @@
 - [x] Add retry and explicit recovery behavior for transient login team-list failures.
 - [x] Restore a visible selectable team list for the PIN login flow.
 - [x] Verify a team can be selected and the sign-in flow is available in production.
+
+# Phased Supabase RLS Security Migration
+
+- [x] Inventory every public Supabase table, client-side read, client-side write, and Storage policy used by the app.
+- [ ] Define server-session authorization requirements for owners, commissioners, and public read-only data.
+- [ ] Move sensitive owner and commissioner writes behind validated server procedures.
+- [ ] Remove plaintext PIN fields from browser-accessible Supabase queries and migrate login to server-only verification.
+- [ ] Enable RLS and minimum-necessary policies in reversible table batches after each write path is migrated.
+- [ ] Verify owner, commissioner, and unauthenticated public-access behavior for every secured workflow.
