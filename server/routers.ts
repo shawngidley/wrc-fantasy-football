@@ -188,6 +188,57 @@ export const appRouter = router({
         if (results.some(result => result.error)) throw new Error("Unable to reorder draft queue");
         return { saved: input.orderedIds.length };
       }),
+    watchlist: teamProcedure.query(async ({ ctx }) => {
+      const { data, error } = await supabaseAdmin
+        .from("watchlist")
+        .select("player_name, pos, nfl_team, added_at")
+        .eq("team_id", ctx.teamSession.teamId)
+        .order("added_at", { ascending: false });
+      if (error) throw new Error("Unable to load watchlist");
+      return data ?? [];
+    }),
+    toggleWatchlistPlayer: teamProcedure
+      .input(z.object({
+        playerName: z.string().min(1).max(128),
+        pos: z.string().min(1).max(8),
+        nflTeam: z.string().min(1).max(8),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const teamId = ctx.teamSession.teamId;
+        const { data: existing, error: existingError } = await supabaseAdmin
+          .from("watchlist")
+          .select("player_name")
+          .eq("team_id", teamId)
+          .eq("player_name", input.playerName)
+          .maybeSingle();
+        if (existingError) throw new Error("Unable to check watchlist");
+
+        if (existing) {
+          const { data, error } = await supabaseAdmin
+            .from("watchlist")
+            .delete()
+            .eq("team_id", teamId)
+            .eq("player_name", input.playerName)
+            .select("player_name");
+          if (error || !data?.length) throw new Error("Unable to remove player from watchlist");
+          return { action: "removed" as const, playerName: input.playerName };
+        }
+
+        const addedAt = new Date().toISOString();
+        const { data, error } = await supabaseAdmin
+          .from("watchlist")
+          .insert({
+            team_id: teamId,
+            player_name: input.playerName,
+            pos: input.pos,
+            nfl_team: input.nflTeam,
+            added_at: addedAt,
+          })
+          .select("player_name, pos, nfl_team, added_at")
+          .single();
+        if (error || !data) throw new Error("Unable to add player to watchlist");
+        return { action: "added" as const, player: data };
+      }),
   }),
 
   fantasyPros: router({

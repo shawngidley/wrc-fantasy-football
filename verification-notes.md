@@ -153,3 +153,7 @@ Lineup reads now use a server procedure, while saves use a team-session procedur
 ## Secure Draft Queue Migration — 2026-08-14
 
 Draft queue reads, adds, removals, and reordering now use signed-team server procedures. Reads are scoped to the session team; mutations never accept a browser team ID. The reorder operation verifies that every submitted queue item belongs to that session team before updating ranks. A direct unauthenticated attempt to add a test player was rejected with `UNAUTHORIZED` and `Please sign in with your league team` before any draft-queue record was written.
+
+## Secure Watchlist Migration — 2026-08-14
+
+Personal watchlist reads and add/remove actions now use signed-team server procedures. The server scopes every query and write to the session team and never accepts a browser-provided team ID. A direct unauthenticated watchlist mutation was rejected with `UNAUTHORIZED` and `Please sign in with your league team` before a record could be changed. Focused Vitest coverage also asserts that unauthenticated watchlist reads and changes fail before database access.

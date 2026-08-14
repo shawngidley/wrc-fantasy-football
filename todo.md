@@ -407,3 +407,9 @@
 - [x] Move private draft-queue reads, adds, removals, and rank changes behind signed-session server procedures.
 - [x] Derive draft-queue team ownership from the signed WRC session for every mutation.
 - [x] Verify unauthenticated and cross-team draft-queue changes are rejected.
+
+# Secure Watchlist Migration
+
+- [x] Move personal watchlist reads and add/remove actions behind signed-session server procedures.
+- [x] Scope every watchlist operation to the signed WRC team session.
+- [x] Verify unauthenticated watchlist changes are rejected.
