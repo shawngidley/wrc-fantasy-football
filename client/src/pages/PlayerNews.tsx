@@ -128,7 +128,7 @@ export default function PlayerNews() {
         const isInjury = injuryKeywords.some(kw => text.includes(kw));
 
         found.push({
-          playerName,
+          playerName: fantasyPlayer.name,
           pos: fantasyPlayer.pos,
           nflTeam: fantasyPlayer.nflTeam,
           headline: a.headline,
@@ -151,7 +151,7 @@ export default function PlayerNews() {
         seen.add(t.title);
         const isInjury = injuryKeywords.some(kw => t.title.toLowerCase().includes(kw));
         found.push({
-          playerName,
+          playerName: fantasyPlayer.name,
           pos: fantasyPlayer.pos,
           nflTeam: fantasyPlayer.nflTeam,
           headline: t.title,
@@ -182,15 +182,15 @@ export default function PlayerNews() {
       ? fantasyProsRosterNews.data
       : fantasyProsNews.data ?? [];
     return sourceItems.filter(fp => fp.title).map<PlayerNewsItem | null>(fp => {
-      const playerName = fp.playerName || inferFantasyProsPlayerName(fp.title);
-      const myP = myPlayers.find(p => p.name.toLowerCase() === playerName.toLowerCase());
-      const fantasyPlayer = myP ?? findFantasyPlayer(playerName);
+      const sourcePlayerName = fp.playerName || inferFantasyProsPlayerName(fp.title);
+      const myP = myPlayers.find(p => p.name.toLowerCase() === sourcePlayerName.toLowerCase());
+      const fantasyPlayer = myP ?? findFantasyPlayer(sourcePlayerName);
       const pos = fp.position || fantasyPlayer?.pos || "";
       if (!isEligibleFantasyNewsPosition(pos)) return null;
       const text = `${fp.title} ${fp.description} ${fp.impact}`.toLowerCase();
       const description = fp.impact || fp.description || undefined;
       return {
-        playerName,
+        playerName: fantasyPlayer?.name || sourcePlayerName,
         pos,
         nflTeam: fp.team || fantasyPlayer?.nflTeam || "",
         headline: fp.title,

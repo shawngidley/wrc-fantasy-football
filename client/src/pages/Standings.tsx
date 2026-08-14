@@ -239,7 +239,7 @@ function InjuryReport({ ownerKey }: { ownerKey: string }) {
         const player = roster.get(normalizeRosterName(i.name));
         const status = i.shortStatus || i.status || "Injury update";
         const context = [i.comment || `${i.name} is currently listed as ${status}.`, i.practiceInjuryType ? `Practice injury: ${i.practiceInjuryType}` : "", i.probabilityOfPlaying != null ? `${i.probabilityOfPlaying}% chance to play` : "", i.practices.length ? `Practice: ${i.practices.join(" / ")}` : ""].filter(Boolean).join(" · ");
-        return { playerName: i.name, pos: player?.pos ?? "", nflTeam: player?.nflTeam ?? i.team, headline: `${status}${i.injuryType ? ` · ${i.injuryType}` : ""}`, description: context, published: i.updated || new Date().toISOString(), isInjury: true, source: "FantasyPros" } as PlayerNewsItem;
+        return { playerName: player?.name ?? i.name, pos: player?.pos ?? "", nflTeam: player?.nflTeam ?? i.team, headline: `${status}${i.injuryType ? ` · ${i.injuryType}` : ""}`, description: context, published: i.updated || new Date().toISOString(), isInjury: true, source: "FantasyPros" } as PlayerNewsItem;
       });
       setItems(found);
     } catch {

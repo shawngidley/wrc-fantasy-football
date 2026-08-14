@@ -84,6 +84,13 @@
 - [x] Use FantasyPros as the sole Player Card news source with visible source labels.
 - [ ] Verify desktop and mobile Player Card layout with a healthy and injured player.
 
+# Full Player Names in Standings and News
+
+- [x] Audit abbreviated player labels in Standings injury/news feeds and the dedicated News page.
+- [x] Resolve and render full player names consistently for all injury and news items.
+- [ ] Verify full-name display in the Standings and News views with a logged-in feed session.
+- [x] Add focused display and canonical roster-name coverage for full player names.
+
 # Homepage FantasyPros Roster Feeds
 
 - [ ] Match FantasyPros injury availability to every player on the logged-in owner’s roster.

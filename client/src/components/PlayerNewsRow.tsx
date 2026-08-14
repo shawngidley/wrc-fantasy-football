@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { fetchPlayerByName } from "@/hooks/useTank01Player";
 import { getEspnHeadshotUrl } from "@/lib/playerHeadshot";
+import { getNewsDisplayName } from "@/lib/newsDisplayName";
 
 export interface PlayerNewsItem {
   playerName: string;
@@ -27,17 +28,12 @@ function formatDate(iso: string): string {
   return `${months[d.getMonth()]} ${d.getDate()}${d.getFullYear() === now.getFullYear() ? "" : ` '${String(d.getFullYear()).slice(2)}`}`;
 }
 
-function abbreviateName(fullName: string): string {
-  const parts = fullName.trim().split(" ");
-  if (parts.length < 2) return fullName;
-  return `${parts[0][0]}. ${parts.slice(1).join(" ")}`;
-}
-
 export function PlayerNewsRow({ item, isFirst = false, showDetails = false }: { item: PlayerNewsItem; isFirst?: boolean; showDetails?: boolean }) {
   const [resolvedHeadshot, setResolvedHeadshot] = useState<string | null>(null);
   const [headshotFailed, setHeadshotFailed] = useState(false);
   const detailsRef = useRef<HTMLDetailsElement>(null);
-  const playerSlug = encodeURIComponent(item.playerName);
+  const displayName = getNewsDisplayName(item.playerName);
+  const playerSlug = encodeURIComponent(displayName);
   const detailsId = `news-details-${item.playerName.replace(/[^a-z0-9]/gi, "-")}-${item.published}`;
 
   useEffect(() => {
@@ -79,7 +75,7 @@ export function PlayerNewsRow({ item, isFirst = false, showDetails = false }: { 
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", marginBottom: "0.15rem", flexWrap: "wrap" }}>
-            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: 800, color: "oklch(0.38 0.18 240)", letterSpacing: "0.01em" }}>{abbreviateName(item.playerName)}</span>
+            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: 800, color: "oklch(0.38 0.18 240)", letterSpacing: "0.01em" }}>{displayName}</span>
             {item.isInjury && <span style={{ fontSize: "0.7rem" }}>🚩</span>}
             <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 600, color: "oklch(0.5 0.04 150)" }}>{item.pos}· {item.nflTeam}</span>
             {item.source && <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.56rem", fontWeight: 800, color: item.source === "FantasyPros" ? "oklch(0.5 0.16 85)" : "oklch(0.5 0.04 150)", letterSpacing: "0.03em" }}>{item.source === "FantasyPros" ? "FP" : item.source}</span>}

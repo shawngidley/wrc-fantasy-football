@@ -201,3 +201,7 @@ The corrected PostgreSQL cutover script completed after automatically skipping t
 ## Post-Cutover Owner Session Smoke Test — 2026-08-14
 
 The league owner confirmed that a normal owner PIN login, harmless Lineup save, and refresh persistence check all succeeded after the final RLS cutover. This validates the signed server session and server-authorized lineup persistence in the live workflow. Combined with direct anonymous REST denials and focused commissioner authorization coverage, the post-cutover access matrix is complete.
+
+## Full Player Names in Standings and News — 2026-08-14
+
+The shared news row now renders `item.playerName` without shortening the first name to an initial. Standings injuries use the roster’s canonical player name, and roster-specific FantasyPros news maps abbreviated source labels to the canonical roster name, including suffixes such as `Kenneth Walker III`. The dedicated News page now uses the resolved player record’s full name for ESPN, Tank01, and FantasyPros rows. Focused mapping tests and TypeScript validation pass; the full suite reports 20 files and 51 tests passing.

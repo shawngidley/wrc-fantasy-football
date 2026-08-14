@@ -11,4 +11,14 @@ describe("mapRosterNewsForDisplay", () => {
       playerName: "Alec Pierce", pos: "WR", nflTeam: "IND", headline: "Alec Pierce update", description: "Fantasy impact", published: "2026-08-11T17:05:36Z", url: "https://example.test/story", source: "FantasyPros",
     }]);
   });
+
+  it("uses the roster's canonical full name when the source supplies an abbreviated label", () => {
+    const result = mapRosterNewsForDisplay([
+      { playerName: "K. Walker", team: "SEA", title: "Kenneth Walker update", description: "Description", impact: "Fantasy impact", published: "2026-08-11T17:05:36Z", link: "https://example.test/story" },
+    ], [{ name: "Kenneth Walker III", pos: "RB", nflTeam: "SEA" }]);
+
+    expect(result).toEqual([{
+      playerName: "Kenneth Walker III", pos: "RB", nflTeam: "SEA", headline: "Kenneth Walker update", description: "Fantasy impact", published: "2026-08-11T17:05:36Z", url: "https://example.test/story", source: "FantasyPros",
+    }]);
+  });
 });
