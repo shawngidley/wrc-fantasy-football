@@ -61,6 +61,18 @@ export default function PlayerNews() {
       retryDelay: attempt => Math.min(1_000 * 2 ** attempt, 8_000),
     },
   );
+  const rosterNewsPlayers = useMemo(
+    () => myPlayers.map(player => ({ name: player.name, pos: player.pos })),
+    [myPlayers],
+  );
+  const fantasyProsRosterNews = trpc.fantasyPros.rosterNews.useQuery(
+    { players: rosterNewsPlayers, feedVersion: 2 },
+    {
+      enabled: myTeamOnly && rosterNewsPlayers.length > 0,
+      staleTime: 5 * 60_000,
+      retry: 2,
+    },
+  );
 
   // Load the logged-in owner's players for "My Team" filter
   useEffect(() => {
@@ -166,7 +178,10 @@ export default function PlayerNews() {
 
   const fantasyProsItems = useMemo<PlayerNewsItem[]>(() => {
     const injuryKeywords = ["injured","injury","questionable","doubtful","out","ir","placed on","ruled out","limited","missed","surgery","knee","hamstring","ankle","shoulder","concussion","rib","back","wrist","hip","illness"];
-    return (fantasyProsNews.data ?? []).filter(fp => fp.title).map<PlayerNewsItem | null>(fp => {
+    const sourceItems = myTeamOnly && fantasyProsRosterNews.data?.length
+      ? fantasyProsRosterNews.data
+      : fantasyProsNews.data ?? [];
+    return sourceItems.filter(fp => fp.title).map<PlayerNewsItem | null>(fp => {
       const playerName = fp.playerName || inferFantasyProsPlayerName(fp.title);
       const myP = myPlayers.find(p => p.name.toLowerCase() === playerName.toLowerCase());
       const fantasyPlayer = myP ?? findFantasyPlayer(playerName);
@@ -186,7 +201,7 @@ export default function PlayerNews() {
         source: "FantasyPros" as const,
       };
     }).filter((item): item is PlayerNewsItem => item !== null);
-  }, [fantasyProsNews.data, myPlayers]);
+  }, [fantasyProsNews.data, fantasyProsRosterNews.data, myPlayers, myTeamOnly]);
 
   useEffect(() => {
     if (fantasyProsItems.length > 0) lastSuccessfulFantasyProsItems.current = fantasyProsItems;
@@ -200,8 +215,8 @@ export default function PlayerNews() {
   );
   const fantasyProsFeedState = getFantasyProsFeedState({
     itemCount: visibleFantasyProsItems.length,
-    isLoading: fantasyProsNews.isLoading,
-    isError: fantasyProsNews.isError,
+    isLoading: myTeamOnly ? fantasyProsRosterNews.isLoading : fantasyProsNews.isLoading,
+    isError: myTeamOnly ? fantasyProsRosterNews.isError : fantasyProsNews.isError,
   });
   const isSourceLoading = loading || (sourceFilter === "FANTASYPROS" && fantasyProsFeedState === "loading");
   const isSourceUnavailable = sourceFilter === "FANTASYPROS" && fantasyProsFeedState === "unavailable";

@@ -346,6 +346,24 @@
 - [x] Expand source retrieval if additional current eligible stories are available.
 - [ ] Verify the News article count reflects the complete current eligible FantasyPros feed.
 
+# Seven-Day FantasyPros News Coverage
+
+- [x] Determine the FantasyPros API pagination or date parameters needed to retrieve a full seven-day window.
+- [ ] Retrieve and display all eligible QB, RB, WR, TE, and K FantasyPros updates from the last seven days.
+- [ ] Label and verify the seven-day article count and chronological coverage on the News page.
+
+# News and Standings FantasyPros Retrieval Alignment
+
+- [x] Compare generic league-wide and player-specific FantasyPros response histories for the same eligible players.
+- [x] Apply the fuller permitted player-specific retrieval strategy to the dedicated News page without violating API terms.
+- [ ] Verify the News page carries comparable multi-entry player history to the Standings roster briefing.
+
+# News My Team FantasyPros History
+
+- [x] Use the same player-specific FantasyPros roster-news query for the News page My Team view.
+- [x] Preserve the generic FantasyPros league-wide source for the all-player News view.
+- [ ] Verify the News My Team view shows the richer multi-entry roster history from Standings.
+
 # Urgent Login Team Selector Recovery
 
 - [x] Inspect production team-list request, Supabase response, and Login page loading state.
