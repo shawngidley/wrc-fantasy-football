@@ -225,3 +225,7 @@ Tank01 aggregate kicker data cannot identify individual field-goal or miss dista
 ## Mobile Lineup Slot Controls and D/ST Logos — 2026-08-17
 
 After restoring the development preview's Vite module delivery and React refresh preamble, the read-only Legends Lineup was inspected at a 375×812 viewport. The pinned Slot badges remained inset from the left viewport edge while the SFLEX, K, and D/ST tables retained horizontal-scroll access. In the D/ST panel, New York Giants and Carolina Panthers rows displayed their official ESPN NFL team marks rather than player-initial avatars. The shared `LineupIdentity` component also serves expanded candidate rows, so the same D/ST logo behavior applies when a Slot control reveals legal swaps. The mobile capture completed without a browser runtime error; the full suite subsequently passed with 25 files and 60 tests, and TypeScript validation completed without errors.
+
+## 2026 Draft Schedule Display — 2026-08-17
+
+The canonical WRC draft constant targets `2026-08-30T22:00:00.000Z`, which is Sunday, August 30, 2026 at 6:00 PM ET. A complete client/server source audit found DraftBoard as the sole league-facing schedule display, and it consumes the shared date and display constants rather than retaining a hard-coded copy. The Draft page was inspected in the browser: its visible countdown label read `Sun Aug 30, 2026 · 6:00 PM ET`, with a countdown of 13 days, 7 hours, 2 minutes, and 53 seconds at capture. No August 27 or stale schedule references remained in client or server source.

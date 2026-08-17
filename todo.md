@@ -177,9 +177,9 @@
 
 # Updated 2026 Draft Schedule
 
-- [ ] Update the WRC draft datetime to Sunday, August 30, 2026 at 6:00 PM ET.
-- [ ] Update every draft-page and league-facing display that references the draft date or countdown.
-- [ ] Verify the displayed date, time zone, and countdown target.
+- [x] Update the WRC draft datetime to Sunday, August 30, 2026 at 6:00 PM ET.
+- [x] Update every draft-page and league-facing display that references the draft date or countdown.
+- [x] Verify the displayed date, time zone, and countdown target.
 
 # Updated 2026 Protection Deadline and Draft Pool
 
