@@ -337,9 +337,10 @@ function LineupIdentity({ player, meta }: { player: Player; meta?: { age?: strin
 }
 
 function LineupRosterTable({
-  title, players, statMap, metaMap, matchupMap, injuries, selectedId, isReadOnly, onSelect, onPlayerClick, getInlineChoices, onInlineSwap,
+  title, profile, players, statMap, metaMap, matchupMap, injuries, selectedId, isReadOnly, onSelect, onPlayerClick, getInlineChoices, onInlineSwap,
 }: {
   title: string;
+  profile: "SFLEX" | "K" | "DST";
   players: Player[];
   statMap: Record<string, PlayerSeasonStats>;
   metaMap: Record<string, { age?: string; headshot?: string }>;
@@ -356,21 +357,31 @@ function LineupRosterTable({
   const groupStyle = { ...thStyle, background: "oklch(0.94 0.025 150)", color: "oklch(0.34 0.08 150)", fontSize: "0.6rem" };
   const tdStyle = { padding: "0.47rem 0.42rem", borderBottom: "1px solid oklch(0.92 0.008 150)", textAlign: "center" as const, color: "oklch(0.28 0.05 150)", fontSize: "0.72rem", fontVariantNumeric: "tabular-nums" as const, whiteSpace: "nowrap" as const };
   const value = (stats: PlayerSeasonStats | undefined, key: keyof PlayerSeasonStats, decimals = 0) => stats ? formatSeasonStat(stats[key], decimals) : "—";
+  const primaryHeaders = profile === "SFLEX"
+    ? ["YDS", "TD", "INT", "ATT", "YDS", "TD", "REC", "YDS", "TD", "TGT"]
+    : profile === "K"
+      ? ["FGM/A", "XPM/A"]
+      : ["SACK", "D INT", "FR", "D TD", "PA"];
+  const columnCount = 11 + primaryHeaders.length;
+  const minWidth = profile === "SFLEX" ? 1080 : profile === "K" ? 760 : 850;
 
   return (
     <section className="wrc-card" style={{ marginBottom: "1rem", overflow: "hidden" }}>
       <div className="wrc-card-gold-stripe" />
       <div className="wrc-card-header">{title}<span style={{ marginLeft: "auto", fontSize: "0.68rem", color: "oklch(0.58 0.04 150)", fontWeight: 600 }}>Swipe table for full season detail</span></div>
       <div style={{ overflowX: "auto", overscrollBehaviorX: "contain", WebkitOverflowScrolling: "touch" }}>
-        <table style={{ minWidth: 1280, width: "100%", borderCollapse: "separate", borderSpacing: 0, background: "white" }}>
+        <table style={{ minWidth, width: "100%", borderCollapse: "separate", borderSpacing: 0, background: "white" }}>
           <thead>
             <tr>
               <th rowSpan={2} style={{ ...groupStyle, position: "sticky", left: 0, zIndex: 4, minWidth: 56 }}>SWAP</th>
               <th rowSpan={2} style={{ ...groupStyle, position: "sticky", left: 56, zIndex: 4, minWidth: 52 }}>SLOT</th>
               <th rowSpan={2} style={{ ...groupStyle, position: "sticky", left: 108, zIndex: 4, minWidth: 190, textAlign: "left" }}>PLAYER</th>
-              <th colSpan={4} style={groupStyle}>WEEKLY DECISION</th><th colSpan={4} style={groupStyle}>FANTASY</th><th colSpan={3} style={groupStyle}>PASS</th><th colSpan={3} style={groupStyle}>RUSH</th><th colSpan={4} style={groupStyle}>REC</th><th colSpan={7} style={groupStyle}>K / D-ST</th>
+              <th colSpan={4} style={groupStyle}>WEEKLY DECISION</th><th colSpan={4} style={groupStyle}>FANTASY</th>
+              {profile === "SFLEX" && <><th colSpan={3} style={groupStyle}>PASS</th><th colSpan={3} style={groupStyle}>RUSH</th><th colSpan={4} style={groupStyle}>REC</th></>}
+              {profile === "K" && <th colSpan={2} style={groupStyle}>KICKING</th>}
+              {profile === "DST" && <th colSpan={5} style={groupStyle}>DEFENSE</th>}
             </tr>
-            <tr>{["AGE", "BYE", "OPP", "GAME", "FPTS", "FP/G", "PTS", "PROJ", "YDS", "TD", "INT", "ATT", "YDS", "TD", "REC", "YDS", "TD", "TGT", "FGM/A", "XPM/A", "SACK", "D INT", "FR", "D TD", "PA"].map((label, index) => <th key={`${label}-${index}`} style={thStyle}>{label}</th>)}</tr>
+            <tr>{["AGE", "BYE", "OPP", "GAME", "FPTS", "FP/G", "PTS", "PROJ", ...primaryHeaders].map((label, index) => <th key={`${label}-${index}`} style={thStyle}>{label}</th>)}</tr>
           </thead>
           <tbody>
             {players.map((player, index) => {
@@ -389,25 +400,34 @@ function LineupRosterTable({
                 <td onClick={() => onPlayerClick(player)} style={{ ...tdStyle, position: "sticky", left: 108, zIndex: 2, minWidth: 190, textAlign: "left", cursor: "pointer", background: rowBg }}><LineupIdentity player={player} meta={meta} /></td>
                 <td style={tdStyle}>{meta?.age || "—"}</td><td style={tdStyle}>{player.byeWeek ?? "—"}</td><td style={tdStyle}>{matchup ? `${matchup.isHome ? "vs" : "@"} ${matchup.opponent}` : "BYE"}</td><td style={{ ...tdStyle, maxWidth: 86, overflow: "hidden", textOverflow: "ellipsis" }}>{matchup ? formatGameTime(matchup).replace(" ET", "") : "—"}</td>
                 <td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(stats, "wrcPts", 1)}</td><td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(stats, "ptsPerGame", 1)}</td><td style={{ ...tdStyle, color: "oklch(0.52 0.16 25)", fontWeight: 800 }}>{player.pts.toFixed(1)}</td><td style={{ ...tdStyle, fontWeight: 800 }}>{player.proj.toFixed(1)}</td>
-                <td style={tdStyle}>{value(stats, "passYds")}</td><td style={tdStyle}>{value(stats, "passTD")}</td><td style={tdStyle}>{value(stats, "passInt")}</td><td style={tdStyle}>{value(stats, "rushAtt")}</td><td style={tdStyle}>{value(stats, "rushYds")}</td><td style={tdStyle}>{value(stats, "rushTD")}</td><td style={tdStyle}>{value(stats, "receptions")}</td><td style={tdStyle}>{value(stats, "recYds")}</td><td style={tdStyle}>{value(stats, "recTD")}</td><td style={tdStyle}>{value(stats, "targets")}</td>
-                <td style={tdStyle}>{player.pos === "K" ? `${value(stats, "fgMade")}/${value(stats, "fgAtt")}` : "—"}</td><td style={tdStyle}>{player.pos === "K" ? `${value(stats, "xpMade")}/${value(stats, "xpAtt")}` : "—"}</td><td style={tdStyle}>{player.pos === "DST" ? value(stats, "sacks") : "—"}</td><td style={tdStyle}>{player.pos === "DST" ? value(stats, "defInt") : "—"}</td><td style={tdStyle}>{player.pos === "DST" ? value(stats, "fumblesRecovered") : "—"}</td><td style={tdStyle}>{player.pos === "DST" ? value(stats, "defTD") : "—"}</td><td style={tdStyle}>{player.pos === "DST" ? value(stats, "ptsAgainst") : "—"}</td>
+                {profile === "SFLEX" && <><td style={tdStyle}>{value(stats, "passYds")}</td><td style={tdStyle}>{value(stats, "passTD")}</td><td style={tdStyle}>{value(stats, "passInt")}</td><td style={tdStyle}>{value(stats, "rushAtt")}</td><td style={tdStyle}>{value(stats, "rushYds")}</td><td style={tdStyle}>{value(stats, "rushTD")}</td><td style={tdStyle}>{value(stats, "receptions")}</td><td style={tdStyle}>{value(stats, "recYds")}</td><td style={tdStyle}>{value(stats, "recTD")}</td><td style={tdStyle}>{value(stats, "targets")}</td></>}
+                {profile === "K" && <><td style={tdStyle}>{`${value(stats, "fgMade")}/${value(stats, "fgAtt")}`}</td><td style={tdStyle}>{`${value(stats, "xpMade")}/${value(stats, "xpAtt")}`}</td></>}
+                {profile === "DST" && <><td style={tdStyle}>{value(stats, "sacks")}</td><td style={tdStyle}>{value(stats, "defInt")}</td><td style={tdStyle}>{value(stats, "fumblesRecovered")}</td><td style={tdStyle}>{value(stats, "defTD")}</td><td style={tdStyle}>{value(stats, "ptsAgainst")}</td></>}
               </tr>
               {selected && !isReadOnly && (
                 <tr>
-                  <td colSpan={28} style={{ padding: "0.65rem 0.85rem", background: "oklch(0.965 0.04 85)", borderBottom: "1px solid oklch(0.8 0.1 85)", textAlign: "left" }}>
+                  <td colSpan={columnCount} style={{ padding: "0.65rem 0.85rem", background: "oklch(0.965 0.04 85)", borderBottom: "1px solid oklch(0.8 0.1 85)", textAlign: "left" }}>
                     <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", letterSpacing: "0.05em", fontWeight: 800, color: "oklch(0.36 0.13 85)", marginBottom: "0.4rem" }}>ELIGIBLE PLAYERS TO SWAP WITH {player.name.toUpperCase()}</div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.42rem" }}>
-                      {choices.map(candidate => (
-                        <button key={candidate.id} onClick={() => onInlineSwap(player, candidate)} style={{ display: "flex", alignItems: "center", gap: "0.35rem", border: "1px solid oklch(0.72 0.12 85)", background: "white", color: "oklch(0.23 0.07 150)", borderRadius: 6, padding: "0.36rem 0.56rem", cursor: "pointer", fontSize: "0.7rem", fontWeight: 800 }}>
-                          <span style={{ background: POS_COLORS[candidate.pos] || "oklch(0.5 0.04 150)", color: "white", borderRadius: 3, padding: "0.08rem 0.22rem", fontSize: "0.57rem" }}>{candidate.slot || candidate.pos}</span>
-                          {candidate.name}<span style={{ color: "oklch(0.55 0.13 85)" }}>· {candidate.proj.toFixed(1)} proj</span>
-                        </button>
-                      ))}
-                      {choices.length === 0 && <span style={{ fontSize: "0.76rem", color: "oklch(0.45 0.04 150)" }}>No eligible unlocked players are available for this swap.</span>}
-                    </div>
+                    {choices.length === 0 && <span style={{ fontSize: "0.76rem", color: "oklch(0.45 0.04 150)" }}>No eligible unlocked players are available for this swap.</span>}
                   </td>
                 </tr>
               )}
+              {selected && !isReadOnly && choices.map(candidate => {
+                const candidateStats = statMap[candidate.name.toLowerCase()];
+                const candidateMeta = metaMap[candidate.name.toLowerCase()];
+                const candidateMatchup = matchupMap[candidate.nflTeam];
+                const candidateBg = "oklch(0.985 0.025 85)";
+                return <tr key={`${player.id}-${candidate.id}`} onClick={() => onInlineSwap(player, candidate)} style={{ background: candidateBg, cursor: "pointer" }}>
+                  <td style={{ ...tdStyle, position: "sticky", left: 0, zIndex: 2, background: candidateBg }}><span style={{ display: "inline-block", borderRadius: 4, padding: "0.18rem 0.42rem", background: "oklch(0.52 0.16 85)", color: "white", fontSize: "0.58rem", fontWeight: 800 }}>CHOOSE</span></td>
+                  <td style={{ ...tdStyle, position: "sticky", left: 56, zIndex: 2, background: candidateBg }}><span style={{ display: "grid", placeItems: "center", minWidth: 32, minHeight: 22, borderRadius: 4, background: POS_COLORS[candidate.pos] || "oklch(0.5 0.04 150)", color: "white", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.63rem" }}>{candidate.slot || candidate.pos}</span></td>
+                  <td style={{ ...tdStyle, position: "sticky", left: 108, zIndex: 2, minWidth: 190, textAlign: "left", background: candidateBg }}><LineupIdentity player={candidate} meta={candidateMeta} /></td>
+                  <td style={tdStyle}>{candidateMeta?.age || "—"}</td><td style={tdStyle}>{candidate.byeWeek ?? "—"}</td><td style={tdStyle}>{candidateMatchup ? `${candidateMatchup.isHome ? "vs" : "@"} ${candidateMatchup.opponent}` : "BYE"}</td><td style={{ ...tdStyle, maxWidth: 86, overflow: "hidden", textOverflow: "ellipsis" }}>{candidateMatchup ? formatGameTime(candidateMatchup).replace(" ET", "") : "—"}</td>
+                  <td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(candidateStats, "wrcPts", 1)}</td><td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(candidateStats, "ptsPerGame", 1)}</td><td style={{ ...tdStyle, color: "oklch(0.52 0.16 25)", fontWeight: 800 }}>{candidate.pts.toFixed(1)}</td><td style={{ ...tdStyle, fontWeight: 800 }}>{candidate.proj.toFixed(1)}</td>
+                  {profile === "SFLEX" && <><td style={tdStyle}>{value(candidateStats, "passYds")}</td><td style={tdStyle}>{value(candidateStats, "passTD")}</td><td style={tdStyle}>{value(candidateStats, "passInt")}</td><td style={tdStyle}>{value(candidateStats, "rushAtt")}</td><td style={tdStyle}>{value(candidateStats, "rushYds")}</td><td style={tdStyle}>{value(candidateStats, "rushTD")}</td><td style={tdStyle}>{value(candidateStats, "receptions")}</td><td style={tdStyle}>{value(candidateStats, "recYds")}</td><td style={tdStyle}>{value(candidateStats, "recTD")}</td><td style={tdStyle}>{value(candidateStats, "targets")}</td></>}
+                  {profile === "K" && <><td style={tdStyle}>{`${value(candidateStats, "fgMade")}/${value(candidateStats, "fgAtt")}`}</td><td style={tdStyle}>{`${value(candidateStats, "xpMade")}/${value(candidateStats, "xpAtt")}`}</td></>}
+                  {profile === "DST" && <><td style={tdStyle}>{value(candidateStats, "sacks")}</td><td style={tdStyle}>{value(candidateStats, "defInt")}</td><td style={tdStyle}>{value(candidateStats, "fumblesRecovered")}</td><td style={tdStyle}>{value(candidateStats, "defTD")}</td><td style={tdStyle}>{value(candidateStats, "ptsAgainst")}</td></>}
+                </tr>;
+              })}
               </Fragment>;
             })}
           </tbody>
@@ -716,6 +736,16 @@ export default function Lineup() {
 
   const selectedStarter = starters.find(player => player.name.toLowerCase() === selectedId);
   const selectedBench = bench.find(player => player.name.toLowerCase() === selectedId);
+  const sflexPlayers = [...starters, ...bench].filter(player => ["QB", "RB", "WR", "TE"].includes(player.pos));
+  const kickerPlayers = [...starters, ...bench].filter(player => player.pos === "K");
+  const defensePlayers = [...starters, ...bench].filter(player => player.pos === "DST");
+  const getInlineSwapChoices = (player: Player) => player.isBench
+    ? starters.filter(starter => getEligibleSlots(player).some(slot => slot.slot === starter.slot) && !isPlayerLocked(starter.nflTeam, matchupMap))
+    : getEligibleBench(player.slot ?? "").filter(candidate => !isPlayerLocked(candidate.nflTeam, matchupMap));
+  const performInlineSwap = (source: Player, candidate: Player) => {
+    if (source.isBench) doSwap(candidate.id, source.id);
+    else doSwap(source.id, candidate.id);
+  };
 
   const handleSave = async () => {
     // Build rows for all starters and bench players
@@ -891,10 +921,11 @@ export default function Lineup() {
           </div>
         </div>
 
-        {/* ── TABLE-FIRST STARTERS + BENCH ── */}
+        {/* ── POSITION-SPECIFIC LINEUP PANELS ── */}
         <LineupRosterTable
-          title={`Starting Lineup · ${totalPts.toFixed(1)} pts · Proj ${totalProj.toFixed(1)}`}
-          players={starters}
+          title={`SFLEX · ${sflexPlayers.length} players · ${totalPts.toFixed(1)} pts · Proj ${totalProj.toFixed(1)}`}
+          profile="SFLEX"
+          players={sflexPlayers}
           statMap={lineupStatMap}
           metaMap={lineupMetaMap}
           matchupMap={matchupMap}
@@ -903,12 +934,13 @@ export default function Lineup() {
           isReadOnly={isReadOnly}
           onSelect={handleTableSelect}
           onPlayerClick={(player) => navigate(`/player/${encodeURIComponent(player.name)}`)}
-          getInlineChoices={(player) => getEligibleBench(player.slot ?? "").filter(candidate => !isPlayerLocked(candidate.nflTeam, matchupMap))}
-          onInlineSwap={(source, candidate) => doSwap(source.id, candidate.id)}
+          getInlineChoices={getInlineSwapChoices}
+          onInlineSwap={performInlineSwap}
         />
         <LineupRosterTable
-          title={`Bench · ${bench.length} players`}
-          players={bench}
+          title={`K · ${kickerPlayers.length} player${kickerPlayers.length === 1 ? "" : "s"}`}
+          profile="K"
+          players={kickerPlayers}
           statMap={lineupStatMap}
           metaMap={lineupMetaMap}
           matchupMap={matchupMap}
@@ -917,8 +949,23 @@ export default function Lineup() {
           isReadOnly={isReadOnly}
           onSelect={handleTableSelect}
           onPlayerClick={(player) => navigate(`/player/${encodeURIComponent(player.name)}`)}
-          getInlineChoices={(player) => starters.filter(starter => getEligibleSlots(player).some(slot => slot.slot === starter.slot) && !isPlayerLocked(starter.nflTeam, matchupMap))}
-          onInlineSwap={(source, candidate) => doSwap(candidate.id, source.id)}
+          getInlineChoices={getInlineSwapChoices}
+          onInlineSwap={performInlineSwap}
+        />
+        <LineupRosterTable
+          title={`D/ST · ${defensePlayers.length} player${defensePlayers.length === 1 ? "" : "s"}`}
+          profile="DST"
+          players={defensePlayers}
+          statMap={lineupStatMap}
+          metaMap={lineupMetaMap}
+          matchupMap={matchupMap}
+          injuries={injuries}
+          selectedId={selectedId}
+          isReadOnly={isReadOnly}
+          onSelect={handleTableSelect}
+          onPlayerClick={(player) => navigate(`/player/${encodeURIComponent(player.name)}`)}
+          getInlineChoices={getInlineSwapChoices}
+          onInlineSwap={performInlineSwap}
         />
 
         {!isReadOnly && (selectedStarter || selectedBench) && (

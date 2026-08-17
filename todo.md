@@ -151,6 +151,21 @@
 - [ ] Verify that roster refreshes do not collapse selected inline swap choices after the stable-name change.
 - [ ] Verify a live starter and bench inline swap end-to-end.
 
+# Full-Row Inline Swap Candidates
+
+- [ ] Render each eligible swap candidate as a complete roster-table row beneath the selected player.
+- [ ] Preserve candidate headshots, matchup, decision, fantasy, and position-stat columns in expanded rows.
+- [ ] Make an expanded candidate row directly selectable to complete the legal swap.
+- [ ] Verify full-row candidate expansion on desktop and mobile.
+
+# Position-Specific Lineup Panels
+
+- [x] Group all QB/RB/WR/TE lineup players into one SFLEX panel.
+- [x] Render K players in a separate kicking panel with kicking-first stats.
+- [x] Render D/ST players in a separate defense panel with defense-first stats.
+- [x] Preserve position-appropriate headers, full-row candidate swaps, locks, and lineup saves in every panel.
+- [ ] Verify grouped panels on desktop and mobile.
+
 # Homepage FantasyPros Roster Feeds
 
 - [ ] Match FantasyPros injury availability to every player on the logged-in owner’s roster.
