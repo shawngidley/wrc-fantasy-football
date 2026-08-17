@@ -15,6 +15,7 @@ import {
 import { Image } from "lucide-react";
 import { useRef } from "react";
 import { trpc } from "@/lib/trpc";
+import { WRC_PROTECTION_DEADLINE, WRC_PROTECTION_DEADLINE_DISPLAY } from "@shared/protectionSchedule";
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -155,7 +156,7 @@ function CommissionerPinPanel({ labelStyle }: { labelStyle: React.CSSProperties 
 
 // ── Commissioner Protections Overview Panel ───────────────────────────────────
 function CommissionerProtectionsPanel() {
-  const DEADLINE = new Date("2026-08-24T20:00:00-04:00");
+  const DEADLINE = WRC_PROTECTION_DEADLINE;
   const isPastDeadline = Date.now() > DEADLINE.getTime();
 
   interface ProtRow {
@@ -188,7 +189,7 @@ function CommissionerProtectionsPanel() {
         <ClipboardList size={14} color="oklch(0.45 0.14 85)" />
         <span style={{ color: "oklch(0.35 0.14 85)" }}>Commissioner: All Team Protections</span>
         <span style={{ marginLeft: "auto", fontSize: "0.72rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.06em", color: isPastDeadline ? "oklch(0.45 0.18 25)" : "oklch(0.42 0.15 150)" }}>
-          {isPastDeadline ? "DEADLINE PASSED" : "DEADLINE: AUG 24 8PM ET"}
+          {isPastDeadline ? "DEADLINE PASSED" : `DEADLINE: ${WRC_PROTECTION_DEADLINE_DISPLAY.toUpperCase()}`}
         </span>
       </div>
       <div style={{ padding: "1.25rem" }}>

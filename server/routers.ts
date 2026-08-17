@@ -15,6 +15,8 @@ import { getPublicLeagueTeam, listPublicLeagueTeams, verifyLeagueTeamPin } from 
 import { clearWrcTeamSession, readWrcTeamSession, writeWrcTeamSession } from "./wrcTeamSession";
 import { supabaseAdmin } from "./supabaseAdmin";
 import { validateProtectionSubmission } from "./protectionRules";
+import { releaseUnprotectedPlayers } from "./protectionRelease";
+import { isProtectionDeadlinePassed } from "@shared/protectionSchedule";
 import { DRAFT_PICKS_2026 } from "../client/src/lib/draftData2026";
 import { storagePut } from "./storage";
 import { finalizeWeeklyResultsFromTank } from "./weeklyResultsFinalize";
@@ -428,6 +430,9 @@ export const appRouter = router({
         })).max(3),
       }))
       .mutation(async ({ input, ctx }) => {
+        if (isProtectionDeadlinePassed()) {
+          throw new Error("The protection deadline has passed. Unprotected players are now in the draft pool.");
+        }
         const teamId = ctx.teamSession.teamId;
         const { data: roster, error: rosterError } = await supabaseAdmin
           .from("players")
@@ -658,6 +663,7 @@ export const appRouter = router({
           .select("started, paused, complete, current_round, current_pick").eq("id", 1).single();
         if (stateError || !state) throw new Error("Unable to load draft state");
         if (!state.started || state.paused || state.complete) throw new Error("The draft is not currently accepting picks.");
+        await releaseUnprotectedPlayers();
         const overall = (state.current_round - 1) * WRC_DRAFT_TOTAL_TEAMS + state.current_pick + 1;
         const currentPick = DRAFT_PICKS_2026.find(pick => pick.overall === overall);
         if (!currentPick) throw new Error("Unable to identify the current draft pick.");
@@ -666,6 +672,21 @@ export const appRouter = router({
         const { data: existingPick, error: existingPickError } = await supabaseAdmin.from("draft_picks").select("id").eq("player_name", input.playerName).maybeSingle();
         if (existingPickError) throw new Error("Unable to verify player availability");
         if (existingPick) throw new Error("This player has already been drafted.");
+        const { data: rosteredPlayer, error: rosteredPlayerError } = await supabaseAdmin
+          .from("players")
+          .select("id, team_id")
+          .ilike("name", input.playerName)
+          .maybeSingle();
+        if (rosteredPlayerError) throw new Error("Unable to verify protected player availability.");
+        if (rosteredPlayer?.team_id) {
+          const { data: protection, error: protectionError } = await supabaseAdmin
+            .from("protections")
+            .select("player_id")
+            .eq("player_id", rosteredPlayer.id)
+            .maybeSingle();
+          if (protectionError) throw new Error("Unable to verify protected player availability.");
+          if (protection) throw new Error("This player is protected and cannot be drafted.");
+        }
 
         const teamNameResponse = await supabaseAdmin.from("teams").select("name").eq("id", expectedTeamId).single();
         if (teamNameResponse.error || !teamNameResponse.data) throw new Error("Unable to identify the drafting team.");

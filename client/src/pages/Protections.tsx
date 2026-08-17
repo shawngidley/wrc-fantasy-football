@@ -31,9 +31,10 @@ import {
 import { TEAMS, type RosterPlayer } from "@/lib/wrcData";
 import { useDraftedRoster } from "@/hooks/useDraftedRoster";
 import { trpc } from "@/lib/trpc";
+import { WRC_PROTECTION_DEADLINE, WRC_PROTECTION_DEADLINE_DISPLAY } from "@shared/protectionSchedule";
 
 // ── Deadline ─────────────────────────────────────────────────────────────────
-const DEADLINE = new Date("2026-08-24T20:00:00-04:00");
+const DEADLINE = WRC_PROTECTION_DEADLINE;
 
 function useDeadlineCountdown() {
   const [ms, setMs] = useState(() => DEADLINE.getTime() - Date.now());
@@ -750,7 +751,7 @@ function DeadlineBanner({ cd }: { cd: ReturnType<typeof useDeadlineCountdown> })
           {cd.past ? "Protections Deadline Has Passed" : urgent ? "⚡ Deadline Approaching!" : "Protections Deadline"}
         </div>
         <div style={{ fontSize: "0.78rem", color: cd.past ? "oklch(0.55 0.22 25)" : "rgba(255,255,255,0.55)", marginTop: 2 }}>
-          Monday, August 24, 2026 · 8:00 PM ET
+          {WRC_PROTECTION_DEADLINE_DISPLAY}
         </div>
       </div>
       {!cd.past && (

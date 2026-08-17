@@ -24,12 +24,13 @@ import { fetchPlayerByName, getTeamLogoUrl } from "@/hooks/useTank01Player";
 import { useDraftQueue } from "@/hooks/useDraftQueue";
 import { useNFLADP } from "@/hooks/useNFLADP";
 import { trpc } from "@/lib/trpc";
+import { WRC_DRAFT_DATE, WRC_DRAFT_DISPLAY } from "@/lib/draftSchedule";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const TIMER_SECONDS = 90;
 const TOTAL_ROUNDS = 18;
 const TOTAL_TEAMS = 12;
-const DRAFT_DATE = new Date("2026-08-27T19:00:00-04:00");
+const DRAFT_DATE = WRC_DRAFT_DATE;
 
 // Round 1 pick order (snake draft — even rounds reverse)
 const ROUND1_ORDER = [
@@ -135,7 +136,7 @@ function DraftCountdownBanner() {
         <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "oklch(0.78 0.15 85)" }}>
           {isClose ? "⚡ Draft is almost here!" : "Draft Countdown"}
         </span>
-        <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.5)", marginTop: 2 }}>Thu Aug 27, 2026 · 7:00 PM ET</span>
+        <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.5)", marginTop: 2 }}>{WRC_DRAFT_DISPLAY}</span>
       </div>
       <div style={{ display: "flex", alignItems: "flex-start", gap: "0.25rem" }}>
         {[{ v: cd.days, l: "Days" }, { v: cd.hrs, l: "Hrs" }, { v: cd.mins, l: "Min" }, { v: cd.secs, l: "Sec" }].map((u, i) => (
@@ -259,7 +260,10 @@ export default function DraftBoard() {
   const isMyTurn = franchise?.team_name === currentTeamName || franchise?.owner === currentOwner;
 
   // Available player pool
-  const availablePlayers = useMemo(() => getAvailablePlayers(draftedNames), [draftedNames]);
+  const availablePlayers = useMemo(
+    () => getAvailablePlayers(draftedNames).filter(player => !rosteredNames.has(player.name.toLowerCase())),
+    [draftedNames, rosteredNames],
+  );
   const filteredPlayers = useMemo(() => {
     return availablePlayers.filter(p => {
       const matchPos = posFilter === "ALL" || p.pos === posFilter;

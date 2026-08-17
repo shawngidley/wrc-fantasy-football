@@ -170,6 +170,26 @@
 - [x] Narrow the Player column to eliminate unused right-side padding.
 - [ ] Verify Slot-triggered swaps and compact Player width on desktop and mobile.
 
+# Updated 2026 Draft Schedule
+
+- [ ] Update the WRC draft datetime to Sunday, August 30, 2026 at 6:00 PM ET.
+- [ ] Update every draft-page and league-facing display that references the draft date or countdown.
+- [ ] Verify the displayed date, time zone, and countdown target.
+
+# Updated 2026 Protection Deadline and Draft Pool
+
+- [x] Update the protection deadline to Tuesday, August 25, 2026 at 9:00 PM ET.
+- [x] Show the updated deadline consistently on the Protections and Settings pages.
+- [x] Implement an idempotent release of unprotected players and server-side protection enforcement for draft picks.
+- [ ] Schedule the one-time 9:00 PM ET post-deadline release task for August 25.
+- [ ] Verify deadline messaging and post-deadline player availability.
+
+# Mobile Slot Controls and D/ST Logos
+
+- [ ] Add a mobile-safe inset for pinned Slot controls so badges do not clip at the viewport edge.
+- [ ] Render official NFL team logos in D/ST identity rows and expanded D/ST candidate rows.
+- [ ] Verify Slot badge placement and D/ST team logos on a mobile lineup view.
+
 # Position-Specific Lineup Panels
 
 - [x] Group all QB/RB/WR/TE lineup players into one SFLEX panel.

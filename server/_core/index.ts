@@ -9,6 +9,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { serveStatic, setupVite } from "./vite";
 import { collectFantasyProsArchive } from "../scheduledFantasyProsArchive";
+import { releasePostDeadlinePlayers } from "../scheduledProtectionRelease";
 import { proxyTank01Request } from "../tank01Proxy";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -60,6 +61,7 @@ async function startServer() {
   registerOAuthRoutes(app);
   app.get("/api/tank01/:endpoint", proxyTank01Request);
   app.post("/api/scheduled/fantasypros-archive", collectFantasyProsArchive);
+  app.post("/api/scheduled/release-unprotected-players", releasePostDeadlinePlayers);
   // tRPC API
   app.use(
     "/api/trpc",
