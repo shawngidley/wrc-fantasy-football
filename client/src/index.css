@@ -476,9 +476,34 @@
 }
 
 /* Keep the sticky Slot badge in from the mobile viewport edge while tables scroll horizontally. */
+.lineup-table-scroll {
+  --lineup-column-label-size: 0.58rem;
+  --lineup-group-label-size: 0.6rem;
+  --lineup-data-size: 0.72rem;
+  --lineup-slot-font-size: 0.63rem;
+  --lineup-slot-button-width: 32px;
+}
+
 @media (max-width: 640px) {
   .lineup-table-scroll {
     padding-left: 0.45rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .lineup-table-panel {
+    width: fit-content;
+    max-width: 100%;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .lineup-table-scroll {
+    --lineup-column-label-size: 0.66rem;
+    --lineup-group-label-size: 0.69rem;
+    --lineup-data-size: 0.81rem;
+    --lineup-slot-font-size: 0.72rem;
+    --lineup-slot-button-width: 46px;
   }
 }
 

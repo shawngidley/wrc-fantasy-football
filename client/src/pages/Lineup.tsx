@@ -360,9 +360,9 @@ function LineupRosterTable({
   getInlineChoices: (player: Player) => Player[];
   onInlineSwap: (source: Player, candidate: Player) => void;
 }) {
-  const thStyle = { padding: "0.4rem 0.42rem", background: "oklch(0.98 0.006 150)", color: "oklch(0.28 0.08 150)", borderBottom: "1px solid oklch(0.84 0.02 150)", textAlign: "center" as const, fontSize: "0.58rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, letterSpacing: "0.05em", whiteSpace: "nowrap" as const };
-  const groupStyle = { ...thStyle, background: "oklch(0.94 0.025 150)", color: "oklch(0.34 0.08 150)", fontSize: "0.6rem" };
-  const tdStyle = { padding: "0.47rem 0.42rem", borderBottom: "1px solid oklch(0.92 0.008 150)", textAlign: "center" as const, color: "oklch(0.28 0.05 150)", fontSize: "0.72rem", fontVariantNumeric: "tabular-nums" as const, whiteSpace: "nowrap" as const };
+  const thStyle = { padding: "0.4rem 0.42rem", background: "oklch(0.98 0.006 150)", color: "oklch(0.28 0.08 150)", borderBottom: "1px solid oklch(0.84 0.02 150)", textAlign: "center" as const, fontSize: "var(--lineup-column-label-size)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, letterSpacing: "0.05em", whiteSpace: "nowrap" as const };
+  const groupStyle = { ...thStyle, background: "oklch(0.94 0.025 150)", color: "oklch(0.34 0.08 150)", fontSize: "var(--lineup-group-label-size)" };
+  const tdStyle = { padding: "0.47rem 0.42rem", borderBottom: "1px solid oklch(0.92 0.008 150)", textAlign: "center" as const, color: "oklch(0.28 0.05 150)", fontSize: "var(--lineup-data-size)", fontVariantNumeric: "tabular-nums" as const, whiteSpace: "nowrap" as const };
   const value = (stats: PlayerSeasonStats | undefined, key: keyof PlayerSeasonStats, decimals = 0) => stats ? formatSeasonStat(stats[key], decimals) : "—";
   const decisionHeaders = profile === "SFLEX" || profile === "K"
     ? ["AGE", "BYE", "OPP", "GAME", "FPTS", "FP/G", "PROJ"]
@@ -372,17 +372,17 @@ function LineupRosterTable({
     : profile === "K"
       ? ["FGM", "FGA", "FG%", "XPM", "XPA", "XP%"]
       : ["SACK", "D INT", "FR", "D TD", "PA"];
-  const slotWidth = 52;
+  const slotWidth = 66;
   const playerWidth = 154;
   const columnCount = 2 + decisionHeaders.length + primaryHeaders.length;
   const minWidth = profile === "SFLEX" ? 980 : profile === "K" ? 830 : 760;
 
   return (
-    <section className="wrc-card" style={{ marginBottom: "1rem", overflow: "hidden" }}>
+    <section className="wrc-card lineup-table-panel" style={{ marginBottom: "1rem", overflow: "hidden" }}>
       <div className="wrc-card-gold-stripe" />
       <div className="wrc-card-header">{title}<span style={{ marginLeft: "auto", fontSize: "0.68rem", color: "oklch(0.58 0.04 150)", fontWeight: 600 }}>Swipe table for full season detail</span></div>
       <div className="lineup-table-scroll" style={{ overflowX: "auto", overflowY: "visible", overscrollBehaviorX: "contain", WebkitOverflowScrolling: "touch" }}>
-        <table style={{ minWidth, width: "100%", borderCollapse: "separate", borderSpacing: 0, background: "white" }}>
+        <table style={{ minWidth, width: "max-content", borderCollapse: "separate", borderSpacing: 0, background: "white" }}>
           <thead>
             <tr>
               <th rowSpan={2} style={{ ...groupStyle, position: "sticky", left: 0, zIndex: 4, minWidth: slotWidth }}>SLOT</th>
@@ -415,7 +415,7 @@ function LineupRosterTable({
                 : undefined;
               const choices = selected && !isReadOnly ? getInlineChoices(player) : [];
               return <Fragment key={player.id}><tr style={{ background: rowBg }}>
-                <td style={{ ...tdStyle, position: "sticky", left: 0, zIndex: 2, background: rowBg, boxShadow: benchPinnedOutline }}><button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); onSelect(player); }} disabled={isReadOnly || locked} aria-label={`Change ${player.name} in ${player.slot ?? "bench"}`} title={isReadOnly ? "View only" : locked ? "Player locked" : "Change player"} style={{ display: "grid", placeItems: "center", minWidth: 32, minHeight: 22, border: selected ? "1px solid oklch(0.62 0.16 85)" : "none", borderRadius: 4, background: selected ? "oklch(0.52 0.16 85)" : POS_COLORS[player.pos] || "oklch(0.5 0.04 150)", color: "white", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.63rem", cursor: isReadOnly || locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>{locked ? <Lock size={11} aria-label="Locked" /> : <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>{player.slot ?? "BN"}{!isReadOnly && <ChevronDown size={10} />}</span>}</button></td>
+                <td style={{ ...tdStyle, position: "sticky", left: 0, zIndex: 2, background: rowBg, boxShadow: benchPinnedOutline }}><button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); onSelect(player); }} disabled={isReadOnly || locked} aria-label={`Change ${player.name} in ${player.slot ?? "bench"}`} title={isReadOnly ? "View only" : locked ? "Player locked" : "Change player"} style={{ display: "grid", placeItems: "center", minWidth: "var(--lineup-slot-button-width)", minHeight: 24, border: selected ? "1px solid oklch(0.62 0.16 85)" : "none", borderRadius: 4, background: selected ? "oklch(0.52 0.16 85)" : POS_COLORS[player.pos] || "oklch(0.5 0.04 150)", color: "white", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "var(--lineup-slot-font-size)", cursor: isReadOnly || locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>{locked ? <Lock size={11} aria-label="Locked" /> : <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>{player.slot ?? "BN"}{!isReadOnly && <ChevronDown size={10} />}</span>}</button></td>
                 <td onClick={() => onPlayerClick(player)} style={{ ...tdStyle, position: "sticky", left: slotWidth, zIndex: 2, minWidth: playerWidth, maxWidth: playerWidth, textAlign: "left", cursor: "pointer", background: rowBg, boxShadow: benchPinnedOutline }}><LineupIdentity player={player} meta={meta} /></td>
                 <td style={tdStyle}>{meta?.age || "—"}</td><td style={tdStyle}>{player.byeWeek ?? "—"}</td><td style={tdStyle}>{matchup ? `${matchup.isHome ? "vs" : "@"} ${matchup.opponent}` : "BYE"}</td><td style={{ ...tdStyle, maxWidth: 86, overflow: "hidden", textOverflow: "ellipsis" }}>{matchup ? formatGameTime(matchup).replace(" ET", "") : "—"}</td>
                 <td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(stats, "wrcPts", 1)}</td><td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(stats, "ptsPerGame", 1)}</td>{profile === "DST" && <td style={{ ...tdStyle, color: "oklch(0.52 0.16 25)", fontWeight: 800 }}>{player.pts.toFixed(1)}</td>}<td style={{ ...tdStyle, fontWeight: 800 }}>{player.proj.toFixed(1)}</td>
@@ -437,7 +437,7 @@ function LineupRosterTable({
                 const candidateMatchup = matchupMap[candidate.nflTeam];
                 const candidateBg = "oklch(0.985 0.025 85)";
                 return <tr key={`${player.id}-${candidate.id}`} onClick={() => onInlineSwap(player, candidate)} style={{ background: candidateBg, cursor: "pointer" }}>
-                  <td style={{ ...tdStyle, position: "sticky", left: 0, zIndex: 2, background: candidateBg }}><span style={{ display: "grid", placeItems: "center", minWidth: 32, minHeight: 22, borderRadius: 4, background: "oklch(0.52 0.16 85)", color: "white", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.63rem" }}>{player.slot ?? "BN"}</span></td>
+                  <td style={{ ...tdStyle, position: "sticky", left: 0, zIndex: 2, background: candidateBg }}><span style={{ display: "grid", placeItems: "center", minWidth: "var(--lineup-slot-button-width)", minHeight: 24, borderRadius: 4, background: "oklch(0.52 0.16 85)", color: "white", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "var(--lineup-slot-font-size)" }}>{player.slot ?? "BN"}</span></td>
                   <td style={{ ...tdStyle, position: "sticky", left: slotWidth, zIndex: 2, minWidth: playerWidth, maxWidth: playerWidth, textAlign: "left", background: candidateBg }}><LineupIdentity player={candidate} meta={candidateMeta} /></td>
                   <td style={tdStyle}>{candidateMeta?.age || "—"}</td><td style={tdStyle}>{candidate.byeWeek ?? "—"}</td><td style={tdStyle}>{candidateMatchup ? `${candidateMatchup.isHome ? "vs" : "@"} ${candidateMatchup.opponent}` : "BYE"}</td><td style={{ ...tdStyle, maxWidth: 86, overflow: "hidden", textOverflow: "ellipsis" }}>{candidateMatchup ? formatGameTime(candidateMatchup).replace(" ET", "") : "—"}</td>
                   <td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(candidateStats, "wrcPts", 1)}</td><td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(candidateStats, "ptsPerGame", 1)}</td>{profile === "DST" && <td style={{ ...tdStyle, color: "oklch(0.52 0.16 25)", fontWeight: 800 }}>{candidate.pts.toFixed(1)}</td>}<td style={{ ...tdStyle, fontWeight: 800 }}>{candidate.proj.toFixed(1)}</td>
@@ -823,7 +823,7 @@ export default function Lineup() {
     <div className="bg-turf bg-overlay" style={{ minHeight: "100vh" }}>
       <Navigation showTicker={false} teamName={franchise?.team_name} />
 
-      <div style={{ width: "100%", maxWidth: 1600, margin: "0 auto", padding: "1.5rem clamp(0.35rem, 1.2vw, 1.5rem) 3rem" }}>
+      <div style={{ width: "100%", maxWidth: 1360, margin: "0 auto", padding: "1.5rem clamp(0.35rem, 1.2vw, 1.5rem) 3rem" }}>
 
         {/* ── Back link (read-only mode) ── */}
         {/* ── Team Selector Dropdown ── */}

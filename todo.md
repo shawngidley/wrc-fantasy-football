@@ -115,6 +115,13 @@
 - [ ] Fix the crash while preserving production security headers and server-only Tank01 access.
 - [ ] Verify the repaired production site on a mobile viewport.
 
+# League Acceptance Testing Plan
+
+- [x] Define an isolated testing approach that cannot change 2026 live league rosters, protections, draft results, or balances.
+- [x] Document acceptance test cases for owner login, protections, draft controls, draft picks, roster assignment, queue, FAAB, trades, scoring, and permissions.
+- [x] Add the commissioner-friendly acceptance-testing runbook to the repository.
+- [x] Document a concrete staging reset and verification procedure for each rehearsal.
+
 # Development Preview Reliability
 
 - [x] Restore Vite module delivery in the development preview so `/src/main.tsx` is served as JavaScript instead of the SPA HTML shell.
@@ -194,6 +201,13 @@
 - [x] Add a mobile-safe inset for pinned Slot controls so badges do not clip at the viewport edge.
 - [x] Render official NFL team logos in D/ST identity rows and expanded D/ST candidate rows.
 - [x] Verify Slot badge placement and D/ST team logos on a mobile lineup view.
+
+# Desktop Lineup Panel and Slot Legibility
+
+- [x] Tighten the desktop Lineup panel and table presentation where it has excess width.
+- [x] Widen the Slot action cell so its interactive badge is easier to target and read.
+- [x] Increase desktop Lineup table type sizing without regressing mobile density or horizontal scrolling.
+- [x] Verify the desktop Lineup refinement with populated roster data.
 
 # Position-Specific Lineup Panels
 
@@ -507,9 +521,9 @@
 
 # Production FantasyPros Full-Feed Persistence
 
-- [ ] Compare production and development FantasyPros source payloads, enriched positions, and rendered eligible counts.
-- [ ] Invalidate any production client or server cache still serving the earlier limited eligible feed.
-- [ ] Verify the published mobile News page displays every current eligible FantasyPros story.
+- [x] Compare production and development FantasyPros source payloads, enriched positions, and rendered eligible counts.
+- [x] Invalidate any production client or server cache still serving the earlier limited eligible feed.
+- [x] Verify the published mobile News page displays every current eligible FantasyPros story.
 
 # FantasyPros Manual Refresh Recovery
 
@@ -520,7 +534,7 @@
 
 - [x] Measure raw FantasyPros pagination limits and total current eligible QB, RB, WR, TE, and K stories beyond the 50-item window.
 - [x] Expand source retrieval if additional current eligible stories are available.
-- [ ] Verify the News article count reflects the complete current eligible FantasyPros feed.
+- [x] Verify the News article count reflects the complete current eligible FantasyPros feed.
 
 # Seven-Day FantasyPros News Coverage
 
