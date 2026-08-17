@@ -7,6 +7,9 @@ import { createServer as createViteServer } from "vite";
 import viteConfig from "../../vite.config";
 
 export async function setupVite(app: Express, server: Server) {
+  const resolvedViteConfig = typeof viteConfig === "function"
+    ? await viteConfig({ command: "serve", mode: process.env.NODE_ENV === "production" ? "production" : "development", isSsrBuild: false, isPreview: false })
+    : viteConfig;
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
@@ -14,9 +17,9 @@ export async function setupVite(app: Express, server: Server) {
   };
 
   const vite = await createViteServer({
-    ...viteConfig,
+    ...resolvedViteConfig,
     configFile: false,
-    server: serverOptions,
+    server: { ...resolvedViteConfig.server, ...serverOptions },
     appType: "custom",
   });
 
@@ -38,6 +41,12 @@ export async function setupVite(app: Express, server: Server) {
         `src="/src/main.tsx"`,
         `src="/src/main.tsx?v=${nanoid()}"`
       );
+      if (!template.includes("__vite_plugin_react_preamble_installed__")) {
+        template = template.replace(
+          "<head>",
+          `<head>\n    <script type="module">\n      import RefreshRuntime from "/@react-refresh";\n      RefreshRuntime.injectIntoGlobalHook(window);\n      window.$RefreshReg$ = () => {};\n      window.$RefreshSig$ = () => (type) => type;\n      window.__vite_plugin_react_preamble_installed__ = true;\n    </script>`
+        );
+      }
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
     } catch (e) {

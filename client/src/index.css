@@ -475,6 +475,13 @@
   }
 }
 
+/* Keep the sticky Slot badge in from the mobile viewport edge while tables scroll horizontally. */
+@media (max-width: 640px) {
+  .lineup-table-scroll {
+    padding-left: 0.45rem;
+  }
+}
+
 /* ===== UX ELEVATION — GLOBAL ===== */
 
 /* Skeleton shimmer */

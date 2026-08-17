@@ -115,6 +115,11 @@
 - [ ] Fix the crash while preserving production security headers and server-only Tank01 access.
 - [ ] Verify the repaired production site on a mobile viewport.
 
+# Development Preview Reliability
+
+- [x] Restore Vite module delivery in the development preview so `/src/main.tsx` is served as JavaScript instead of the SPA HTML shell.
+- [x] Re-verify the mobile Lineup page after the preview route is restored.
+
 # Lineup Roster-Table Reference Proposal
 
 - [x] Compare the current Lineup view with the supplied comprehensive roster-table reference.
@@ -186,9 +191,9 @@
 
 # Mobile Slot Controls and D/ST Logos
 
-- [ ] Add a mobile-safe inset for pinned Slot controls so badges do not clip at the viewport edge.
-- [ ] Render official NFL team logos in D/ST identity rows and expanded D/ST candidate rows.
-- [ ] Verify Slot badge placement and D/ST team logos on a mobile lineup view.
+- [x] Add a mobile-safe inset for pinned Slot controls so badges do not clip at the viewport edge.
+- [x] Render official NFL team logos in D/ST identity rows and expanded D/ST candidate rows.
+- [x] Verify Slot badge placement and D/ST team logos on a mobile lineup view.
 
 # Position-Specific Lineup Panels
 

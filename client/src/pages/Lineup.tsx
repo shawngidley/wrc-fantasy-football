@@ -22,6 +22,7 @@ import { useWeeklyResultsWriter } from "@/hooks/useWeeklyResultsWriter";
 import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } from "@/hooks/useNFLInjuries";
 import { useNFLSeasonStats } from "@/hooks/useNFLSeasonStats";
 import { formatSeasonStat, type PlayerSeasonStats } from "@/lib/playerSeasonStats";
+import { getNflTeamLogoUrl } from "@/lib/nflTeamLogo";
 import { fetchTeamSchedule } from "@/hooks/useNFLTeamSchedule";
 import { NFL_PLAYERS_2026 } from "@/lib/nflPlayers2026";
 import { supabase } from "@/lib/supabase";
@@ -326,10 +327,11 @@ function GameInfo({ nflTeam, matchupMap }: { nflTeam: string; matchupMap: NFLMat
 function LineupIdentity({ player, meta }: { player: Player; meta?: { age?: string; headshot?: string } }) {
   const [imageFailed, setImageFailed] = useState(false);
   const initials = player.name.split(" ").map(part => part[0]).slice(0, 2).join("");
+  const identityImage = player.pos === "DST" ? getNflTeamLogoUrl(player.nflTeam) : meta?.headshot;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", minWidth: 0 }}>
-      {meta?.headshot && !imageFailed ? (
-        <img src={meta.headshot} alt="" onError={() => setImageFailed(true)} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", background: "oklch(0.9 0.01 150)" }} />
+      {identityImage && !imageFailed ? (
+        <img src={identityImage} alt={player.pos === "DST" ? `${player.nflTeam} logo` : ""} onError={() => setImageFailed(true)} style={{ width: 28, height: 28, borderRadius: player.pos === "DST" ? 4 : "50%", objectFit: "contain", background: "oklch(0.98 0.005 150)", padding: player.pos === "DST" ? 1 : 0 }} />
       ) : (
         <span style={{ display: "grid", placeItems: "center", width: 28, height: 28, borderRadius: "50%", background: POS_COLORS[player.pos] || "oklch(0.45 0.04 150)", color: "white", fontSize: "0.55rem", fontWeight: 800, flexShrink: 0 }}>{initials}</span>
       )}
@@ -379,7 +381,7 @@ function LineupRosterTable({
     <section className="wrc-card" style={{ marginBottom: "1rem", overflow: "hidden" }}>
       <div className="wrc-card-gold-stripe" />
       <div className="wrc-card-header">{title}<span style={{ marginLeft: "auto", fontSize: "0.68rem", color: "oklch(0.58 0.04 150)", fontWeight: 600 }}>Swipe table for full season detail</span></div>
-      <div style={{ overflowX: "auto", overflowY: "visible", overscrollBehaviorX: "contain", WebkitOverflowScrolling: "touch" }}>
+      <div className="lineup-table-scroll" style={{ overflowX: "auto", overflowY: "visible", overscrollBehaviorX: "contain", WebkitOverflowScrolling: "touch" }}>
         <table style={{ minWidth, width: "100%", borderCollapse: "separate", borderSpacing: 0, background: "white" }}>
           <thead>
             <tr>
