@@ -37,6 +37,9 @@ const STARTER_SLOTS = [
   { slot: "DST",   label: "Defense / ST",  eligible: ["DST"] },
 ];
 
+/** Stable selection key across Tank01, draft, and Supabase player-name variants. */
+const lineupPlayerKey = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
+
 // NFL_GAMES static table removed — replaced by live useNFLMatchups hook
 
 const DAY_COLORS: Record<string, string> = {
@@ -369,7 +372,7 @@ function LineupRosterTable({
     <section className="wrc-card" style={{ marginBottom: "1rem", overflow: "hidden" }}>
       <div className="wrc-card-gold-stripe" />
       <div className="wrc-card-header">{title}<span style={{ marginLeft: "auto", fontSize: "0.68rem", color: "oklch(0.58 0.04 150)", fontWeight: 600 }}>Swipe table for full season detail</span></div>
-      <div style={{ overflowX: "auto", overscrollBehaviorX: "contain", WebkitOverflowScrolling: "touch" }}>
+      <div style={{ overflowX: "auto", overflowY: "visible", overscrollBehaviorX: "contain", WebkitOverflowScrolling: "touch" }}>
         <table style={{ minWidth, width: "100%", borderCollapse: "separate", borderSpacing: 0, background: "white" }}>
           <thead>
             <tr>
@@ -390,12 +393,12 @@ function LineupRosterTable({
               const matchup = matchupMap[player.nflTeam];
               const injury = getInjuryDesignation(injuries as never, player.name);
               const injuryColor = injury ? getInjuryColor(injury) : null;
-              const selected = selectedId === player.name.toLowerCase();
+              const selected = selectedId === lineupPlayerKey(player.name);
               const locked = isPlayerLocked(player.nflTeam, matchupMap);
               const rowBg = selected ? "oklch(0.96 0.06 85)" : locked ? "oklch(0.98 0.012 25)" : index % 2 ? "oklch(0.99 0.003 150)" : "white";
               const choices = selected && !isReadOnly ? getInlineChoices(player) : [];
               return <Fragment key={player.id}><tr style={{ background: rowBg }}>
-                <td style={{ ...tdStyle, position: "sticky", left: 0, zIndex: 2, background: rowBg }}><button onClick={() => onSelect(player)} disabled={isReadOnly || locked} style={{ border: "1px solid oklch(0.74 0.12 85)", borderRadius: 4, padding: "0.18rem 0.42rem", background: selected ? "oklch(0.52 0.16 85)" : "white", color: selected ? "white" : "oklch(0.35 0.12 85)", fontSize: "0.6rem", fontWeight: 800, cursor: isReadOnly || locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>{isReadOnly ? "VIEW" : locked ? "LOCKED" : selected ? "SELECTED" : "SWAP"}</button></td>
+                <td style={{ ...tdStyle, position: "sticky", left: 0, zIndex: 2, background: rowBg }}><button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); onSelect(player); }} disabled={isReadOnly || locked} style={{ border: "1px solid oklch(0.74 0.12 85)", borderRadius: 4, padding: "0.18rem 0.42rem", background: selected ? "oklch(0.52 0.16 85)" : "white", color: selected ? "white" : "oklch(0.35 0.12 85)", fontSize: "0.6rem", fontWeight: 800, cursor: isReadOnly || locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>{isReadOnly ? "VIEW" : locked ? "LOCKED" : selected ? `OPEN ${choices.length}` : "SWAP"}</button></td>
                 <td style={{ ...tdStyle, position: "sticky", left: 56, zIndex: 2, background: rowBg }}><span style={{ display: "grid", placeItems: "center", minWidth: 32, minHeight: 22, borderRadius: 4, background: POS_COLORS[player.pos] || "oklch(0.5 0.04 150)", color: "white", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.63rem" }}>{locked ? <Lock size={11} aria-label="Locked" /> : player.slot ?? "BN"}</span></td>
                 <td onClick={() => onPlayerClick(player)} style={{ ...tdStyle, position: "sticky", left: 108, zIndex: 2, minWidth: 190, textAlign: "left", cursor: "pointer", background: rowBg }}><LineupIdentity player={player} meta={meta} /></td>
                 <td style={tdStyle}>{meta?.age || "—"}</td><td style={tdStyle}>{player.byeWeek ?? "—"}</td><td style={tdStyle}>{matchup ? `${matchup.isHome ? "vs" : "@"} ${matchup.opponent}` : "BYE"}</td><td style={{ ...tdStyle, maxWidth: 86, overflow: "hidden", textOverflow: "ellipsis" }}>{matchup ? formatGameTime(matchup).replace(" ET", "") : "—"}</td>
@@ -730,12 +733,12 @@ export default function Lineup() {
     if (isReadOnly) return;
     const locked = isPlayerLocked(player.nflTeam, matchupMap);
     if (locked) return;
-    const playerKey = player.name.toLowerCase();
+    const playerKey = lineupPlayerKey(player.name);
     setSelectedId(current => current === playerKey ? null : playerKey);
   };
 
-  const selectedStarter = starters.find(player => player.name.toLowerCase() === selectedId);
-  const selectedBench = bench.find(player => player.name.toLowerCase() === selectedId);
+  const selectedStarter = starters.find(player => lineupPlayerKey(player.name) === selectedId);
+  const selectedBench = bench.find(player => lineupPlayerKey(player.name) === selectedId);
   const sflexPlayers = [...starters, ...bench].filter(player => ["QB", "RB", "WR", "TE"].includes(player.pos));
   const kickerPlayers = [...starters, ...bench].filter(player => player.pos === "K");
   const defensePlayers = [...starters, ...bench].filter(player => player.pos === "DST");
@@ -1005,7 +1008,7 @@ export default function Lineup() {
 
           {STARTER_SLOTS.map(({ slot, label }) => {
             const player    = starters.find(p => p.slot === slot);
-            const isSelected = selectedId === player?.name.toLowerCase();
+            const isSelected = Boolean(player && selectedId === lineupPlayerKey(player.name));
             const eligibleBench = getEligibleBench(slot);
             // Per-player lock: this starter is locked if their game has started
             const playerLocked = player ? isPlayerLocked(player.nflTeam, matchupMap) : false;
@@ -1156,7 +1159,7 @@ export default function Lineup() {
           </div>
 
           {bench.map((player) => {
-            const isSelected    = selectedId === player.name.toLowerCase();
+            const isSelected    = selectedId === lineupPlayerKey(player.name);
             // For bench: eligible slots that are NOT yet locked (starter's game hasn't started)
             const eligibleSlots = getEligibleSlots(player).filter(slotDef => {
               const currentStarter = starters.find(s => s.slot === slotDef.slot);

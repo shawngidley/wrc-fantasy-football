@@ -151,6 +151,11 @@
 - [ ] Verify that roster refreshes do not collapse selected inline swap choices after the stable-name change.
 - [ ] Verify a live starter and bench inline swap end-to-end.
 
+# Inline Swap State Instrumentation
+
+- [ ] Surface selected-player and eligible-candidate state in the Lineup UI when Swap is tapped.
+- [ ] Use the captured state to correct the actual live expansion failure and remove temporary diagnostics.
+
 # Full-Row Inline Swap Candidates
 
 - [ ] Render each eligible swap candidate as a complete roster-table row beneath the selected player.
