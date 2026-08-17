@@ -4,7 +4,7 @@
  * Features: Best Lineup optimizer, per-player game info (day/time/opp/location), inline swap panel
  * TE Premium: 1.5x PPR for TE position regardless of slot
  */
-import { useState, useMemo, useEffect, useRef } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Navigation from "@/components/Navigation";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
@@ -337,7 +337,7 @@ function LineupIdentity({ player, meta }: { player: Player; meta?: { age?: strin
 }
 
 function LineupRosterTable({
-  title, players, statMap, metaMap, matchupMap, injuries, selectedId, isReadOnly, onSelect, onPlayerClick,
+  title, players, statMap, metaMap, matchupMap, injuries, selectedId, isReadOnly, onSelect, onPlayerClick, getInlineChoices, onInlineSwap,
 }: {
   title: string;
   players: Player[];
@@ -349,6 +349,8 @@ function LineupRosterTable({
   isReadOnly: boolean;
   onSelect: (player: Player) => void;
   onPlayerClick: (player: Player) => void;
+  getInlineChoices: (player: Player) => Player[];
+  onInlineSwap: (source: Player, candidate: Player) => void;
 }) {
   const thStyle = { padding: "0.4rem 0.42rem", background: "oklch(0.98 0.006 150)", color: "oklch(0.28 0.08 150)", borderBottom: "1px solid oklch(0.84 0.02 150)", textAlign: "center" as const, fontSize: "0.58rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, letterSpacing: "0.05em", whiteSpace: "nowrap" as const };
   const groupStyle = { ...thStyle, background: "oklch(0.94 0.025 150)", color: "oklch(0.34 0.08 150)", fontSize: "0.6rem" };
@@ -378,9 +380,10 @@ function LineupRosterTable({
               const injury = getInjuryDesignation(injuries as never, player.name);
               const injuryColor = injury ? getInjuryColor(injury) : null;
               const selected = selectedId === player.id;
-              const locked = !player.isBench && isPlayerLocked(player.nflTeam, matchupMap);
+              const locked = isPlayerLocked(player.nflTeam, matchupMap);
               const rowBg = selected ? "oklch(0.96 0.06 85)" : locked ? "oklch(0.98 0.012 25)" : index % 2 ? "oklch(0.99 0.003 150)" : "white";
-              return <tr key={player.id} style={{ background: rowBg }}>
+              const choices = selected && !isReadOnly ? getInlineChoices(player) : [];
+              return <Fragment key={player.id}><tr style={{ background: rowBg }}>
                 <td style={{ ...tdStyle, position: "sticky", left: 0, zIndex: 2, background: rowBg }}><button onClick={() => onSelect(player)} disabled={isReadOnly || locked} style={{ border: "1px solid oklch(0.74 0.12 85)", borderRadius: 4, padding: "0.18rem 0.42rem", background: selected ? "oklch(0.52 0.16 85)" : "white", color: selected ? "white" : "oklch(0.35 0.12 85)", fontSize: "0.6rem", fontWeight: 800, cursor: isReadOnly || locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>{isReadOnly ? "VIEW" : locked ? "LOCKED" : selected ? "SELECTED" : "SWAP"}</button></td>
                 <td style={{ ...tdStyle, position: "sticky", left: 56, zIndex: 2, background: rowBg }}><span style={{ display: "grid", placeItems: "center", minWidth: 32, minHeight: 22, borderRadius: 4, background: POS_COLORS[player.pos] || "oklch(0.5 0.04 150)", color: "white", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.63rem" }}>{locked ? <Lock size={11} aria-label="Locked" /> : player.slot ?? "BN"}</span></td>
                 <td onClick={() => onPlayerClick(player)} style={{ ...tdStyle, position: "sticky", left: 108, zIndex: 2, minWidth: 190, textAlign: "left", cursor: "pointer", background: rowBg }}><LineupIdentity player={player} meta={meta} /></td>
@@ -388,7 +391,24 @@ function LineupRosterTable({
                 <td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(stats, "wrcPts", 1)}</td><td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(stats, "ptsPerGame", 1)}</td><td style={{ ...tdStyle, color: "oklch(0.52 0.16 25)", fontWeight: 800 }}>{player.pts.toFixed(1)}</td><td style={{ ...tdStyle, fontWeight: 800 }}>{player.proj.toFixed(1)}</td>
                 <td style={tdStyle}>{value(stats, "passYds")}</td><td style={tdStyle}>{value(stats, "passTD")}</td><td style={tdStyle}>{value(stats, "passInt")}</td><td style={tdStyle}>{value(stats, "rushAtt")}</td><td style={tdStyle}>{value(stats, "rushYds")}</td><td style={tdStyle}>{value(stats, "rushTD")}</td><td style={tdStyle}>{value(stats, "receptions")}</td><td style={tdStyle}>{value(stats, "recYds")}</td><td style={tdStyle}>{value(stats, "recTD")}</td><td style={tdStyle}>{value(stats, "targets")}</td>
                 <td style={tdStyle}>{player.pos === "K" ? `${value(stats, "fgMade")}/${value(stats, "fgAtt")}` : "—"}</td><td style={tdStyle}>{player.pos === "K" ? `${value(stats, "xpMade")}/${value(stats, "xpAtt")}` : "—"}</td><td style={tdStyle}>{player.pos === "DST" ? value(stats, "sacks") : "—"}</td><td style={tdStyle}>{player.pos === "DST" ? value(stats, "defInt") : "—"}</td><td style={tdStyle}>{player.pos === "DST" ? value(stats, "fumblesRecovered") : "—"}</td><td style={tdStyle}>{player.pos === "DST" ? value(stats, "defTD") : "—"}</td><td style={tdStyle}>{player.pos === "DST" ? value(stats, "ptsAgainst") : "—"}</td>
-              </tr>;
+              </tr>
+              {selected && !isReadOnly && (
+                <tr>
+                  <td colSpan={28} style={{ padding: "0.65rem 0.85rem", background: "oklch(0.965 0.04 85)", borderBottom: "1px solid oklch(0.8 0.1 85)", textAlign: "left" }}>
+                    <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", letterSpacing: "0.05em", fontWeight: 800, color: "oklch(0.36 0.13 85)", marginBottom: "0.4rem" }}>ELIGIBLE PLAYERS TO SWAP WITH {player.name.toUpperCase()}</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.42rem" }}>
+                      {choices.map(candidate => (
+                        <button key={candidate.id} onClick={() => onInlineSwap(player, candidate)} style={{ display: "flex", alignItems: "center", gap: "0.35rem", border: "1px solid oklch(0.72 0.12 85)", background: "white", color: "oklch(0.23 0.07 150)", borderRadius: 6, padding: "0.36rem 0.56rem", cursor: "pointer", fontSize: "0.7rem", fontWeight: 800 }}>
+                          <span style={{ background: POS_COLORS[candidate.pos] || "oklch(0.5 0.04 150)", color: "white", borderRadius: 3, padding: "0.08rem 0.22rem", fontSize: "0.57rem" }}>{candidate.slot || candidate.pos}</span>
+                          {candidate.name}<span style={{ color: "oklch(0.55 0.13 85)" }}>· {candidate.proj.toFixed(1)} proj</span>
+                        </button>
+                      ))}
+                      {choices.length === 0 && <span style={{ fontSize: "0.76rem", color: "oklch(0.45 0.04 150)" }}>No eligible unlocked players are available for this swap.</span>}
+                    </div>
+                  </td>
+                </tr>
+              )}
+              </Fragment>;
             })}
           </tbody>
         </table>
@@ -688,7 +708,7 @@ export default function Lineup() {
 
   const handleTableSelect = (player: Player) => {
     if (isReadOnly) return;
-    const locked = !player.isBench && isPlayerLocked(player.nflTeam, matchupMap);
+    const locked = isPlayerLocked(player.nflTeam, matchupMap);
     if (locked) return;
     setSelectedId(current => current === player.id ? null : player.id);
   };
@@ -882,6 +902,8 @@ export default function Lineup() {
           isReadOnly={isReadOnly}
           onSelect={handleTableSelect}
           onPlayerClick={(player) => navigate(`/player/${encodeURIComponent(player.name)}`)}
+          getInlineChoices={(player) => getEligibleBench(player.slot ?? "").filter(candidate => !isPlayerLocked(candidate.nflTeam, matchupMap))}
+          onInlineSwap={(source, candidate) => doSwap(source.id, candidate.id)}
         />
         <LineupRosterTable
           title={`Bench · ${bench.length} players`}
@@ -894,10 +916,12 @@ export default function Lineup() {
           isReadOnly={isReadOnly}
           onSelect={handleTableSelect}
           onPlayerClick={(player) => navigate(`/player/${encodeURIComponent(player.name)}`)}
+          getInlineChoices={(player) => starters.filter(starter => getEligibleSlots(player).some(slot => slot.slot === starter.slot) && !isPlayerLocked(starter.nflTeam, matchupMap))}
+          onInlineSwap={(source, candidate) => doSwap(candidate.id, source.id)}
         />
 
         {!isReadOnly && (selectedStarter || selectedBench) && (
-          <section className="wrc-card" style={{ marginBottom: "1rem" }}>
+          <section className="wrc-card" style={{ marginBottom: "1rem", display: "none" }}>
             <div className="wrc-card-gold-stripe" />
             <div className="wrc-card-header">{selectedStarter ? `Swap ${selectedStarter.name}` : `Start ${selectedBench?.name}`}</div>
             <div style={{ padding: "0.75rem 1rem" }}>

@@ -137,6 +137,13 @@
 - [x] Reorder leading table columns to Swap, Slot, Player, Age, Bye, Opp, Game, FPTS, and FP/G.
 - [ ] Validate the reordered labeled headers and pinned controls on desktop and mobile.
 
+# Inline Lineup Swap Choices
+
+- [x] Expand eligible replacement players directly below the selected starter or bench row.
+- [x] Filter locked bench and starter players from inline swap selection and replacement choices.
+- [x] Preserve position and slot legality, player locks, and roster-save behavior in inline swaps.
+- [ ] Verify inline swap selection at desktop and mobile widths.
+
 # Homepage FantasyPros Roster Feeds
 
 - [ ] Match FantasyPros injury availability to every player on the logged-in owner’s roster.
