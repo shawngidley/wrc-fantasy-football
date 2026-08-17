@@ -14,8 +14,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { type NFLMatchupMap } from "@/hooks/useNFLMatchups";
 
-const RAPIDAPI_KEY = "7e46b980d9mshee27c75e8b169f3p17558bjsnc4344991f4d3";
-const RAPIDAPI_HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
+const TANK01_BASE_URL = "/api/tank01";
 const POLL_INTERVAL_MS = 30_000; // 30 seconds
 
 /** Map of lowercase player name → live WRC fantasy points */
@@ -154,13 +153,8 @@ export function useNFLLiveScores(
 
     for (const gameId of activeGameIds) {
       try {
-        const url = `https://${RAPIDAPI_HOST}/getNFLBoxScore?gameID=${gameId}&fantasyPoints=true&twoPointConversions=2&passYards=.04&passTD=4&passInterceptions=-3&pointsPerReception=1&carries=0&rushYards=.1&rushTD=6&fumbles=-3&receivingYards=.1&receivingTD=6&targets=0&defTD=6&fgMade=0&fgYards=.1&xpMade=1`;
-        const res = await fetch(url, {
-          headers: {
-            "x-rapidapi-key": RAPIDAPI_KEY,
-            "x-rapidapi-host": RAPIDAPI_HOST,
-          },
-        });
+        const url = `${TANK01_BASE_URL}/getNFLBoxScore?gameID=${gameId}&fantasyPoints=true&twoPointConversions=2&passYards=.04&passTD=4&passInterceptions=-3&pointsPerReception=1&carries=0&rushYards=.1&rushTD=6&fumbles=-3&receivingYards=.1&receivingTD=6&targets=0&defTD=6&fgMade=0&fgYards=.1&xpMade=1`;
+        const res = await fetch(url);
         if (!res.ok) continue;
         const data = await res.json();
         const body = data?.body ?? {};

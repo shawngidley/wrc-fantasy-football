@@ -205,3 +205,11 @@ The league owner confirmed that a normal owner PIN login, harmless Lineup save, 
 ## Full Player Names in Standings and News — 2026-08-14
 
 The shared news row now renders `item.playerName` without shortening the first name to an initial. Standings injuries use the roster’s canonical player name, and roster-specific FantasyPros news maps abbreviated source labels to the canonical roster name, including suffixes such as `Kenneth Walker III`. The dedicated News page now uses the resolved player record’s full name for ESPN, Tank01, and FantasyPros rows. Focused mapping tests and TypeScript validation pass; the full suite reports 20 files and 51 tests passing.
+
+## External Audit Containment — 2026-08-17
+
+The external review correctly identified an exposed Tank01 credential in the public client bundle. All nine browser integrations now call an allowlisted local server proxy, which stores the RapidAPI credential exclusively in the server environment. A production build contains neither the prior key, RapidAPI authorization headers, the Tank01 host, nor source-map files. The proxy returned current Tank01 news successfully (`200`) using the server secret.
+
+The app now sends a CSP compatible with its current fonts, analytics, Supabase, ESPN, and managed media hosts, along with `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, and a restrictive `Permissions-Policy`; Express disclosure is disabled. The build no longer produces source maps, and production static handling returns `404` for absent `.map` requests rather than the SPA shell.
+
+Login now applies a five-failure, 15-minute per-team/IP lockout. New and commissioner-reset PINs must be at least six digits and cannot use common, repeated, or simple sequential patterns. A secure database check confirmed that one or more teams retain a listed weak/default PIN; the commissioner explicitly chose to leave current owner PINs unchanged, so the control applies to future changes and login throttling rather than forcibly resetting existing credentials. The public team directory was repaired to return only redacted league display fields. Full regression, TypeScript, and production-build checks passed with 22 test files and 55 tests.

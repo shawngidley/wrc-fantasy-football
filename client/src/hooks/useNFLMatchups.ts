@@ -7,8 +7,7 @@
  */
 import { useState, useEffect } from "react";
 
-const RAPIDAPI_KEY = import.meta.env.VITE_TANK01_KEY || "7e46b980d9mshee27c75e8b169f3p17558bjsnc4344991f4d3";
-const RAPIDAPI_HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
+const TANK01_BASE_URL = "/api/tank01";
 
 export interface NFLMatchup {
   opponent: string;   // e.g. "KC"
@@ -69,13 +68,8 @@ export function useNFLMatchups(week: number, season = 2026): UseNFLMatchupsResul
         setLoading(true);
         setError(null);
 
-        const url = `https://${RAPIDAPI_HOST}/getNFLGamesForWeek?week=${week}&seasonType=Regular%20Season&season=${season}`;
-        const res = await fetch(url, {
-          headers: {
-            "x-rapidapi-key": RAPIDAPI_KEY,
-            "x-rapidapi-host": RAPIDAPI_HOST,
-          },
-        });
+        const url = `${TANK01_BASE_URL}/getNFLGamesForWeek?week=${week}&seasonType=Regular%20Season&season=${season}`;
+        const res = await fetch(url);
 
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();

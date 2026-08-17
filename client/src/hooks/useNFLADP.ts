@@ -5,8 +5,7 @@
  */
 import { useState, useEffect } from "react";
 
-const RAPIDAPI_KEY = "7e46b980d9mshee27c75e8b169f3p17558bjsnc4344991f4d3";
-const RAPIDAPI_HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
+const TANK01_BASE_URL = "/api/tank01";
 const CACHE_KEY = "wrc_nfl_adp_cache_v3";
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
@@ -33,12 +32,7 @@ export function useNFLADP() {
       }
     } catch {}
 
-    fetch(`https://${RAPIDAPI_HOST}/getNFLADP?adpType=PPR`, {
-      headers: {
-        "x-rapidapi-key": RAPIDAPI_KEY,
-        "x-rapidapi-host": RAPIDAPI_HOST,
-      },
-    })
+    fetch(`${TANK01_BASE_URL}/getNFLADP?adpType=PPR`)
       .then(r => r.json())
       .then(json => {
         // Tank01 response: { body: { adpDate, adpType, adpList: [...] } }

@@ -5,8 +5,7 @@
  */
 import { useState, useEffect } from "react";
 
-const RAPIDAPI_KEY = "7e46b980d9mshee27c75e8b169f3p17558bjsnc4344991f4d3";
-const RAPIDAPI_HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
+const TANK01_BASE_URL = "/api/tank01";
 const CACHE_KEY = "wrc_nfl_depth_charts_v1";
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
@@ -28,15 +27,7 @@ export interface DepthEntry {
 export type DepthChartMap = Map<string, { depthPosition: string; nflTeam: string }>;
 
 async function fetchDepthForTeam(teamAbv: string): Promise<{ team: string; positions: Record<string, DepthEntry[]> }> {
-  const res = await fetch(
-    `https://${RAPIDAPI_HOST}/getNFLDepthCharts?teamAbv=${teamAbv}`,
-    {
-      headers: {
-        "x-rapidapi-key": RAPIDAPI_KEY,
-        "x-rapidapi-host": RAPIDAPI_HOST,
-      },
-    }
-  );
+  const res = await fetch(`${TANK01_BASE_URL}/getNFLDepthCharts?teamAbv=${teamAbv}`);
   const json = await res.json();
   const body = Array.isArray(json.body) ? json.body : [];
   const depthChart = body[0]?.depthChart ?? {};

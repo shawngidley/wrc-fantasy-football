@@ -91,6 +91,22 @@
 - [ ] Verify full-name display in the Standings and News views with a logged-in feed session.
 - [x] Add focused display and canonical roster-name coverage for full player names.
 
+# External Security Audit Follow-Up
+
+- [x] Verify the reported Tank01 client-secret exposure against the live and current production bundles, then contain it in server-only code; rotate the existing key later when the RapidAPI account owner can do so.
+- [x] Verify reported default PINs, authentication rate-limit behavior, and server-side authorization coverage against the current deployment.
+- [x] Disable production source maps and add a compatible Content Security Policy, frame protection, and header hygiene.
+- [x] Review public league read endpoints and correct the broken public team-directory response.
+- [ ] Re-run a production security check and document which audit findings were confirmed, remediated, or superseded.
+
+# Approved Security Hardening
+
+- [x] Replace all nine Tank01 browser integrations with a server-side allowlisted proxy using the existing server secret; rotate the key later when the RapidAPI account owner can do so.
+- [x] Document the commissioner-approved exception to retain existing owner PINs, including the fact that one or more weak/default values remain until owners change them.
+- [x] Add server-side login rate limiting with a temporary lockout while retaining existing owner PINs.
+- [x] Add CSP, frame-ancestors, Referrer-Policy, Permissions-Policy, and remove Express disclosure.
+- [x] Prevent production source-map publication and verify the built client contains no source maps.
+
 # Homepage FantasyPros Roster Feeds
 
 - [ ] Match FantasyPros injury availability to every player on the logged-in owner’s roster.

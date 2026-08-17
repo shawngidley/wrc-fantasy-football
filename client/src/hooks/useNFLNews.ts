@@ -3,8 +3,7 @@
  * Returns array of news items sorted newest first, cached 15 minutes.
  */
 
-const RAPIDAPI_KEY = "7e46b980d9mshee27c75e8b169f3p17558bjsnc4344991f4d3";
-const RAPIDAPI_HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
+const TANK01_BASE_URL = "/api/tank01";
 const CACHE_KEY = "wrc_tank01_news_v1";
 const CACHE_TTL = 15 * 60 * 1000; // 15 minutes
 
@@ -26,15 +25,7 @@ export async function fetchTank01News(): Promise<Tank01NewsItem[]> {
   } catch {}
 
   try {
-    const res = await fetch(
-      `https://${RAPIDAPI_HOST}/getNFLNews?recentNews=true`,
-      {
-        headers: {
-          "x-rapidapi-key": RAPIDAPI_KEY,
-          "x-rapidapi-host": RAPIDAPI_HOST,
-        },
-      }
-    );
+    const res = await fetch(`${TANK01_BASE_URL}/getNFLNews?recentNews=true`);
     const json = await res.json();
     const items: Tank01NewsItem[] = Array.isArray(json.body) ? json.body : [];
     try {

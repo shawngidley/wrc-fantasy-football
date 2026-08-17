@@ -10,8 +10,7 @@
  */
 import { useState, useEffect } from "react";
 
-const RAPIDAPI_KEY = "7e46b980d9mshee27c75e8b169f3p17558bjsnc4344991f4d3";
-const RAPIDAPI_HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
+const TANK01_BASE_URL = "/api/tank01";
 
 /** Projected WRC fantasy points for a single player/DST */
 export interface ProjectionEntry {
@@ -122,13 +121,8 @@ export function useNFLProjections(week: number, season = 2026): UseNFLProjection
         setLoading(true);
         setError(null);
 
-        const url = `https://${RAPIDAPI_HOST}/getNFLProjections?week=${week}&season=${season}&seasonType=Regular%20Season`;
-        const res = await fetch(url, {
-          headers: {
-            "x-rapidapi-key":  RAPIDAPI_KEY,
-            "x-rapidapi-host": RAPIDAPI_HOST,
-          },
-        });
+        const url = `${TANK01_BASE_URL}/getNFLProjections?week=${week}&season=${season}&seasonType=Regular%20Season`;
+        const res = await fetch(url);
 
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = await res.json();

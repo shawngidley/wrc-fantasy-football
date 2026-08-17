@@ -6,13 +6,8 @@
 import { useState, useEffect } from "react";
 import { calcFantasyPoints } from "@/lib/scoringEngine";
 
-const RAPIDAPI_KEY = "7e46b980d9mshee27c75e8b169f3p17558bjsnc4344991f4d3";
-const RAPIDAPI_HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
-const BASE_URL = `https://${RAPIDAPI_HOST}`;
-const HEADERS = {
-  "x-rapidapi-host": RAPIDAPI_HOST,
-  "x-rapidapi-key": RAPIDAPI_KEY,
-};
+const BASE_URL = "/api/tank01";
+const HEADERS = {};
 const CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
 
 export interface GameLogEntry {

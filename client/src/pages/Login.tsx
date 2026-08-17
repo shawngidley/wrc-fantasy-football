@@ -62,8 +62,9 @@ export default function Login() {
       const team = await loginMutation.mutateAsync({ teamId: selectedId, pin });
       login({ ...team, team_name: team.name, owner_name: team.owner });
       navigate("/standings");
-    } catch {
-      setError("Incorrect PIN. Please try again.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Incorrect PIN. Please try again.";
+      setError(message.includes("PIN") || message.includes("attempt") ? message : "Incorrect PIN. Please try again.");
     } finally {
       setLoading(false);
     }

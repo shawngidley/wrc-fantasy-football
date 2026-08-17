@@ -18,6 +18,7 @@ import { validateProtectionSubmission } from "./protectionRules";
 import { DRAFT_PICKS_2026 } from "../client/src/lib/draftData2026";
 import { storagePut } from "./storage";
 import { finalizeWeeklyResultsFromTank } from "./weeklyResultsFinalize";
+import { assertLoginAllowed, assertStrongLeaguePin, clearLoginFailures, getClientIp, recordLoginFailure } from "./leagueLoginSecurity";
 
 const normalizePlayerKey = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
 const WRC_DRAFT_TIMER_SECONDS = 90;
@@ -72,10 +73,16 @@ export const appRouter = router({
   league: router({
     teams: publicProcedure.query(() => listPublicLeagueTeams()),
     login: publicProcedure
-      .input(z.object({ teamId: z.string().min(1), pin: z.string().min(1).max(8) }))
+      .input(z.object({ teamId: z.string().min(1), pin: z.string().min(1).max(12) }))
       .mutation(async ({ input, ctx }) => {
+        const ip = getClientIp(ctx.req.headers);
+        assertLoginAllowed(input.teamId, ip);
         const team = await verifyLeagueTeamPin(input.teamId, input.pin);
-        if (!team) throw new Error("Incorrect PIN. Please try again.");
+        if (!team) {
+          recordLoginFailure(input.teamId, ip);
+          throw new Error("Incorrect PIN. Please try again.");
+        }
+        clearLoginFailures(input.teamId, ip);
         await writeWrcTeamSession(ctx.res, ctx.req, { teamId: team.id, isCommissioner: team.is_commissioner });
         return team;
       }),
@@ -821,11 +828,21 @@ export const appRouter = router({
       return { logoUrl: data.logo_url ?? null, themeSongUrl: data.theme_song_url ?? null };
     }),
     publicTeams: publicProcedure.query(async () => {
-      const { data, error } = await supabaseAdmin.from("teams")
-        .select("id, name, owner, division, wins, losses, ties, points_for, points_against, logo_url")
-        .order("name");
-      if (error) throw new Error("Unable to load public team data.");
-      return data ?? [];
+      const teams = await listPublicLeagueTeams();
+      const { data: logos } = await supabaseAdmin.from("teams").select("id, logo_url");
+      const logoByTeamId = new Map((logos ?? []).map(row => [row.id, row.logo_url ?? null]));
+      return teams.map(team => ({
+        id: team.id,
+        name: team.name,
+        owner: team.owner,
+        division: team.division,
+        wins: team.wins,
+        losses: team.losses,
+        ties: team.ties,
+        points_for: team.points_for,
+        points_against: team.points_against,
+        logo_url: logoByTeamId.get(team.id) ?? null,
+      }));
     }),
     rosteredPlayers: publicProcedure.query(async () => {
       const { data, error } = await supabaseAdmin.from("players")
@@ -860,10 +877,11 @@ export const appRouter = router({
       return { teams: teams ?? [], protections: protections ?? [] };
     }),
     changeTeamPin: teamProcedure
-      .input(z.object({ currentPin: z.string().min(1).max(12), newPin: z.string().min(4).max(12) }))
+      .input(z.object({ currentPin: z.string().min(1).max(12), newPin: z.string().min(6).max(12) }))
       .mutation(async ({ input, ctx }) => {
         const verified = await verifyLeagueTeamPin(ctx.teamSession.teamId, input.currentPin);
         if (!verified) throw new Error("Current PIN is incorrect.");
+        assertStrongLeaguePin(input.newPin);
         const { error } = await supabaseAdmin.from("teams").update({ pin: input.newPin, pin_hash: input.newPin }).eq("id", ctx.teamSession.teamId);
         if (error) throw new Error("Unable to save the new PIN.");
         return { updated: true };
@@ -874,8 +892,9 @@ export const appRouter = router({
       return data ?? [];
     }),
     commissionerSetTeamPin: commissionerProcedure
-      .input(z.object({ teamId: z.string().min(1).max(128), newPin: z.string().min(4).max(12) }))
+      .input(z.object({ teamId: z.string().min(1).max(128), newPin: z.string().min(6).max(12) }))
       .mutation(async ({ input }) => {
+        assertStrongLeaguePin(input.newPin);
         const { data, error } = await supabaseAdmin.from("teams")
           .update({ pin: input.newPin, pin_hash: input.newPin })
           .eq("id", input.teamId)

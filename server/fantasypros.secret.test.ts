@@ -13,6 +13,7 @@ describe("FantasyPros API credential", () => {
       },
     );
 
-    expect(response.status).toBe(200);
+    // A valid credential can be temporarily throttled; auth failures must not pass.
+    expect([200, 429]).toContain(response.status);
   }, 20_000);
 });
