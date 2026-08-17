@@ -20,6 +20,8 @@ import { useLineupPersistence } from "@/hooks/useLineupPersistence";
 import { useNFLLiveScores, getLivePoints } from "@/hooks/useNFLLiveScores";
 import { useWeeklyResultsWriter } from "@/hooks/useWeeklyResultsWriter";
 import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } from "@/hooks/useNFLInjuries";
+import { useNFLSeasonStats } from "@/hooks/useNFLSeasonStats";
+import { formatSeasonStat, type PlayerSeasonStats } from "@/lib/playerSeasonStats";
 import { supabase } from "@/lib/supabase";
 
 const STARTER_SLOTS = [
@@ -316,6 +318,84 @@ function GameInfo({ nflTeam, matchupMap }: { nflTeam: string; matchupMap: NFLMat
   );
 }
 
+function LineupIdentity({ player, meta }: { player: Player; meta?: { age?: string; headshot?: string } }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const initials = player.name.split(" ").map(part => part[0]).slice(0, 2).join("");
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", minWidth: 0 }}>
+      {meta?.headshot && !imageFailed ? (
+        <img src={meta.headshot} alt="" onError={() => setImageFailed(true)} style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", background: "oklch(0.9 0.01 150)" }} />
+      ) : (
+        <span style={{ display: "grid", placeItems: "center", width: 28, height: 28, borderRadius: "50%", background: POS_COLORS[player.pos] || "oklch(0.45 0.04 150)", color: "white", fontSize: "0.55rem", fontWeight: 800, flexShrink: 0 }}>{initials}</span>
+      )}
+      <div style={{ minWidth: 0 }}>
+        <div style={{ color: "oklch(0.2 0.09 250)", fontWeight: 800, fontSize: "0.78rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{player.name}</div>
+        <div style={{ fontSize: "0.62rem", color: "oklch(0.48 0.05 150)", fontWeight: 700 }}>{player.pos} · {player.nflTeam}{player.pos === "TE" ? " · 1.5×" : ""}</div>
+      </div>
+    </div>
+  );
+}
+
+function LineupRosterTable({
+  title, players, statMap, metaMap, matchupMap, injuries, selectedId, isReadOnly, onSelect, onPlayerClick,
+}: {
+  title: string;
+  players: Player[];
+  statMap: Record<string, PlayerSeasonStats>;
+  metaMap: Record<string, { age?: string; headshot?: string }>;
+  matchupMap: NFLMatchupMap;
+  injuries: unknown;
+  selectedId: string | null;
+  isReadOnly: boolean;
+  onSelect: (player: Player) => void;
+  onPlayerClick: (player: Player) => void;
+}) {
+  const thStyle = { padding: "0.4rem 0.42rem", background: "oklch(0.98 0.006 150)", color: "oklch(0.28 0.08 150)", borderBottom: "1px solid oklch(0.84 0.02 150)", textAlign: "center" as const, fontSize: "0.58rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, letterSpacing: "0.05em", whiteSpace: "nowrap" as const };
+  const groupStyle = { ...thStyle, background: "oklch(0.94 0.025 150)", color: "oklch(0.34 0.08 150)", fontSize: "0.6rem" };
+  const tdStyle = { padding: "0.47rem 0.42rem", borderBottom: "1px solid oklch(0.92 0.008 150)", textAlign: "center" as const, color: "oklch(0.28 0.05 150)", fontSize: "0.72rem", fontVariantNumeric: "tabular-nums" as const, whiteSpace: "nowrap" as const };
+  const value = (stats: PlayerSeasonStats | undefined, key: keyof PlayerSeasonStats, decimals = 0) => stats ? formatSeasonStat(stats[key], decimals) : "—";
+
+  return (
+    <section className="wrc-card" style={{ marginBottom: "1rem", overflow: "hidden" }}>
+      <div className="wrc-card-gold-stripe" />
+      <div className="wrc-card-header">{title}<span style={{ marginLeft: "auto", fontSize: "0.68rem", color: "oklch(0.58 0.04 150)", fontWeight: 600 }}>Swipe table for full season detail</span></div>
+      <div style={{ overflowX: "auto", overscrollBehaviorX: "contain", WebkitOverflowScrolling: "touch" }}>
+        <table style={{ minWidth: 1390, width: "100%", borderCollapse: "separate", borderSpacing: 0, background: "white" }}>
+          <thead>
+            <tr>
+              <th rowSpan={2} style={{ ...groupStyle, position: "sticky", left: 0, zIndex: 4, minWidth: 52 }}>SLOT</th>
+              <th rowSpan={2} style={{ ...groupStyle, position: "sticky", left: 52, zIndex: 4, minWidth: 190, textAlign: "left" }}>PLAYER</th>
+              <th colSpan={6} style={groupStyle}>WEEKLY DECISION</th><th colSpan={3} style={groupStyle}>PASS</th><th colSpan={3} style={groupStyle}>RUSH</th><th colSpan={4} style={groupStyle}>REC</th><th colSpan={6} style={groupStyle}>K / D-ST</th><th colSpan={3} style={groupStyle}>FANTASY</th><th rowSpan={2} style={groupStyle}>ACTION</th>
+            </tr>
+            <tr>{["AGE", "OPP", "GAME", "PTS", "PROJ", "BYE", "YDS", "TD", "INT", "ATT", "YDS", "TD", "REC", "YDS", "TD", "TGT", "FGM/A", "XPM/A", "SACK", "D INT", "FR", "D TD", "GP", "FPTS", "FP/G"].map((label, index) => <th key={`${label}-${index}`} style={thStyle}>{label}</th>)}</tr>
+          </thead>
+          <tbody>
+            {players.map((player, index) => {
+              const stats = statMap[player.name.toLowerCase()];
+              const meta = metaMap[player.name.toLowerCase()];
+              const matchup = matchupMap[player.nflTeam];
+              const injury = getInjuryDesignation(injuries as never, player.name);
+              const injuryColor = injury ? getInjuryColor(injury) : null;
+              const selected = selectedId === player.id;
+              const locked = !player.isBench && isPlayerLocked(player.nflTeam, matchupMap);
+              const rowBg = selected ? "oklch(0.96 0.06 85)" : locked ? "oklch(0.98 0.012 25)" : index % 2 ? "oklch(0.99 0.003 150)" : "white";
+              return <tr key={player.id} style={{ background: rowBg }}>
+                <td style={{ ...tdStyle, position: "sticky", left: 0, zIndex: 2, background: rowBg }}><button onClick={() => onSelect(player)} disabled={isReadOnly || locked} style={{ border: 0, borderRadius: 4, minWidth: 38, padding: "0.2rem", background: POS_COLORS[player.pos] || "oklch(0.5 0.04 150)", color: "white", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.63rem", cursor: isReadOnly || locked ? "default" : "pointer", opacity: isReadOnly || locked ? 0.55 : 1 }}>{locked ? <Lock size={11} aria-label="Locked" /> : player.slot ?? "BN"}</button></td>
+                <td onClick={() => onPlayerClick(player)} style={{ ...tdStyle, position: "sticky", left: 52, zIndex: 2, minWidth: 190, textAlign: "left", cursor: "pointer", background: rowBg }}><LineupIdentity player={player} meta={meta} /></td>
+                <td style={tdStyle}>{meta?.age || "—"}</td><td style={tdStyle}>{matchup ? `${matchup.isHome ? "vs" : "@"} ${matchup.opponent}` : "BYE"}</td><td style={{ ...tdStyle, maxWidth: 86, overflow: "hidden", textOverflow: "ellipsis" }}>{matchup ? formatGameTime(matchup).replace(" ET", "") : "—"}</td><td style={{ ...tdStyle, color: "oklch(0.52 0.16 25)", fontWeight: 800 }}>{player.pts.toFixed(1)}</td><td style={{ ...tdStyle, fontWeight: 800 }}>{player.proj.toFixed(1)}</td><td style={tdStyle}>{player.byeWeek ?? "—"}</td>
+                <td style={tdStyle}>{value(stats, "passYds")}</td><td style={tdStyle}>{value(stats, "passTD")}</td><td style={tdStyle}>{value(stats, "passInt")}</td><td style={tdStyle}>{value(stats, "rushAtt")}</td><td style={tdStyle}>{value(stats, "rushYds")}</td><td style={tdStyle}>{value(stats, "rushTD")}</td><td style={tdStyle}>{value(stats, "receptions")}</td><td style={tdStyle}>{value(stats, "recYds")}</td><td style={tdStyle}>{value(stats, "recTD")}</td><td style={tdStyle}>{value(stats, "targets")}</td>
+                <td style={tdStyle}>{player.pos === "K" ? `${value(stats, "fgMade")}/${value(stats, "fgAtt")}` : "—"}</td><td style={tdStyle}>{player.pos === "K" ? `${value(stats, "xpMade")}/${value(stats, "xpAtt")}` : "—"}</td><td style={tdStyle}>{player.pos === "DST" ? value(stats, "sacks") : "—"}</td><td style={tdStyle}>{player.pos === "DST" ? value(stats, "defInt") : "—"}</td><td style={tdStyle}>{player.pos === "DST" ? value(stats, "fumblesRecovered") : "—"}</td><td style={tdStyle}>{player.pos === "DST" ? value(stats, "defTD") : "—"}</td>
+                <td style={tdStyle}>{value(stats, "gp")}</td><td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(stats, "wrcPts", 1)}</td><td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(stats, "ptsPerGame", 1)}</td>
+                <td style={tdStyle}><button onClick={() => onSelect(player)} disabled={isReadOnly || locked} style={{ border: "1px solid oklch(0.74 0.12 85)", borderRadius: 4, padding: "0.18rem 0.42rem", background: selected ? "oklch(0.52 0.16 85)" : "white", color: selected ? "white" : "oklch(0.35 0.12 85)", fontSize: "0.6rem", fontWeight: 800, cursor: isReadOnly || locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>{isReadOnly ? "VIEW" : locked ? "LOCKED" : selected ? "SELECTED" : "SWAP"}</button>{injuryColor && <div style={{ marginTop: 3, fontSize: "0.55rem", color: injuryColor.text, fontWeight: 800 }}>{getInjuryLabel(injury!)}</div>}</td>
+              </tr>;
+            })}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
 // ── Convert real roster to Lineup Player shape ────────────────────────────────
 function buildRealRoster(teamName: string | undefined): { starters: Player[]; bench: Player[] } {
   const team = TEAMS.find(t => t.teamName === teamName);
@@ -457,6 +537,14 @@ export default function Lineup() {
 
   const [starters, setStarters] = useState<Player[]>(initialStarters);
   const [bench, setBench] = useState<Player[]>(initialBench);
+  const lineupSeasonPlayers = useMemo(
+    () => [...starters, ...bench].map(player => ({ name: player.name, pos: player.pos })),
+    [starters, bench],
+  );
+  const { statMap: lineupStatMap, playerMetaMap: lineupMetaMap } = useNFLSeasonStats(
+    lineupSeasonPlayers,
+    Boolean(viewTeamName) && !draftLoading,
+  );
 
   // Refs to always have latest starters/bench in effects without stale closures
   const benchRef = useRef<Player[]>([]);
@@ -596,6 +684,16 @@ export default function Lineup() {
     setBench(nb);
     setSelectedId(null);
   };
+
+  const handleTableSelect = (player: Player) => {
+    if (isReadOnly) return;
+    const locked = !player.isBench && isPlayerLocked(player.nflTeam, matchupMap);
+    if (locked) return;
+    setSelectedId(current => current === player.id ? null : player.id);
+  };
+
+  const selectedStarter = starters.find(player => player.id === selectedId);
+  const selectedBench = bench.find(player => player.id === selectedId);
 
   const handleSave = async () => {
     // Build rows for all starters and bench players
@@ -771,8 +869,61 @@ export default function Lineup() {
           </div>
         </div>
 
-        {/* ── STARTERS ── */}
-        <div className="wrc-card" style={{ marginBottom: "1.25rem" }}>
+        {/* ── TABLE-FIRST STARTERS + BENCH ── */}
+        <LineupRosterTable
+          title={`Starting Lineup · ${totalPts.toFixed(1)} pts · Proj ${totalProj.toFixed(1)}`}
+          players={starters}
+          statMap={lineupStatMap}
+          metaMap={lineupMetaMap}
+          matchupMap={matchupMap}
+          injuries={injuries}
+          selectedId={selectedId}
+          isReadOnly={isReadOnly}
+          onSelect={handleTableSelect}
+          onPlayerClick={(player) => navigate(`/player/${encodeURIComponent(player.name)}`)}
+        />
+        <LineupRosterTable
+          title={`Bench · ${bench.length} players`}
+          players={bench}
+          statMap={lineupStatMap}
+          metaMap={lineupMetaMap}
+          matchupMap={matchupMap}
+          injuries={injuries}
+          selectedId={selectedId}
+          isReadOnly={isReadOnly}
+          onSelect={handleTableSelect}
+          onPlayerClick={(player) => navigate(`/player/${encodeURIComponent(player.name)}`)}
+        />
+
+        {!isReadOnly && (selectedStarter || selectedBench) && (
+          <section className="wrc-card" style={{ marginBottom: "1rem" }}>
+            <div className="wrc-card-gold-stripe" />
+            <div className="wrc-card-header">{selectedStarter ? `Swap ${selectedStarter.name}` : `Start ${selectedBench?.name}`}</div>
+            <div style={{ padding: "0.75rem 1rem" }}>
+              {selectedStarter ? (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+                  {getEligibleBench(selectedStarter.slot ?? "").map(player => (
+                    <button key={player.id} onClick={() => doSwap(selectedStarter.id, player.id)} style={{ border: "1px solid oklch(0.78 0.1 85)", background: "white", color: "oklch(0.25 0.08 150)", borderRadius: 7, padding: "0.45rem 0.7rem", cursor: "pointer", fontWeight: 700 }}>{player.name} <span style={{ color: "oklch(0.55 0.13 85)" }}>· {player.proj.toFixed(1)} proj</span></button>
+                  ))}
+                  {getEligibleBench(selectedStarter.slot ?? "").length === 0 && <span style={{ color: "oklch(0.52 0.04 150)", fontSize: "0.8rem" }}>No eligible bench players for this slot.</span>}
+                </div>
+              ) : selectedBench ? (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+                  {getEligibleSlots(selectedBench).filter(slot => {
+                    const currentStarter = starters.find(player => player.slot === slot.slot);
+                    return !currentStarter || !isPlayerLocked(currentStarter.nflTeam, matchupMap);
+                  }).map(slot => {
+                    const currentStarter = starters.find(player => player.slot === slot.slot);
+                    return currentStarter ? <button key={slot.slot} onClick={() => doSwap(currentStarter.id, selectedBench.id)} style={{ border: "1px solid oklch(0.78 0.1 85)", background: "white", color: "oklch(0.25 0.08 150)", borderRadius: 7, padding: "0.45rem 0.7rem", cursor: "pointer", fontWeight: 700 }}>{slot.slot}: {currentStarter.name}</button> : null;
+                  })}
+                </div>
+              ) : null}
+            </div>
+          </section>
+        )}
+
+        {/* Legacy row views are retained only as interaction fallback during this table rollout. */}
+        <div className="wrc-card" style={{ marginBottom: "1.25rem", display: "none" }}>
           <div className="wrc-card-gold-stripe" />
           <div className="wrc-card-header">
             Starting Lineup
@@ -924,7 +1075,7 @@ export default function Lineup() {
         </div>
 
         {/* ── BENCH ── */}
-        <div className="wrc-card">
+        <div className="wrc-card" style={{ display: "none" }}>
           <div className="wrc-card-gold-stripe" />
           <div className="wrc-card-header">
             Bench

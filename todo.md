@@ -115,6 +115,22 @@
 - [ ] Fix the crash while preserving production security headers and server-only Tank01 access.
 - [ ] Verify the repaired production site on a mobile viewport.
 
+# Lineup Roster-Table Reference Proposal
+
+- [x] Compare the current Lineup view with the supplied comprehensive roster-table reference.
+- [x] Define the player identity, matchup, fantasy-point, and position-stat columns suitable for WRC scoring.
+- [x] Define desktop and mobile table behavior, including pinned identity fields and horizontal scrolling.
+- [x] Present the proposed Lineup update for approval before implementation.
+
+# Approved WRC Lineup Table
+
+- [x] Build a reusable roster table with visible grouped and column-level headers.
+- [x] Add pinned slot/player identity, matchup, decision, weekly-point, and position-stat columns.
+- [x] Retain legal swaps, player locks, player-card navigation, and lineup saves in table rows.
+- [x] Add mobile horizontal scrolling with pinned player identity cells.
+- [x] Add position-aware K and D/ST detail columns plus visible locked-row treatment.
+- [ ] Verify desktop and mobile table layout with populated roster data.
+
 # Homepage FantasyPros Roster Feeds
 
 - [ ] Match FantasyPros injury availability to every player on the logged-in owner’s roster.
