@@ -4,9 +4,10 @@
  * and limit concurrency to protect the API and keep the browser responsive.
  */
 import { useEffect, useMemo, useState } from "react";
-import { fetchNFLTeams, fetchPlayerByName } from "@/hooks/useTank01Player";
+import { fetchPlayerByName } from "@/hooks/useTank01Player";
 import { normalizeNFLTeamCode } from "@/lib/nflTeamCodes";
-import { normalizeTankSeasonStats, normalizeTankTeamSeasonStats, type PlayerSeasonStats } from "@/lib/playerSeasonStats";
+import { DST_SEASON_STATS_2025 } from "@/lib/dstSeasonStats2025";
+import { normalizeCompletedDstSeasonStats, normalizeTankSeasonStats, type PlayerSeasonStats } from "@/lib/playerSeasonStats";
 
 export interface SeasonStatsPlayerInput {
   name: string;
@@ -14,7 +15,7 @@ export interface SeasonStatsPlayerInput {
   nflTeam?: string;
 }
 
-const CACHE_PREFIX = "wrc_tank01_season_stats_v6_";
+const CACHE_PREFIX = "wrc_tank01_season_stats_v7_";
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const CONCURRENCY = 4;
 
@@ -86,12 +87,12 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
 
     async function loadDstStats() {
       if (!dstPlayers.length) return;
-      const teams = await fetchNFLTeams(true);
       if (cancelled) return;
       for (const player of dstPlayers) {
-        const team = teams.find(candidate => normalizeNFLTeamCode(candidate.teamAbv) === normalizeNFLTeamCode(player.nflTeam ?? ""));
-        if (!team) continue;
-        const stats = normalizeTankTeamSeasonStats(team);
+        const teamCode = normalizeNFLTeamCode(player.nflTeam ?? "");
+        const completedSeason = DST_SEASON_STATS_2025[teamCode];
+        if (!completedSeason) continue;
+        const stats = normalizeCompletedDstSeasonStats(completedSeason);
         cacheSet(player.name, { stats });
         next[player.name.toLowerCase()] = stats;
         setStatMap({ ...next });

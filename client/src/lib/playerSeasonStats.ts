@@ -5,6 +5,7 @@
  * the Player Card and Free Agents stats view.
  */
 import { calcFantasyPoints, type Tank01Stats } from "@/lib/scoringEngine";
+import type { CompletedDstSeasonStats } from "@/lib/dstSeasonStats2025";
 
 export interface Tank01TeamSeasonStats {
   teamAbv: string;
@@ -165,6 +166,45 @@ export function normalizeTankTeamSeasonStats(team: Tank01TeamSeasonStats): Playe
     fumblesLost: 0,
     wrcPts,
     ptsPerGame: gamesPlayed > 0 ? Math.round((wrcPts / gamesPlayed) * 10) / 10 : 0,
+  };
+}
+
+/**
+ * Converts a completed, reconciled D/ST season into the Lineup table shape.
+ * This avoids Tank01's ambiguous team-level fumblesRecovered aggregate.
+ */
+export function normalizeCompletedDstSeasonStats(source: CompletedDstSeasonStats): PlayerSeasonStats {
+  const wrcPts = calcFantasyPoints({
+    gamesPlayed: source.games,
+    Defense: {
+      sacks: source.sacks,
+      defensiveInterceptions: source.defInt,
+      fumblesRecovered: source.fumblesRecovered,
+      defTD: source.dstTD,
+      safeties: source.safeties,
+    },
+  }, "DST");
+
+  return {
+    gp: source.games,
+    passCmp: 0, passAtt: 0, passYds: 0, passTD: 0, passInt: 0, passRating: 0,
+    rushAtt: 0, rushYds: 0, rushTD: 0,
+    receptions: 0, targets: 0, recYds: 0, recTD: 0,
+    fgMade: 0, fgAtt: 0, fgYds: 0, fgMade1To39: 0, fgMade40To49: 0, fgMade50To59: 0, fgMade60Plus: 0,
+    xpMade: 0, xpAtt: 0,
+    sacks: source.sacks,
+    defInt: source.defInt,
+    fumblesRecovered: source.fumblesRecovered,
+    takeaways: source.takeaways,
+    defTD: source.dstTD,
+    dstTD: source.dstTD,
+    returnTD: 0,
+    safeties: source.safeties,
+    blockKicks: 0,
+    ptsAgainst: source.ptsAgainst,
+    fumblesLost: 0,
+    wrcPts,
+    ptsPerGame: Math.round((wrcPts / source.games) * 10) / 10,
   };
 }
 

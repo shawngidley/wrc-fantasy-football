@@ -233,6 +233,15 @@
 - [x] Calculate TA as defensive interceptions plus fumble recoveries.
 - [x] Verify the scoring-focused totals in standard and inline candidate D/ST rows.
 
+# League-Wide 2025 D/ST Stat Accuracy Audit
+
+- [x] Identify why the current D/ST team-stat source is returning incorrect completed-season values.
+- [x] Reconcile 2025 SK, SFT, TA, and TDDST totals for all 32 NFL teams against an authoritative completed-season source.
+- [x] Replace the incorrect D/ST mapping with the reconciled 2025 team totals.
+- [x] Add all-team regression coverage and verify Tampa Bay (23 TA, 1 SFT) and Green Bay (14 TA) in the Lineup table.
+- [x] Render and inspect Tampa Bay’s corrected SFT 1 and TA 23 in the D/ST Lineup table.
+- [x] Render and inspect Green Bay’s corrected TA 14 in the D/ST Lineup table.
+
 # Position-Specific Lineup Panels
 
 - [x] Group all QB/RB/WR/TE lineup players into one SFLEX panel.
