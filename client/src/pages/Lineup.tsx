@@ -400,7 +400,7 @@ function LineupRosterTable({
                 : locked
                   ? "oklch(0.98 0.012 25)"
                   : player.isBench
-                    ? "oklch(0.965 0.012 150)"
+                    ? "oklch(0.91 0.025 85)"
                     : "white";
               const choices = selected && !isReadOnly ? getInlineChoices(player) : [];
               return <Fragment key={player.id}><tr style={{ background: rowBg }}>

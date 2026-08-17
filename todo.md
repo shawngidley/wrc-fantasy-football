@@ -177,6 +177,11 @@
 - [x] Apply subtle shading to bench rows while preserving selected, candidate, and locked states.
 - [ ] Verify bench-row shading on desktop and mobile.
 
+# High-Contrast Bench Row Refinement
+
+- [ ] Increase the bench background, border, and pinned-cell contrast until bench rows are visibly distinct from clear starters.
+- [ ] Verify the strengthened bench treatment on the live Lineup page.
+
 # Homepage FantasyPros Roster Feeds
 
 - [ ] Match FantasyPros injury availability to every player on the logged-in owner’s roster.
