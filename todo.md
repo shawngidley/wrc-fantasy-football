@@ -163,6 +163,13 @@
 - [ ] Make an expanded candidate row directly selectable to complete the legal swap.
 - [ ] Verify full-row candidate expansion on desktop and mobile.
 
+# Streamlined Lineup Swap Controls
+
+- [x] Remove the dedicated Swap column from all lineup panels.
+- [x] Make the Slot cell the direct trigger for eligible inline player changes.
+- [x] Narrow the Player column to eliminate unused right-side padding.
+- [ ] Verify Slot-triggered swaps and compact Player width on desktop and mobile.
+
 # Position-Specific Lineup Panels
 
 - [x] Group all QB/RB/WR/TE lineup players into one SFLEX panel.
