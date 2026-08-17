@@ -144,6 +144,13 @@
 - [x] Preserve position and slot legality, player locks, and roster-save behavior in inline swaps.
 - [ ] Verify inline swap selection at desktop and mobile widths.
 
+# Inline Swap Live Failure Recovery
+
+- [ ] Reproduce the reported live inline-swap failure with an authenticated lineup.
+- [ ] Confirm whether stable selected-row identity corrects the live expansion path or add targeted instrumentation if it does not.
+- [ ] Verify that roster refreshes do not collapse selected inline swap choices after the stable-name change.
+- [ ] Verify a live starter and bench inline swap end-to-end.
+
 # Homepage FantasyPros Roster Feeds
 
 - [ ] Match FantasyPros injury availability to every player on the logged-in owner’s roster.

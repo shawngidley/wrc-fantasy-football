@@ -379,7 +379,7 @@ function LineupRosterTable({
               const matchup = matchupMap[player.nflTeam];
               const injury = getInjuryDesignation(injuries as never, player.name);
               const injuryColor = injury ? getInjuryColor(injury) : null;
-              const selected = selectedId === player.id;
+              const selected = selectedId === player.name.toLowerCase();
               const locked = isPlayerLocked(player.nflTeam, matchupMap);
               const rowBg = selected ? "oklch(0.96 0.06 85)" : locked ? "oklch(0.98 0.012 25)" : index % 2 ? "oklch(0.99 0.003 150)" : "white";
               const choices = selected && !isReadOnly ? getInlineChoices(player) : [];
@@ -710,11 +710,12 @@ export default function Lineup() {
     if (isReadOnly) return;
     const locked = isPlayerLocked(player.nflTeam, matchupMap);
     if (locked) return;
-    setSelectedId(current => current === player.id ? null : player.id);
+    const playerKey = player.name.toLowerCase();
+    setSelectedId(current => current === playerKey ? null : playerKey);
   };
 
-  const selectedStarter = starters.find(player => player.id === selectedId);
-  const selectedBench = bench.find(player => player.id === selectedId);
+  const selectedStarter = starters.find(player => player.name.toLowerCase() === selectedId);
+  const selectedBench = bench.find(player => player.name.toLowerCase() === selectedId);
 
   const handleSave = async () => {
     // Build rows for all starters and bench players
@@ -957,7 +958,7 @@ export default function Lineup() {
 
           {STARTER_SLOTS.map(({ slot, label }) => {
             const player    = starters.find(p => p.slot === slot);
-            const isSelected = selectedId === player?.id;
+            const isSelected = selectedId === player?.name.toLowerCase();
             const eligibleBench = getEligibleBench(slot);
             // Per-player lock: this starter is locked if their game has started
             const playerLocked = player ? isPlayerLocked(player.nflTeam, matchupMap) : false;
@@ -1108,7 +1109,7 @@ export default function Lineup() {
           </div>
 
           {bench.map((player) => {
-            const isSelected    = selectedId === player.id;
+            const isSelected    = selectedId === player.name.toLowerCase();
             // For bench: eligible slots that are NOT yet locked (starter's game hasn't started)
             const eligibleSlots = getEligibleSlots(player).filter(slotDef => {
               const currentStarter = starters.find(s => s.slot === slotDef.slot);
