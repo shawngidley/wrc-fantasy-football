@@ -16,6 +16,7 @@ import { trpc } from "@/lib/trpc";
 import { NFL_PLAYERS_2026 } from "@/lib/nflPlayers2026";
 import { filterFantasyPositionNews, filterNewsBySource, inferFantasyProsPlayerName, isEligibleFantasyNewsPosition, type NewsSourceFilter } from "@/lib/newsSourceFilter";
 import { getFantasyProsFeedState, retainLastSuccessfulItems } from "@/lib/fantasyProsFeedState";
+import { filterNewsToRecentWindow } from "@/lib/newsCoverage";
 
 // ── ESPN types ────────────────────────────────────────────────────────────────
 interface ESPNArticle {
@@ -176,7 +177,7 @@ export default function PlayerNews() {
 
   useEffect(() => { fetchNews(); }, [fetchNews]);
 
-  const fantasyProsItems = useMemo<PlayerNewsItem[]>(() => {
+  const allFantasyProsItems = useMemo<PlayerNewsItem[]>(() => {
     const injuryKeywords = ["injured","injury","questionable","doubtful","out","ir","placed on","ruled out","limited","missed","surgery","knee","hamstring","ankle","shoulder","concussion","rib","back","wrist","hip","illness"];
     const sourceItems = myTeamOnly && fantasyProsRosterNews.data?.length
       ? fantasyProsRosterNews.data
@@ -202,6 +203,11 @@ export default function PlayerNews() {
       };
     }).filter((item): item is PlayerNewsItem => item !== null);
   }, [fantasyProsNews.data, fantasyProsRosterNews.data, myPlayers, myTeamOnly]);
+
+  const fantasyProsItems = useMemo(
+    () => filterNewsToRecentWindow(allFantasyProsItems),
+    [allFantasyProsItems],
+  );
 
   useEffect(() => {
     if (fantasyProsItems.length > 0) lastSuccessfulFantasyProsItems.current = fantasyProsItems;
@@ -335,7 +341,7 @@ export default function PlayerNews() {
               NFL PLAYER NEWS
             </span>
             <span style={{ fontSize: "0.7rem", color: "oklch(0.55 0.04 150)" }}>
-            {isSourceLoading ? "Loading…" : `${posFiltered.length} articles`}
+            {isSourceLoading ? "Loading…" : sourceFilter === "FANTASYPROS" ? `${posFiltered.length} articles · Last 7 days` : `${posFiltered.length} articles`}
             </span>
           </div>
 

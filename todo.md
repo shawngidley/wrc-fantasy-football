@@ -111,7 +111,7 @@
 # Production Mobile Subscription Crash
 
 - [ ] Reproduce the mobile production subscription-loop crash and capture the exact failing request or subscription.
-- [ ] Verify whether Supabase realtime WebSocket connections are blocked by production CSP before treating that as the root cause.
+- [x] Verify whether Supabase realtime WebSocket connections are blocked by production CSP before treating that as the root cause.
 - [ ] Fix the crash while preserving production security headers and server-only Tank01 access.
 - [ ] Verify the repaired production site on a mobile viewport.
 
@@ -525,8 +525,8 @@
 # Seven-Day FantasyPros News Coverage
 
 - [x] Determine the FantasyPros API pagination or date parameters needed to retrieve a full seven-day window.
-- [ ] Retrieve and display all eligible QB, RB, WR, TE, and K FantasyPros updates from the last seven days.
-- [ ] Label and verify the seven-day article count and chronological coverage on the News page.
+- [x] Retrieve and display all eligible QB, RB, WR, TE, and K FantasyPros updates from the last seven days.
+- [x] Label and verify the seven-day article count and chronological coverage on the News page.
 
 # News and Standings FantasyPros Retrieval Alignment
 
