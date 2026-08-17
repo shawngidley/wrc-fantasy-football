@@ -9,6 +9,10 @@ export async function releasePostDeadlinePlayers(req: Request, res: Response): P
       res.status(403).json({ error: "cron-only" });
       return;
     }
+    if (new Date().getUTCFullYear() !== 2026) {
+      res.json({ ok: true, skipped: "outside-2026-protection-cycle" });
+      return;
+    }
     res.json({ ok: true, ...(await releaseUnprotectedPlayers()) });
   } catch (error) {
     res.status(500).json({
