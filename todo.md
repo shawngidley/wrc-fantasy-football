@@ -108,6 +108,13 @@
 - [x] Prevent production source-map publication and verify the built client contains no source maps.
 - [x] Restrict future owner and commissioner PIN changes to non-trivial six-to-twelve digit numeric PINs.
 
+# Production Mobile Subscription Crash
+
+- [ ] Reproduce the mobile production subscription-loop crash and capture the exact failing request or subscription.
+- [ ] Verify whether Supabase realtime WebSocket connections are blocked by production CSP before treating that as the root cause.
+- [ ] Fix the crash while preserving production security headers and server-only Tank01 access.
+- [ ] Verify the repaired production site on a mobile viewport.
+
 # Homepage FantasyPros Roster Feeds
 
 - [ ] Match FantasyPros injury availability to every player on the logged-in owner’s roster.

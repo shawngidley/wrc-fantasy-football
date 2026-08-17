@@ -43,7 +43,7 @@ async function startServer() {
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "img-src 'self' data: blob: https:",
       "font-src 'self' data: https://fonts.gstatic.com",
-      "connect-src 'self' https://*.supabase.co https://site.api.espn.com https://manus-analytics.com",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://site.api.espn.com https://manus-analytics.com",
       "media-src 'self' blob: https:",
       "frame-ancestors 'none'",
       "form-action 'self'",
