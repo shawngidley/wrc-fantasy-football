@@ -242,6 +242,20 @@
 - [x] Render and inspect Tampa Bay’s corrected SFT 1 and TA 23 in the D/ST Lineup table.
 - [x] Render and inspect Green Bay’s corrected TA 14 in the D/ST Lineup table.
 
+# League-Wide WRC FPTS Accuracy Audit
+
+- [x] Trace every Lineup FPTS field from provider response through WRC scoring calculation.
+- [x] Reconcile QB, RB, WR, TE, K, and D/ST provider fields against WRC scoring rules.
+- [x] Correct any scoring-rule or provider-field mismatch and add representative regression coverage.
+- [x] Verify corrected Lineup FPTS values for every position before publishing.
+- [x] Capture raw Tank01 season fields and independently reconcile representative QB, WR, and TE Lineup FPTS.
+- [x] Compare rendered QB, RB, WR, TE, K, and D/ST Lineup FPTS and FP/G values with their completed WRC calculations.
+- [x] Independently calculate Cleveland and Chargers D/ST FPTS and FP/G from reconciled 2025 totals and compare them to their rendered Lineup rows.
+
+# Deterministic FantasyPros Adapter Regression
+
+- [x] Replace the rate-limit-sensitive live adapter test with deterministic mocked response coverage.
+
 # Position-Specific Lineup Panels
 
 - [x] Group all QB/RB/WR/TE lineup players into one SFLEX panel.

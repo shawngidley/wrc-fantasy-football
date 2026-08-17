@@ -75,6 +75,9 @@ export interface Tank01Stats {
     blockKick?: string | number;
     ptsAgainst?: string | number;
   };
+  Fumbles?: {
+    fumblesLost?: string | number;
+  };
   gamesPlayed?: string | number;
   teamID?: string;
   team?: string;
@@ -128,9 +131,11 @@ export function calcFantasyPoints(
   }
 
   // ── Fumbles lost (offense) ───────────────────────────────────────────────
-  if (stats.Defense) {
-    pts += n(stats.Defense.fumblesLost) * -3;
-  }
+  const fumblesLost = n(stats.Fumbles?.fumblesLost ?? stats.Defense?.fumblesLost);
+  pts += fumblesLost * -3;
+
+  // Individual return touchdowns score for non-D/ST players under WRC rules.
+  if (pos !== "DST") pts += n(stats.Defense?.returnTD) * 6;
 
   // ── Kicking ──────────────────────────────────────────────────────────────
   if (stats.Kicking) {
@@ -145,12 +150,11 @@ export function calcFantasyPoints(
     const xpMissed = xpAtt - xpMade;
     pts += xpMissed * -2;
 
-    // FG yardage scoring (0.1/yd) — if fgYds is available
+    // FG yardage scoring (0.1/yd) — only when an actual yardage aggregate is present.
+    // Tank01's season player response commonly returns 0 here, so never estimate
+    // a made-kick distance. Exact completed-season kicker totals use play-by-play.
     if (fgYds > 0) {
       pts += fgYds * 0.1;
-    } else if (fgMade > 0) {
-      // Estimate: assume average FG distance of ~38 yards when no yardage data
-      pts += fgMade * 38 * 0.1;
     }
 
     // FG misses ≤49 yd penalty: Tank01 doesn't give per-attempt distances,
@@ -165,10 +169,13 @@ export function calcFantasyPoints(
     pts += n(d.sacks) * 2;
     pts += n(d.defensiveInterceptions) * 3;
     pts += n(d.fumblesRecovered) * 3;
-    pts += n(d.defTD) * 6;
+    const dstTouchdowns = d.defensiveOrSpecialTeamsTds !== undefined
+      ? n(d.defensiveOrSpecialTeamsTds)
+      : n(d.defTD) + n(d.returnTD);
+    pts += dstTouchdowns * 6;
     pts += n(d.safeties) * 2;
     // Reset fumbles lost penalty for DST (doesn't apply)
-    pts -= n(d.fumblesLost) * -3; // undo the offense fumble penalty applied above
+    pts += fumblesLost * 3; // undo the offense fumble penalty applied above
   }
 
   return Math.round(pts * 10) / 10;

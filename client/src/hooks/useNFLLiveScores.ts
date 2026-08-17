@@ -14,6 +14,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { type NFLMatchupMap } from "@/hooks/useNFLMatchups";
 import { calculateWrcKickerPoints, getKickerEventsForPlayer, parseEspnKickerEvents, type KickerPlayEvent } from "@/lib/espnKickerEvents";
+import { calcFantasyPoints, type Tank01Stats } from "@/lib/scoringEngine";
 
 const TANK01_BASE_URL = "/api/tank01";
 const POLL_INTERVAL_MS = 30_000; // 30 seconds
@@ -42,59 +43,12 @@ function normalizeAbv(abv: string): string {
   return (map[lo] ?? lo).toUpperCase();
 }
 
-// ── WRC scoring rules (mirrors scoringEngine.ts) ──────────────────────────────
 function calcWRCLive(stats: Record<string, unknown>, pos: string): number {
-  let pts = 0;
-  const n = (v: unknown) => parseFloat((v as string) ?? "0") || 0;
-
-  // Passing
-  const pass = (stats.Passing as Record<string, string>) ?? {};
-  pts += n(pass.passYds) * 0.04;
-  pts += n(pass.passTD)  * 4;
-  pts -= n(pass.int)     * 3;
-  pts += n(pass.passingTwoPointConversion ?? stats.twoPointConversion) * 1;
-
-  // Rushing
-  const rush = (stats.Rushing as Record<string, string>) ?? {};
-  pts += n(rush.rushYds) * 0.1;
-  pts += n(rush.rushTD)  * 6;
-  pts += n(rush.rushingTwoPointConversion) * 2;
-
-  // Receiving — TE gets 1.5x PPR
-  const rec = (stats.Receiving as Record<string, string>) ?? {};
-  pts += pos === "TE" ? n(rec.receptions) * 1.5 : n(rec.receptions) * 1.0;
-  pts += n(rec.recYds) * 0.1;
-  pts += n(rec.recTD)  * 6;
-  pts += n(rec.receivingTwoPointConversion) * 2;
-
-  // Fumbles
-  pts -= n((stats.Defense as Record<string, string>)?.fumblesLost) * 3;
-
-  return Math.round(pts * 10) / 10;
+  return calcFantasyPoints(stats as Tank01Stats, pos);
 }
 
 function calcDSTLive(d: Record<string, string>): number {
-  let pts = 0;
-  const n = (v: string | undefined) => parseFloat(v ?? "0") || 0;
-  pts += n(d.sacks)            * 2;
-  pts += n(d.defensiveInterceptions) * 3;
-  pts += n(d.fumblesRecovered) * 3;
-  pts += n(d.defTD)            * 6;
-  pts += n(d.returnTD)         * 6;
-  pts += n(d.safeties)         * 2;
-  pts += n(d.blockKick)        * 2;
-
-  // Points allowed scoring (standard fantasy)
-  const pa = n(d.ptsAgainst);
-  if (pa === 0)       pts += 10;
-  else if (pa <= 6)   pts += 7;
-  else if (pa <= 13)  pts += 4;
-  else if (pa <= 17)  pts += 1;
-  else if (pa <= 27)  pts += 0;
-  else if (pa <= 34)  pts -= 1;
-  else                pts -= 4;
-
-  return Math.round(pts * 10) / 10;
+  return calcFantasyPoints({ Defense: d }, "DST");
 }
 
 /**

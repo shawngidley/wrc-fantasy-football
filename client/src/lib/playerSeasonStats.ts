@@ -6,6 +6,7 @@
  */
 import { calcFantasyPoints, type Tank01Stats } from "@/lib/scoringEngine";
 import type { CompletedDstSeasonStats } from "@/lib/dstSeasonStats2025";
+import type { CompletedKickerSeasonStats } from "@/lib/kickerSeasonStats2025";
 
 export interface Tank01TeamSeasonStats {
   teamAbv: string;
@@ -205,6 +206,22 @@ export function normalizeCompletedDstSeasonStats(source: CompletedDstSeasonStats
     fumblesLost: 0,
     wrcPts,
     ptsPerGame: Math.round((wrcPts / source.games) * 10) / 10,
+  };
+}
+
+/** Converts exact event-derived completed kicker totals into the Lineup stat shape. */
+export function normalizeCompletedKickerSeasonStats(source: CompletedKickerSeasonStats): PlayerSeasonStats {
+  return {
+    gp: source.games,
+    passCmp: 0, passAtt: 0, passYds: 0, passTD: 0, passInt: 0, passRating: 0,
+    rushAtt: 0, rushYds: 0, rushTD: 0,
+    receptions: 0, targets: 0, recYds: 0, recTD: 0,
+    fgMade: source.fgm, fgAtt: source.fga, fgYds: 0, fgMade1To39: 0, fgMade40To49: 0, fgMade50To59: 0, fgMade60Plus: 0,
+    xpMade: source.xpm, xpAtt: source.xpa,
+    sacks: 0, defInt: 0, fumblesRecovered: 0, takeaways: 0, defTD: 0, dstTD: 0, returnTD: 0, safeties: 0, blockKicks: 0, ptsAgainst: 0,
+    fumblesLost: 0,
+    wrcPts: source.wrcPts,
+    ptsPerGame: Math.round((source.wrcPts / source.games) * 10) / 10,
   };
 }
 

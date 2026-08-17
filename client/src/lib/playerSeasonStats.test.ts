@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { normalizeCompletedDstSeasonStats, normalizeTankTeamSeasonStats } from "./playerSeasonStats";
+import { normalizeCompletedDstSeasonStats, normalizeCompletedKickerSeasonStats, normalizeTankTeamSeasonStats } from "./playerSeasonStats";
 import { DST_SEASON_STATS_2025 } from "./dstSeasonStats2025";
+import { getCompletedKickerSeasonStats } from "./kickerSeasonStats2025";
 
 describe("normalizeTankTeamSeasonStats", () => {
   it("maps Tank01 team-defense totals into the D/ST Lineup stat row", () => {
@@ -69,5 +70,15 @@ describe("normalizeCompletedDstSeasonStats", () => {
 
     expect(totals).toEqual({ sacks: 1287, safeties: 12, takeaways: 629, dstTD: 67 });
     expect(Object.values(DST_SEASON_STATS_2025).every(team => team.games === 17 && team.takeaways === team.defInt + team.fumblesRecovered)).toBe(true);
+  });
+});
+
+describe("normalizeCompletedKickerSeasonStats", () => {
+  it("uses exact made- and missed-kick scoring rather than Tank01's unavailable FG yard aggregate", () => {
+    const aubrey = normalizeCompletedKickerSeasonStats(getCompletedKickerSeasonStats("Brandon Aubrey")!);
+    const borregales = normalizeCompletedKickerSeasonStats(getCompletedKickerSeasonStats("Andres Borregales")!);
+
+    expect(aubrey).toMatchObject({ gp: 17, fgMade: 36, fgAtt: 42, xpMade: 47, xpAtt: 48, wrcPts: 195.4, ptsPerGame: 11.5 });
+    expect(borregales).toMatchObject({ gp: 17, fgMade: 27, fgAtt: 32, xpMade: 53, xpAtt: 55, wrcPts: 135.8 });
   });
 });

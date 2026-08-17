@@ -7,7 +7,8 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchPlayerByName } from "@/hooks/useTank01Player";
 import { normalizeNFLTeamCode } from "@/lib/nflTeamCodes";
 import { DST_SEASON_STATS_2025 } from "@/lib/dstSeasonStats2025";
-import { normalizeCompletedDstSeasonStats, normalizeTankSeasonStats, type PlayerSeasonStats } from "@/lib/playerSeasonStats";
+import { getCompletedKickerSeasonStats } from "@/lib/kickerSeasonStats2025";
+import { normalizeCompletedDstSeasonStats, normalizeCompletedKickerSeasonStats, normalizeTankSeasonStats, type PlayerSeasonStats } from "@/lib/playerSeasonStats";
 
 export interface SeasonStatsPlayerInput {
   name: string;
@@ -15,7 +16,7 @@ export interface SeasonStatsPlayerInput {
   nflTeam?: string;
 }
 
-const CACHE_PREFIX = "wrc_tank01_season_stats_v7_";
+const CACHE_PREFIX = "wrc_tank01_season_stats_v8_";
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const CONCURRENCY = 4;
 
@@ -100,13 +101,28 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
       }
     }
 
+    async function loadExactKickerStats() {
+      for (const player of individualPlayers) {
+        const completedSeason = player.pos === "K" ? getCompletedKickerSeasonStats(player.name) : undefined;
+        if (!completedSeason) continue;
+        const stats = normalizeCompletedKickerSeasonStats(completedSeason);
+        cacheSet(player.name, { stats });
+        next[player.name.toLowerCase()] = stats;
+        setStatMap({ ...next });
+        setLoadedCount(Object.keys(next).length);
+      }
+    }
+
     async function worker() {
       while (!cancelled && individualPlayers.length) {
         const player = individualPlayers.shift();
         if (!player) return;
         const tankPlayer = await fetchPlayerByName(player.name);
         if (cancelled) return;
-        const stats = normalizeTankSeasonStats(tankPlayer?.stats, player.pos);
+        const exactKickerSeason = player.pos === "K" ? getCompletedKickerSeasonStats(player.name) : undefined;
+        const stats = exactKickerSeason
+          ? next[player.name.toLowerCase()] ?? normalizeCompletedKickerSeasonStats(exactKickerSeason)
+          : normalizeTankSeasonStats(tankPlayer?.stats, player.pos);
         const meta = { age: tankPlayer?.age, headshot: tankPlayer?.espnHeadshot };
         cacheSet(player.name, { stats, ...meta });
         next[player.name.toLowerCase()] = stats;
@@ -119,6 +135,7 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
 
     void Promise.all([
       loadDstStats(),
+      loadExactKickerStats(),
       ...Array.from({ length: Math.min(CONCURRENCY, individualPlayers.length) }, () => worker()),
     ])
       .finally(() => {
