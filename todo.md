@@ -187,7 +187,7 @@
 - [x] Show the updated deadline consistently on the Protections and Settings pages.
 - [x] Implement an idempotent release of unprotected players and server-side protection enforcement for draft picks.
 - [x] Schedule the one-time 9:00 PM ET post-deadline release task for August 25.
-- [ ] Verify deadline messaging and post-deadline player availability.
+- [x] Verify deadline messaging and post-deadline player availability.
 
 # Mobile Slot Controls and D/ST Logos
 
