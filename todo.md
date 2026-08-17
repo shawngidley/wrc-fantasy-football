@@ -269,14 +269,14 @@
 
 # Player Card FantasyPros Outlook
 
-- [ ] Extract the latest player-specific FantasyPros impact context.
-- [ ] Render a concise FantasyPros Outlook blurb on Player Cards.
-- [ ] Verify an outlook is shown only when a player has matched FantasyPros context.
+- [x] Extract the latest player-specific FantasyPros impact context.
+- [x] Render a concise FantasyPros Outlook blurb on Player Cards.
+- [x] Verify an outlook is shown only when a player has matched FantasyPros context.
 
 # Player Card Outlook Placement
 
-- [ ] Place the conditional FantasyPros Outlook directly below the Insights strip.
-- [ ] Verify the ownership card remains below the Outlook when it is available.
+- [x] Place the conditional FantasyPros Outlook directly below the Insights strip.
+- [x] Verify the ownership card remains below the Outlook when it is available.
 
 # Player Card Outlook Visibility
 
@@ -286,9 +286,9 @@
 
 # Player Card ECR and Outlook Revision
 
-- [ ] Remove the duplicate FantasyPros ECR badge from the player header.
-- [ ] Build the Outlook from the available FantasyPros news or injury context.
-- [ ] Verify the revised Player Card hierarchy with a player who has an active injury update.
+- [x] Remove the duplicate FantasyPros ECR badge from the player header.
+- [x] Build the Outlook from the available FantasyPros news or injury context.
+- [x] Verify the revised Player Card hierarchy with a player who has an active injury update.
 
 # Reliable Player Card Outlook
 

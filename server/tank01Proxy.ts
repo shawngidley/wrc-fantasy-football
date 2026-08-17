@@ -1,6 +1,7 @@
 import type { Request, Response } from "express";
 
 const TANK01_HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
+const TANK01_TIMEOUT_MS = 15_000;
 const ALLOWED_ENDPOINTS = new Set([
   "getNFLPlayerInfo",
   "getNFLTeams",
@@ -40,12 +41,14 @@ export async function proxyTank01Request(req: Request, res: Response) {
   try {
     const upstream = await fetch(`https://${TANK01_HOST}/${endpoint}?${query.toString()}`, {
       headers: { "x-rapidapi-key": apiKey, "x-rapidapi-host": TANK01_HOST },
+      signal: AbortSignal.timeout(TANK01_TIMEOUT_MS),
     });
     const contentType = upstream.headers.get("content-type") || "application/json";
     const body = await upstream.text();
     res.status(upstream.status).type(contentType).send(body);
   } catch (error) {
     console.error("Tank01 proxy request failed", error);
-    res.status(502).json({ error: "Tank01 data is temporarily unavailable" });
+    const timedOut = error instanceof Error && (error.name === "TimeoutError" || error.name === "AbortError");
+    res.status(timedOut ? 504 : 502).json({ error: timedOut ? "Tank01 data request timed out" : "Tank01 data is temporarily unavailable" });
   }
 }
