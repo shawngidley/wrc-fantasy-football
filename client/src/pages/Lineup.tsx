@@ -23,6 +23,7 @@ import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } 
 import { useNFLSeasonStats } from "@/hooks/useNFLSeasonStats";
 import { formatSeasonStat, type PlayerSeasonStats } from "@/lib/playerSeasonStats";
 import { fetchTeamSchedule } from "@/hooks/useNFLTeamSchedule";
+import { NFL_PLAYERS_2026 } from "@/lib/nflPlayers2026";
 import { supabase } from "@/lib/supabase";
 
 const STARTER_SLOTS = [
@@ -582,7 +583,9 @@ export default function Lineup() {
     if (!viewTeamName) return null;
     const players = rostersByTeam[viewTeamName];
     if (!players || players.length === 0) return null;
-    const allPlayers: Player[] = players.map((rp) => ({
+    const allPlayers: Player[] = players.map((rp) => {
+      const staticPlayer = NFL_PLAYERS_2026.find(candidate => lineupPlayerKey(candidate.name) === lineupPlayerKey(rp.name));
+      return ({
       id: rp.id,
       name: rp.name,
       pos: rp.pos,
@@ -590,11 +593,12 @@ export default function Lineup() {
       pts: 0,
       proj: 0,   // filled in below once projections arrive
       status: "Active",
-      byeWeek: byeWeeksByTeam[normalizeNFLTeam(rp.nflTeam)] ?? rp.byeWeek ?? undefined,
+      byeWeek: byeWeeksByTeam[normalizeNFLTeam(rp.nflTeam)] ?? staticPlayer?.bye ?? rp.byeWeek ?? undefined,
       seasonFpts: undefined,
       seasonStats: undefined,
       isBench: false,
-    }));
+    });
+    });
     const pool = [...allPlayers];
     const starters: Player[] = [];
     for (const slotDef of STARTER_SLOTS) {

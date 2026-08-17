@@ -200,6 +200,11 @@
 - [x] Replace unavailable kicker distance-bucket placeholders with source-supported populated kicking statistics.
 - [ ] Verify Bye weeks and every displayed K stat value on the live Lineup page.
 
+# Live Bye Week Display Regression
+
+- [ ] Capture the actual Tank01 schedule payload and determine why the derived Bye week is missing in rendered rows.
+- [ ] Correct the live Bye-week data path and verify populated values for multiple NFL teams.
+
 # Homepage FantasyPros Roster Feeds
 
 - [ ] Match FantasyPros injury availability to every player on the logged-in owner’s roster.
