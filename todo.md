@@ -168,6 +168,13 @@
 - [ ] Surface selected-player and eligible-candidate state in the Lineup UI when Swap is tapped.
 - [ ] Use the captured state to correct the actual live expansion failure and remove temporary diagnostics.
 
+# Slot-Only Lineup Change Control
+
+- [x] Restrict eligible lineup-change expansion to the position/Slot control only.
+- [x] Ensure clicking the rest of a Lineup row cannot open replacement choices.
+- [x] Preserve player-card navigation and verify Slot-only swap interaction.
+- [x] Add click-level coverage proving only Slot controls invoke lineup change callbacks while Player cells retain Player Card navigation.
+
 # Full-Row Inline Swap Candidates
 
 - [ ] Render each eligible swap candidate as a complete roster-table row beneath the selected player.
