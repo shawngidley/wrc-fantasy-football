@@ -134,13 +134,13 @@
 - [x] Retain legal swaps, player locks, player-card navigation, and lineup saves in table rows.
 - [x] Add mobile horizontal scrolling with pinned player identity cells.
 - [x] Add position-aware K and D/ST detail columns plus visible locked-row treatment.
-- [ ] Verify desktop and mobile table layout with populated roster data.
+- [x] Verify desktop and mobile table layout with populated roster data.
 
 # Lineup Table Width and Column Order Refinement
 
 - [x] Expand the lineup table panel to the available page width.
 - [x] Reorder leading table columns to Swap, Slot, Player, Age, Bye, Opp, Game, FPTS, and FP/G.
-- [ ] Validate the reordered labeled headers and pinned controls on desktop and mobile.
+- [x] Validate the reordered labeled headers and pinned controls on desktop and mobile.
 
 # Inline Lineup Swap Choices
 
@@ -201,24 +201,24 @@
 - [x] Render K players in a separate kicking panel with kicking-first stats.
 - [x] Render D/ST players in a separate defense panel with defense-first stats.
 - [x] Preserve position-appropriate headers, full-row candidate swaps, locks, and lineup saves in every panel.
-- [ ] Verify grouped panels on desktop and mobile.
+- [x] Verify grouped panels on desktop and mobile.
 
 # Lineup Starter Row Shading
 
 - [x] Keep starting rows clear across SFLEX, K, and D/ST panels.
 - [x] Apply subtle shading to bench rows while preserving selected, candidate, and locked states.
-- [ ] Verify bench-row shading on desktop and mobile.
+- [x] Verify bench-row shading on desktop and mobile.
 
 # High-Contrast Bench Row Refinement
 
-- [ ] Increase the bench background, border, and pinned-cell contrast until bench rows are visibly distinct from clear starters.
-- [ ] Verify the strengthened bench treatment on the live Lineup page.
+- [x] Increase the bench background, border, and pinned-cell contrast until bench rows are visibly distinct from clear starters.
+- [x] Verify the strengthened bench treatment on the live Lineup page.
 
 # Requested SFLEX Stat Order
 
 - [x] Reorder SFLEX decision and stat columns to Age, Bye, Opp, Game, FPTS, FP/G, Proj, Pass YDS/TD/INT, Rush ATT/YDS/TD, Rec TGT/REC/YDS/TD, and TO.
 - [x] Keep grouped headers and full-row inline swap candidates aligned with the reordered SFLEX columns.
-- [ ] Verify the requested SFLEX stat order on the live Lineup page.
+- [x] Verify the requested SFLEX stat order on the live Lineup page.
 
 # Requested Kicker Stat Order
 
