@@ -42,7 +42,9 @@ export interface PlayerSeasonStats {
   sacks: number;
   defInt: number;
   fumblesRecovered: number;
+  takeaways: number;
   defTD: number;
+  dstTD: number;
   returnTD: number;
   safeties: number;
   blockKicks: number;
@@ -81,6 +83,10 @@ export function normalizeTankSeasonStats(stats: Tank01Stats | undefined, pos: st
     return undefined;
   };
   const defense = stats?.Defense ?? {};
+  const defInt = num(defense.defensiveInterceptions);
+  const fumblesRecovered = num(defense.fumblesRecovered);
+  const defTD = num(defense.defTD);
+  const returnTD = num(defense.returnTD);
   const gp = num(stats?.gamesPlayed);
   const wrcPts = stats ? calcFantasyPoints(stats, pos) : 0;
 
@@ -109,10 +115,12 @@ export function normalizeTankSeasonStats(stats: Tank01Stats | undefined, pos: st
     xpMade: num(kicking.xpMade),
     xpAtt: num(kicking.xpAttempts),
     sacks: num(defense.sacks),
-    defInt: num(defense.defensiveInterceptions),
-    fumblesRecovered: num(defense.fumblesRecovered),
-    defTD: num(defense.defTD),
-    returnTD: num(defense.returnTD),
+    defInt,
+    fumblesRecovered,
+    takeaways: defInt + fumblesRecovered,
+    defTD,
+    dstTD: num(defense.defensiveOrSpecialTeamsTds) || defTD + returnTD,
+    returnTD,
     safeties: num(defense.safeties),
     blockKicks: num(defense.blockKick),
     ptsAgainst: num(defense.ptsAgainst),
@@ -152,7 +160,7 @@ export function normalizeTankTeamSeasonStats(team: Tank01TeamSeasonStats): Playe
     receptions: 0, targets: 0, recYds: 0, recTD: 0,
     fgMade: 0, fgAtt: 0, fgYds: 0, fgMade1To39: 0, fgMade40To49: 0, fgMade50To59: 0, fgMade60Plus: 0,
     xpMade: 0, xpAtt: 0,
-    sacks, defInt, fumblesRecovered, defTD, returnTD, safeties, blockKicks,
+    sacks, defInt, fumblesRecovered, takeaways: defInt + fumblesRecovered, defTD, dstTD: defTD + returnTD, returnTD, safeties, blockKicks,
     ptsAgainst: num(team.pa ?? defense.ptsAgainst),
     fumblesLost: 0,
     wrcPts,

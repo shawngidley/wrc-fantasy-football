@@ -14,7 +14,7 @@ export interface SeasonStatsPlayerInput {
   nflTeam?: string;
 }
 
-const CACHE_PREFIX = "wrc_tank01_season_stats_v5_";
+const CACHE_PREFIX = "wrc_tank01_season_stats_v6_";
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const CONCURRENCY = 4;
 

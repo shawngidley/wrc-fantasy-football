@@ -68,6 +68,7 @@ export interface Tank01Stats {
     defensiveInterceptions?: string | number;
     fumblesRecovered?: string | number;
     defTD?: string | number;
+    defensiveOrSpecialTeamsTds?: string | number;
     safeties?: string | number;
     fumblesLost?: string | number;
     returnTD?: string | number;

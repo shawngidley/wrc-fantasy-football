@@ -265,3 +265,11 @@ Tank01’s `getNFLTeams?teamStats=true` response was probed through the secured 
 ## D/ST Fantasy Column Simplification — 2026-08-17
 
 The D/ST table now omits the redundant in-week `PTS` and points-allowed `PA` columns in both standard and inline-candidate rows. Its remaining Fantasy sequence is FPTS, FP/G, and Proj, followed by Sack, D INT, FR, and D TD. Tank01 resets preseason standings to 0–0 while retaining completed team defense totals; when this occurs, the D/ST normalizer safely uses the completed 17-game season to calculate FP/G. A direct rendered-cell check confirmed the Giants row headers omit PTS and PA and display `154.0` FPTS with calculated `9.1` FP/G, followed by `8.3` projection, 38 sacks, 9 interceptions, 11 recoveries, and 3 D/ST touchdowns.
+
+## Published D/ST Lineup Verification — 2026-08-17
+
+The production route `https://wrcfantasyfootball.com/lineup/team-davids` was opened in a fresh browser session. It served deployed bundle `index-CWSVF-NV.js`, and its rendered D/ST header sequence was exactly `AGE, BYE, OPP, GAME, FPTS, FP/G, PROJ, SACK, D INT, FR, D TD`; neither PTS nor PA is present. After the live data requests completed, direct DOM inspection confirmed the New York Giants row displayed `154.0` FPTS, calculated `9.1` FP/G, `8.3` projection, 38 sacks, 9 interceptions, 11 recoveries, and 3 defensive touchdowns. No production deployment mismatch remained.
+
+## WRC D/ST Scoring Columns — 2026-08-17
+
+The revised local D/ST header rendered the requested `SK, SFT, TA, TDDST` labels. The initial view correctly retained prior cached totals for FPTS and FP/G but did not contain the newly derived safety, takeaway, and D/ST-touchdown fields, so the stat-cache schema was advanced before final validation. A refreshed browser read then confirmed the Giants row rendered `SK 38`, `SFT —` (zero), `TA 20`, and `TDDST 3`. The takeaway calculation is 9 defensive interceptions plus 11 fumble recoveries, and TDDST represents all recorded defensive/special-teams touchdowns. A focused server-rendered Lineup table regression test opens the D/ST inline-candidate branch and confirms both the selected row and candidate row use the same requested headers and 38/20/3 scoring totals. The focused candidate and stat-normalization suite passed three tests, and TypeScript validation passed.

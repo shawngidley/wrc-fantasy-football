@@ -221,6 +221,18 @@
 - [x] Compute and display D/ST FP/G from season fantasy points and games played.
 - [x] Verify the streamlined D/ST columns with populated team totals.
 
+# Published D/ST Lineup Verification
+
+- [x] Compare production and development Lineup assets after the reported missing D/ST change.
+- [x] Resolve any public deployment or cache mismatch.
+- [x] Confirm the live Lineup shows the streamlined D/ST columns and computed FP/G.
+
+# WRC D/ST Scoring Columns
+
+- [x] Replace D/ST detail headers with SK, SFT, TA, and TDDST.
+- [x] Calculate TA as defensive interceptions plus fumble recoveries.
+- [x] Verify the scoring-focused totals in standard and inline candidate D/ST rows.
+
 # Position-Specific Lineup Panels
 
 - [x] Group all QB/RB/WR/TE lineup players into one SFLEX panel.
