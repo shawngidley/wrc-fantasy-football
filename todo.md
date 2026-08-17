@@ -131,6 +131,12 @@
 - [x] Add position-aware K and D/ST detail columns plus visible locked-row treatment.
 - [ ] Verify desktop and mobile table layout with populated roster data.
 
+# Lineup Table Width and Column Order Refinement
+
+- [x] Expand the lineup table panel to the available page width.
+- [x] Reorder leading table columns to Swap, Slot, Player, Age, Bye, Opp, Game, FPTS, and FP/G.
+- [ ] Validate the reordered labeled headers and pinned controls on desktop and mobile.
+
 # Homepage FantasyPros Roster Feeds
 
 - [ ] Match FantasyPros injury availability to every player on the logged-in owner’s roster.
