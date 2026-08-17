@@ -205,6 +205,11 @@
 - [ ] Capture the actual Tank01 schedule payload and determine why the derived Bye week is missing in rendered rows.
 - [ ] Correct the live Bye-week data path and verify populated values for multiple NFL teams.
 
+# Kicker Stat Loading Crash
+
+- [x] Guard every kicker season-stat and percentage cell against undefined loading data.
+- [ ] Verify the Lineup page renders before, during, and after K season-stat loading.
+
 # Homepage FantasyPros Roster Feeds
 
 - [ ] Match FantasyPros injury availability to every player on the logged-in owner’s roster.
