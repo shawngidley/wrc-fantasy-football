@@ -42,9 +42,14 @@ export interface Tank01TeamInfo {
   teamID: string;
   teamCity: string;
   teamName: string;
+  wins?: string;
+  loss?: string;
+  tie?: string;
+  pa?: string;
   espnLogo1: string;
   nflComLogo1: string;
   byeWeeks: Record<string, string[]>;
+  teamStats?: Tank01Stats;
 }
 
 // ── Session cache ────────────────────────────────────────────────────────────
@@ -122,13 +127,14 @@ export async function fetchPlayerByName(name: string): Promise<Tank01Player | nu
 }
 
 // ── Fetch all NFL teams (for logos, bye weeks) ───────────────────────────────
-export async function fetchNFLTeams(): Promise<Tank01TeamInfo[]> {
-  const cacheKey = "nfl_teams";
+export async function fetchNFLTeams(includeTeamStats = false): Promise<Tank01TeamInfo[]> {
+  const cacheKey = includeTeamStats ? "nfl_teams_with_stats" : "nfl_teams";
   const cached = cacheGet<Tank01TeamInfo[]>(cacheKey);
   if (cached) return cached;
 
   try {
-    const res = await fetch(`${BASE_URL}/getNFLTeams`, { headers: HEADERS });
+    const query = includeTeamStats ? "?teamStats=true" : "";
+    const res = await fetch(`${BASE_URL}/getNFLTeams${query}`, { headers: HEADERS });
     if (!res.ok) return [];
     const json = await res.json();
     const teams: Tank01TeamInfo[] = (json.body ?? []).map((team: Tank01TeamInfo) => ({

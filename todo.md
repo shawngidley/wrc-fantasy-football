@@ -209,6 +209,12 @@
 - [x] Increase desktop Lineup table type sizing without regressing mobile density or horizontal scrolling.
 - [x] Verify the desktop Lineup refinement with populated roster data.
 
+# Lineup Player Names and D/ST Stats
+
+- [x] Widen the pinned Player column so full Lineup names are readable on desktop.
+- [x] Diagnose why D/ST season-stat values are not resolving in the Lineup table.
+- [x] Correct the D/ST stat mapping and verify the displayed defense totals.
+
 # Position-Specific Lineup Panels
 
 - [x] Group all QB/RB/WR/TE lineup players into one SFLEX panel.

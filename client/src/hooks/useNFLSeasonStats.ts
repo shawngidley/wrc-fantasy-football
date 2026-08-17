@@ -4,15 +4,17 @@
  * and limit concurrency to protect the API and keep the browser responsive.
  */
 import { useEffect, useMemo, useState } from "react";
-import { fetchPlayerByName } from "@/hooks/useTank01Player";
-import { normalizeTankSeasonStats, type PlayerSeasonStats } from "@/lib/playerSeasonStats";
+import { fetchNFLTeams, fetchPlayerByName } from "@/hooks/useTank01Player";
+import { normalizeNFLTeamCode } from "@/lib/nflTeamCodes";
+import { normalizeTankSeasonStats, normalizeTankTeamSeasonStats, type PlayerSeasonStats } from "@/lib/playerSeasonStats";
 
 export interface SeasonStatsPlayerInput {
   name: string;
   pos: string;
+  nflTeam?: string;
 }
 
-const CACHE_PREFIX = "wrc_tank01_season_stats_v2_";
+const CACHE_PREFIX = "wrc_tank01_season_stats_v4_";
 const CACHE_TTL_MS = 30 * 60 * 1000;
 const CONCURRENCY = 4;
 
@@ -79,10 +81,27 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
     setPlayerMetaMap(nextMeta);
     setLoadedCount(Object.keys(next).length);
     setLoading(uncached.length > 0);
+    const dstPlayers = uncached.filter(player => player.pos === "DST" && player.nflTeam);
+    const individualPlayers = uncached.filter(player => player.pos !== "DST" || !player.nflTeam);
+
+    async function loadDstStats() {
+      if (!dstPlayers.length) return;
+      const teams = await fetchNFLTeams(true);
+      if (cancelled) return;
+      for (const player of dstPlayers) {
+        const team = teams.find(candidate => normalizeNFLTeamCode(candidate.teamAbv) === normalizeNFLTeamCode(player.nflTeam ?? ""));
+        if (!team) continue;
+        const stats = normalizeTankTeamSeasonStats(team);
+        cacheSet(player.name, { stats });
+        next[player.name.toLowerCase()] = stats;
+        setStatMap({ ...next });
+        setLoadedCount(Object.keys(next).length);
+      }
+    }
 
     async function worker() {
-      while (!cancelled && uncached.length) {
-        const player = uncached.shift();
+      while (!cancelled && individualPlayers.length) {
+        const player = individualPlayers.shift();
         if (!player) return;
         const tankPlayer = await fetchPlayerByName(player.name);
         if (cancelled) return;
@@ -97,7 +116,10 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
       }
     }
 
-    void Promise.all(Array.from({ length: Math.min(CONCURRENCY, uncached.length) }, () => worker()))
+    void Promise.all([
+      loadDstStats(),
+      ...Array.from({ length: Math.min(CONCURRENCY, individualPlayers.length) }, () => worker()),
+    ])
       .finally(() => {
         if (!cancelled) setLoading(false);
       });

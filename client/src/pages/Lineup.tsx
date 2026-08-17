@@ -373,7 +373,7 @@ function LineupRosterTable({
       ? ["FGM", "FGA", "FG%", "XPM", "XPA", "XP%"]
       : ["SACK", "D INT", "FR", "D TD", "PA"];
   const slotWidth = 66;
-  const playerWidth = 154;
+  const playerWidth = 205;
   const columnCount = 2 + decisionHeaders.length + primaryHeaders.length;
   const minWidth = profile === "SFLEX" ? 980 : profile === "K" ? 830 : 760;
 
@@ -624,7 +624,7 @@ export default function Lineup() {
   const [starters, setStarters] = useState<Player[]>(initialStarters);
   const [bench, setBench] = useState<Player[]>(initialBench);
   const lineupSeasonPlayers = useMemo(
-    () => [...starters, ...bench].map(player => ({ name: player.name, pos: player.pos })),
+    () => [...starters, ...bench].map(player => ({ name: player.name, pos: player.pos, nflTeam: player.nflTeam })),
     [starters, bench],
   );
   const { statMap: lineupStatMap, playerMetaMap: lineupMetaMap } = useNFLSeasonStats(

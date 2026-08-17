@@ -6,6 +6,15 @@
  */
 import { calcFantasyPoints, type Tank01Stats } from "@/lib/scoringEngine";
 
+export interface Tank01TeamSeasonStats {
+  teamAbv: string;
+  wins?: string | number;
+  loss?: string | number;
+  tie?: string | number;
+  pa?: string | number;
+  teamStats?: Tank01Stats;
+}
+
 export interface PlayerSeasonStats {
   gp: number;
   passCmp: number;
@@ -110,6 +119,38 @@ export function normalizeTankSeasonStats(stats: Tank01Stats | undefined, pos: st
     fumblesLost: num(defense.fumblesLost),
     wrcPts,
     ptsPerGame: gp > 0 ? Math.round((wrcPts / gp) * 10) / 10 : 0,
+  };
+}
+
+/**
+ * Tank01 exposes D/ST totals from getNFLTeams?teamStats=true rather than the
+ * player-info endpoint. This converts that team response to the Lineup table's
+ * shared stat shape.
+ */
+export function normalizeTankTeamSeasonStats(team: Tank01TeamSeasonStats): PlayerSeasonStats {
+  const defense = team.teamStats?.Defense ?? {};
+  const gamesPlayed = num(team.wins) + num(team.loss) + num(team.tie);
+  const sacks = num(defense.sacks);
+  const defInt = num(defense.defensiveInterceptions);
+  const fumblesRecovered = num(defense.fumblesRecovered);
+  const defTD = num(defense.defTD);
+  const safeties = num(defense.safeties);
+  const returnTD = num(defense.returnTD);
+  const blockKicks = num(defense.blockKick);
+  const wrcPts = Math.round((sacks * 2 + defInt * 3 + fumblesRecovered * 3 + defTD * 6 + safeties * 2 + returnTD * 6 + blockKicks * 2) * 10) / 10;
+
+  return {
+    gp: gamesPlayed,
+    passCmp: 0, passAtt: 0, passYds: 0, passTD: 0, passInt: 0, passRating: 0,
+    rushAtt: 0, rushYds: 0, rushTD: 0,
+    receptions: 0, targets: 0, recYds: 0, recTD: 0,
+    fgMade: 0, fgAtt: 0, fgYds: 0, fgMade1To39: 0, fgMade40To49: 0, fgMade50To59: 0, fgMade60Plus: 0,
+    xpMade: 0, xpAtt: 0,
+    sacks, defInt, fumblesRecovered, defTD, returnTD, safeties, blockKicks,
+    ptsAgainst: num(team.pa ?? defense.ptsAgainst),
+    fumblesLost: 0,
+    wrcPts,
+    ptsPerGame: gamesPlayed > 0 ? Math.round((wrcPts / gamesPlayed) * 10) / 10 : 0,
   };
 }
 
