@@ -395,7 +395,13 @@ function LineupRosterTable({
               const injuryColor = injury ? getInjuryColor(injury) : null;
               const selected = selectedId === lineupPlayerKey(player.name);
               const locked = isPlayerLocked(player.nflTeam, matchupMap);
-              const rowBg = selected ? "oklch(0.96 0.06 85)" : locked ? "oklch(0.98 0.012 25)" : index % 2 ? "oklch(0.99 0.003 150)" : "white";
+              const rowBg = selected
+                ? "oklch(0.96 0.06 85)"
+                : locked
+                  ? "oklch(0.98 0.012 25)"
+                  : player.isBench
+                    ? "oklch(0.965 0.012 150)"
+                    : "white";
               const choices = selected && !isReadOnly ? getInlineChoices(player) : [];
               return <Fragment key={player.id}><tr style={{ background: rowBg }}>
                 <td style={{ ...tdStyle, position: "sticky", left: 0, zIndex: 2, background: rowBg }}><button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); onSelect(player); }} disabled={isReadOnly || locked} style={{ border: "1px solid oklch(0.74 0.12 85)", borderRadius: 4, padding: "0.18rem 0.42rem", background: selected ? "oklch(0.52 0.16 85)" : "white", color: selected ? "white" : "oklch(0.35 0.12 85)", fontSize: "0.6rem", fontWeight: 800, cursor: isReadOnly || locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>{isReadOnly ? "VIEW" : locked ? "LOCKED" : selected ? `OPEN ${choices.length}` : "SWAP"}</button></td>

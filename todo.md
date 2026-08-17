@@ -171,6 +171,12 @@
 - [x] Preserve position-appropriate headers, full-row candidate swaps, locks, and lineup saves in every panel.
 - [ ] Verify grouped panels on desktop and mobile.
 
+# Lineup Starter Row Shading
+
+- [x] Keep starting rows clear across SFLEX, K, and D/ST panels.
+- [x] Apply subtle shading to bench rows while preserving selected, candidate, and locked states.
+- [ ] Verify bench-row shading on desktop and mobile.
+
 # Homepage FantasyPros Roster Feeds
 
 - [ ] Match FantasyPros injury availability to every player on the logged-in owner’s roster.
