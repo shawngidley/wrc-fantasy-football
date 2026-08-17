@@ -215,6 +215,12 @@
 - [x] Diagnose why D/ST season-stat values are not resolving in the Lineup table.
 - [x] Correct the D/ST stat mapping and verify the displayed defense totals.
 
+# D/ST Fantasy Column Simplification
+
+- [x] Remove the redundant D/ST PTS and PA columns from the Lineup table and expanded candidates.
+- [x] Compute and display D/ST FP/G from season fantasy points and games played.
+- [x] Verify the streamlined D/ST columns with populated team totals.
+
 # Position-Specific Lineup Panels
 
 - [x] Group all QB/RB/WR/TE lineup players into one SFLEX panel.

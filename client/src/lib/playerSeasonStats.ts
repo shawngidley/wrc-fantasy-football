@@ -129,7 +129,6 @@ export function normalizeTankSeasonStats(stats: Tank01Stats | undefined, pos: st
  */
 export function normalizeTankTeamSeasonStats(team: Tank01TeamSeasonStats): PlayerSeasonStats {
   const defense = team.teamStats?.Defense ?? {};
-  const gamesPlayed = num(team.wins) + num(team.loss) + num(team.tie);
   const sacks = num(defense.sacks);
   const defInt = num(defense.defensiveInterceptions);
   const fumblesRecovered = num(defense.fumblesRecovered);
@@ -137,6 +136,13 @@ export function normalizeTankTeamSeasonStats(team: Tank01TeamSeasonStats): Playe
   const safeties = num(defense.safeties);
   const returnTD = num(defense.returnTD);
   const blockKicks = num(defense.blockKick);
+  const recordedGames = num(team.wins) + num(team.loss) + num(team.tie);
+  const hasCompletedSeasonTotals = [sacks, defInt, fumblesRecovered, defTD, safeties, returnTD, blockKicks].some(value => value > 0);
+  // Before a new season begins Tank01 can retain the completed team totals while
+  // resetting the current standings record. Every NFL team played 17 games in
+  // that completed season, which keeps the displayed FP/G meaningful until the
+  // new record begins accumulating.
+  const gamesPlayed = recordedGames || (hasCompletedSeasonTotals ? 17 : 0);
   const wrcPts = Math.round((sacks * 2 + defInt * 3 + fumblesRecovered * 3 + defTD * 6 + safeties * 2 + returnTD * 6 + blockKicks * 2) * 10) / 10;
 
   return {
