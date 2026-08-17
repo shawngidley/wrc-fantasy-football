@@ -97,7 +97,7 @@
 - [x] Verify reported default PINs, authentication rate-limit behavior, and server-side authorization coverage against the current deployment.
 - [x] Disable production source maps and add a compatible Content Security Policy, frame protection, and header hygiene.
 - [x] Review public league read endpoints and correct the broken public team-directory response.
-- [ ] Re-run a production security check and document which audit findings were confirmed, remediated, or superseded.
+- [x] Re-run a production security check and document which audit findings were confirmed, remediated, or superseded.
 
 # Approved Security Hardening
 
