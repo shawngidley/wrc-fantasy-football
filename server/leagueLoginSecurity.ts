@@ -45,6 +45,9 @@ export function clearLoginFailures(teamId: string, ip: string) {
 }
 
 export function assertStrongLeaguePin(pin: string) {
+  if (!/^\d{6,12}$/.test(pin)) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Choose a PIN using six to twelve digits." });
+  }
   if (isWeakLeaguePin(pin)) {
     throw new TRPCError({ code: "BAD_REQUEST", message: "Choose a PIN with at least six digits that is not a common or sequential pattern." });
   }

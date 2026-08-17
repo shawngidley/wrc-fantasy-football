@@ -106,6 +106,7 @@
 - [x] Add server-side login rate limiting with a temporary lockout while retaining existing owner PINs.
 - [x] Add CSP, frame-ancestors, Referrer-Policy, Permissions-Policy, and remove Express disclosure.
 - [x] Prevent production source-map publication and verify the built client contains no source maps.
+- [x] Restrict future owner and commissioner PIN changes to non-trivial six-to-twelve digit numeric PINs.
 
 # Homepage FantasyPros Roster Feeds
 

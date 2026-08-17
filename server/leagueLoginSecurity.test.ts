@@ -6,7 +6,8 @@ describe("league PIN security", () => {
     expect(isWeakLeaguePin("1234")).toBe(true);
     expect(isWeakLeaguePin("111111")).toBe(true);
     expect(isWeakLeaguePin("123456")).toBe(true);
-    expect(() => assertStrongLeaguePin("1234")).toThrow("at least six digits");
+    expect(() => assertStrongLeaguePin("1234")).toThrow("six to twelve digits");
+    expect(() => assertStrongLeaguePin("sixdigit")).toThrow("six to twelve digits");
   });
 
   it("allows a non-trivial six-digit PIN", () => {
