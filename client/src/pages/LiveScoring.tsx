@@ -18,6 +18,7 @@ import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections
 import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } from "@/hooks/useNFLInjuries";
 import { fetchPlayerByName } from "@/hooks/useTank01Player";
 import { getEspnHeadshotUrl } from "@/lib/playerHeadshot";
+import { formatKickerEvent, getKickerEventsForPlayer, type KickerPlayEvent } from "@/lib/espnKickerEvents";
 
 const REFRESH_SECONDS = 300;
 
@@ -33,6 +34,7 @@ type SlotPlayer = {
   proj: number;          // projected total
   gameInfo: string;      // "DAL 30 @ WAS 23 F"
   stats: StatChip[];
+  kickerEvents?: KickerPlayEvent[];
   isTE?: boolean;
   status?: "active" | "bye" | "out" | "dnp";
 };
@@ -511,6 +513,21 @@ function PlayerCell({ player, side, injuries = {} }: { player: SlotPlayer | null
           {player.stats.map((s, i) => <Chip key={i} label={s.label} value={s.value} />)}
         </div>
       )}
+
+      {player.pos === "K" && player.kickerEvents && player.kickerEvents.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.2rem", justifyContent: isHome ? "flex-start" : "flex-end" }}>
+          {player.kickerEvents.map((event, index) => (
+            <span key={`${event.text}-${index}`} style={{
+              fontSize: "0.58rem", fontWeight: 700, borderRadius: 3, padding: "1px 4px",
+              color: event.outcome === "made" ? "oklch(0.42 0.13 145)" : "oklch(0.5 0.18 25)",
+              background: event.outcome === "made" ? "oklch(0.96 0.04 145)" : "oklch(0.97 0.04 25)",
+              border: `1px solid ${event.outcome === "made" ? "oklch(0.85 0.06 145)" : "oklch(0.87 0.08 25)"}`,
+            }}>
+              {formatKickerEvent(event)}
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -815,6 +832,7 @@ function makeSlotPlayer(
   pts: number,
   proj: number,
   matchupMap: import("@/hooks/useNFLMatchups").NFLMatchupMap,
+  kickerEvents: KickerPlayEvent[] = [],
 ): SlotPlayer {
   const matchup = matchupMap[player.nfl_team?.toUpperCase()] ?? null;
   const gameInfo = matchup
@@ -829,6 +847,7 @@ function makeSlotPlayer(
     proj,
     gameInfo,
     stats: [],
+    kickerEvents: player.position === "K" ? getKickerEventsForPlayer(kickerEvents, player.name) : undefined,
     isTE: player.position === "TE",
     status: "active",
   };
@@ -840,6 +859,7 @@ function makeSlotPlayer(
 async function buildMatchupsFromLineups(
   week: number,
   liveScores: import("@/hooks/useNFLLiveScores").LiveScoreMap,
+  kickerEvents: KickerPlayEvent[],
   projections: import("@/hooks/useNFLProjections").ProjectionMap,
   matchupMap: import("@/hooks/useNFLMatchups").NFLMatchupMap,
 ): Promise<Matchup[]> {
@@ -933,7 +953,7 @@ async function buildMatchupsFromLineups(
           slotLabel,
           home: null,
           away: null,
-          _player: player ? makeSlotPlayer(player, pts, proj, matchupMap) : null,
+          _player: player ? makeSlotPlayer(player, pts, proj, matchupMap, kickerEvents) : null,
         } as SlotRow & { _player: SlotPlayer | null };
       });
 
@@ -950,7 +970,7 @@ async function buildMatchupsFromLineups(
           slotLabel,
           home: null,
           away: null,
-          _player: player ? makeSlotPlayer(player, pts, proj, matchupMap) : null,
+          _player: player ? makeSlotPlayer(player, pts, proj, matchupMap, kickerEvents) : null,
         } as SlotRow & { _player: SlotPlayer | null };
       });
 
@@ -972,7 +992,7 @@ async function buildMatchupsFromLineups(
       const bench: BenchPlayer[] = benchPlayers.slice(0, 8).map(p => {
         const pts = getLivePoints(liveScores, p.name, p.position, p.nfl_team) ?? 0;
         const proj = getProjectedPoints(projections, p.name, p.position, p.nfl_team);
-        return { ...makeSlotPlayer(p, pts, proj, matchupMap), slot: "BN" as const };
+        return { ...makeSlotPlayer(p, pts, proj, matchupMap, kickerEvents), slot: "BN" as const };
       });
 
       return { side, slots: pairedSlots as SlotRow[], bench };
@@ -1028,7 +1048,7 @@ export default function LiveScoring() {
   // Live NFL matchup map (for game info + polling)
   const { matchups: nflMatchupMap } = useNFLMatchups(currentWeek);
   // Live scores (polls during active games)
-  const { liveScores, isPolling } = useNFLLiveScores(currentWeek, 2026, nflMatchupMap);
+  const { liveScores, isPolling, kickerEvents } = useNFLLiveScores(currentWeek, 2026, nflMatchupMap);
   // Projected points
   const { projections } = useNFLProjections(currentWeek);
 
@@ -1038,7 +1058,7 @@ export default function LiveScoring() {
   const loadMatchups = useCallback(async () => {
     setLoading(true);
     try {
-      const matchups = await buildMatchupsFromLineups(currentWeek, liveScores, projections, nflMatchupMap);
+      const matchups = await buildMatchupsFromLineups(currentWeek, liveScores, kickerEvents, projections, nflMatchupMap);
       if (matchups.length > 0) {
         setLiveMatchups(matchups);
       } else {
@@ -1049,7 +1069,7 @@ export default function LiveScoring() {
     }
     setLastRefresh(new Date());
     setLoading(false);
-  }, [currentWeek, liveScores, projections, nflMatchupMap]);
+  }, [currentWeek, liveScores, kickerEvents, projections, nflMatchupMap]);
 
   // Reload matchups whenever live scores or projections update
   useEffect(() => {

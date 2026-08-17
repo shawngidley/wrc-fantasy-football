@@ -543,7 +543,7 @@ export default function Lineup() {
 );
 
   // Live in-game score polling (Tank01 box scores)
-  const { liveScores, isPolling, lastUpdated } = useNFLLiveScores(
+  const { liveScores, isPolling, lastUpdated, kickerEvents } = useNFLLiveScores(
     currentWeek, 2026, matchupMap
   );
 
@@ -693,12 +693,12 @@ export default function Lineup() {
   useEffect(() => {
     if (!liveScores || Object.keys(liveScores).length === 0) return;
     const applyLive = (players: Player[]) => players.map(p => {
-      const live = getLivePoints(liveScores, p.name, p.pos, p.nflTeam);
+      const live = getLivePoints(liveScores, p.name, p.pos, p.nflTeam, kickerEvents);
       return live !== null ? { ...p, pts: live } : p;
     });
     setStarters(prev => applyLive(prev));
     setBench(prev => applyLive(prev));
-  }, [liveScores]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [liveScores, kickerEvents]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);

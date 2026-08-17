@@ -217,3 +217,7 @@ Login now applies a five-failure, 15-minute per-team/IP lockout. New and commiss
 ## External Audit Production Verification — 2026-08-17
 
 After the published checkpoint deployed, `wrcfantasyfootball.com` served the new `index-DG_t3uwp.js` asset. A direct production bundle scan found none of the previously exposed Tank01 key prefix, RapidAPI authorization header, or Tank01 host. A non-existent production source-map URL returned `404 text/plain` rather than source or the SPA shell. The live response includes the CSP, `X-Frame-Options: DENY`, `Referrer-Policy`, and `Permissions-Policy` headers; `X-Powered-By` is absent. These checks confirm the credential-containment, source-map, and response-header remediation findings are live.
+
+## Exact ESPN Live Kicker Scoring — 2026-08-17
+
+Tank01 aggregate kicker data cannot identify individual field-goal or miss distances, so WRC now polls ESPN public NFL game summaries for active games. The parser reads exact play text such as `B.Aubrey 54 yard field goal is GOOD`, maps ESPN abbreviated names to the full WRC roster name, and calculates made kicks at 0.1 points per yard. It also applies WRC's 60- and 65-yard bonuses, short-miss penalty, and extra-point make/miss values. Live Scoring renders each detected kicker event, such as `54 yd FG made (+5.4)` or `47 yd FG missed (-2)`, and Lineup uses the same event-derived total. Focused parser/scoring coverage and the complete regression suite passed with 23 files and 57 tests; an active-game browser check remains pending until live NFL play-by-play is available.

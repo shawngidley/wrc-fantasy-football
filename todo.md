@@ -210,6 +210,24 @@
 - [x] Guard every kicker season-stat and percentage cell against undefined loading data.
 - [ ] Verify the Lineup page renders before, during, and after K season-stat loading.
 
+# Tank01 Live Kicker Distance Statistics
+
+- [ ] Verify whether Tank01 live-game responses provide field-goal makes and attempts by distance bucket.
+- [ ] Document the supported live kicking totals and any alternative needed for distance-level stats.
+
+# Exact Live Kicker Make and Miss Scoring
+
+- [x] Integrate ESPN game-summary play-by-play that reports each made and missed field goal’s exact yardage.
+- [x] Calculate WRC live kicker points from each made kick’s yardage, including a 54-yard make as 5.4 points.
+- [ ] Display made and missed kick distances in an active Live Scoring game and validate the rendered total against a completed NFL game.
+
+# ESPN Live Kicker Play-by-Play
+
+- [x] Parse made and missed field-goal plays from ESPN game summaries using exact yardage and kicker identity.
+- [x] Replace aggregate Tank01 kicker live totals with event-derived WRC points and event history.
+- [x] Show exact made and missed kick events in Live Scoring for active games.
+- [ ] Perform an active-game browser verification when live NFL play-by-play is available.
+
 # Homepage FantasyPros Roster Feeds
 
 - [ ] Match FantasyPros injury availability to every player on the logged-in owner’s roster.
