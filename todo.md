@@ -182,6 +182,12 @@
 - [ ] Increase the bench background, border, and pinned-cell contrast until bench rows are visibly distinct from clear starters.
 - [ ] Verify the strengthened bench treatment on the live Lineup page.
 
+# Requested SFLEX Stat Order
+
+- [x] Reorder SFLEX decision and stat columns to Age, Bye, Opp, Game, FPTS, FP/G, Proj, Pass YDS/TD/INT, Rush ATT/YDS/TD, Rec TGT/REC/YDS/TD, and TO.
+- [x] Keep grouped headers and full-row inline swap candidates aligned with the reordered SFLEX columns.
+- [ ] Verify the requested SFLEX stat order on the live Lineup page.
+
 # Homepage FantasyPros Roster Feeds
 
 - [ ] Match FantasyPros injury availability to every player on the logged-in owner’s roster.
