@@ -194,6 +194,12 @@
 - [x] Keep the detailed K columns aligned in full-row inline swap candidates.
 - [ ] Verify the requested K stat order on the live Lineup page.
 
+# Lineup Bye Week and Kicker Data Correction
+
+- [x] Restore populated Bye-week values for every lineup player from the team-schedule data.
+- [x] Replace unavailable kicker distance-bucket placeholders with source-supported populated kicking statistics.
+- [ ] Verify Bye weeks and every displayed K stat value on the live Lineup page.
+
 # Homepage FantasyPros Roster Feeds
 
 - [ ] Match FantasyPros injury availability to every player on the logged-in owner’s roster.

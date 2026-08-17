@@ -22,6 +22,7 @@ import { useWeeklyResultsWriter } from "@/hooks/useWeeklyResultsWriter";
 import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } from "@/hooks/useNFLInjuries";
 import { useNFLSeasonStats } from "@/hooks/useNFLSeasonStats";
 import { formatSeasonStat, type PlayerSeasonStats } from "@/lib/playerSeasonStats";
+import { fetchTeamSchedule } from "@/hooks/useNFLTeamSchedule";
 import { supabase } from "@/lib/supabase";
 
 const STARTER_SLOTS = [
@@ -366,10 +367,10 @@ function LineupRosterTable({
   const primaryHeaders = profile === "SFLEX"
     ? ["YDS", "TD", "INT", "ATT", "YDS", "TD", "TGT", "REC", "YDS", "TD", "TO"]
     : profile === "K"
-      ? ["FGM 1–39", "FGM 40–49", "FGM 50–59", "FGM 60+", "FGYD", "FGM/A", "XPM/A"]
+      ? ["FGM", "FGA", "FG%", "XPM", "XPA", "XP%"]
       : ["SACK", "D INT", "FR", "D TD", "PA"];
   const columnCount = 3 + decisionHeaders.length + primaryHeaders.length;
-  const minWidth = profile === "SFLEX" ? 1080 : profile === "K" ? 1080 : 850;
+  const minWidth = profile === "SFLEX" ? 1080 : profile === "K" ? 930 : 850;
 
   return (
     <section className="wrc-card" style={{ marginBottom: "1rem", overflow: "hidden" }}>
@@ -384,7 +385,7 @@ function LineupRosterTable({
               <th rowSpan={2} style={{ ...groupStyle, position: "sticky", left: 108, zIndex: 4, minWidth: 190, textAlign: "left" }}>PLAYER</th>
               <th colSpan={4} style={groupStyle}>WEEKLY DECISION</th><th colSpan={profile === "SFLEX" || profile === "K" ? 3 : 4} style={groupStyle}>FANTASY</th>
               {profile === "SFLEX" && <><th colSpan={3} style={groupStyle}>PASS</th><th colSpan={3} style={groupStyle}>RUSH</th><th colSpan={4} style={groupStyle}>REC</th><th colSpan={1} style={groupStyle}>TO</th></>}
-              {profile === "K" && <th colSpan={7} style={groupStyle}>KICKING</th>}
+              {profile === "K" && <th colSpan={6} style={groupStyle}>KICKING</th>}
               {profile === "DST" && <th colSpan={5} style={groupStyle}>DEFENSE</th>}
             </tr>
             <tr>{[...decisionHeaders, ...primaryHeaders].map((label, index) => <th key={`${label}-${index}`} style={thStyle}>{label}</th>)}</tr>
@@ -413,7 +414,7 @@ function LineupRosterTable({
                 <td style={tdStyle}>{meta?.age || "—"}</td><td style={tdStyle}>{player.byeWeek ?? "—"}</td><td style={tdStyle}>{matchup ? `${matchup.isHome ? "vs" : "@"} ${matchup.opponent}` : "BYE"}</td><td style={{ ...tdStyle, maxWidth: 86, overflow: "hidden", textOverflow: "ellipsis" }}>{matchup ? formatGameTime(matchup).replace(" ET", "") : "—"}</td>
                 <td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(stats, "wrcPts", 1)}</td><td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(stats, "ptsPerGame", 1)}</td>{profile === "DST" && <td style={{ ...tdStyle, color: "oklch(0.52 0.16 25)", fontWeight: 800 }}>{player.pts.toFixed(1)}</td>}<td style={{ ...tdStyle, fontWeight: 800 }}>{player.proj.toFixed(1)}</td>
                 {profile === "SFLEX" && <><td style={tdStyle}>{value(stats, "passYds")}</td><td style={tdStyle}>{value(stats, "passTD")}</td><td style={tdStyle}>{value(stats, "passInt")}</td><td style={tdStyle}>{value(stats, "rushAtt")}</td><td style={tdStyle}>{value(stats, "rushYds")}</td><td style={tdStyle}>{value(stats, "rushTD")}</td><td style={tdStyle}>{value(stats, "targets")}</td><td style={tdStyle}>{value(stats, "receptions")}</td><td style={tdStyle}>{value(stats, "recYds")}</td><td style={tdStyle}>{value(stats, "recTD")}</td><td style={tdStyle}>{stats ? stats.passInt + stats.fumblesLost : "—"}</td></>}
-                {profile === "K" && <><td style={tdStyle}>{value(stats, "fgMade1To39")}</td><td style={tdStyle}>{value(stats, "fgMade40To49")}</td><td style={tdStyle}>{value(stats, "fgMade50To59")}</td><td style={tdStyle}>{value(stats, "fgMade60Plus")}</td><td style={tdStyle}>{value(stats, "fgYds")}</td><td style={tdStyle}>{`${value(stats, "fgMade")}/${value(stats, "fgAtt")}`}</td><td style={tdStyle}>{`${value(stats, "xpMade")}/${value(stats, "xpAtt")}`}</td></>}
+                {profile === "K" && <><td style={tdStyle}>{value(stats, "fgMade")}</td><td style={tdStyle}>{value(stats, "fgAtt")}</td><td style={tdStyle}>{stats.fgAtt > 0 ? `${Math.round((stats.fgMade / stats.fgAtt) * 100)}%` : "—"}</td><td style={tdStyle}>{value(stats, "xpMade")}</td><td style={tdStyle}>{value(stats, "xpAtt")}</td><td style={tdStyle}>{stats.xpAtt > 0 ? `${Math.round((stats.xpMade / stats.xpAtt) * 100)}%` : "—"}</td></>}
                 {profile === "DST" && <><td style={tdStyle}>{value(stats, "sacks")}</td><td style={tdStyle}>{value(stats, "defInt")}</td><td style={tdStyle}>{value(stats, "fumblesRecovered")}</td><td style={tdStyle}>{value(stats, "defTD")}</td><td style={tdStyle}>{value(stats, "ptsAgainst")}</td></>}
               </tr>
               {selected && !isReadOnly && (
@@ -436,7 +437,7 @@ function LineupRosterTable({
                   <td style={tdStyle}>{candidateMeta?.age || "—"}</td><td style={tdStyle}>{candidate.byeWeek ?? "—"}</td><td style={tdStyle}>{candidateMatchup ? `${candidateMatchup.isHome ? "vs" : "@"} ${candidateMatchup.opponent}` : "BYE"}</td><td style={{ ...tdStyle, maxWidth: 86, overflow: "hidden", textOverflow: "ellipsis" }}>{candidateMatchup ? formatGameTime(candidateMatchup).replace(" ET", "") : "—"}</td>
                   <td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(candidateStats, "wrcPts", 1)}</td><td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(candidateStats, "ptsPerGame", 1)}</td>{profile === "DST" && <td style={{ ...tdStyle, color: "oklch(0.52 0.16 25)", fontWeight: 800 }}>{candidate.pts.toFixed(1)}</td>}<td style={{ ...tdStyle, fontWeight: 800 }}>{candidate.proj.toFixed(1)}</td>
                   {profile === "SFLEX" && <><td style={tdStyle}>{value(candidateStats, "passYds")}</td><td style={tdStyle}>{value(candidateStats, "passTD")}</td><td style={tdStyle}>{value(candidateStats, "passInt")}</td><td style={tdStyle}>{value(candidateStats, "rushAtt")}</td><td style={tdStyle}>{value(candidateStats, "rushYds")}</td><td style={tdStyle}>{value(candidateStats, "rushTD")}</td><td style={tdStyle}>{value(candidateStats, "targets")}</td><td style={tdStyle}>{value(candidateStats, "receptions")}</td><td style={tdStyle}>{value(candidateStats, "recYds")}</td><td style={tdStyle}>{value(candidateStats, "recTD")}</td><td style={tdStyle}>{candidateStats ? candidateStats.passInt + candidateStats.fumblesLost : "—"}</td></>}
-                  {profile === "K" && <><td style={tdStyle}>{value(candidateStats, "fgMade1To39")}</td><td style={tdStyle}>{value(candidateStats, "fgMade40To49")}</td><td style={tdStyle}>{value(candidateStats, "fgMade50To59")}</td><td style={tdStyle}>{value(candidateStats, "fgMade60Plus")}</td><td style={tdStyle}>{value(candidateStats, "fgYds")}</td><td style={tdStyle}>{`${value(candidateStats, "fgMade")}/${value(candidateStats, "fgAtt")}`}</td><td style={tdStyle}>{`${value(candidateStats, "xpMade")}/${value(candidateStats, "xpAtt")}`}</td></>}
+                  {profile === "K" && <><td style={tdStyle}>{value(candidateStats, "fgMade")}</td><td style={tdStyle}>{value(candidateStats, "fgAtt")}</td><td style={tdStyle}>{candidateStats.fgAtt > 0 ? `${Math.round((candidateStats.fgMade / candidateStats.fgAtt) * 100)}%` : "—"}</td><td style={tdStyle}>{value(candidateStats, "xpMade")}</td><td style={tdStyle}>{value(candidateStats, "xpAtt")}</td><td style={tdStyle}>{candidateStats.xpAtt > 0 ? `${Math.round((candidateStats.xpMade / candidateStats.xpAtt) * 100)}%` : "—"}</td></>}
                   {profile === "DST" && <><td style={tdStyle}>{value(candidateStats, "sacks")}</td><td style={tdStyle}>{value(candidateStats, "defInt")}</td><td style={tdStyle}>{value(candidateStats, "fumblesRecovered")}</td><td style={tdStyle}>{value(candidateStats, "defTD")}</td><td style={tdStyle}>{value(candidateStats, "ptsAgainst")}</td></>}
                 </tr>;
               })}
@@ -551,6 +552,30 @@ export default function Lineup() {
 
   // Injury designations from Tank01 (cached 3h in sessionStorage)
   const { injuries } = useNFLInjuries();
+  const [byeWeeksByTeam, setByeWeeksByTeam] = useState<Record<string, number>>({});
+  const displayedNflTeams = useMemo(
+    () => Array.from(new Set((viewTeamName ? rostersByTeam[viewTeamName] ?? [] : []).map(player => normalizeNFLTeam(player.nflTeam)).filter(Boolean))).sort(),
+    [rostersByTeam, viewTeamName],
+  );
+
+  useEffect(() => {
+    if (!displayedNflTeams.length) return;
+    let cancelled = false;
+    Promise.all(displayedNflTeams.map(async team => {
+      const schedule = await fetchTeamSchedule(team, 2026);
+      const scheduledWeeks = new Set(schedule.map(game => game.weekNum).filter(week => week >= 1 && week <= 18));
+      const byeWeek = Array.from({ length: 18 }, (_, index) => index + 1).find(week => !scheduledWeeks.has(week));
+      return [team, byeWeek] as const;
+    })).then(entries => {
+      if (cancelled) return;
+      const resolved = Object.fromEntries(entries.filter((entry): entry is [string, number] => entry[1] !== undefined));
+      setByeWeeksByTeam(previous => {
+        const next = { ...previous, ...resolved };
+        return JSON.stringify(next) === JSON.stringify(previous) ? previous : next;
+      });
+    }).catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [displayedNflTeams.join("|")]);
 
   // Build roster from Supabase (players table or draft_picks, whichever is populated)
   const liveRoster = useMemo(() => {
@@ -565,7 +590,7 @@ export default function Lineup() {
       pts: 0,
       proj: 0,   // filled in below once projections arrive
       status: "Active",
-      byeWeek: rp.byeWeek ?? undefined,
+      byeWeek: byeWeeksByTeam[normalizeNFLTeam(rp.nflTeam)] ?? rp.byeWeek ?? undefined,
       seasonFpts: undefined,
       seasonStats: undefined,
       isBench: false,
@@ -581,7 +606,7 @@ export default function Lineup() {
     }
     const bench = pool.map(p => ({ ...p, isBench: true }));
     return { starters, bench };
-  }, [rostersByTeam, viewTeamName]);
+  }, [byeWeeksByTeam, rostersByTeam, viewTeamName]);
 
   const { starters: initialStarters, bench: initialBench } = useMemo(
     () => liveRoster ?? buildRealRoster(viewTeamName ?? undefined),
