@@ -188,6 +188,12 @@
 - [x] Keep grouped headers and full-row inline swap candidates aligned with the reordered SFLEX columns.
 - [ ] Verify the requested SFLEX stat order on the live Lineup page.
 
+# Requested Kicker Stat Order
+
+- [x] Render K columns as Age, Bye, Opp, Game, FPTS, FP/G, Proj, FGM 1–39, FGM 40–49, FGM 50–59, FGM 60+, FGYD, FGM/A, and XPM/A.
+- [x] Keep the detailed K columns aligned in full-row inline swap candidates.
+- [ ] Verify the requested K stat order on the live Lineup page.
+
 # Homepage FantasyPros Roster Feeds
 
 - [ ] Match FantasyPros injury availability to every player on the logged-in owner’s roster.

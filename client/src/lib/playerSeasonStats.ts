@@ -24,6 +24,10 @@ export interface PlayerSeasonStats {
   fgMade: number;
   fgAtt: number;
   fgYds: number;
+  fgMade1To39: number;
+  fgMade40To49: number;
+  fgMade50To59: number;
+  fgMade60Plus: number;
   xpMade: number;
   xpAtt: number;
   sacks: number;
@@ -60,6 +64,13 @@ export function normalizeTankSeasonStats(stats: Tank01Stats | undefined, pos: st
   const rushing = stats?.Rushing ?? {};
   const receiving = stats?.Receiving ?? {};
   const kicking = stats?.Kicking ?? {};
+  const kickingField = (...keys: string[]): number | undefined => {
+    for (const key of keys) {
+      const value = kicking[key];
+      if (value !== undefined && value !== null && String(value) !== "") return num(value);
+    }
+    return undefined;
+  };
   const defense = stats?.Defense ?? {};
   const gp = num(stats?.gamesPlayed);
   const wrcPts = stats ? calcFantasyPoints(stats, pos) : 0;
@@ -82,6 +93,10 @@ export function normalizeTankSeasonStats(stats: Tank01Stats | undefined, pos: st
     fgMade: num(kicking.fgMade),
     fgAtt: num(kicking.fgAttempts),
     fgYds: num(kicking.fgYds),
+    fgMade1To39: kickingField("fgMade1To39", "fgMade1_39", "fgMadeUnder40") ?? 0,
+    fgMade40To49: kickingField("fgMade40To49", "fgMade40_49") ?? 0,
+    fgMade50To59: kickingField("fgMade50To59", "fgMade50_59") ?? 0,
+    fgMade60Plus: kickingField("fgMade60Plus", "fgMade60_99", "fgMade60OrMore") ?? 0,
     xpMade: num(kicking.xpMade),
     xpAtt: num(kicking.xpAttempts),
     sacks: num(defense.sacks),

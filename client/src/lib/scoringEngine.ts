@@ -61,6 +61,7 @@ export interface Tank01Stats {
     fgAttempts?: string | number;
     fgYds?: string | number;
     kickYards?: string | number;
+    [key: string]: string | number | undefined;
   };
   Defense?: {
     sacks?: string | number;

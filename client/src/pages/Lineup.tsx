@@ -360,16 +360,16 @@ function LineupRosterTable({
   const groupStyle = { ...thStyle, background: "oklch(0.94 0.025 150)", color: "oklch(0.34 0.08 150)", fontSize: "0.6rem" };
   const tdStyle = { padding: "0.47rem 0.42rem", borderBottom: "1px solid oklch(0.92 0.008 150)", textAlign: "center" as const, color: "oklch(0.28 0.05 150)", fontSize: "0.72rem", fontVariantNumeric: "tabular-nums" as const, whiteSpace: "nowrap" as const };
   const value = (stats: PlayerSeasonStats | undefined, key: keyof PlayerSeasonStats, decimals = 0) => stats ? formatSeasonStat(stats[key], decimals) : "—";
-  const decisionHeaders = profile === "SFLEX"
+  const decisionHeaders = profile === "SFLEX" || profile === "K"
     ? ["AGE", "BYE", "OPP", "GAME", "FPTS", "FP/G", "PROJ"]
     : ["AGE", "BYE", "OPP", "GAME", "FPTS", "FP/G", "PTS", "PROJ"];
   const primaryHeaders = profile === "SFLEX"
     ? ["YDS", "TD", "INT", "ATT", "YDS", "TD", "TGT", "REC", "YDS", "TD", "TO"]
     : profile === "K"
-      ? ["FGM/A", "XPM/A"]
+      ? ["FGM 1–39", "FGM 40–49", "FGM 50–59", "FGM 60+", "FGYD", "FGM/A", "XPM/A"]
       : ["SACK", "D INT", "FR", "D TD", "PA"];
   const columnCount = 3 + decisionHeaders.length + primaryHeaders.length;
-  const minWidth = profile === "SFLEX" ? 1080 : profile === "K" ? 760 : 850;
+  const minWidth = profile === "SFLEX" ? 1080 : profile === "K" ? 1080 : 850;
 
   return (
     <section className="wrc-card" style={{ marginBottom: "1rem", overflow: "hidden" }}>
@@ -382,9 +382,9 @@ function LineupRosterTable({
               <th rowSpan={2} style={{ ...groupStyle, position: "sticky", left: 0, zIndex: 4, minWidth: 56 }}>SWAP</th>
               <th rowSpan={2} style={{ ...groupStyle, position: "sticky", left: 56, zIndex: 4, minWidth: 52 }}>SLOT</th>
               <th rowSpan={2} style={{ ...groupStyle, position: "sticky", left: 108, zIndex: 4, minWidth: 190, textAlign: "left" }}>PLAYER</th>
-              <th colSpan={4} style={groupStyle}>WEEKLY DECISION</th><th colSpan={profile === "SFLEX" ? 3 : 4} style={groupStyle}>FANTASY</th>
+              <th colSpan={4} style={groupStyle}>WEEKLY DECISION</th><th colSpan={profile === "SFLEX" || profile === "K" ? 3 : 4} style={groupStyle}>FANTASY</th>
               {profile === "SFLEX" && <><th colSpan={3} style={groupStyle}>PASS</th><th colSpan={3} style={groupStyle}>RUSH</th><th colSpan={4} style={groupStyle}>REC</th><th colSpan={1} style={groupStyle}>TO</th></>}
-              {profile === "K" && <th colSpan={2} style={groupStyle}>KICKING</th>}
+              {profile === "K" && <th colSpan={7} style={groupStyle}>KICKING</th>}
               {profile === "DST" && <th colSpan={5} style={groupStyle}>DEFENSE</th>}
             </tr>
             <tr>{[...decisionHeaders, ...primaryHeaders].map((label, index) => <th key={`${label}-${index}`} style={thStyle}>{label}</th>)}</tr>
@@ -411,9 +411,9 @@ function LineupRosterTable({
                 <td style={{ ...tdStyle, position: "sticky", left: 56, zIndex: 2, background: rowBg }}><span style={{ display: "grid", placeItems: "center", minWidth: 32, minHeight: 22, borderRadius: 4, background: POS_COLORS[player.pos] || "oklch(0.5 0.04 150)", color: "white", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.63rem" }}>{locked ? <Lock size={11} aria-label="Locked" /> : player.slot ?? "BN"}</span></td>
                 <td onClick={() => onPlayerClick(player)} style={{ ...tdStyle, position: "sticky", left: 108, zIndex: 2, minWidth: 190, textAlign: "left", cursor: "pointer", background: rowBg }}><LineupIdentity player={player} meta={meta} /></td>
                 <td style={tdStyle}>{meta?.age || "—"}</td><td style={tdStyle}>{player.byeWeek ?? "—"}</td><td style={tdStyle}>{matchup ? `${matchup.isHome ? "vs" : "@"} ${matchup.opponent}` : "BYE"}</td><td style={{ ...tdStyle, maxWidth: 86, overflow: "hidden", textOverflow: "ellipsis" }}>{matchup ? formatGameTime(matchup).replace(" ET", "") : "—"}</td>
-                <td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(stats, "wrcPts", 1)}</td><td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(stats, "ptsPerGame", 1)}</td>{profile !== "SFLEX" && <td style={{ ...tdStyle, color: "oklch(0.52 0.16 25)", fontWeight: 800 }}>{player.pts.toFixed(1)}</td>}<td style={{ ...tdStyle, fontWeight: 800 }}>{player.proj.toFixed(1)}</td>
+                <td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(stats, "wrcPts", 1)}</td><td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(stats, "ptsPerGame", 1)}</td>{profile === "DST" && <td style={{ ...tdStyle, color: "oklch(0.52 0.16 25)", fontWeight: 800 }}>{player.pts.toFixed(1)}</td>}<td style={{ ...tdStyle, fontWeight: 800 }}>{player.proj.toFixed(1)}</td>
                 {profile === "SFLEX" && <><td style={tdStyle}>{value(stats, "passYds")}</td><td style={tdStyle}>{value(stats, "passTD")}</td><td style={tdStyle}>{value(stats, "passInt")}</td><td style={tdStyle}>{value(stats, "rushAtt")}</td><td style={tdStyle}>{value(stats, "rushYds")}</td><td style={tdStyle}>{value(stats, "rushTD")}</td><td style={tdStyle}>{value(stats, "targets")}</td><td style={tdStyle}>{value(stats, "receptions")}</td><td style={tdStyle}>{value(stats, "recYds")}</td><td style={tdStyle}>{value(stats, "recTD")}</td><td style={tdStyle}>{stats ? stats.passInt + stats.fumblesLost : "—"}</td></>}
-                {profile === "K" && <><td style={tdStyle}>{`${value(stats, "fgMade")}/${value(stats, "fgAtt")}`}</td><td style={tdStyle}>{`${value(stats, "xpMade")}/${value(stats, "xpAtt")}`}</td></>}
+                {profile === "K" && <><td style={tdStyle}>{value(stats, "fgMade1To39")}</td><td style={tdStyle}>{value(stats, "fgMade40To49")}</td><td style={tdStyle}>{value(stats, "fgMade50To59")}</td><td style={tdStyle}>{value(stats, "fgMade60Plus")}</td><td style={tdStyle}>{value(stats, "fgYds")}</td><td style={tdStyle}>{`${value(stats, "fgMade")}/${value(stats, "fgAtt")}`}</td><td style={tdStyle}>{`${value(stats, "xpMade")}/${value(stats, "xpAtt")}`}</td></>}
                 {profile === "DST" && <><td style={tdStyle}>{value(stats, "sacks")}</td><td style={tdStyle}>{value(stats, "defInt")}</td><td style={tdStyle}>{value(stats, "fumblesRecovered")}</td><td style={tdStyle}>{value(stats, "defTD")}</td><td style={tdStyle}>{value(stats, "ptsAgainst")}</td></>}
               </tr>
               {selected && !isReadOnly && (
@@ -434,9 +434,9 @@ function LineupRosterTable({
                   <td style={{ ...tdStyle, position: "sticky", left: 56, zIndex: 2, background: candidateBg }}><span style={{ display: "grid", placeItems: "center", minWidth: 32, minHeight: 22, borderRadius: 4, background: POS_COLORS[candidate.pos] || "oklch(0.5 0.04 150)", color: "white", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.63rem" }}>{candidate.slot || candidate.pos}</span></td>
                   <td style={{ ...tdStyle, position: "sticky", left: 108, zIndex: 2, minWidth: 190, textAlign: "left", background: candidateBg }}><LineupIdentity player={candidate} meta={candidateMeta} /></td>
                   <td style={tdStyle}>{candidateMeta?.age || "—"}</td><td style={tdStyle}>{candidate.byeWeek ?? "—"}</td><td style={tdStyle}>{candidateMatchup ? `${candidateMatchup.isHome ? "vs" : "@"} ${candidateMatchup.opponent}` : "BYE"}</td><td style={{ ...tdStyle, maxWidth: 86, overflow: "hidden", textOverflow: "ellipsis" }}>{candidateMatchup ? formatGameTime(candidateMatchup).replace(" ET", "") : "—"}</td>
-                  <td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(candidateStats, "wrcPts", 1)}</td><td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(candidateStats, "ptsPerGame", 1)}</td>{profile !== "SFLEX" && <td style={{ ...tdStyle, color: "oklch(0.52 0.16 25)", fontWeight: 800 }}>{candidate.pts.toFixed(1)}</td>}<td style={{ ...tdStyle, fontWeight: 800 }}>{candidate.proj.toFixed(1)}</td>
+                  <td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(candidateStats, "wrcPts", 1)}</td><td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(candidateStats, "ptsPerGame", 1)}</td>{profile === "DST" && <td style={{ ...tdStyle, color: "oklch(0.52 0.16 25)", fontWeight: 800 }}>{candidate.pts.toFixed(1)}</td>}<td style={{ ...tdStyle, fontWeight: 800 }}>{candidate.proj.toFixed(1)}</td>
                   {profile === "SFLEX" && <><td style={tdStyle}>{value(candidateStats, "passYds")}</td><td style={tdStyle}>{value(candidateStats, "passTD")}</td><td style={tdStyle}>{value(candidateStats, "passInt")}</td><td style={tdStyle}>{value(candidateStats, "rushAtt")}</td><td style={tdStyle}>{value(candidateStats, "rushYds")}</td><td style={tdStyle}>{value(candidateStats, "rushTD")}</td><td style={tdStyle}>{value(candidateStats, "targets")}</td><td style={tdStyle}>{value(candidateStats, "receptions")}</td><td style={tdStyle}>{value(candidateStats, "recYds")}</td><td style={tdStyle}>{value(candidateStats, "recTD")}</td><td style={tdStyle}>{candidateStats ? candidateStats.passInt + candidateStats.fumblesLost : "—"}</td></>}
-                  {profile === "K" && <><td style={tdStyle}>{`${value(candidateStats, "fgMade")}/${value(candidateStats, "fgAtt")}`}</td><td style={tdStyle}>{`${value(candidateStats, "xpMade")}/${value(candidateStats, "xpAtt")}`}</td></>}
+                  {profile === "K" && <><td style={tdStyle}>{value(candidateStats, "fgMade1To39")}</td><td style={tdStyle}>{value(candidateStats, "fgMade40To49")}</td><td style={tdStyle}>{value(candidateStats, "fgMade50To59")}</td><td style={tdStyle}>{value(candidateStats, "fgMade60Plus")}</td><td style={tdStyle}>{value(candidateStats, "fgYds")}</td><td style={tdStyle}>{`${value(candidateStats, "fgMade")}/${value(candidateStats, "fgAtt")}`}</td><td style={tdStyle}>{`${value(candidateStats, "xpMade")}/${value(candidateStats, "xpAtt")}`}</td></>}
                   {profile === "DST" && <><td style={tdStyle}>{value(candidateStats, "sacks")}</td><td style={tdStyle}>{value(candidateStats, "defInt")}</td><td style={tdStyle}>{value(candidateStats, "fumblesRecovered")}</td><td style={tdStyle}>{value(candidateStats, "defTD")}</td><td style={tdStyle}>{value(candidateStats, "ptsAgainst")}</td></>}
                 </tr>;
               })}
