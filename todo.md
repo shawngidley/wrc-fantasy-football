@@ -905,3 +905,10 @@
 - [x] Narrow the pinned Player and Que columns to reveal more Bye/FPTS/FP-G/ADP data at mobile width.
 - [x] Retain readable headshots, player names, star queue actions, and aligned sticky headers.
 - [x] Verify the tighter table on mobile and desktop before publishing.
+
+# Draft Recap and Draft Players Navigation Reorganization
+
+- [x] Remove Draft Recap from the in-page Draft Hub tab headers.
+- [x] Present Draft Recap as a desktop-level tab beside Draft while retaining a standalone mobile route.
+- [x] Add Draft Players to the mobile Draft dropdown with Draft Order and Protections.
+- [x] Verify desktop tab placement, mobile dropdown routes, selected states, and direct URL access.

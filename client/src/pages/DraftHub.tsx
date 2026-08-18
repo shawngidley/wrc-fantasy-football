@@ -1,9 +1,10 @@
 /**
  * WRC Fantasy Football - Draft Hub
- * Wrapper page with three sub-tabs:
+ * Wrapper page with Draft workflow sub-tabs:
  *   - Draft Order  → /draft?tab=board  (DraftBoard)
+ *   - Draft Players → /draft?tab=players (DraftPlayers)
  *   - Protections  → /draft?tab=protections  (Protections)
- *   - Draft Recap  → /draft?tab=recap  (DraftRecap)
+ * Draft Recap lives at /draft-recap as its own page.
  */
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
@@ -12,16 +13,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import DraftBoard from "./DraftBoard";
 import DraftPlayers from "./DraftPlayers";
 import Protections from "./Protections";
-import DraftRecap from "./DraftRecap";
 
-type DraftTab = "board" | "players" | "protections" | "recap";
+type DraftTab = "board" | "players" | "protections";
 
 function getTab(search: string): DraftTab {
   const params = new URLSearchParams(search);
   const t = params.get("tab");
   if (t === "players") return "players";
   if (t === "protections") return "protections";
-  if (t === "recap") return "recap";
   return "board";
 }
 
@@ -37,11 +36,16 @@ export default function DraftHub() {
   // Scroll to top on mount
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("tab") === "recap") {
+      navigate("/draft-recap", { replace: true });
+    }
+  }, [navigate]);
+
   const tabs: { id: DraftTab; label: string }[] = [
     { id: "board", label: "Draft Order" },
     { id: "players", label: "Draft Players" },
     { id: "protections", label: "Protections" },
-    { id: "recap", label: "Draft Recap" },
   ];
 
   const setTab = (tab: DraftTab) => {
@@ -97,7 +101,6 @@ export default function DraftHub() {
         {activeTab === "board" && <DraftBoardNoNav />}
         {activeTab === "players" && <DraftPlayersNoNav />}
         {activeTab === "protections" && <ProtectionsNoNav />}
-        {activeTab === "recap" && <DraftRecapNoNav />}
       </div>
     </div>
   );
@@ -134,14 +137,6 @@ function ProtectionsNoNav() {
   return (
     <div className="draft-hub-child">
       <Protections />
-    </div>
-  );
-}
-
-function DraftRecapNoNav() {
-  return (
-    <div className="draft-hub-child">
-      <DraftRecap />
     </div>
   );
 }

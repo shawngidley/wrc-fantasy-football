@@ -23,6 +23,7 @@ const primaryLinks: NavLink[] = [
   { label: "Trades", path: "/trades" },
   { label: "Playoffs", path: "/playoffs" },
   { label: "Draft", path: "/draft" },
+  { label: "Draft Recap", path: "/draft-recap" },
   { label: "History", path: "/history" },
   { label: "Money", path: "/money" },
   { label: "Rules", path: "/rules" },
@@ -35,6 +36,7 @@ const navLinks: NavLink[] = [
   { label: "Standings", path: "/standings" },
   { label: "Live", path: "/live", live: true },
   { label: "Draft", path: "/draft" }, // expandable group
+  { label: "Draft Recap", path: "/draft-recap" },
   { label: "Playoffs", path: "/playoffs" },
   { label: "Lineup", path: "/lineup" },
   { label: "Rosters", path: "/rosters" },
@@ -52,8 +54,8 @@ const navLinks: NavLink[] = [
 // ── Mobile Nav List with expandable Draft group ───────────────────────────────
 const DRAFT_SUB_ITEMS = [
   { label: "Draft Order", path: "/draft" },
+  { label: "Draft Players", path: "/draft?tab=players" },
   { label: "Protections", path: "/draft?tab=protections" },
-  { label: "Draft Recap", path: "/draft?tab=recap" },
 ];
 
 function MobileNavList({ location, setMobileOpen }: { location: string; setMobileOpen: (v: boolean) => void }) {
