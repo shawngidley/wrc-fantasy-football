@@ -11,6 +11,8 @@ import { serveStatic, setupVite } from "./vite";
 import { collectFantasyProsArchive } from "../scheduledFantasyProsArchive";
 import { releasePostDeadlinePlayers } from "../scheduledProtectionRelease";
 import { proxyTank01Request } from "../tank01Proxy";
+import { serveCompletedOffenseSnapshot } from "../seasonStatsSnapshot";
+import { refreshSharedSeasonStatsSchedule } from "../seasonStatsRefresh";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -60,6 +62,8 @@ async function startServer() {
   registerStorageProxy(app);
   registerOAuthRoutes(app);
   app.get("/api/tank01/:endpoint", proxyTank01Request);
+  app.get("/api/season-stats-2025", serveCompletedOffenseSnapshot);
+  app.post("/api/scheduled/season-stats-refresh", refreshSharedSeasonStatsSchedule);
   app.post("/api/scheduled/fantasypros-archive", collectFantasyProsArchive);
   app.post("/api/scheduled/release-unprotected-players", releasePostDeadlinePlayers);
   // tRPC API

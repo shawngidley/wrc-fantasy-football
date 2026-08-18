@@ -62,6 +62,17 @@ export const fantasyprosNewsArchiveConfig = mysqlTable("fantasypros_news_archive
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
 
+/** Durable server-side snapshot for position-player season stats shared by all browsers. */
+export const wrcSeasonStatsCache = mysqlTable("wrc_season_stats_cache", {
+  id: varchar("id", { length: 64 }).primaryKey(),
+  season: int("season").notNull(),
+  source: varchar("source", { length: 96 }).notNull(),
+  payload: text("payload").notNull(),
+  scheduleCronTaskUid: varchar("scheduleCronTaskUid", { length: 65 }),
+  refreshedAt: timestamp("refreshedAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
 export type FantasyprosNewsArchive = typeof fantasyprosNewsArchive.$inferSelect;
 export type InsertFantasyprosNewsArchive = typeof fantasyprosNewsArchive.$inferInsert;
 

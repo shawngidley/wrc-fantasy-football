@@ -1,6 +1,6 @@
 import type { PlayerSeasonStats } from "@/lib/playerSeasonStats";
 
-export const SEASON_STATS_CACHE_PREFIX = "wrc_season_stats_2025_v11_";
+export const SEASON_STATS_CACHE_PREFIX = "wrc_season_stats_2025_v18_";
 export const SEASON_STATS_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
 export interface SeasonStatsCacheEntry {

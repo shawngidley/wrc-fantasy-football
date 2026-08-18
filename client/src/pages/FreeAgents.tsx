@@ -236,6 +236,9 @@ export function freeAgentStatValue(stats: PlayerSeasonStats | undefined, key: Fr
 
 function formatFreeAgentStat(stats: PlayerSeasonStats | undefined, column: FreeAgentStatColumn): string {
   if (!stats) return "—";
+  if (stats.gp === 0 && column.key === "wrcPts") return "0.0";
+  if (stats.gp === 0 && column.key === "ptsPerGame") return "0.0";
+  if (stats.gp === 0 && column.key === "gp") return "0";
   if (column.key === "fgPct" || column.key === "xpPct") {
     const value = freeAgentStatValue(stats, column.key);
     return value > 0 ? `${Math.round(value)}%` : "—";

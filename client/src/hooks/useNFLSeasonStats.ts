@@ -8,6 +8,7 @@ import { fetchPlayerByName } from "@/hooks/useTank01Player";
 import { normalizeNFLTeamCode } from "@/lib/nflTeamCodes";
 import { DST_SEASON_STATS_2025 } from "@/lib/dstSeasonStats2025";
 import { getCompletedKickerSeasonStats } from "@/lib/kickerSeasonStats2025";
+import { getCompletedOffenseSeasonStats2025, normalizeCompletedOffenseSeasonStats } from "@/lib/completedOffenseSeasonStats2025";
 import { normalizeCompletedDstSeasonStats, normalizeCompletedKickerSeasonStats, normalizeTankSeasonStats, type PlayerSeasonStats } from "@/lib/playerSeasonStats";
 import { readSeasonStatsCache, writeSeasonStatsCache, type SeasonStatsCacheEntry } from "@/lib/seasonStatsCache";
 
@@ -103,6 +104,24 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
       }
     }
 
+    async function loadCompletedOffenseStats() {
+      const completed = await getCompletedOffenseSeasonStats2025();
+      const completedNames = new Set<string>();
+      for (const player of individualPlayers) {
+        const line = completed[player.name];
+        if (!line || !["QB", "RB", "WR", "TE"].includes(player.pos)) continue;
+        const stats = normalizeCompletedOffenseSeasonStats(line);
+        cacheSet(player.name, { stats });
+        next[player.name.toLowerCase()] = stats;
+        completedNames.add(player.name);
+      }
+      if (completedNames.size) {
+        setStatMap({ ...next });
+        setLoadedCount(Object.keys(next).length);
+      }
+      return completedNames;
+    }
+
     async function worker() {
       while (!cancelled && individualPlayers.length) {
         const player = individualPlayers.shift();
@@ -123,11 +142,13 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
       }
     }
 
-    void Promise.all([
-      loadDstStats(),
-      loadExactKickerStats(),
-      ...Array.from({ length: Math.min(CONCURRENCY, individualPlayers.length) }, () => worker()),
-    ])
+    void (async () => {
+      await Promise.all([loadDstStats(), loadExactKickerStats()]);
+      const completedNames = await loadCompletedOffenseStats();
+      const unresolved = individualPlayers.filter(player => !completedNames.has(player.name));
+      individualPlayers.splice(0, individualPlayers.length, ...unresolved);
+      await Promise.all(Array.from({ length: Math.min(CONCURRENCY, individualPlayers.length) }, () => worker()));
+    })()
       .finally(() => {
         if (!cancelled) setLoading(false);
       });

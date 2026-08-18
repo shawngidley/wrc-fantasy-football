@@ -201,6 +201,18 @@
 - [x] Obtain authoritative 2025 season data for every Free Agents K row and replace provisional unsupported values.
 - [x] Persist normalized season stats with a versioned, time-bounded browser cache for fast repeat Free Agents page loads.
 - [x] Verify desktop layout, fully authoritative K scoring, and warm cached loads on the Free Agents page.
+- [x] Restore SFLEX Free Agents season FPTS and stat values after the season-cache update.
+- [x] Replace Tank01-dependent 2025 Free Agents season loads with a completed-season source that remains available in production.
+
+# Daily Shared Season-Stat Refresh
+
+- [x] Build a server-side shared season-stat cache so all browsers can load Free Agents stats without individual provider calls.
+- [ ] Add an idempotent morning Heartbeat refresh for the shared season-stat cache.
+- [x] Verify a cold browser receives warmed SFLEX, K, and D/ST stats without waiting for individual player lookups.
+- [x] Complete player-identity coverage or explicit validated no-season states for every remaining SFLEX row in the shared snapshot.
+- [ ] Verify the shared snapshot source on the published Free Agents page without individual Tank01 player lookups.
+- [x] Run a true cold-browser verification for SFLEX, K, and D/ST after clearing local season-stat cache entries.
+- [x] Render validated 0.0 FPTS, 0.0 FP/G, and 0 GP for explicit no-2025-season Free Agents rather than ambiguous dashes.
 
 # Full Free Agents Column Parity
 
