@@ -857,3 +857,10 @@
 - [x] Tighten the Draft Players page and available-player board to a centered desktop width appropriate for the table content.
 - [x] Preserve responsive mobile sizing, table scrolling, filters, and the sticky queue action column.
 - [x] Verify the refined layout at wide desktop and mobile viewports.
+
+# Compact Draft Players Queue Column and Pinned Player Identity
+
+- [x] Replace the large Add to Queue/My Queue control with a compact Que column immediately before POS.
+- [x] Add an accessible star action that queues or removes each available player for the signed-in owner.
+- [x] Pin player identity during horizontal Draft Players table scrolling on desktop and mobile.
+- [x] Preserve signed-out feedback, private queue ownership, and validate the compact interaction plus scrolling behavior.

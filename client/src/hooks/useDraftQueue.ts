@@ -22,6 +22,10 @@ export function removeDraftQueueItem(previous: DraftQueueItem[] | undefined, id:
   return (previous ?? []).filter(item => item.id !== id);
 }
 
+export function findDraftQueueItemByPlayerName(items: readonly DraftQueueItem[], playerName: string): DraftQueueItem | undefined {
+  return items.find(item => item.player_name.toLowerCase() === playerName.toLowerCase());
+}
+
 export function useDraftQueue(teamId: string | null | undefined, season = 2026) {
   const [queue, setQueue] = useState<DraftQueueItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -85,7 +89,7 @@ export function useDraftQueue(teamId: string | null | undefined, season = 2026) 
 
   // Check if a player is already in the queue
   const isQueued = useCallback((playerName: string) => {
-    return queue.some(q => q.player_name.toLowerCase() === playerName.toLowerCase());
+    return Boolean(findDraftQueueItemByPlayerName(queue, playerName));
   }, [queue]);
 
   return { queue, loading, addToQueue, removeFromQueue, moveItem, isQueued, reload: loadQueue };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appendDraftQueueItem, removeDraftQueueItem, type DraftQueueItem } from "./useDraftQueue";
+import { appendDraftQueueItem, findDraftQueueItemByPlayerName, removeDraftQueueItem, type DraftQueueItem } from "./useDraftQueue";
 
 const existing: DraftQueueItem = {
   id: 1,
@@ -29,5 +29,10 @@ describe("draft queue shared-cache updates", () => {
 
   it("immediately removes a queue entry from the shared Draft Order query state", () => {
     expect(removeDraftQueueItem([existing, newlyQueued], newlyQueued.id)).toEqual([existing]);
+  });
+
+  it("finds queue entries case-insensitively for a player-star toggle", () => {
+    expect(findDraftQueueItemByPlayerName([existing, newlyQueued], "fernando mendoza")).toEqual(newlyQueued);
+    expect(findDraftQueueItemByPlayerName([existing], "Missing Player")).toBeUndefined();
   });
 });

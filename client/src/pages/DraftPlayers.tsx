@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, ListPlus, Search } from "lucide-react";
+import { Search, Star } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { useDraftQueue } from "@/hooks/useDraftQueue";
+import { findDraftQueueItemByPlayerName, useDraftQueue } from "@/hooks/useDraftQueue";
 import { useNFLADP } from "@/hooks/useNFLADP";
 import { supabase } from "@/lib/supabase";
 import { resolve2026Adp, sortDraftBoardPlayers, type DraftBoardSortDirection, type DraftBoardSortKey } from "@/lib/draftBoardPlayerBoard";
@@ -23,10 +23,10 @@ export default function DraftPlayers() {
   const [posFilter, setPosFilter] = useState<(typeof POSITIONS)[number]>("ALL");
   const [sortKey, setSortKey] = useState<DraftBoardSortKey>("adp");
   const [sortDirection, setSortDirection] = useState<DraftBoardSortDirection>("asc");
-  const [addingPlayerName, setAddingPlayerName] = useState<string | null>(null);
+  const [queueActionPlayerName, setQueueActionPlayerName] = useState<string | null>(null);
   const { adpMap, loading: adpLoading, adpDate } = useNFLADP();
   const franchiseId = franchise?.id ?? null;
-  const { addToQueue, isQueued } = useDraftQueue(franchiseId);
+  const { addToQueue, isQueued, queue, removeFromQueue } = useDraftQueue(franchiseId);
 
   useEffect(() => {
     let active = true;
@@ -88,16 +88,21 @@ export default function DraftPlayers() {
       toast.error("Sign in to add players to your draft queue.");
       return;
     }
-    if (isQueued(player.name)) return;
 
-    setAddingPlayerName(player.name);
+    setQueueActionPlayerName(player.name);
     try {
-      await addToQueue({ name: player.name, pos: player.pos, nflTeam: player.nflTeam });
-      toast.success(`${player.name} added to ${franchise.team_name}'s queue.`);
+      const queuedItem = findDraftQueueItemByPlayerName(queue, player.name);
+      if (queuedItem) {
+        await removeFromQueue(queuedItem.id);
+        toast.success(`${player.name} removed from ${franchise.team_name}'s queue.`);
+      } else {
+        await addToQueue({ name: player.name, pos: player.pos, nflTeam: player.nflTeam });
+        toast.success(`${player.name} added to ${franchise.team_name}'s queue.`);
+      }
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not add this player to your queue.");
+      toast.error(error instanceof Error ? error.message : "Could not update this player in your queue.");
     } finally {
-      setAddingPlayerName(null);
+      setQueueActionPlayerName(null);
     }
   };
 
@@ -155,30 +160,31 @@ export default function DraftPlayers() {
           </div>
 
           <div style={{ maxHeight: 700, overflow: "auto" }}>
-            <table className="wrc-table" style={{ minWidth: 730, width: "100%" }}>
+            <table className="wrc-table" style={{ minWidth: 600, width: "100%" }}>
               <thead style={{ position: "sticky", top: 0, zIndex: 2 }}><tr>
                 <th style={{ width: 52, textAlign: "center" }}>#</th>
-                <th><button type="button" onClick={() => toggleSort("name")} aria-label="Sort by player name" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>PLAYER {sortLabel("name")}</button></th>
+                <th style={{ position: "sticky", left: 0, zIndex: 4, background: "oklch(0.22 0.08 150)" }}><button type="button" onClick={() => toggleSort("name")} aria-label="Sort by player name" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>PLAYER {sortLabel("name")}</button></th>
+                <th style={{ width: 54, textAlign: "center" }}>QUE</th>
                 <th style={{ width: 72 }}><button type="button" onClick={() => toggleSort("pos")} aria-label="Sort by position" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>POS {sortLabel("pos")}</button></th>
                 <th style={{ width: 76 }}><button type="button" onClick={() => toggleSort("team")} aria-label="Sort by NFL team" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>NFL {sortLabel("team")}</button></th>
                 <th style={{ width: 82, textAlign: "right" }}><button type="button" onClick={() => toggleSort("adp")} aria-label="Sort by 2026 ADP" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>ADP {sortLabel("adp")}</button></th>
-                <th style={{ width: 136, textAlign: "right", position: "sticky", right: 0, zIndex: 3, background: "oklch(0.22 0.08 150)" }}>MY QUEUE</th>
               </tr></thead>
               <tbody>
                 {visiblePlayers.length === 0 ? <tr><td colSpan={6} style={{ padding: "2rem", textAlign: "center", color: "oklch(0.55 0.04 150)" }}>No available players match the current search and position selection.</td></tr> : visiblePlayers.map((player, index) => {
                   const queued = isQueued(player.name);
-                  const adding = addingPlayerName === player.name;
+                  const queueActionInProgress = queueActionPlayerName === player.name;
+                  const rowBackground = index % 2 === 0 ? "white" : "oklch(0.96 0.008 150)";
                   return <tr key={player.id} className="wrc-row-hover">
                     <td style={{ textAlign: "center", color: "oklch(0.55 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700 }}>{index + 1}</td>
-                    <td><div style={{ fontWeight: 700, color: "oklch(0.18 0.05 150)" }}>{player.name}</div><div style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)", marginTop: 1 }}>{player.bye ? `Bye ${player.bye}` : "Bye —"}</div></td>
+                    <td style={{ position: "sticky", left: 0, zIndex: 2, background: rowBackground, boxShadow: "8px 0 12px -12px oklch(0.2 0.08 150 / 0.55)" }}><div style={{ fontWeight: 700, color: "oklch(0.18 0.05 150)" }}>{player.name}</div><div style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)", marginTop: 1 }}>{player.bye ? `Bye ${player.bye}` : "Bye —"}</div></td>
+                    <td style={{ textAlign: "center" }}>
+                      <button type="button" onClick={() => void handleQueuePlayer(player)} disabled={queueActionInProgress} aria-label={queued ? `Remove ${player.name} from your draft queue` : `Add ${player.name} to your draft queue`} aria-pressed={queued} title={queued ? "Remove from My Queue" : "Add to My Queue"} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, border: "none", borderRadius: 6, background: queued ? "oklch(0.95 0.08 85)" : "transparent", color: queued ? "oklch(0.58 0.14 85)" : "oklch(0.5 0.04 150)", cursor: queueActionInProgress ? "not-allowed" : "pointer", opacity: queueActionInProgress ? 0.55 : 1 }}>
+                        <Star size={18} fill={queued ? "currentColor" : "none"} strokeWidth={2.3} />
+                      </button>
+                    </td>
                     <td><span style={{ display: "inline-block", minWidth: 31, textAlign: "center", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 700, color: "white", background: POS_COLORS[player.pos] || "#64748b", borderRadius: 4, padding: "2px 4px" }}>{player.pos}</span></td>
                     <td style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: "oklch(0.4 0.04 150)" }}>{player.nflTeam}</td>
                     <td style={{ textAlign: "right", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, color: formatADP(player) === "—" ? "oklch(0.6 0.02 150)" : "oklch(0.22 0.08 150)" }}>{formatADP(player)}</td>
-                    <td style={{ textAlign: "right", position: "sticky", right: 0, zIndex: 1, background: index % 2 === 0 ? "white" : "oklch(0.96 0.008 150)" }}>
-                      {!franchise ? <span style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700 }}>SIGN IN TO QUEUE</span>
-                        : queued ? <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: "oklch(0.42 0.15 150)", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 800 }}><Check size={13} /> QUEUED</span>
-                          : <button type="button" onClick={() => void handleQueuePlayer(player)} disabled={adding} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "oklch(0.28 0.09 150)", color: "white", border: "none", borderRadius: 5, padding: "0.3rem 0.55rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 800, letterSpacing: "0.04em", cursor: adding ? "not-allowed" : "pointer", opacity: adding ? 0.6 : 1 }}><ListPlus size={13} /> {adding ? "ADDING…" : "ADD TO QUEUE"}</button>}
-                    </td>
                   </tr>;
                 })}
               </tbody>
