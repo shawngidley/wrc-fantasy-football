@@ -1,4 +1,4 @@
-import { index, int, mysqlEnum, mysqlTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
+import { index, int, mediumtext, mysqlEnum, mysqlTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -67,7 +67,7 @@ export const wrcSeasonStatsCache = mysqlTable("wrc_season_stats_cache", {
   id: varchar("id", { length: 64 }).primaryKey(),
   season: int("season").notNull(),
   source: varchar("source", { length: 96 }).notNull(),
-  payload: text("payload").notNull(),
+  payload: mediumtext("payload").notNull(),
   scheduleCronTaskUid: varchar("scheduleCronTaskUid", { length: 65 }),
   refreshedAt: timestamp("refreshedAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

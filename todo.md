@@ -872,3 +872,30 @@
 - [x] Place Que directly beside Player and reorder the leading stat columns as Bye, FPTS, FP/G, and ADP.
 - [x] Resolve position-appropriate completed-season FPTS and FP/G for the available player board.
 - [x] Verify column order and responsive sticky/scrolled behavior on desktop and mobile.
+
+# Published Draft Players Update Mismatch
+
+- [x] Compare the production and development Draft Players page headers and identity cells after the reported missing update.
+- [x] Confirm no publication, route, or stale-asset correction is required: the public route serves the current table bundle.
+- [x] Confirm the public Draft Players page visibly shows headshots and Player, Que, Bye, FPTS, FP/G, ADP order.
+
+# Draft Players Sorting and Jacksonville Bye Correction
+
+- [x] Make every Draft Players data column sortable with clear ascending and descending indicators.
+- [x] Verify Jacksonville’s 2026 bye week from an authoritative current schedule source and identify affected generated records.
+- [x] Correct Jaguars bye metadata in the shared Draft Players universe without altering other verified team byes.
+- [x] Add regression coverage for numeric sorting and corrected Jacksonville rows, then verify the page on desktop and mobile.
+
+# Draft Players FPTS and FP/G Accuracy Audit
+
+- [x] Compare Draft Players season-stat hydration with the Free Agents stat source and normalizer for representative players.
+- [x] Identify and correct any player-identity, position, completed-season, or WRC-scoring mismatch affecting Draft Players FPTS or FP/G.
+- [x] Expand the durable shared-season snapshot payload capacity so the reconciled completed-player dataset can be served successfully.
+- [x] Add regression coverage for representative veteran, rookie, kicker, and D/ST Draft Players stat values.
+- [x] Verify the corrected Draft Players FPTS and FP/G values in the browser before publishing.
+
+# Draft Players Mobile Pinned Player Header
+
+- [x] Align the sticky Player table header with the fixed Player body column on mobile horizontal scroll.
+- [x] Preserve the adjacent Que sticky column and visible Bye/FPTS/FP-G/ADP data columns.
+- [x] Verify the mobile table header remains aligned at both left and right scroll positions.

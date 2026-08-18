@@ -1,0 +1,1 @@
+ALTER TABLE `wrc_season_stats_cache` MODIFY COLUMN `payload` mediumtext NOT NULL;

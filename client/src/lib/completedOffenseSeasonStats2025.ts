@@ -21,7 +21,7 @@ let snapshotPromise: Promise<Record<string, CompletedOffenseSeasonStatLine>> | n
 
 export function getCompletedOffenseSeasonStats2025(): Promise<Record<string, CompletedOffenseSeasonStatLine>> {
   if (!snapshotPromise) {
-    snapshotPromise = fetch(SNAPSHOT_URL)
+    snapshotPromise = fetch(SNAPSHOT_URL, { cache: "no-store" })
       .then(response => response.ok ? response.json() : {})
       .catch(() => ({}));
   }

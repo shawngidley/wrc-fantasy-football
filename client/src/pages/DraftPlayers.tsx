@@ -87,6 +87,10 @@ export default function DraftPlayers() {
     [availablePlayers],
   );
   const { statMap: seasonStatMap } = useNFLSeasonStats(seasonStatPlayers, true, false);
+  const queuedPlayerNames = useMemo(
+    () => new Set(queue.map(item => item.player_name.toLowerCase())),
+    [queue],
+  );
 
   const visiblePlayers = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -94,8 +98,8 @@ export default function DraftPlayers() {
       if (posFilter !== "ALL" && player.pos !== posFilter) return false;
       return !term || player.name.toLowerCase().includes(term) || player.nflTeam.toLowerCase().includes(term);
     });
-    return sortDraftBoardPlayers(matches, adpMap, sortKey, sortDirection);
-  }, [adpMap, availablePlayers, posFilter, search, sortDirection, sortKey]);
+    return sortDraftBoardPlayers(matches, adpMap, sortKey, sortDirection, seasonStatMap, queuedPlayerNames);
+  }, [adpMap, availablePlayers, posFilter, queuedPlayerNames, search, seasonStatMap, sortDirection, sortKey]);
 
   const formatADP = (player: DraftUniversePlayer) => {
     const adp = resolve2026Adp(player, adpMap);
@@ -201,14 +205,14 @@ export default function DraftPlayers() {
                 <col style={{ width: 64 }} />
                 <col style={{ width: 65 }} />
               </colgroup>
-              <thead style={{ position: "sticky", top: 0, zIndex: 2 }}><tr>
-                <th style={{ textAlign: "center" }}>#</th>
-                <th style={{ position: "sticky", left: 0, zIndex: 4, background: "oklch(0.22 0.08 150)" }}><button type="button" onClick={() => toggleSort("name")} aria-label="Sort by player name" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>PLAYER {sortLabel("name")}</button></th>
-                <th style={{ textAlign: "center", position: "sticky", left: 230, zIndex: 4, background: "oklch(0.22 0.08 150)", boxShadow: "8px 0 12px -12px oklch(0.05 0.05 150 / 0.9)" }}>QUE</th>
-                <th style={{ textAlign: "center" }}>BYE</th>
-                <th style={{ textAlign: "right" }}>FPTS</th>
-                <th style={{ textAlign: "right" }}>FP/G</th>
-                <th style={{ textAlign: "right" }}><button type="button" onClick={() => toggleSort("adp")} aria-label="Sort by 2026 ADP" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>ADP {sortLabel("adp")}</button></th>
+              <thead><tr>
+                <th style={{ textAlign: "center", position: "sticky", top: 0, left: 0, zIndex: 7, background: "oklch(0.22 0.08 150)" }}>#</th>
+                <th style={{ position: "sticky", top: 0, left: 44, zIndex: 8, background: "oklch(0.22 0.08 150)" }}><button type="button" onClick={() => toggleSort("name")} aria-label="Sort by player name" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>PLAYER {sortLabel("name")}</button></th>
+                <th style={{ textAlign: "center", position: "sticky", top: 0, left: 274, zIndex: 8, background: "oklch(0.22 0.08 150)", boxShadow: "8px 0 12px -12px oklch(0.05 0.05 150 / 0.9)" }}><button type="button" onClick={() => toggleSort("queue")} aria-label="Sort by queued status" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>QUE {sortLabel("queue")}</button></th>
+                <th style={{ textAlign: "center", position: "sticky", top: 0, zIndex: 5, background: "oklch(0.22 0.08 150)" }}><button type="button" onClick={() => toggleSort("bye")} aria-label="Sort by bye week" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>BYE {sortLabel("bye")}</button></th>
+                <th style={{ textAlign: "right", position: "sticky", top: 0, zIndex: 5, background: "oklch(0.22 0.08 150)" }}><button type="button" onClick={() => toggleSort("fpts")} aria-label="Sort by season fantasy points" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>FPTS {sortLabel("fpts")}</button></th>
+                <th style={{ textAlign: "right", position: "sticky", top: 0, zIndex: 5, background: "oklch(0.22 0.08 150)" }}><button type="button" onClick={() => toggleSort("fpg")} aria-label="Sort by season fantasy points per game" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>FP/G {sortLabel("fpg")}</button></th>
+                <th style={{ textAlign: "right", position: "sticky", top: 0, zIndex: 5, background: "oklch(0.22 0.08 150)" }}><button type="button" onClick={() => toggleSort("adp")} aria-label="Sort by 2026 ADP" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>ADP {sortLabel("adp")}</button></th>
               </tr></thead>
               <tbody>
                 {visiblePlayers.length === 0 ? <tr><td colSpan={7} style={{ padding: "2rem", textAlign: "center", color: "oklch(0.55 0.04 150)" }}>No available players match the current search and position selection.</td></tr> : visiblePlayers.map((player, index) => {
@@ -216,8 +220,8 @@ export default function DraftPlayers() {
                   const queueActionInProgress = queueActionPlayerName === player.name;
                   const rowBackground = index % 2 === 0 ? "white" : "oklch(0.96 0.008 150)";
                   return <tr key={player.id} className="wrc-row-hover">
-                    <td style={{ textAlign: "center", color: "oklch(0.55 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700 }}>{index + 1}</td>
-                    <td style={{ position: "sticky", left: 0, zIndex: 3, background: rowBackground }}>
+                    <td style={{ textAlign: "center", position: "sticky", left: 0, zIndex: 4, background: rowBackground, color: "oklch(0.55 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700 }}>{index + 1}</td>
+                    <td style={{ position: "sticky", left: 44, zIndex: 4, background: rowBackground }}>
                       <Link href={`/player/${encodeURIComponent(player.name)}`} style={{ display: "flex", alignItems: "center", gap: "0.4rem", textDecoration: "none", minWidth: 0, overflow: "hidden" }}>
                         <DraftPlayerAvatar player={player} />
                         <div style={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
@@ -229,7 +233,7 @@ export default function DraftPlayers() {
                         </div>
                       </Link>
                     </td>
-                    <td style={{ textAlign: "center", position: "sticky", left: 230, zIndex: 3, background: rowBackground, boxShadow: "8px 0 12px -12px oklch(0.2 0.08 150 / 0.55)" }}>
+                    <td style={{ textAlign: "center", position: "sticky", left: 274, zIndex: 4, background: rowBackground, boxShadow: "8px 0 12px -12px oklch(0.2 0.08 150 / 0.55)" }}>
                       <button type="button" onClick={() => void handleQueuePlayer(player)} disabled={queueActionInProgress} aria-label={queued ? `Remove ${player.name} from your draft queue` : `Add ${player.name} to your draft queue`} aria-pressed={queued} title={queued ? "Remove from My Queue" : "Add to My Queue"} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, border: "none", borderRadius: 6, background: queued ? "oklch(0.95 0.08 85)" : "transparent", color: queued ? "oklch(0.58 0.14 85)" : "oklch(0.5 0.04 150)", cursor: queueActionInProgress ? "not-allowed" : "pointer", opacity: queueActionInProgress ? 0.55 : 1 }}>
                         <Star size={18} fill={queued ? "currentColor" : "none"} strokeWidth={2.3} />
                       </button>

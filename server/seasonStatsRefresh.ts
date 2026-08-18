@@ -7,7 +7,7 @@ import { getCompletedOffenseSnapshot } from "./seasonStatsSnapshot";
 
 const CACHE_ID = "completed-offense-2025-id-resolved-v4";
 const CACHE_SEASON = 2025;
-const CACHE_SOURCE = "nflverse-completed-2025-id-resolved";
+const CACHE_SOURCE = "nflverse-completed-2025-play-by-play-reconciled-v3";
 
 async function seasonStatsDb() {
   const db = await getDb();
@@ -18,16 +18,24 @@ async function seasonStatsDb() {
 export async function readOrWarmSharedSeasonStats(): Promise<unknown> {
   const db = await seasonStatsDb();
   const existing = (await db.select().from(wrcSeasonStatsCache).where(eq(wrcSeasonStatsCache.id, CACHE_ID)).limit(1))[0];
-  if (existing) return JSON.parse(existing.payload);
+  if (existing?.source === CACHE_SOURCE) return JSON.parse(existing.payload);
 
   const snapshot = await getCompletedOffenseSnapshot({ force: true });
-  await db.insert(wrcSeasonStatsCache).values({
-    id: CACHE_ID,
-    season: CACHE_SEASON,
-    source: CACHE_SOURCE,
-    payload: JSON.stringify(snapshot),
-    refreshedAt: new Date(),
-  });
+  if (existing) {
+    await db.update(wrcSeasonStatsCache).set({
+      source: CACHE_SOURCE,
+      payload: JSON.stringify(snapshot),
+      refreshedAt: new Date(),
+    }).where(eq(wrcSeasonStatsCache.id, CACHE_ID));
+  } else {
+    await db.insert(wrcSeasonStatsCache).values({
+      id: CACHE_ID,
+      season: CACHE_SEASON,
+      source: CACHE_SOURCE,
+      payload: JSON.stringify(snapshot),
+      refreshedAt: new Date(),
+    });
+  }
   return snapshot;
 }
 

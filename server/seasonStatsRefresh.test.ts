@@ -26,7 +26,7 @@ describe("refreshSharedSeasonStats", () => {
     expect(values).toHaveBeenCalledWith(expect.objectContaining({
       id: "completed-offense-2025-id-resolved-v4",
       season: 2025,
-      source: "nflverse-completed-2025-id-resolved",
+      source: "nflverse-completed-2025-play-by-play-reconciled-v3",
     }));
     expect(onDuplicateKeyUpdate).toHaveBeenCalledOnce();
   });

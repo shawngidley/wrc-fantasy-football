@@ -59,11 +59,16 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
     const nextMeta: Record<string, { age?: string; headshot?: string }> = {};
     const uncached = players.filter((player) => {
       const cached = cacheGet(player.name);
-      if (cached) {
+      const completedOffenseSource = ["QB", "RB", "WR", "TE"].includes(player.pos);
+      // Draft Players deliberately disables provider fallback. Its completed 2025
+      // snapshot is authoritative, so a prior browser entry must not mask a
+      // corrected WRC total or FP/G value.
+      const ignoreCachedOffense = !allowProviderFallback && completedOffenseSource;
+      if (cached && !ignoreCachedOffense) {
         next[player.name.toLowerCase()] = cached.stats;
         nextMeta[player.name.toLowerCase()] = { age: cached.age, headshot: cached.headshot };
       }
-      return !cached;
+      return !cached || ignoreCachedOffense;
     });
 
     setStatMap(next);

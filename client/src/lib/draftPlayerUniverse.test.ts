@@ -8,7 +8,7 @@ import {
 
 describe("2026 WRC Draft player universe", () => {
   it("covers all NFL teams using validated active rosters and dated 2026 PPR ADP", () => {
-    expect(CURRENT_DRAFT_PLAYER_UNIVERSE_2026).toHaveLength(1001);
+    expect(CURRENT_DRAFT_PLAYER_UNIVERSE_2026).toHaveLength(1002);
     expect(new Set(CURRENT_DRAFT_PLAYER_UNIVERSE_2026.map(player => player.nflTeam)).size).toBe(32);
     expect(CURRENT_DRAFT_PLAYER_UNIVERSE_2026.filter(player => player.pos === "K")).toHaveLength(41);
     expect(CURRENT_DRAFT_PLAYER_UNIVERSE_2026_METADATA.adpSource).toBe("Tank01 getNFLADP PPR");
@@ -49,5 +49,11 @@ describe("2026 WRC Draft player universe", () => {
   it("excludes retired players even when a stale upstream candidate record remains", () => {
     expect(CURRENT_DRAFT_PLAYER_UNIVERSE_2026.some(player => player.name === "Amari Cooper")).toBe(false);
     expect(findDraftUniversePlayer({ name: "Amari Cooper", pos: "WR", nflTeam: "LV" })).toBeNull();
+  });
+
+  it("assigns every Jacksonville player the verified 2026 Week 7 bye", () => {
+    const jaguars = CURRENT_DRAFT_PLAYER_UNIVERSE_2026.filter(player => player.nflTeam === "JAC");
+    expect(jaguars.length).toBeGreaterThan(0);
+    expect(jaguars.every(player => player.bye === 7)).toBe(true);
   });
 });
