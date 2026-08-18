@@ -805,3 +805,9 @@
 
 - [x] Remove absent database objects from the PostgreSQL RLS cutover script and retry the transaction.
 - [x] Verify the final RLS policy inventory and secured anonymous-access behavior after the corrected cutover.
+
+# 2026 Draft Player-Universe Coverage Audit
+
+- [x] Trace the current Draft Board player-pool source and its rostered-player exclusion rules.
+- [x] Measure current 2026 rookie and position coverage against an authoritative 2026 player source.
+- [x] Report whether the live draft pool is complete and identify any missing player classes before making changes.
