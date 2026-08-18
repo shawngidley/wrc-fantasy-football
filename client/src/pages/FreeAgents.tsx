@@ -27,7 +27,7 @@ import { toast } from "sonner";
 import Navigation from "@/components/Navigation";
 import { useNFLDepthCharts } from "@/hooks/useNFLDepthCharts";
 import { useNFLSeasonStats } from "@/hooks/useNFLSeasonStats";
-import { formatSeasonStatColumn, getSeasonStatColumns, type SeasonStatColumn, type SeasonStatKey } from "@/lib/playerSeasonStats";
+import { formatSeasonStatColumn, type PlayerSeasonStats, type SeasonStatColumn, type SeasonStatKey } from "@/lib/playerSeasonStats";
 import { trpc } from "@/lib/trpc";
 
 // ── Position badge colors ────────────────────────────────────────────────────
@@ -174,23 +174,53 @@ function CommissionerBids({ week }: { week: number }) {
 }
 
 // ── Sort options ─────────────────────────────────────────────────────────────
-type SortKey = "name" | "bye" | "proj" | "adp" | "ecr" | SeasonStatKey;
+type FreeAgentStatKey = SeasonStatKey | "turnovers" | "fgPct" | "xpPct";
+type FreeAgentStatColumn = Omit<SeasonStatColumn, "key"> & { key: FreeAgentStatKey };
+type SortKey = "name" | "wrcTeam" | "bye" | "proj" | "adp" | "ecr" | FreeAgentStatKey;
 type SortDirection = "asc" | "desc";
 
-const SFLEX_COLUMNS: SeasonStatColumn[] = [
-  { label: "GP", key: "gp" },
-  { label: "PASS YDS", key: "passYds" },
-  { label: "PASS TD", key: "passTD" },
-  { label: "INT", key: "passInt" },
-  { label: "RUSH YDS", key: "rushYds" },
-  { label: "RUSH TD", key: "rushTD" },
-  { label: "REC", key: "receptions" },
-  { label: "TGT", key: "targets" },
-  { label: "REC YDS", key: "recYds" },
-  { label: "REC TD", key: "recTD" },
-  { label: "WRC PTS", key: "wrcPts", decimals: 1, gold: true },
-  { label: "PTS/G", key: "ptsPerGame", decimals: 1, gold: true },
+const SFLEX_COLUMNS: FreeAgentStatColumn[] = [
+  { label: "FPTS", key: "wrcPts", decimals: 1, gold: true }, { label: "FP/G", key: "ptsPerGame", decimals: 1, gold: true },
+  { label: "YDS", key: "passYds" }, { label: "TD", key: "passTD" }, { label: "INT", key: "passInt" },
+  { label: "ATT", key: "rushAtt" }, { label: "YDS", key: "rushYds" }, { label: "TD", key: "rushTD" },
+  { label: "TGT", key: "targets" }, { label: "REC", key: "receptions" }, { label: "YDS", key: "recYds" }, { label: "TD", key: "recTD" },
+  { label: "TO", key: "turnovers" }, { label: "GP", key: "gp" },
 ];
+
+const K_COLUMNS: FreeAgentStatColumn[] = [
+  { label: "FPTS", key: "wrcPts", decimals: 1, gold: true }, { label: "FP/G", key: "ptsPerGame", decimals: 1, gold: true },
+  { label: "FGM", key: "fgMade" }, { label: "FGA", key: "fgAtt" }, { label: "FG%", key: "fgPct" },
+  { label: "XPM", key: "xpMade" }, { label: "XPA", key: "xpAtt" }, { label: "XP%", key: "xpPct" }, { label: "GP", key: "gp" },
+];
+
+const DST_COLUMNS: FreeAgentStatColumn[] = [
+  { label: "FPTS", key: "wrcPts", decimals: 1, gold: true }, { label: "FP/G", key: "ptsPerGame", decimals: 1, gold: true },
+  { label: "SK", key: "sacks" }, { label: "SFT", key: "safeties" }, { label: "TA", key: "takeaways" }, { label: "TDDST", key: "dstTD" }, { label: "GP", key: "gp" },
+];
+
+export function getFreeAgentStatColumns(pos: string): FreeAgentStatColumn[] {
+  if (pos === "SFLEX") return SFLEX_COLUMNS;
+  if (pos === "K") return K_COLUMNS;
+  if (pos === "DST") return DST_COLUMNS;
+  return SFLEX_COLUMNS;
+}
+
+export function freeAgentStatValue(stats: PlayerSeasonStats | undefined, key: FreeAgentStatKey): number {
+  if (!stats) return 0;
+  if (key === "turnovers") return stats.passInt + stats.fumblesLost;
+  if (key === "fgPct") return stats.fgAtt > 0 ? (stats.fgMade / stats.fgAtt) * 100 : 0;
+  if (key === "xpPct") return stats.xpAtt > 0 ? (stats.xpMade / stats.xpAtt) * 100 : 0;
+  return stats[key as SeasonStatKey];
+}
+
+function formatFreeAgentStat(stats: PlayerSeasonStats | undefined, column: FreeAgentStatColumn): string {
+  if (!stats) return "—";
+  if (column.key === "fgPct" || column.key === "xpPct") {
+    const value = freeAgentStatValue(stats, column.key);
+    return value > 0 ? `${Math.round(value)}%` : "—";
+  }
+  return formatSeasonStatColumn(stats, column as SeasonStatColumn);
+}
 
 // ── Main FreeAgents page ─────────────────────────────────────────────────────
 export default function FreeAgents() {
@@ -270,20 +300,20 @@ export default function FreeAgents() {
   }, [freeAgents, allPlayers, playerScope, posFilter, search]);
 
   const seasonStatPlayers = useMemo(
-    () => baseFiltered.map((player) => ({ name: player.name, pos: player.pos })),
+    () => baseFiltered.map((player) => ({ name: player.name, pos: player.pos, nflTeam: player.nflTeam })),
     [baseFiltered]
   );
   const { statMap: seasonStatMap, loading: seasonStatsLoading, loadedCount: seasonStatsLoaded } = useNFLSeasonStats(seasonStatPlayers, true);
   const seasonColumns = useMemo(
-    () => posFilter === "SFLEX" ? SFLEX_COLUMNS : getSeasonStatColumns(posFilter),
+    () => getFreeAgentStatColumns(posFilter),
     [posFilter]
   );
   const statsGridColumns = useMemo(
-    () => `210px 48px 62px 62px 62px ${seasonColumns.map(() => "minmax(76px, auto)").join(" ")} 76px 30px`,
+    () => `210px minmax(108px, auto) 48px 62px 62px 62px ${seasonColumns.map(() => "minmax(64px, auto)").join(" ")} 76px 30px`,
     [seasonColumns]
   );
   const statsTableMinWidth = useMemo(
-    () => 210 + 48 + 62 + 62 + 62 + 76 * seasonColumns.length + 76 + 30,
+    () => 210 + 108 + 48 + 62 + 62 + 62 + 64 * seasonColumns.length + 76 + 30,
     [seasonColumns]
   );
 
@@ -304,11 +334,12 @@ export default function FreeAgents() {
   const filtered = useMemo(() => {
     const getValue = (player: NFLPlayer): string | number => {
       if (sortKey === "name") return player.name;
+      if (sortKey === "wrcTeam") return ownershipMap[player.name.toLowerCase()] ?? "Free Agent";
       if (sortKey === "bye") return player.bye ?? 99;
       if (sortKey === "proj") return getProjectedPoints(projections, player.name, player.pos, player.nflTeam);
       if (sortKey === "adp") return player.adp;
       if (sortKey === "ecr") return fantasyProsRankMap.get(normalizePlayerName(player.name))?.ecr ?? 9999;
-      return seasonStatMap[player.name.toLowerCase()]?.[sortKey] ?? -1;
+      return freeAgentStatValue(seasonStatMap[player.name.toLowerCase()], sortKey);
     };
 
     return [...baseFiltered].sort((a, b) => {
@@ -319,7 +350,7 @@ export default function FreeAgents() {
         : Number(aValue) - Number(bValue);
       return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [baseFiltered, projections, fantasyProsRankMap, seasonStatMap, sortDirection, sortKey]);
+  }, [baseFiltered, projections, fantasyProsRankMap, ownershipMap, seasonStatMap, sortDirection, sortKey]);
 
   const handleSort = (nextKey: SortKey) => {
     if (nextKey === sortKey) {
@@ -327,17 +358,18 @@ export default function FreeAgents() {
       return;
     }
     setSortKey(nextKey);
-    setSortDirection(nextKey === "name" || nextKey === "bye" || nextKey === "adp" || nextKey === "ecr" ? "asc" : "desc");
+    setSortDirection(nextKey === "name" || nextKey === "wrcTeam" || nextKey === "bye" || nextKey === "adp" || nextKey === "ecr" ? "asc" : "desc");
   };
 
   const tableHeaders = useMemo(
     () => [
       { label: "Player", key: "name" as SortKey, align: "left" as const },
+      { label: "WRC Team", key: "wrcTeam" as SortKey, align: "left" as const },
       { label: "Bye", key: "bye" as SortKey },
       { label: "Proj", key: "proj" as SortKey },
       { label: "ADP", key: "adp" as SortKey },
       { label: "ECR", key: "ecr" as SortKey },
-      ...seasonColumns.map((column) => ({ label: column.label, key: column.key as SortKey, column })),
+      ...seasonColumns.map((column: FreeAgentStatColumn) => ({ label: column.label, key: column.key as SortKey, column })),
       { label: "Action" },
       { label: "" },
     ],
@@ -685,6 +717,10 @@ export default function FreeAgents() {
                           <ChevronRight size={12} color="oklch(0.75 0.06 150)" style={{ flexShrink: 0 }} />
                         </Link>
 
+                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.72rem", color: isOwned ? "oklch(0.40 0.10 240)" : "oklch(0.42 0.13 150)", textAlign: "left" as const, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis", padding: "0.2rem 0.4rem", borderRadius: 4, background: isOwned ? "oklch(0.92 0.04 240)" : "oklch(0.92 0.05 150)", border: `1px solid ${isOwned ? "oklch(0.78 0.08 240)" : "oklch(0.76 0.1 150)"}` }}>
+                          {ownerTeam ?? "Free Agent"}
+                        </span>
+
                         {/* Bye week */}
                         <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", color: "oklch(0.5 0.06 150)", textAlign: "center" as const }}>
                           {player.bye ?? "—"}
@@ -712,9 +748,9 @@ export default function FreeAgents() {
                         </span>
 
                         {/* Position-aware Tank01 season totals */}
-                        {seasonColumns.map((column) => (
-                          <span key={column.label} style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: column.gold || column.highlight ? 800 : 600, fontSize: "0.84rem", color: column.gold ? "oklch(0.48 0.15 85)" : column.highlight ? "oklch(0.28 0.11 150)" : "oklch(0.38 0.05 150)", textAlign: "center" as const, whiteSpace: "nowrap" as const }}>
-                            {seasonStats ? formatSeasonStatColumn(seasonStats, column) : seasonStatsLoading ? "…" : "—"}
+                        {seasonColumns.map((column: FreeAgentStatColumn) => (
+                          <span key={`${column.label}-${column.key}`} style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: column.gold || column.highlight ? 800 : 600, fontSize: "0.84rem", color: column.gold ? "oklch(0.48 0.15 85)" : column.highlight ? "oklch(0.28 0.11 150)" : "oklch(0.38 0.05 150)", textAlign: "center" as const, whiteSpace: "nowrap" as const }}>
+                            {seasonStats ? formatFreeAgentStat(seasonStats, column) : seasonStatsLoading ? "…" : "—"}
                           </span>
                         ))}
 

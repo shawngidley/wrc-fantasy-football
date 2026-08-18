@@ -188,6 +188,12 @@
 - [x] Verify populated GP values across all three Lineup position groups.
 - [x] Add direct test coverage for populated GP values in representative SFLEX, K, and D/ST rows.
 
+# Free Agents Lineup-Stat Alignment and WRC Team Status
+
+- [x] Align SFLEX, K, and D/ST Free Agents stat columns with their respective Lineup panels, including final GP.
+- [x] Add a clear sortable WRC Team column that resolves a rostered player’s franchise or shows Free Agent.
+- [ ] Verify rostered and unrostered players as well as aligned stat columns on desktop and mobile.
+
 # Full-Row Inline Swap Candidates
 
 - [ ] Render each eligible swap candidate as a complete roster-table row beneath the selected player.
