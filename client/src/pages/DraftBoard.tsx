@@ -9,7 +9,7 @@
  *     so all connected browsers see picks instantly without polling
  *   - Commissioner controls: Start, Pause/Resume, Skip, Reset
  *   - Any owner whose turn it is can open the player pool and make their pick
- *   - Player pool: ~250 NFL players sorted by ADP, filtered by position/search
+ *   - Player pool: complete current NFL universe, filtered by position/search
  */
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Navigation from "@/components/Navigation";
@@ -17,7 +17,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Play, Pause, SkipForward, Search, Music, ArrowLeftRight, RotateCcw, Wifi, WifiOff, ChevronUp, ChevronDown, ListOrdered, Plus, Check } from "lucide-react";
 import { DRAFT_PICKS_2026, getTradedPicks } from "@/lib/draftData2026";
 import { OWNER_TO_TEAM } from "@/lib/scheduleData2026";
-import { NFL_PLAYERS_2026, getAvailablePlayers, type NFLPlayer } from "@/lib/nflPlayers2026";
+import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026, getAvailableDraftUniversePlayers, type DraftUniversePlayer } from "@shared/draftPlayerUniverse";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { fetchPlayerByName, getTeamLogoUrl } from "@/hooks/useTank01Player";
@@ -214,7 +214,7 @@ export default function DraftBoard() {
 
   // Queue browser filtered players
   const queueFilteredPlayers = useMemo(() => {
-    return NFL_PLAYERS_2026.filter(p => {
+    return CURRENT_DRAFT_PLAYER_UNIVERSE_2026.filter(p => {
       // Only show undrafted players not already in the queue
       if (draftedNames.has(p.name)) return false;
       // Exclude players already on a WRC roster
@@ -261,7 +261,7 @@ export default function DraftBoard() {
 
   // Available player pool
   const availablePlayers = useMemo(
-    () => getAvailablePlayers(draftedNames).filter(player => !rosteredNames.has(player.name.toLowerCase())),
+    () => getAvailableDraftUniversePlayers({ draftedNames, rosteredNames }),
     [draftedNames, rosteredNames],
   );
   const filteredPlayers = useMemo(() => {
@@ -442,7 +442,7 @@ export default function DraftBoard() {
   }
 
   // ── Make a pick ──
-  const handlePickPlayer = useCallback(async (player: NFLPlayer) => {
+  const handlePickPlayer = useCallback(async (player: DraftUniversePlayer) => {
     if (!started || complete || submitting) return;
     if (!isMyTurn && !isCommissioner) return;
 
@@ -667,7 +667,7 @@ export default function DraftBoard() {
                 {(() => {
                   const topQueued = queue.find(q => !draftedNamesLower.has(q.player_name.toLowerCase()));
                   if (!topQueued) return null;
-                  const qPlayer = NFL_PLAYERS_2026.find(p => p.name.toLowerCase() === topQueued.player_name.toLowerCase());
+                  const qPlayer = CURRENT_DRAFT_PLAYER_UNIVERSE_2026.find(p => p.name.toLowerCase() === topQueued.player_name.toLowerCase());
                   if (!qPlayer) return null;
                   return (
                     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: "rgba(0,0,0,0.4)", border: "1px solid oklch(0.78 0.15 85 / 0.4)", borderRadius: 8, padding: "0.4rem 0.75rem" }}>

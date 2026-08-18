@@ -12,7 +12,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { TEAMS, type RosterPlayer } from "@/lib/wrcData";
-import { NFL_PLAYERS_2026 } from "@/lib/nflPlayers2026";
+import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026 } from "@shared/draftPlayerUniverse";
 
 interface DbRosterMove {
   id: number;
@@ -88,7 +88,7 @@ function applyMoves(byTeam: Record<string, RosterPlayer[]>, moves: DbRosterMove[
         p => p.name.toLowerCase() === move.player_name.toLowerCase()
       );
       if (!alreadyOn) {
-        const poolPlayer = NFL_PLAYERS_2026.find(
+        const poolPlayer = CURRENT_DRAFT_PLAYER_UNIVERSE_2026.find(
           p => p.name.toLowerCase() === move.player_name.toLowerCase()
         );
         byTeam[move.team_name].push({
@@ -176,7 +176,7 @@ export function useDraftedRoster(): DraftedRosterResult {
 
       for (const pick of picks as DbDraftPick[]) {
         if (!byTeam[pick.team_name]) byTeam[pick.team_name] = [];
-        const poolPlayer = NFL_PLAYERS_2026.find(
+        const poolPlayer = CURRENT_DRAFT_PLAYER_UNIVERSE_2026.find(
           p => p.name.toLowerCase() === pick.player_name.toLowerCase()
         );
         byTeam[pick.team_name].push({

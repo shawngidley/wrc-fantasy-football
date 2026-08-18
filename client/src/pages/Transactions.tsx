@@ -9,7 +9,7 @@ import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { ArrowUpCircle, ArrowDownCircle, ArrowLeftRight, Plus, X, RefreshCw, Search } from "lucide-react";
-import { NFL_PLAYERS_2026 } from "@/lib/nflPlayers2026";
+import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026, type DraftUniversePlayer } from "@shared/draftPlayerUniverse";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 
@@ -50,13 +50,13 @@ function fmt(iso: string) {
 // ── Add/Drop Modal ────────────────────────────────────────────────────────────
 function AddDropModal({ onClose, onSubmit, franchise, isCommissioner }: {
   onClose: () => void;
-  onSubmit: (data: { addPlayer: typeof NFL_PLAYERS_2026[0]; dropPlayerName: string; faab: number; targetTeamId: string }) => Promise<void>;
+  onSubmit: (data: { addPlayer: DraftUniversePlayer; dropPlayerName: string; faab: number; targetTeamId: string }) => Promise<void>;
   franchise: { id: string; team_name: string; owner: string; faab?: number } | null;
   isCommissioner: boolean;
 }) {
   const [addSearch, setAddSearch] = useState("");
   const [dropSearch, setDropSearch] = useState("");
-  const [selectedAdd, setSelectedAdd] = useState<typeof NFL_PLAYERS_2026[0] | null>(null);
+  const [selectedAdd, setSelectedAdd] = useState<DraftUniversePlayer | null>(null);
   const [dropPlayerName, setDropPlayerName] = useState("");
   const [faab, setFaab] = useState(0);
   const [submitting, setSubmitting] = useState(false);
@@ -69,7 +69,7 @@ function AddDropModal({ onClose, onSubmit, franchise, isCommissioner }: {
   }, [publicTeamsQuery.data]);
 
   const addResults = addSearch.length >= 2
-    ? NFL_PLAYERS_2026.filter(p =>
+    ? CURRENT_DRAFT_PLAYER_UNIVERSE_2026.filter(p =>
         p.name.toLowerCase().includes(addSearch.toLowerCase()) ||
         p.nflTeam.toLowerCase().includes(addSearch.toLowerCase())
       ).slice(0, 8)
@@ -249,7 +249,7 @@ export default function Transactions() {
   }, []);
 
   const handleSubmitClaim = async ({ addPlayer, dropPlayerName, faab, targetTeamId }: {
-    addPlayer: typeof NFL_PLAYERS_2026[0];
+    addPlayer: DraftUniversePlayer;
     dropPlayerName: string;
     faab: number;
     targetTeamId: string;

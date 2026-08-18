@@ -811,3 +811,13 @@
 - [x] Trace the current Draft Board player-pool source and its rostered-player exclusion rules.
 - [x] Measure current 2026 rookie and position coverage against an authoritative 2026 player source.
 - [x] Report whether the live draft pool is complete and identify any missing player classes before making changes.
+
+# Approved Comprehensive 2026 Draft Player Universe
+
+- [x] Acquire and normalize a complete current Tank01 NFL player universe for WRC-eligible positions and D/ST.
+- [x] Merge all drafted 2026 fantasy-eligible rookies with correct NFL team and position metadata.
+- [x] Replace fixed Draft Board, queue, transaction, recap, and roster-lookup dependencies with the validated comprehensive universe.
+- [x] Preserve exclusion of drafted names, protected players, and WRC-rostered players while allowing every valid undrafted player to be selected.
+- [x] Add server-side validation that prevents a pick for an unknown player and safely creates or assigns the selected valid player record.
+- [x] Add regression coverage for rookie visibility, current kicker depth, exclusions, and successful roster assignment.
+- [x] Verify the comprehensive player pool through the Draft Board and publish the completed upgrade.

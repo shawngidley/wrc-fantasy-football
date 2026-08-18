@@ -17,6 +17,7 @@ import { supabaseAdmin } from "./supabaseAdmin";
 import { validateProtectionSubmission } from "./protectionRules";
 import { releaseUnprotectedPlayers } from "./protectionRelease";
 import { isProtectionDeadlinePassed } from "@shared/protectionSchedule";
+import { findDraftUniversePlayer } from "@shared/draftPlayerUniverse";
 import { DRAFT_PICKS_2026 } from "../client/src/lib/draftData2026";
 import { storagePut } from "./storage";
 import { finalizeWeeklyResultsFromTank } from "./weeklyResultsFinalize";
@@ -669,13 +670,15 @@ export const appRouter = router({
         if (!currentPick) throw new Error("Unable to identify the current draft pick.");
         const expectedTeamId = WRC_DRAFT_OWNER_TEAM_IDS[currentPick.owner];
         if (!ctx.teamSession.isCommissioner && ctx.teamSession.teamId !== expectedTeamId) throw new Error("It is not your team’s turn to draft.");
-        const { data: existingPick, error: existingPickError } = await supabaseAdmin.from("draft_picks").select("id").eq("player_name", input.playerName).maybeSingle();
+        const draftPlayer = findDraftUniversePlayer({ name: input.playerName, pos: input.playerPos, nflTeam: input.playerNflTeam });
+        if (!draftPlayer) throw new Error("This player is not in the validated 2026 WRC draft pool.");
+        const { data: existingPick, error: existingPickError } = await supabaseAdmin.from("draft_picks").select("id").eq("player_name", draftPlayer.name).maybeSingle();
         if (existingPickError) throw new Error("Unable to verify player availability");
         if (existingPick) throw new Error("This player has already been drafted.");
         const { data: rosteredPlayer, error: rosteredPlayerError } = await supabaseAdmin
           .from("players")
           .select("id, team_id")
-          .ilike("name", input.playerName)
+          .ilike("name", draftPlayer.name)
           .maybeSingle();
         if (rosteredPlayerError) throw new Error("Unable to verify protected player availability.");
         if (rosteredPlayer?.team_id) {
@@ -696,16 +699,34 @@ export const appRouter = router({
           overall,
           team_name: teamNameResponse.data.name,
           owner: currentPick.owner,
-          player_name: input.playerName,
-          player_pos: input.playerPos,
-          player_nfl_team: input.playerNflTeam,
+          player_name: draftPlayer.name,
+          player_pos: draftPlayer.pos,
+          player_nfl_team: draftPlayer.nflTeam,
         }).select("id, round, pick, overall, team_name, owner, player_name, player_pos, player_nfl_team, picked_at").single();
         if (pickError || !savedPick) throw new Error("Unable to record draft pick");
-        const { error: rosterError } = await supabaseAdmin.from("players").update({
-          team_id: expectedTeamId,
-          acquisition: `Rd ${state.current_round}`,
-          draft_round: state.current_round,
-        }).ilike("name", input.playerName);
+        const rosterResult = rosteredPlayer
+          ? await supabaseAdmin.from("players").update({
+              team_id: expectedTeamId,
+              acquisition: `Rd ${state.current_round}`,
+              draft_round: state.current_round,
+              draft_pick: overall,
+            }).eq("id", rosteredPlayer.id)
+          : await supabaseAdmin.from("players").insert({
+              team_id: expectedTeamId,
+              name: draftPlayer.name,
+              position: draftPlayer.pos,
+              nfl_team: draftPlayer.nflTeam,
+              acquisition: `Rd ${state.current_round}`,
+              draft_round: state.current_round,
+              draft_pick: overall,
+              status: "active",
+              season_fpts: 0,
+              fpg: 0,
+              bye_week: draftPlayer.bye ?? 0,
+              stats: {},
+              is_starter: false,
+            });
+        const rosterError = rosterResult.error;
         if (rosterError) throw new Error("Draft pick was saved, but the team roster could not be updated.");
         const { error: advanceError } = await supabaseAdmin.from("draft_state").update({
           ...nextDraftState(state.current_round, state.current_pick),
@@ -799,13 +820,19 @@ export const appRouter = router({
         if (!ctx.teamSession.isCommissioner && input.targetTeamId !== ctx.teamSession.teamId) {
           throw new Error("You may only submit a transaction for your own team.");
         }
+        const transactionPlayer = findDraftUniversePlayer({
+          name: input.addPlayerName,
+          pos: input.addPlayerPos,
+          nflTeam: input.addPlayerNflTeam,
+        });
+        if (!transactionPlayer) throw new Error("This player is not in the validated 2026 WRC player universe.");
         const { data: targetTeam, error: teamError } = await supabaseAdmin.from("teams")
           .select("id, team_name, owner, faab").eq("id", input.targetTeamId).single();
         if (teamError || !targetTeam) throw new Error("The selected team was not found.");
         const balance = Number(targetTeam.faab ?? 0);
         if (input.faab > balance) throw new Error(`FAAB bid exceeds the team’s available balance ($${balance}).`);
         const { data: addPlayer, error: addPlayerError } = await supabaseAdmin.from("players")
-          .select("team_id").ilike("name", input.addPlayerName).maybeSingle();
+          .select("id, team_id").ilike("name", transactionPlayer.name).maybeSingle();
         if (addPlayerError) throw new Error("Unable to verify the added player.");
         if (addPlayer?.team_id) throw new Error("The selected player is already on a WRC roster.");
         const { data: dropPlayer, error: dropPlayerError } = await supabaseAdmin.from("players")
@@ -817,9 +844,9 @@ export const appRouter = router({
             move_type: "ADD",
             team_name: targetTeam.team_name,
             owner: targetTeam.owner,
-            player_name: input.addPlayerName,
-            player_pos: input.addPlayerPos,
-            player_nfl_team: input.addPlayerNflTeam,
+            player_name: transactionPlayer.name,
+            player_pos: transactionPlayer.pos,
+            player_nfl_team: transactionPlayer.nflTeam,
             faab_spent: input.faab,
           },
           {
@@ -838,6 +865,34 @@ export const appRouter = router({
             .update({ faab: balance - input.faab }).eq("id", targetTeam.id);
           if (faabError) throw new Error("Transaction was recorded, but FAAB could not be deducted.");
         }
+        const addResult = addPlayer
+          ? await supabaseAdmin.from("players").update({
+              team_id: targetTeam.id,
+              acquisition: "FA",
+              draft_round: null,
+              draft_pick: null,
+            }).eq("id", addPlayer.id)
+          : await supabaseAdmin.from("players").insert({
+              team_id: targetTeam.id,
+              name: transactionPlayer.name,
+              position: transactionPlayer.pos,
+              nfl_team: transactionPlayer.nflTeam,
+              acquisition: "FA",
+              draft_round: null,
+              draft_pick: null,
+              status: "active",
+              season_fpts: 0,
+              fpg: 0,
+              bye_week: transactionPlayer.bye ?? 0,
+              stats: {},
+              is_starter: false,
+            });
+        if (addResult.error) throw new Error("Transaction was recorded, but the added player could not be assigned.");
+        const { error: dropAssignmentError } = await supabaseAdmin.from("players")
+          .update({ team_id: null, acquisition: "FA", draft_round: null, draft_pick: null })
+          .eq("id", dropPlayer.id)
+          .eq("team_id", targetTeam.id);
+        if (dropAssignmentError) throw new Error("Transaction was recorded, but the dropped player could not be released.");
         return { submitted: true, teamName: targetTeam.team_name, remainingFaab: balance - input.faab };
       }),
     teamSettings: teamProcedure.query(async ({ ctx }) => {

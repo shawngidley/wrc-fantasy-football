@@ -356,6 +356,12 @@ The missing kickers were caused by the static `NFL_PLAYERS_2026` pool, which con
 
 The All Players + K filter was then opened directly in the browser and rendered `Showing 71 players at K`. The table included the formerly absent Chad Ryland, Joshua Karty, Parker Romo, John Hoyland, Andre Szmyt, Dominic Zvada, and the broader current Tank01 depth records, with rostered kickers retaining their WRC Team label and unrostered kickers labeled Free Agent.
 
+## Comprehensive 2026 Draft Player Universe — 2026-08-18
+
+The generated Draft Board source now uses Tank01 `getNFLPlayerList`, which returned 4,202 records. After restricting to current NFL teams and WRC draft positions, normalizing team codes, deduplicating identity/position pairs, and retaining the 32 D/ST records, the shared universe contains 1,509 draftable entries: 169 QB, 314 RB, 620 WR, 303 TE, 71 K, and 32 D/ST. The 2026 NFL Draft reconciliation found 81 QB/RB/WR/TE/K rookies; Tank01 contained 79 and the two completed-draft omissions—Max Bredeson (MIN TE) and Riley Nowakowski (PIT TE)—were added with official draft metadata. The coverage verifier now reports all 81 fantasy-eligible drafted rookies present and none missing.
+
+The Draft Board was reloaded in a read-only browser session after the shared-universe integration. It completed its normal loading state and rendered the full 18-round draft grid, countdown, and unauthenticated sign-in prompt without a browser runtime error. The owner-only player picker was intentionally not opened because no owner session was used and no draft action was taken.
+
 ## 2026 Draft Player-Universe Coverage Audit — 2026-08-18
 
 The live Draft Board and draft-queue browser currently read from the static `NFL_PLAYERS_2026` module, not from the current full Tank01 player list. The static universe contains 211 entries: 27 QB, 43 RB, 65 WR, 26 TE, 18 K, and 32 D/ST. It excludes names already recorded as drafted and names already assigned to a WRC roster, but it cannot offer a player who is absent from the underlying static module.

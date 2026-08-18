@@ -8,7 +8,7 @@ import { useState, useEffect, useMemo } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { NFL_PLAYERS_2026 } from "@/lib/nflPlayers2026";
+import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026 } from "@shared/draftPlayerUniverse";
 import { TEAMS } from "@/lib/wrcData";
 import { Trophy, TrendingUp, TrendingDown, Star, ChevronDown, ChevronUp, Award } from "lucide-react";
 
@@ -221,10 +221,10 @@ export default function DraftRecap() {
   // Enrich picks with ADP data
   const enrichedPicks: PickWithGrade[] = useMemo(() =>
     rawPicks.map(p => {
-      const poolPlayer = NFL_PLAYERS_2026.find(
+      const poolPlayer = CURRENT_DRAFT_PLAYER_UNIVERSE_2026.find(
         pl => pl.name.toLowerCase() === p.player_name.toLowerCase()
       );
-      const adp = poolPlayer?.adp ?? null;
+      const adp = poolPlayer && poolPlayer.adp < 9999 ? poolPlayer.adp : null;
       const adpDiff = adp !== null ? p.overall - adp : null;
       return { ...p, adp, adpDiff, grade: gradePickValue(p.overall, adp) };
     }),
