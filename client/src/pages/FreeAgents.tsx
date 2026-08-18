@@ -59,6 +59,38 @@ function normalizePlayerName(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 
+export const WRC_TEAM_ABBREVIATIONS: Record<string, string> = {
+  "The Super Snuffleupagus": "TSS",
+  "The Boys of Fall": "TBF",
+  "Heiden's Hardtimes": "HHT",
+  "HamSandwich": "HAM",
+  "Legion of Doom": "LOD",
+  "Millertime": "MIL",
+  "Billy Goats Gruff": "BGG",
+  "The Four Horsemen": "TFH",
+  "Xavier Musketeers": "XMU",
+  "Legends": "LEG",
+  "Vipers": "VIP",
+  'Larry "Bud" Melman123': "LBM",
+  "team-jonas": "TSS",
+  "team-davidr": "TBF",
+  "team-jason": "HHT",
+  "team-keith": "HAM",
+  "team-dan": "LOD",
+  "team-scottn": "MIL",
+  "team-bill": "BGG",
+  "team-jamie": "TFH",
+  "team-scottm": "XMU",
+  "team-davids": "LEG",
+  "team-shawn": "VIP",
+  "team-greg": "LBM",
+};
+
+export function getWrcTeamLabel(teamName?: string): string {
+  if (!teamName) return "FA";
+  return WRC_TEAM_ABBREVIATIONS[teamName] ?? teamName.replace(/[^a-z0-9]/gi, "").slice(0, 3).toUpperCase();
+}
+
 // ── Pending bid interface ────────────────────────────────────────────────────
 interface FaabBid {
   id: string;
@@ -213,7 +245,7 @@ export function getFreeAgentTableColumns(pos: string) {
   const columns = getFreeAgentStatColumns(pos);
   return [
     { label: "Player", key: "name" as SortKey, align: "left" as const },
-    { label: "WRC Team", key: "wrcTeam" as SortKey, align: "left" as const },
+    { label: "WRC", key: "wrcTeam" as SortKey, align: "left" as const },
     { label: "Age", key: "age" as SortKey },
     { label: "Bye", key: "bye" as SortKey },
     { label: "Opp", key: "opp" as SortKey },
@@ -338,11 +370,11 @@ export default function FreeAgents() {
   );
   const detailColumns = useMemo(() => seasonColumns.slice(2), [seasonColumns]);
   const statsGridColumns = useMemo(
-    () => `210px minmax(108px, auto) 44px 44px 60px 86px 64px 64px 64px ${detailColumns.map(() => "minmax(64px, auto)").join(" ")} 76px 30px`,
+    () => `210px 52px 44px 44px 60px 86px 64px 64px 64px ${detailColumns.map(() => "minmax(64px, auto)").join(" ")} 76px 30px`,
     [detailColumns]
   );
   const statsTableMinWidth = useMemo(
-    () => 210 + 108 + 44 + 44 + 60 + 86 + 64 * 3 + 64 * detailColumns.length + 76 + 30,
+    () => 210 + 52 + 44 + 44 + 60 + 86 + 64 * 3 + 64 * detailColumns.length + 76 + 30,
     [detailColumns]
   );
 
@@ -517,7 +549,7 @@ export default function FreeAgents() {
                             <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", marginTop: 1 }}>
                               <PosBadge pos={player.pos} />
                               <span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.06 150)" }}>{player.nflTeam}</span>
-                              {isOwned && <span style={{ fontSize: "0.65rem", color: "oklch(0.42 0.1 240)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, background: "oklch(0.92 0.04 240)", border: "1px solid oklch(0.78 0.08 240)", borderRadius: 4, padding: "0px 4px" }}>{ownerTeam}</span>}
+                              {isOwned && <span title={ownerTeam} aria-label={`WRC team: ${ownerTeam}`} style={{ fontSize: "0.65rem", color: "oklch(0.42 0.1 240)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, background: "oklch(0.92 0.04 240)", border: "1px solid oklch(0.78 0.08 240)", borderRadius: 4, padding: "0px 4px" }}>{getWrcTeamLabel(ownerTeam)}</span>}
                             </div>
                           </div>
                         </Link>
@@ -747,8 +779,8 @@ export default function FreeAgents() {
                           <ChevronRight size={12} color="oklch(0.75 0.06 150)" style={{ flexShrink: 0 }} />
                         </Link>
 
-                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.72rem", color: isOwned ? "oklch(0.40 0.10 240)" : "oklch(0.42 0.13 150)", textAlign: "left" as const, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis", padding: "0.2rem 0.4rem", borderRadius: 4, background: isOwned ? "oklch(0.92 0.04 240)" : "oklch(0.92 0.05 150)", border: `1px solid ${isOwned ? "oklch(0.78 0.08 240)" : "oklch(0.76 0.1 150)"}` }}>
-                          {ownerTeam ?? "Free Agent"}
+                        <span title={ownerTeam ?? "Free Agent"} aria-label={ownerTeam ? `WRC team: ${ownerTeam}` : "Free Agent"} style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.72rem", color: isOwned ? "oklch(0.40 0.10 240)" : "oklch(0.42 0.13 150)", textAlign: "center" as const, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis", padding: "0.2rem 0.15rem", borderRadius: 4, background: isOwned ? "oklch(0.92 0.04 240)" : "oklch(0.92 0.05 150)", border: `1px solid ${isOwned ? "oklch(0.78 0.08 240)" : "oklch(0.76 0.1 150)"}` }}>
+                          {getWrcTeamLabel(ownerTeam)}
                         </span>
 
                         {/* Age */}

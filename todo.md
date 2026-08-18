@@ -912,3 +912,9 @@
 - [x] Present Draft Recap as a desktop-level tab beside Draft while retaining a standalone mobile route.
 - [x] Add Draft Players to the mobile Draft dropdown with Draft Order and Protections.
 - [x] Verify desktop tab placement, mobile dropdown routes, selected states, and direct URL access.
+
+# Compact Free Agents WRC Team Labels
+
+- [x] Replace Free Agents rostered-team names with stable three-letter WRC franchise initials.
+- [x] Render unrostered players as FA and retain the full team name in an accessible label.
+- [x] Narrow the WRC Team column and verify rostered and free-agent labels on desktop and mobile.

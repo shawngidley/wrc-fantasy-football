@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PlayerSeasonStats } from "@/lib/playerSeasonStats";
-import { freeAgentStatValue, getFreeAgentPlayerPool, getFreeAgentStatColumns, getFreeAgentTableColumns } from "./FreeAgents";
+import { freeAgentStatValue, getFreeAgentPlayerPool, getFreeAgentStatColumns, getFreeAgentTableColumns, getWrcTeamLabel } from "./FreeAgents";
 
 const stats: PlayerSeasonStats = {
   gp: 17, passCmp: 0, passAtt: 0, passYds: 0, passTD: 4, passInt: 6, passRating: 0,
@@ -30,25 +30,32 @@ describe("Free Agents Lineup stat alignment", () => {
     expect(freeAgentStatValue(stats, "xpPct")).toBeCloseTo(96.97, 2);
   });
 
-  it("uses complete Lineup-equivalent fields with WRC Team as the one additional status column", () => {
+  it("uses complete Lineup-equivalent fields with WRC as the one additional status column", () => {
     expect(getFreeAgentTableColumns("SFLEX").map(column => column.label)).toEqual([
-      "Player", "WRC Team", "Age", "Bye", "Opp", "Game", "FPTS", "FP/G", "Proj",
+      "Player", "WRC", "Age", "Bye", "Opp", "Game", "FPTS", "FP/G", "Proj",
       "YDS", "TD", "INT", "ATT", "YDS", "TD", "TGT", "REC", "YDS", "TD", "TO", "GP", "Action", "",
     ]);
     expect(getFreeAgentTableColumns("K").map(column => column.label)).toEqual([
-      "Player", "WRC Team", "Age", "Bye", "Opp", "Game", "FPTS", "FP/G", "Proj",
+      "Player", "WRC", "Age", "Bye", "Opp", "Game", "FPTS", "FP/G", "Proj",
       "FGM", "FGA", "FG%", "XPM", "XPA", "XP%", "GP", "Action", "",
     ]);
     expect(getFreeAgentTableColumns("DST").map(column => column.label)).toEqual([
-      "Player", "WRC Team", "Age", "Bye", "Opp", "Game", "FPTS", "FP/G", "Proj",
+      "Player", "WRC", "Age", "Bye", "Opp", "Game", "FPTS", "FP/G", "Proj",
       "SK", "SFT", "TA", "TDDST", "GP", "Action", "",
     ]);
   });
 
   it("retains the complete table header schema while the player rows are loading", () => {
     expect(getFreeAgentTableColumns("SFLEX").slice(0, 9).map(column => column.label)).toEqual([
-      "Player", "WRC Team", "Age", "Bye", "Opp", "Game", "FPTS", "FP/G", "Proj",
+      "Player", "WRC", "Age", "Bye", "Opp", "Game", "FPTS", "FP/G", "Proj",
     ]);
+  });
+
+  it("uses stable three-letter WRC team labels and FA for unrostered players", () => {
+    expect(getWrcTeamLabel("The Super Snuffleupagus")).toBe("TSS");
+    expect(getWrcTeamLabel("Xavier Musketeers")).toBe("XMU");
+    expect(getWrcTeamLabel("Vipers")).toBe("VIP");
+    expect(getWrcTeamLabel()).toBe("FA");
   });
 
   it("uses every current Tank01 kicker record instead of the limited draft-ranked subset", () => {
