@@ -13,6 +13,7 @@
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { NFL_PLAYERS_2026, type NFLPlayer } from "@/lib/nflPlayers2026";
+import { CURRENT_TANK01_KICKERS_2026 } from "@/lib/currentKickers2026";
 import { getTeamLogoUrl } from "@/hooks/useTank01Player";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentWeek } from "@/lib/scheduleData2026";
@@ -226,6 +227,13 @@ export function getFreeAgentTableColumns(pos: string) {
   ];
 }
 
+export function getFreeAgentPlayerPool(): NFLPlayer[] {
+  return [
+    ...NFL_PLAYERS_2026.filter((player) => player.pos !== "K"),
+    ...CURRENT_TANK01_KICKERS_2026,
+  ];
+}
+
 export function freeAgentStatValue(stats: PlayerSeasonStats | undefined, key: FreeAgentStatKey): number {
   if (!stats) return 0;
   if (key === "turnovers") return stats.passInt + stats.fumblesLost;
@@ -293,13 +301,13 @@ export default function FreeAgents() {
   const { injuries } = useNFLInjuries();
   const { depthMap } = useNFLDepthCharts();
 
-  // Free agents = players in NFL_PLAYERS_2026 not owned
+  const allPlayers = useMemo(() => getFreeAgentPlayerPool(), []);
+
+  // Free agents = players in the full player inventory not owned
   const freeAgents = useMemo(() => {
     if (loadingOwned) return [];
-    return NFL_PLAYERS_2026.filter((p) => !ownedNames.has(p.name.toLowerCase()));
-  }, [ownedNames, loadingOwned]);
-
-  const allPlayers = useMemo(() => NFL_PLAYERS_2026, []);
+    return allPlayers.filter((p) => !ownedNames.has(p.name.toLowerCase()));
+  }, [allPlayers, ownedNames, loadingOwned]);
 
   // Filter + search. Sorting is applied after Tank01 season stats load so every
   // market and stat column can be used as a sort key.

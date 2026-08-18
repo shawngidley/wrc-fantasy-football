@@ -349,3 +349,9 @@ The production scoring path now has one canonical engine for season, historical,
 ## Free Agents SFLEX Source Availability — 2026-08-18
 
 The Free Agents SFLEX table continued to show dashes after the cache work because the current server’s Tank01 player-info requests return HTTP 451 from RapidAPI’s location restriction. The browser network log captured the provider response for individual player names; it is not a parsing or cache defect. K and D/ST remain populated because they use completed-season maps rather than Tank01. The Free Agents season path must use a completed 2025 offline/public source for QB/RB/WR/TE as well, so normal FPTS values do not depend on a provider request that can be blocked.
+
+## Complete Current Tank01 Kicker Inventory — 2026-08-18
+
+The missing kickers were caused by the static `NFL_PLAYERS_2026` pool, which contained only 18 draft-ranked K records. The same authorized Tank01 player-list source used for the team-assignment sync currently returns 71 `PK` records across all 32 teams. A generated current-kicker module now replaces the limited static K subset in both All Players and Free Agents filtering, while leaving the QB/RB/WR/TE pool unchanged. A development Free Agents load confirmed the corrected full player inventory is active; the new inventory regression test asserts all 71 current Tank01 kicker records, all 32 NFL teams, and representative newly included kickers Chad Ryland (ARI) and John Hoyland (BAL).
+
+The All Players + K filter was then opened directly in the browser and rendered `Showing 71 players at K`. The table included the formerly absent Chad Ryland, Joshua Karty, Parker Romo, John Hoyland, Andre Szmyt, Dominic Zvada, and the broader current Tank01 depth records, with rostered kickers retaining their WRC Team label and unrostered kickers labeled Free Agent.

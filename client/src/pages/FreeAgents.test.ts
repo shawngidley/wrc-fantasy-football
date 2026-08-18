@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PlayerSeasonStats } from "@/lib/playerSeasonStats";
-import { freeAgentStatValue, getFreeAgentStatColumns, getFreeAgentTableColumns } from "./FreeAgents";
+import { freeAgentStatValue, getFreeAgentPlayerPool, getFreeAgentStatColumns, getFreeAgentTableColumns } from "./FreeAgents";
 
 const stats: PlayerSeasonStats = {
   gp: 17, passCmp: 0, passAtt: 0, passYds: 0, passTD: 4, passInt: 6, passRating: 0,
@@ -49,5 +49,13 @@ describe("Free Agents Lineup stat alignment", () => {
     expect(getFreeAgentTableColumns("SFLEX").slice(0, 9).map(column => column.label)).toEqual([
       "Player", "WRC Team", "Age", "Bye", "Opp", "Game", "FPTS", "FP/G", "Proj",
     ]);
+  });
+
+  it("uses every current Tank01 kicker record instead of the limited draft-ranked subset", () => {
+    const kickers = getFreeAgentPlayerPool().filter((player) => player.pos === "K");
+    expect(kickers).toHaveLength(71);
+    expect(new Set(kickers.map((player) => player.nflTeam))).toHaveLength(32);
+    expect(kickers.some((player) => player.name === "Chad Ryland" && player.nflTeam === "ARI")).toBe(true);
+    expect(kickers.some((player) => player.name === "John Hoyland" && player.nflTeam === "BAL")).toBe(true);
   });
 });

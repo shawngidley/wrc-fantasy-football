@@ -204,6 +204,12 @@
 - [x] Restore SFLEX Free Agents season FPTS and stat values after the season-cache update.
 - [x] Replace Tank01-dependent 2025 Free Agents season loads with a completed-season source that remains available in production.
 
+# Free Agents Complete Kicker Inventory
+
+- [x] Compare the All Players + K filter against the full current Tank01 kicker list and identify missing inventory.
+- [x] Correct the player pool or list-fetch path so every current NFL kicker is visible in All Players + K.
+- [x] Verify the complete kicker count, filter behavior, and any eligible WRC team status labels.
+
 # Daily Shared Season-Stat Refresh
 
 - [x] Build a server-side shared season-stat cache so all browsers can load Free Agents stats without individual provider calls.
@@ -267,9 +273,11 @@
 
 # Revised August 26 Protection Deadline
 
-- [ ] Change every protection deadline display and server enforcement to Wednesday, August 26, 2026 at 9:00 PM ET.
-- [ ] Move the one-time unprotected-player release from August 25 to after the revised August 26 deadline.
-- [ ] Verify the live deadline label, server cutoff, and registered release task timing.
+- [x] Change every protection deadline display and server enforcement to Wednesday, August 26, 2026 at 9:00 PM ET.
+- [x] Move the one-time unprotected-player release from August 25 to after the revised August 26 deadline.
+- [x] Verify the live deadline label, server cutoff, and registered release task timing.
+- [ ] Inspect Protections and Settings after the revision to confirm both display Wednesday, August 26, 2026 at 9:00 PM ET.
+- [x] Verify the published Protections page visibly shows the revised Wednesday deadline.
 
 # Mobile Slot Controls and D/ST Logos
 
