@@ -899,3 +899,9 @@
 - [x] Align the sticky Player table header with the fixed Player body column on mobile horizontal scroll.
 - [x] Preserve the adjacent Que sticky column and visible Bye/FPTS/FP-G/ADP data columns.
 - [x] Verify the mobile table header remains aligned at both left and right scroll positions.
+
+# Draft Players Compact Pinned Columns
+
+- [x] Narrow the pinned Player and Que columns to reveal more Bye/FPTS/FP-G/ADP data at mobile width.
+- [x] Retain readable headshots, player names, star queue actions, and aligned sticky headers.
+- [x] Verify the tighter table on mobile and desktop before publishing.

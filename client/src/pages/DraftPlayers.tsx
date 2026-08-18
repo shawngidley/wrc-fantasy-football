@@ -195,20 +195,20 @@ export default function DraftPlayers() {
           </div>
 
           <div style={{ maxHeight: 700, overflow: "auto" }}>
-            <table className="wrc-table" style={{ minWidth: 565, width: "100%", tableLayout: "fixed" }}>
+            <table className="wrc-table" style={{ minWidth: 515, width: "100%", tableLayout: "fixed" }}>
               <colgroup>
-                <col style={{ width: 44 }} />
-                <col style={{ width: 230 }} />
-                <col style={{ width: 50 }} />
-                <col style={{ width: 48 }} />
+                <col style={{ width: 38 }} />
+                <col style={{ width: 180 }} />
+                <col style={{ width: 42 }} />
+                <col style={{ width: 46 }} />
                 <col style={{ width: 64 }} />
                 <col style={{ width: 64 }} />
                 <col style={{ width: 65 }} />
               </colgroup>
               <thead><tr>
                 <th style={{ textAlign: "center", position: "sticky", top: 0, left: 0, zIndex: 7, background: "oklch(0.22 0.08 150)" }}>#</th>
-                <th style={{ position: "sticky", top: 0, left: 44, zIndex: 8, background: "oklch(0.22 0.08 150)" }}><button type="button" onClick={() => toggleSort("name")} aria-label="Sort by player name" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>PLAYER {sortLabel("name")}</button></th>
-                <th style={{ textAlign: "center", position: "sticky", top: 0, left: 274, zIndex: 8, background: "oklch(0.22 0.08 150)", boxShadow: "8px 0 12px -12px oklch(0.05 0.05 150 / 0.9)" }}><button type="button" onClick={() => toggleSort("queue")} aria-label="Sort by queued status" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>QUE {sortLabel("queue")}</button></th>
+                <th style={{ position: "sticky", top: 0, left: 38, zIndex: 8, background: "oklch(0.22 0.08 150)" }}><button type="button" onClick={() => toggleSort("name")} aria-label="Sort by player name" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>PLAYER {sortLabel("name")}</button></th>
+                <th style={{ textAlign: "center", position: "sticky", top: 0, left: 218, zIndex: 8, background: "oklch(0.22 0.08 150)", boxShadow: "8px 0 12px -12px oklch(0.05 0.05 150 / 0.9)" }}><button type="button" onClick={() => toggleSort("queue")} aria-label="Sort by queued status" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>QUE {sortLabel("queue")}</button></th>
                 <th style={{ textAlign: "center", position: "sticky", top: 0, zIndex: 5, background: "oklch(0.22 0.08 150)" }}><button type="button" onClick={() => toggleSort("bye")} aria-label="Sort by bye week" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>BYE {sortLabel("bye")}</button></th>
                 <th style={{ textAlign: "right", position: "sticky", top: 0, zIndex: 5, background: "oklch(0.22 0.08 150)" }}><button type="button" onClick={() => toggleSort("fpts")} aria-label="Sort by season fantasy points" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>FPTS {sortLabel("fpts")}</button></th>
                 <th style={{ textAlign: "right", position: "sticky", top: 0, zIndex: 5, background: "oklch(0.22 0.08 150)" }}><button type="button" onClick={() => toggleSort("fpg")} aria-label="Sort by season fantasy points per game" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>FP/G {sortLabel("fpg")}</button></th>
@@ -221,8 +221,8 @@ export default function DraftPlayers() {
                   const rowBackground = index % 2 === 0 ? "white" : "oklch(0.96 0.008 150)";
                   return <tr key={player.id} className="wrc-row-hover">
                     <td style={{ textAlign: "center", position: "sticky", left: 0, zIndex: 4, background: rowBackground, color: "oklch(0.55 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700 }}>{index + 1}</td>
-                    <td style={{ position: "sticky", left: 44, zIndex: 4, background: rowBackground }}>
-                      <Link href={`/player/${encodeURIComponent(player.name)}`} style={{ display: "flex", alignItems: "center", gap: "0.4rem", textDecoration: "none", minWidth: 0, overflow: "hidden" }}>
+                    <td style={{ position: "sticky", left: 38, zIndex: 4, background: rowBackground }}>
+                      <Link href={`/player/${encodeURIComponent(player.name)}`} style={{ display: "flex", alignItems: "center", gap: "0.3rem", textDecoration: "none", minWidth: 0, overflow: "hidden" }}>
                         <DraftPlayerAvatar player={player} />
                         <div style={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
                           <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.84rem", color: "oklch(0.22 0.08 150)", lineHeight: 1.12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{player.name}</div>
@@ -233,7 +233,7 @@ export default function DraftPlayers() {
                         </div>
                       </Link>
                     </td>
-                    <td style={{ textAlign: "center", position: "sticky", left: 274, zIndex: 4, background: rowBackground, boxShadow: "8px 0 12px -12px oklch(0.2 0.08 150 / 0.55)" }}>
+                    <td style={{ textAlign: "center", position: "sticky", left: 218, zIndex: 4, background: rowBackground, boxShadow: "8px 0 12px -12px oklch(0.2 0.08 150 / 0.55)" }}>
                       <button type="button" onClick={() => void handleQueuePlayer(player)} disabled={queueActionInProgress} aria-label={queued ? `Remove ${player.name} from your draft queue` : `Add ${player.name} to your draft queue`} aria-pressed={queued} title={queued ? "Remove from My Queue" : "Add to My Queue"} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, border: "none", borderRadius: 6, background: queued ? "oklch(0.95 0.08 85)" : "transparent", color: queued ? "oklch(0.58 0.14 85)" : "oklch(0.5 0.04 150)", cursor: queueActionInProgress ? "not-allowed" : "pointer", opacity: queueActionInProgress ? 0.55 : 1 }}>
                         <Star size={18} fill={queued ? "currentColor" : "none"} strokeWidth={2.3} />
                       </button>
