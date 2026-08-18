@@ -614,10 +614,21 @@ export default function FreeAgents() {
             <div className="wrc-card" style={{ overflow: "hidden", marginBottom: "2rem" }}>
               <div className="wrc-card-gold-stripe" />
               {loadingOwned ? (
-                <div style={{ padding: "2rem", textAlign: "center" as const }}>
-                  {[1,2,3,4,5].map(i => (
-                    <div key={i} className="skeleton-shimmer" style={{ height: 52, borderRadius: 8, marginBottom: 6 }} />
-                  ))}
+                <div style={{ overflowX: "auto", overscrollBehaviorX: "contain", WebkitOverflowScrolling: "touch" }}>
+                  <div style={{ minWidth: statsTableMinWidth }}>
+                    <div style={{ display: "grid", gridTemplateColumns: statsGridColumns, gap: "0.25rem", padding: "0.35rem 0.5rem", background: "oklch(0.96 0.02 150)", borderBottom: "1px solid oklch(0.9 0.04 150)", alignItems: "center" }}>
+                      {tableHeaders.map((header, index) => (
+                        <span key={`${header.label}-${index}`} style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.64rem", fontWeight: 800, letterSpacing: "0.05em", color: "oklch(0.5 0.06 150)", textAlign: index < 2 ? "left" as const : "center" as const, whiteSpace: "nowrap" }}>
+                          {header.label}
+                        </span>
+                      ))}
+                    </div>
+                    <div style={{ padding: "0.5rem" }}>
+                      {[1,2,3,4,5].map(i => (
+                        <div key={i} className="skeleton-shimmer" style={{ height: 52, borderRadius: 8, marginBottom: 6 }} />
+                      ))}
+                    </div>
+                  </div>
                 </div>
               ) : filtered.length === 0 ? (
                 <div style={{ padding: "3rem 2rem", textAlign: "center" as const }}>

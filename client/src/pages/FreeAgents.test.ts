@@ -44,4 +44,10 @@ describe("Free Agents Lineup stat alignment", () => {
       "SK", "SFT", "TA", "TDDST", "GP", "Action", "",
     ]);
   });
+
+  it("retains the complete table header schema while the player rows are loading", () => {
+    expect(getFreeAgentTableColumns("SFLEX").slice(0, 9).map(column => column.label)).toEqual([
+      "Player", "WRC Team", "Age", "Bye", "Opp", "Game", "FPTS", "FP/G", "Proj",
+    ]);
+  });
 });

@@ -202,7 +202,14 @@
 - [x] Verify complete SFLEX, K, and D/ST column parity with their Lineup panels on desktop and mobile.
 - [x] Add direct schema regression coverage for full Free Agents-to-Lineup column parity by position.
 - [ ] Verify the final Free Agents full-column parity on a true mobile viewport for SFLEX, K, and D/ST.
-- [ ] Confirm the published production Free Agents page shows the final full-column parity on mobile and desktop.
+- [x] Confirm the published production Free Agents page shows the final full-column parity on mobile and desktop.
+- [x] Keep final Free Agents headers visible during mobile data loading so the full column structure can be inspected immediately.
+- [ ] Verify production mobile SFLEX, K, and D/ST headers match the complete Lineup order.
+
+# Published Application Shell Verification
+
+- [x] Diagnose the blank production app shell observed immediately after the Free Agents full-column deployment.
+- [x] Confirm the deployed application loads normally on the public domain before finalizing the column-parity release.
 
 # Full-Row Inline Swap Candidates
 
