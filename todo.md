@@ -864,3 +864,11 @@
 - [x] Add an accessible star action that queues or removes each available player for the signed-in owner.
 - [x] Pin player identity during horizontal Draft Players table scrolling on desktop and mobile.
 - [x] Preserve signed-out feedback, private queue ownership, and validate the compact interaction plus scrolling behavior.
+
+# Draft Players Free Agents Identity and Stat Column Alignment
+
+- [x] Match Draft Players player identity presentation to the Free Agents player column.
+- [x] Add player headshots with the shared ESPN image resolution and initials fallback.
+- [x] Place Que directly beside Player and reorder the leading stat columns as Bye, FPTS, FP/G, and ADP.
+- [x] Resolve position-appropriate completed-season FPTS and FP/G for the available player board.
+- [x] Verify column order and responsive sticky/scrolled behavior on desktop and mobile.

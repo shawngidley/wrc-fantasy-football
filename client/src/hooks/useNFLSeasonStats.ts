@@ -36,7 +36,7 @@ function cacheSet(name: string, data: SeasonStatsCacheEntry) {
   }
 }
 
-export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: boolean) {
+export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: boolean, allowProviderFallback = true) {
   const [statMap, setStatMap] = useState<Record<string, PlayerSeasonStats>>({});
   const [playerMetaMap, setPlayerMetaMap] = useState<Record<string, { age?: string; headshot?: string }>>({});
   const [loading, setLoading] = useState(false);
@@ -75,6 +75,7 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
     // Kicker FPTS must come from exact completed kick events. Do not fall back to
     // Tank01's aggregate line: it cannot reproduce WRC distance scoring, and a
     // transient provider response should not hold up the entire K table.
+    const offensePlayers = uncached.filter(player => ["QB", "RB", "WR", "TE"].includes(player.pos));
     const individualPlayers = uncached.filter(player => player.pos !== "K" && (player.pos !== "DST" || !player.nflTeam));
 
     async function loadDstStats() {
@@ -107,7 +108,7 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
     async function loadCompletedOffenseStats() {
       const completed = await getCompletedOffenseSeasonStats2025();
       const completedNames = new Set<string>();
-      for (const player of individualPlayers) {
+      for (const player of offensePlayers) {
         const line = completed[player.name];
         if (!line || !["QB", "RB", "WR", "TE"].includes(player.pos)) continue;
         const stats = normalizeCompletedOffenseSeasonStats(line);
@@ -145,7 +146,9 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
     void (async () => {
       await Promise.all([loadDstStats(), loadExactKickerStats()]);
       const completedNames = await loadCompletedOffenseStats();
-      const unresolved = individualPlayers.filter(player => !completedNames.has(player.name));
+      const unresolved = allowProviderFallback
+        ? individualPlayers.filter(player => !completedNames.has(player.name))
+        : [];
       individualPlayers.splice(0, individualPlayers.length, ...unresolved);
       await Promise.all(Array.from({ length: Math.min(CONCURRENCY, individualPlayers.length) }, () => worker()));
     })()

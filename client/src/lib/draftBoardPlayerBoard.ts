@@ -18,6 +18,11 @@ export function resolve2026Adp(player: DraftUniversePlayer, adpMap: Map<string, 
   return Number.isFinite(player.adp) && player.adp > 0 && player.adp < 9999 ? player.adp : null;
 }
 
+export function formatDraftBoardSeasonStat(value: number | undefined, loading: boolean): string {
+  if (typeof value === "number" && Number.isFinite(value)) return value.toFixed(1);
+  return loading ? "…" : "—";
+}
+
 export function sortDraftBoardPlayers(
   players: readonly DraftUniversePlayer[],
   adpMap: Map<string, number>,

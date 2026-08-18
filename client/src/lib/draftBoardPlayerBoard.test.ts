@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DraftUniversePlayer } from "@shared/draftPlayerUniverse";
-import { resolve2026Adp, sortDraftBoardPlayers } from "./draftBoardPlayerBoard";
+import { formatDraftBoardSeasonStat, resolve2026Adp, sortDraftBoardPlayers } from "./draftBoardPlayerBoard";
 
 const players: DraftUniversePlayer[] = [
   { id: "qb", name: "Quarterback", pos: "QB", nflTeam: "BUF", adp: 35.4, bye: 7, sourcePlayerId: "1" },
@@ -28,5 +28,11 @@ describe("Draft Board player table", () => {
   it("sorts by position when owners choose the Position header", () => {
     const ordered = sortDraftBoardPlayers([players[2], players[1], players[0]], new Map(), "pos", "asc");
     expect(ordered.map(player => player.pos)).toEqual(["QB", "RB", "WR"]);
+  });
+
+  it("formats completed-season FPTS and FP/G values while preserving loading and unavailable states", () => {
+    expect(formatDraftBoardSeasonStat(178.45, false)).toBe("178.4");
+    expect(formatDraftBoardSeasonStat(undefined, true)).toBe("…");
+    expect(formatDraftBoardSeasonStat(undefined, false)).toBe("—");
   });
 });
