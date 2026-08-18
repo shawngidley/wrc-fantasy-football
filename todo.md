@@ -851,3 +851,9 @@
 - [x] Audit the generated player universe for retired or otherwise inactive NFL players, beginning with Amari Cooper.
 - [x] Exclude retired/inactive players and prevent stale ADP fallbacks from being presented as current 2026 ADP.
 - [x] Verify representative current players use validated 2026 ADP and retired players cannot appear in Draft Players or be queued.
+
+# Draft Players Desktop Width Refinement
+
+- [x] Tighten the Draft Players page and available-player board to a centered desktop width appropriate for the table content.
+- [x] Preserve responsive mobile sizing, table scrolling, filters, and the sticky queue action column.
+- [x] Verify the refined layout at wide desktop and mobile viewports.
