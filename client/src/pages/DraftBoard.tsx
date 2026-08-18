@@ -25,6 +25,7 @@ import { useDraftQueue } from "@/hooks/useDraftQueue";
 import { useNFLADP } from "@/hooks/useNFLADP";
 import { trpc } from "@/lib/trpc";
 import { WRC_DRAFT_DATE, WRC_DRAFT_DISPLAY } from "@/lib/draftSchedule";
+import { resolve2026Adp, sortDraftBoardPlayers, type DraftBoardSortDirection, type DraftBoardSortKey } from "@/lib/draftBoardPlayerBoard";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const TIMER_SECONDS = 90;
@@ -167,6 +168,8 @@ export default function DraftBoard() {
   const [timer, setTimer] = useState(TIMER_SECONDS);
   const [search, setSearch] = useState("");
   const [posFilter, setPosFilter] = useState("ALL");
+  const [playerBoardSort, setPlayerBoardSort] = useState<DraftBoardSortKey>("adp");
+  const [playerBoardDirection, setPlayerBoardDirection] = useState<DraftBoardSortDirection>("asc");
   const [showPlayerPool, setShowPlayerPool] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   // Draft queue state
@@ -190,11 +193,12 @@ export default function DraftBoard() {
   const { queue, addToQueue, removeFromQueue, moveItem, isQueued } = useDraftQueue(franchiseId);
 
   // Live ADP from Tank01
-  const { adpMap } = useNFLADP();
+  const { adpMap, loading: adpLoading } = useNFLADP();
 
-  // Helper: get ADP for a player (falls back to static adp field)
-  const getADP = (name: string, staticAdp: number) =>
-    adpMap.get(name.toLowerCase()) ?? staticAdp;
+  const formatADP = (player: DraftUniversePlayer) => {
+    const adp = resolve2026Adp(player, adpMap);
+    return adp === null ? "—" : adp.toFixed(1);
+  };
 
   // Load rostered player names from Supabase to exclude from queue browser
   const [rosteredNames, setRosteredNames] = useState<Set<string>>(new Set());
@@ -226,7 +230,7 @@ export default function DraftBoard() {
         if (!p.name.toLowerCase().includes(q) && !p.nflTeam.toLowerCase().includes(q)) return false;
       }
       return true;
-    }).sort((a, b) => getADP(a.name, a.adp) - getADP(b.name, b.adp));
+    }).sort((a, b) => (resolve2026Adp(a, adpMap) ?? Number.POSITIVE_INFINITY) - (resolve2026Adp(b, adpMap) ?? Number.POSITIVE_INFINITY));
   }, [queueSearch, queuePosFilter, draftedNames, queue, rosteredNames, adpMap]);
 
   // Pre-load the chime audio on mount
@@ -264,14 +268,24 @@ export default function DraftBoard() {
     () => getAvailableDraftUniversePlayers({ draftedNames, rosteredNames }),
     [draftedNames, rosteredNames],
   );
-  const filteredPlayers = useMemo(() => {
-    return availablePlayers.filter(p => {
+  const playerBoardPlayers = useMemo(() => {
+    const matchingPlayers = availablePlayers.filter(p => {
       const matchPos = posFilter === "ALL" || p.pos === posFilter;
       const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
                           p.nflTeam.toLowerCase().includes(search.toLowerCase());
       return matchPos && matchSearch;
-    }).sort((a, b) => getADP(a.name, a.adp) - getADP(b.name, b.adp));
-  }, [availablePlayers, posFilter, search, adpMap]);
+    });
+    return sortDraftBoardPlayers(matchingPlayers, adpMap, playerBoardSort, playerBoardDirection);
+  }, [availablePlayers, posFilter, search, adpMap, playerBoardSort, playerBoardDirection]);
+
+  const togglePlayerBoardSort = (key: DraftBoardSortKey) => {
+    if (playerBoardSort === key) {
+      setPlayerBoardDirection(direction => direction === "asc" ? "desc" : "asc");
+      return;
+    }
+    setPlayerBoardSort(key);
+    setPlayerBoardDirection("asc");
+  };
 
   // Timer display
   const timerColor = timer > 45 ? "oklch(0.42 0.15 150)" : timer > 20 ? "oklch(0.65 0.14 85)" : "#ef4444";
@@ -707,9 +721,10 @@ export default function DraftBoard() {
         {/* My Queue */}
           <div style={{ marginBottom: "1.5rem" }}>
             {!franchise ? (
-              <div className="wrc-card" style={{ padding: "2rem", textAlign: "center", color: "rgba(255,255,255,0.6)" }}>
-                <ListOrdered size={28} style={{ margin: "0 auto 0.5rem", display: "block", opacity: 0.4 }} />
-                <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.95rem" }}>Sign in to manage your draft queue</div>
+              <div className="wrc-card" style={{ padding: "2rem", textAlign: "center", background: "rgba(0,0,0,0.48)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.72)" }}>
+                <ListOrdered size={28} style={{ margin: "0 auto 0.5rem", display: "block", opacity: 0.55, color: "oklch(0.78 0.15 85)" }} />
+                <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.95rem", color: "white" }}>Sign in to manage your draft queue</div>
+                <div style={{ fontSize: "0.75rem", marginTop: "0.25rem" }}>The full available-player board remains visible below.</div>
               </div>
             ) : (
               <>
@@ -758,7 +773,7 @@ export default function DraftBoard() {
                             <span style={{ width: 30, textAlign: "center", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.66rem", fontWeight: 700, color: "white", background: POS_COLORS[player.pos] || "#64748b", borderRadius: 4, padding: "2px 0", flexShrink: 0 }}>{player.pos}</span>
                             <div style={{ flex: 1, minWidth: 0 }}>
                               <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "oklch(0.18 0.05 150)" }}>{player.name}</div>
-                              <div style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)" }}>{player.nflTeam} · ADP {getADP(player.name, player.adp).toFixed(1)}</div>
+                              <div style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)" }}>{player.nflTeam} · ADP {formatADP(player)}</div>
                             </div>
                             <button
                               disabled={drafted || queued}
@@ -825,6 +840,125 @@ export default function DraftBoard() {
               </>
             )}
           </div>
+
+        {/* Owner-visible available player board */}
+        <section className="wrc-card" aria-label="Available 2026 draft players" style={{ marginBottom: "1.5rem", overflow: "hidden" }}>
+          <div className="wrc-card-gold-stripe" />
+          <div style={{ padding: "1rem 1.25rem 0.875rem", borderBottom: "1px solid oklch(0.9 0.005 150)" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "1rem", flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "1.1rem", color: "oklch(0.22 0.08 150)", letterSpacing: "0.06em" }}>AVAILABLE PLAYER BOARD</div>
+                <div style={{ fontSize: "0.78rem", color: "oklch(0.5 0.04 150)", marginTop: "0.2rem" }}>
+                  {playerBoardPlayers.length.toLocaleString()} available · 2026 PPR ADP · drafted and WRC-rostered players excluded
+                </div>
+              </div>
+              <div style={{ fontSize: "0.7rem", color: adpLoading ? "oklch(0.55 0.14 85)" : "oklch(0.42 0.15 150)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                {adpLoading ? "Refreshing 2026 ADP…" : "2026 ADP ready"}
+              </div>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: "0.6rem", marginTop: "0.9rem", alignItems: "center" }}>
+              <div style={{ position: "relative" }}>
+                <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "oklch(0.55 0.04 150)" }} />
+                <input
+                  value={search}
+                  onChange={event => setSearch(event.target.value)}
+                  placeholder="Search all available players or NFL team..."
+                  aria-label="Search available draft players"
+                  style={{ width: "100%", padding: "0.55rem 0.6rem 0.55rem 2rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 8, fontSize: "0.85rem", outline: "none", boxSizing: "border-box" }}
+                />
+              </div>
+              <span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)", whiteSpace: "nowrap" }}>Sort any column</span>
+            </div>
+
+            <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap", marginTop: "0.65rem" }}>
+              {["ALL", "QB", "RB", "WR", "TE", "K", "DST"].map(position => (
+                <button
+                  key={position}
+                  type="button"
+                  onClick={() => setPosFilter(position)}
+                  aria-pressed={posFilter === position}
+                  style={{ padding: "0.25rem 0.6rem", borderRadius: 6, border: "1.5px solid", borderColor: posFilter === position ? "oklch(0.28 0.09 150)" : "oklch(0.88 0.01 150)", background: posFilter === position ? "oklch(0.28 0.09 150)" : "white", color: posFilter === position ? "white" : "oklch(0.4 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer" }}
+                >
+                  {position}
+                </button>
+              ))}
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", flexWrap: "wrap", marginTop: "0.55rem" }}>
+              <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 800, letterSpacing: "0.06em", color: "oklch(0.5 0.04 150)" }}>SORT</span>
+              {(["adp", "pos", "name"] as const).map(key => {
+                const label = key === "adp" ? "ADP" : key === "pos" ? "Position" : "Name";
+                const active = playerBoardSort === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => togglePlayerBoardSort(key)}
+                    aria-pressed={active}
+                    style={{ padding: "0.22rem 0.55rem", borderRadius: 5, border: "1.5px solid", borderColor: active ? "oklch(0.65 0.14 85)" : "oklch(0.88 0.01 150)", background: active ? "oklch(0.95 0.08 85)" : "white", color: "oklch(0.32 0.06 150)", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", fontWeight: 700, cursor: "pointer" }}
+                  >
+                    {label} {active ? (playerBoardDirection === "asc" ? "↑" : "↓") : "↕"}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{ maxHeight: 620, overflow: "auto" }}>
+            <table className="wrc-table" style={{ minWidth: 660, width: "100%" }}>
+              <thead style={{ position: "sticky", top: 0, zIndex: 2 }}>
+                <tr>
+                  <th style={{ width: 52, textAlign: "center" }}>#</th>
+                  <th>
+                    <button type="button" onClick={() => togglePlayerBoardSort("name")} aria-label="Sort by player name" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>
+                      PLAYER {playerBoardSort === "name" ? (playerBoardDirection === "asc" ? "↑" : "↓") : "↕"}
+                    </button>
+                  </th>
+                  <th style={{ width: 72 }}>
+                    <button type="button" onClick={() => togglePlayerBoardSort("pos")} aria-label="Sort by position" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>
+                      POS {playerBoardSort === "pos" ? (playerBoardDirection === "asc" ? "↑" : "↓") : "↕"}
+                    </button>
+                  </th>
+                  <th style={{ width: 76 }}>
+                    <button type="button" onClick={() => togglePlayerBoardSort("team")} aria-label="Sort by NFL team" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>
+                      NFL {playerBoardSort === "team" ? (playerBoardDirection === "asc" ? "↑" : "↓") : "↕"}
+                    </button>
+                  </th>
+                  <th style={{ width: 82, textAlign: "right" }}>
+                    <button type="button" onClick={() => togglePlayerBoardSort("adp")} aria-label="Sort by 2026 ADP" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>
+                      ADP {playerBoardSort === "adp" ? (playerBoardDirection === "asc" ? "↑" : "↓") : "↕"}
+                    </button>
+                  </th>
+                  <th style={{ width: 80, textAlign: "right" }}>STATUS</th>
+                </tr>
+              </thead>
+              <tbody>
+                {playerBoardPlayers.length === 0 ? (
+                  <tr><td colSpan={6} style={{ padding: "2rem", textAlign: "center", color: "oklch(0.55 0.04 150)" }}>No available players match the current search and position selection.</td></tr>
+                ) : playerBoardPlayers.map((player, index) => {
+                  const canDraft = (isMyTurn || isCommissioner) && started && !paused && !complete;
+                  return (
+                    <tr key={player.id} className="wrc-row-hover">
+                      <td style={{ textAlign: "center", color: "oklch(0.55 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700 }}>{index + 1}</td>
+                      <td>
+                        <div style={{ fontWeight: 700, color: "oklch(0.18 0.05 150)" }}>{player.name}</div>
+                        <div style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)", marginTop: 1 }}>{player.bye ? `Bye ${player.bye}` : "Bye —"}</div>
+                      </td>
+                      <td><span style={{ display: "inline-block", minWidth: 31, textAlign: "center", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 700, color: "white", background: POS_COLORS[player.pos] || "#64748b", borderRadius: 4, padding: "2px 4px" }}>{player.pos}</span></td>
+                      <td style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: "oklch(0.4 0.04 150)" }}>{player.nflTeam}</td>
+                      <td style={{ textAlign: "right", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, color: formatADP(player) === "—" ? "oklch(0.6 0.02 150)" : "oklch(0.22 0.08 150)" }}>{formatADP(player)}</td>
+                      <td style={{ textAlign: "right" }}>
+                        {canDraft ? (
+                          <button type="button" onClick={() => handlePickPlayer(player)} disabled={submitting} style={{ background: "oklch(0.78 0.15 85)", color: "oklch(0.15 0.02 150)", border: "none", borderRadius: 5, padding: "0.28rem 0.55rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 800, letterSpacing: "0.04em", cursor: submitting ? "not-allowed" : "pointer", opacity: submitting ? 0.6 : 1 }}>DRAFT</button>
+                        ) : <span style={{ fontSize: "0.68rem", color: "oklch(0.48 0.12 150)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700 }}>AVAILABLE</span>}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
 
         {/* Draft Grid */}
         <div style={{ overflowX: "auto", marginBottom: "1.5rem" }}>
@@ -948,14 +1082,14 @@ export default function DraftBoard() {
 
             {/* Player list */}
             <div style={{ overflowY: "auto", flex: 1 }}>
-              {filteredPlayers.length === 0 ? (
+              {playerBoardPlayers.length === 0 ? (
                 <div style={{ padding: "2.5rem 1.25rem", textAlign: "center", color: "oklch(0.6 0.04 150)" }}>
                   <Search size={28} style={{ margin: "0 auto 0.5rem", opacity: 0.3, display: "block" }} />
                   <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.95rem" }}>No players found</div>
                   <div style={{ fontSize: "0.78rem", marginTop: "0.25rem", opacity: 0.7 }}>Try a different position or search term.</div>
                 </div>
               ) : (
-                filteredPlayers.map((player, i) => (
+                playerBoardPlayers.map(player => (
                   <div
                     key={player.id}
                     onClick={() => handlePickPlayer(player)}
@@ -968,7 +1102,7 @@ export default function DraftBoard() {
                       <div style={{ fontSize: "0.7rem", color: "oklch(0.55 0.04 150)" }}>
                         {player.nflTeam}
                         {player.bye && <span style={{ marginLeft: "0.4rem" }}>· Bye {player.bye}</span>}
-                        <span style={{ marginLeft: "0.4rem" }}>· ADP {getADP(player.name, player.adp).toFixed(1)}</span>
+                        <span style={{ marginLeft: "0.4rem" }}>· ADP {formatADP(player)}</span>
                       </div>
                     </div>
                     <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, color: "oklch(0.28 0.09 150)", flexShrink: 0 }}>Draft →</span>

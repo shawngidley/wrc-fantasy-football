@@ -821,3 +821,11 @@
 - [x] Add server-side validation that prevents a pick for an unknown player and safely creates or assigns the selected valid player record.
 - [x] Add regression coverage for rookie visibility, current kicker depth, exclusions, and successful roster assignment.
 - [x] Verify the comprehensive player pool through the Draft Board and publish the completed upgrade.
+
+# Owner-Visible Draft Board Player Table
+
+- [x] Show the full currently available player pool directly on the Draft Board page for owners by default.
+- [x] Display resolved 2026 ADP in the default player-board table with a clear unavailable state for unranked players.
+- [x] Add position controls and column sorting while preserving name search and drafted/WRC-rostered exclusions.
+- [x] Keep player selection restricted to the valid current drafting owner or commissioner while allowing every visitor to view the board.
+- [x] Add regression coverage and verify the responsive player board in the Draft Board page.
