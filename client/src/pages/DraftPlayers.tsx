@@ -24,7 +24,7 @@ export default function DraftPlayers() {
   const [sortKey, setSortKey] = useState<DraftBoardSortKey>("adp");
   const [sortDirection, setSortDirection] = useState<DraftBoardSortDirection>("asc");
   const [addingPlayerName, setAddingPlayerName] = useState<string | null>(null);
-  const { adpMap, loading: adpLoading } = useNFLADP();
+  const { adpMap, loading: adpLoading, adpDate } = useNFLADP();
   const franchiseId = franchise?.id ?? null;
   const { addToQueue, isQueued } = useDraftQueue(franchiseId);
 
@@ -102,6 +102,11 @@ export default function DraftPlayers() {
   };
 
   const sortLabel = (key: DraftBoardSortKey) => sortKey === key ? (sortDirection === "asc" ? "↑" : "↓") : "↕";
+  const adpSourceLabel = adpLoading
+    ? "Refreshing 2026 ADP…"
+    : adpDate
+      ? `Tank01 PPR ADP · ${adpDate.slice(0, 4)}-${adpDate.slice(4, 6)}-${adpDate.slice(6, 8)}`
+      : "Validated 2026 ADP unavailable";
 
   return (
     <main className="bg-stadium-night bg-overlay" style={{ minHeight: "100vh" }}>
@@ -121,8 +126,8 @@ export default function DraftPlayers() {
                   {visiblePlayers.length.toLocaleString()} available · 2026 PPR ADP · drafted and WRC-rostered players excluded
                 </div>
               </div>
-              <div style={{ fontSize: "0.7rem", color: adpLoading ? "oklch(0.55 0.14 85)" : "oklch(0.42 0.15 150)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase" }}>
-                {adpLoading ? "Refreshing 2026 ADP…" : "2026 ADP ready"}
+              <div style={{ fontSize: "0.7rem", color: adpLoading ? "oklch(0.55 0.14 85)" : adpDate ? "oklch(0.42 0.15 150)" : "oklch(0.55 0.16 25)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                {adpSourceLabel}
               </div>
             </div>
 

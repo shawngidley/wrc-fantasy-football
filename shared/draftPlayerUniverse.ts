@@ -1,10 +1,16 @@
 import {
   CURRENT_DRAFT_PLAYER_UNIVERSE_2026,
+  CURRENT_DRAFT_PLAYER_UNIVERSE_2026_METADATA,
   type DraftUniversePlayer,
   type DraftUniversePosition,
 } from "./currentDraftPlayerUniverse2026";
 
-export { CURRENT_DRAFT_PLAYER_UNIVERSE_2026, type DraftUniversePlayer, type DraftUniversePosition };
+export {
+  CURRENT_DRAFT_PLAYER_UNIVERSE_2026,
+  CURRENT_DRAFT_PLAYER_UNIVERSE_2026_METADATA,
+  type DraftUniversePlayer,
+  type DraftUniversePosition,
+};
 
 function canonical(value: string): string {
   return value

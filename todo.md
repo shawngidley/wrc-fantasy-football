@@ -844,3 +844,10 @@
 - [x] Synchronize private queue additions and removals across the owner’s open Draft tabs without page refresh.
 - [x] Preserve session-based queue ownership and provide regression coverage for the immediate update path.
 - [x] Verify the Draft Order queue receives newly added Draft Players entries in the active browser session.
+
+# Draft Players 2026 ADP and Active-Player Data Correction
+
+- [x] Trace the exact ADP source, season metadata, and fallback path shown in Draft Players.
+- [x] Audit the generated player universe for retired or otherwise inactive NFL players, beginning with Amari Cooper.
+- [x] Exclude retired/inactive players and prevent stale ADP fallbacks from being presented as current 2026 ADP.
+- [x] Verify representative current players use validated 2026 ADP and retired players cannot appear in Draft Players or be queued.
