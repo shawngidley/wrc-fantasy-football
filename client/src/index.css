@@ -480,14 +480,25 @@
   --lineup-column-label-size: 0.58rem;
   --lineup-group-label-size: 0.6rem;
   --lineup-data-size: 0.72rem;
-  --lineup-slot-font-size: 0.63rem;
-  --lineup-slot-button-width: 32px;
+  --lineup-slot-font-size: 0.59rem;
+  --lineup-slot-button-width: 29px;
+  --lineup-slot-column-width: 42px;
+  --lineup-player-column-width: 126px;
+  --lineup-avatar-size: 22px;
+  --lineup-identity-gap: 0.3rem;
+  --lineup-player-name-size: 0.7rem;
+  --lineup-player-meta-size: 0.56rem;
 }
+
+.lineup-player-name-compact { display: none; }
 
 @media (max-width: 640px) {
   .lineup-table-scroll {
     padding-left: 0.45rem;
   }
+
+  .lineup-player-name-full { display: none; }
+  .lineup-player-name-compact { display: inline; }
 }
 
 @media (min-width: 768px) {
@@ -504,6 +515,12 @@
     --lineup-data-size: 0.81rem;
     --lineup-slot-font-size: 0.72rem;
     --lineup-slot-button-width: 46px;
+    --lineup-slot-column-width: 66px;
+    --lineup-player-column-width: 205px;
+    --lineup-avatar-size: 28px;
+    --lineup-identity-gap: 0.5rem;
+    --lineup-player-name-size: 0.78rem;
+    --lineup-player-meta-size: 0.62rem;
   }
 }
 

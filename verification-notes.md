@@ -292,6 +292,16 @@ Main Lineup rows now use the existing position/Slot badge as the only control th
 
 The click-level DOM test confirms the interaction boundary directly: clicking Tampa Bay’s Slot button invokes only the selection callback, clicking its Player cell invokes only Player Card navigation, clicking Green Bay’s candidate Slot button invokes only the inline-swap callback, and clicking the candidate Player cell again invokes navigation without a second swap. The focused test and TypeScript validation pass.
 
+## Mobile Lineup Identity Compaction — 2026-08-18
+
+At a 375×812 mobile viewport, the Lineup’s sticky identity area now uses a 42 px Slot column and 126 px Player column, replacing the desktop 66 px and 205 px widths. Individual players render as first initial plus last name—for example, J. Goff, A. Jones, and J. Jefferson—while D/ST rows retain their full NFL team names. The capture visibly exposes the Age, Bye, and Opp columns at the same time as the compact Slot controls and player identity. A focused unit test covers individual and D/ST mobile name formatting, and existing click-level interaction coverage confirms the Slot-only control remains intact.
+
+## Lineup Games Played Column — 2026-08-18
+
+GP is now the final right-side stat column in SFLEX, K, and D/ST, under a final Season header group. The desktop Lineup capture verified the column after SFLEX turnovers, after K XP%, and after D/ST TDDST. It displayed the populated Chase McLaughlin kicker GP of 17 and Cleveland/Los Angeles Chargers D/ST GP of 17. The shared candidate-row renderer uses the same final GP cell, with focused table coverage asserting both starter and expanded D/ST candidate values.
+
+Direct table-rendering coverage now also verifies a populated GP of 17 after the final header in each SFLEX, K, and D/ST panel. This guards the final-column placement and value independently of the visual capture, while the expanded D/ST candidate test continues to verify the same GP mapping in candidate rows.
+
 The full regression suite initially encountered FantasyPros HTTP 429 rate limiting because one test made four live external API calls. That test now uses deterministic mocked provider payloads to validate the same news, injury, rank, and projection normalization contracts without hitting the provider. The full suite completed with 31 files and 76 tests passing, and TypeScript validation passed.
 
 The Rules page and canonical scoring engine agree on the WRC scoring system: 0.04 passing points per yard, 0.1 rushing/receiving points per yard, 1 PPR for RB/WR, 1.5 PPR for TE, 4 passing-TD points, 6 rushing/receiving/return-TD points, -3 for interceptions and fumbles lost, and the published K/DST rules. The audit found three issues: historical `Fumbles.fumblesLost` data could be skipped, individual return touchdowns were not counted, and kicker FPTS used a fabricated 38-yard average whenever Tank01 omitted its season FG-distance aggregate. A freshly loaded read-only Lineup showed season FPTS arriving progressively as Tank01 queries settled; it also confirmed the exact-kicker static map must be applied without waiting for a separate Tank01 player lookup so the K FPTS cell cannot remain temporarily blank.

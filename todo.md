@@ -175,6 +175,19 @@
 - [x] Preserve player-card navigation and verify Slot-only swap interaction.
 - [x] Add click-level coverage proving only Slot controls invoke lineup change callbacks while Player cells retain Player Card navigation.
 
+# Mobile Lineup Identity Compaction
+
+- [x] Tighten mobile Slot and pinned Player widths to expose more stat columns.
+- [x] Render individual player names as first initial plus last name on mobile while retaining full names on desktop and for D/ST.
+- [x] Verify the mobile Lineup presents additional visible stats without disrupting Slot-only controls.
+
+# Lineup Games Played Column
+
+- [x] Add GP as the last stat column in SFLEX, K, and D/ST panels.
+- [x] Keep GP aligned in expanded inline-candidate rows.
+- [x] Verify populated GP values across all three Lineup position groups.
+- [x] Add direct test coverage for populated GP values in representative SFLEX, K, and D/ST rows.
+
 # Full-Row Inline Swap Candidates
 
 - [ ] Render each eligible swap candidate as a complete roster-table row beneath the selected player.
