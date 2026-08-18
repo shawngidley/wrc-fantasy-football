@@ -25,7 +25,7 @@ describe("releaseUnprotectedPlayers", () => {
   });
 
   it("does not inspect or change player availability before the deadline", async () => {
-    const result = await releaseUnprotectedPlayers(Date.parse("2026-08-26T00:59:59.999Z"));
+    const result = await releaseUnprotectedPlayers(Date.parse("2026-08-27T00:59:59.999Z"));
 
     expect(result).toEqual({ released: 0, skipped: "before-deadline" });
     expect(from).not.toHaveBeenCalled();
@@ -34,14 +34,14 @@ describe("releaseUnprotectedPlayers", () => {
   it("releases only rostered players without a protection after the deadline", async () => {
     const releaseUpdate = queuedReleaseQueries({ protectedIds: ["protected"], rosteredIds: ["protected", "unprotected-a", "unprotected-b"] });
 
-    await expect(releaseUnprotectedPlayers(Date.parse("2026-08-26T01:00:00.000Z"))).resolves.toEqual({ released: 2, skipped: null });
+    await expect(releaseUnprotectedPlayers(Date.parse("2026-08-27T01:00:00.000Z"))).resolves.toEqual({ released: 2, skipped: null });
     expect(releaseUpdate.in).toHaveBeenCalledWith("id", ["unprotected-a", "unprotected-b"]);
   });
 
   it("is idempotent once every remaining rostered player is protected", async () => {
     queuedReleaseQueries({ protectedIds: ["protected"], rosteredIds: ["protected"] });
 
-    await expect(releaseUnprotectedPlayers(Date.parse("2026-08-26T01:00:00.000Z"))).resolves.toEqual({ released: 0, skipped: "already-released" });
+    await expect(releaseUnprotectedPlayers(Date.parse("2026-08-27T01:00:00.000Z"))).resolves.toEqual({ released: 0, skipped: "already-released" });
     expect(from).toHaveBeenCalledTimes(2);
   });
 });

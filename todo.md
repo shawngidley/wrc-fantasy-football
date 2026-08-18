@@ -207,12 +207,19 @@
 # Daily Shared Season-Stat Refresh
 
 - [x] Build a server-side shared season-stat cache so all browsers can load Free Agents stats without individual provider calls.
-- [ ] Add an idempotent morning Heartbeat refresh for the shared season-stat cache.
+- [x] Add an idempotent morning Heartbeat refresh for the shared season-stat cache.
 - [x] Verify a cold browser receives warmed SFLEX, K, and D/ST stats without waiting for individual player lookups.
 - [x] Complete player-identity coverage or explicit validated no-season states for every remaining SFLEX row in the shared snapshot.
 - [ ] Verify the shared snapshot source on the published Free Agents page without individual Tank01 player lookups.
 - [x] Run a true cold-browser verification for SFLEX, K, and D/ST after clearing local season-stat cache entries.
 - [x] Render validated 0.0 FPTS, 0.0 FP/G, and 0 GP for explicit no-2025-season Free Agents rather than ambiguous dashes.
+
+# 2026 NFL Team and Bye-Week Synchronization
+
+- [x] Inspect the provided player-team and bye-week sync scripts before running database updates.
+- [x] Fetch current 2026 NFL teams, apply verified WRC player assignment updates, and record the player count.
+- [x] Apply current 2026 bye-week updates and record the player count.
+- [x] Verify the stored player assignments and bye weeks after the sync.
 
 # Full Free Agents Column Parity
 
@@ -257,6 +264,12 @@
 - [x] Implement an idempotent release of unprotected players and server-side protection enforcement for draft picks.
 - [x] Schedule the one-time 9:00 PM ET post-deadline release task for August 25.
 - [x] Verify deadline messaging and post-deadline player availability.
+
+# Revised August 26 Protection Deadline
+
+- [ ] Change every protection deadline display and server enforcement to Wednesday, August 26, 2026 at 9:00 PM ET.
+- [ ] Move the one-time unprotected-player release from August 25 to after the revised August 26 deadline.
+- [ ] Verify the live deadline label, server cutoff, and registered release task timing.
 
 # Mobile Slot Controls and D/ST Logos
 
