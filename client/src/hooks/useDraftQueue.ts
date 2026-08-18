@@ -14,9 +14,18 @@ export interface DraftQueueItem {
   season: number;
 }
 
+export function appendDraftQueueItem(previous: DraftQueueItem[] | undefined, item: DraftQueueItem): DraftQueueItem[] {
+  return [...(previous ?? []), item];
+}
+
+export function removeDraftQueueItem(previous: DraftQueueItem[] | undefined, id: number): DraftQueueItem[] {
+  return (previous ?? []).filter(item => item.id !== id);
+}
+
 export function useDraftQueue(teamId: string | null | undefined, season = 2026) {
   const [queue, setQueue] = useState<DraftQueueItem[]>([]);
   const [loading, setLoading] = useState(false);
+  const utils = trpc.useUtils();
   const queueQuery = trpc.league.draftQueue.useQuery(
     { season },
     { enabled: Boolean(teamId), staleTime: 30_000 },
@@ -44,14 +53,17 @@ export function useDraftQueue(teamId: string | null | undefined, season = 2026) 
       playerPos: player.pos,
       playerNflTeam: player.nflTeam ?? null,
     });
-    setQueue(prev => [...prev, data as DraftQueueItem]);
-  }, [teamId, season, addMutation]);
+    const queuedItem = data as DraftQueueItem;
+    setQueue(prev => [...prev, queuedItem]);
+    utils.league.draftQueue.setData({ season }, previous => appendDraftQueueItem(previous, queuedItem));
+  }, [teamId, season, addMutation, utils.league.draftQueue]);
 
   // Remove player from queue
   const removeFromQueue = useCallback(async (id: number) => {
     await removeMutation.mutateAsync({ id, season });
     setQueue(prev => prev.filter(q => q.id !== id));
-  }, [removeMutation, season]);
+    utils.league.draftQueue.setData({ season }, previous => removeDraftQueueItem(previous, id));
+  }, [removeMutation, season, utils.league.draftQueue]);
 
   // Move player up or down in rank
   const moveItem = useCallback(async (id: number, direction: "up" | "down") => {
@@ -68,7 +80,8 @@ export function useDraftQueue(teamId: string | null | undefined, season = 2026) 
     setQueue(newQueue);
 
     await reorderMutation.mutateAsync({ season, orderedIds: newQueue.map(item => item.id) });
-  }, [queue, reorderMutation, season]);
+    utils.league.draftQueue.setData({ season }, newQueue);
+  }, [queue, reorderMutation, season, utils.league.draftQueue]);
 
   // Check if a player is already in the queue
   const isQueued = useCallback((playerName: string) => {

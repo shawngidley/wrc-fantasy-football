@@ -837,3 +837,10 @@
 - [x] Add an owner-specific Add to Queue action for every available player, with clear queued and signed-out states.
 - [x] Preserve private queue ownership, valid-player validation, and drafted/WRC-rostered player exclusions.
 - [x] Add regression coverage and verify tab routing plus responsive player-to-queue actions.
+
+# Cross-Tab Draft Queue Synchronization
+
+- [x] Identify why an owner’s Draft Order queue does not refresh after adding a player in Draft Players.
+- [x] Synchronize private queue additions and removals across the owner’s open Draft tabs without page refresh.
+- [x] Preserve session-based queue ownership and provide regression coverage for the immediate update path.
+- [x] Verify the Draft Order queue receives newly added Draft Players entries in the active browser session.
