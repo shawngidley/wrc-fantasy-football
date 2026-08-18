@@ -17,6 +17,7 @@ import { getTeamLogoUrl } from "@/hooks/useTank01Player";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentWeek } from "@/lib/scheduleData2026";
 import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections";
+import { useNFLMatchups, formatGameTime } from "@/hooks/useNFLMatchups";
 import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } from "@/hooks/useNFLInjuries";
 import FAABBidModal from "@/components/FAABBidModal";
 import { supabase } from "@/lib/supabase";
@@ -28,6 +29,7 @@ import Navigation from "@/components/Navigation";
 import { useNFLDepthCharts } from "@/hooks/useNFLDepthCharts";
 import { useNFLSeasonStats } from "@/hooks/useNFLSeasonStats";
 import { formatSeasonStatColumn, type PlayerSeasonStats, type SeasonStatColumn, type SeasonStatKey } from "@/lib/playerSeasonStats";
+import { normalizeNFLTeamCode } from "@/lib/nflTeamCodes";
 import { trpc } from "@/lib/trpc";
 
 // ── Position badge colors ────────────────────────────────────────────────────
@@ -176,7 +178,7 @@ function CommissionerBids({ week }: { week: number }) {
 // ── Sort options ─────────────────────────────────────────────────────────────
 type FreeAgentStatKey = SeasonStatKey | "turnovers" | "fgPct" | "xpPct";
 type FreeAgentStatColumn = Omit<SeasonStatColumn, "key"> & { key: FreeAgentStatKey };
-type SortKey = "name" | "wrcTeam" | "bye" | "proj" | "adp" | "ecr" | FreeAgentStatKey;
+type SortKey = "name" | "wrcTeam" | "age" | "bye" | "opp" | "game" | "proj" | FreeAgentStatKey;
 type SortDirection = "asc" | "desc";
 
 const SFLEX_COLUMNS: FreeAgentStatColumn[] = [
@@ -203,6 +205,24 @@ export function getFreeAgentStatColumns(pos: string): FreeAgentStatColumn[] {
   if (pos === "K") return K_COLUMNS;
   if (pos === "DST") return DST_COLUMNS;
   return SFLEX_COLUMNS;
+}
+
+export function getFreeAgentTableColumns(pos: string) {
+  const columns = getFreeAgentStatColumns(pos);
+  return [
+    { label: "Player", key: "name" as SortKey, align: "left" as const },
+    { label: "WRC Team", key: "wrcTeam" as SortKey, align: "left" as const },
+    { label: "Age", key: "age" as SortKey },
+    { label: "Bye", key: "bye" as SortKey },
+    { label: "Opp", key: "opp" as SortKey },
+    { label: "Game", key: "game" as SortKey },
+    { label: "FPTS", key: "wrcPts" as SortKey },
+    { label: "FP/G", key: "ptsPerGame" as SortKey },
+    { label: "Proj", key: "proj" as SortKey },
+    ...columns.slice(2).map((column) => ({ label: column.label, key: column.key as SortKey, column })),
+    { label: "Action" },
+    { label: "" },
+  ];
 }
 
 export function freeAgentStatValue(stats: PlayerSeasonStats | undefined, key: FreeAgentStatKey): number {
@@ -244,18 +264,6 @@ export default function FreeAgents() {
 
   const currentWeek = getCurrentWeek();
   const week = currentWeek > 0 ? currentWeek : 1;
-  const fantasyProsQbRanks = trpc.fantasyPros.ranks.useQuery({ position: "QB", week }, { staleTime: 60 * 60_000 });
-  const fantasyProsRbRanks = trpc.fantasyPros.ranks.useQuery({ position: "RB", week }, { staleTime: 60 * 60_000 });
-  const fantasyProsWrRanks = trpc.fantasyPros.ranks.useQuery({ position: "WR", week }, { staleTime: 60 * 60_000 });
-  const fantasyProsTeRanks = trpc.fantasyPros.ranks.useQuery({ position: "TE", week }, { staleTime: 60 * 60_000 });
-  const fantasyProsRankMap = useMemo(() => new Map(
-    [
-      ...(fantasyProsQbRanks.data ?? []),
-      ...(fantasyProsRbRanks.data ?? []),
-      ...(fantasyProsWrRanks.data ?? []),
-      ...(fantasyProsTeRanks.data ?? []),
-    ].map(item => [normalizePlayerName(item.name), item]),
-  ), [fantasyProsQbRanks.data, fantasyProsRbRanks.data, fantasyProsWrRanks.data, fantasyProsTeRanks.data]);
   const rosteredPlayersQuery = trpc.league.rosteredPlayers.useQuery(undefined, { staleTime: 60_000 });
 
   useEffect(() => {
@@ -268,6 +276,7 @@ export default function FreeAgents() {
 
   // Live projections for sorting
   const { projections, loading: projectionsLoading } = useNFLProjections(week);
+  const { matchups: matchupMap } = useNFLMatchups(week);
 
   // Injury designations
   const { injuries } = useNFLInjuries();
@@ -303,18 +312,19 @@ export default function FreeAgents() {
     () => baseFiltered.map((player) => ({ name: player.name, pos: player.pos, nflTeam: player.nflTeam })),
     [baseFiltered]
   );
-  const { statMap: seasonStatMap, loading: seasonStatsLoading, loadedCount: seasonStatsLoaded } = useNFLSeasonStats(seasonStatPlayers, true);
+  const { statMap: seasonStatMap, playerMetaMap, loading: seasonStatsLoading, loadedCount: seasonStatsLoaded } = useNFLSeasonStats(seasonStatPlayers, true);
   const seasonColumns = useMemo(
     () => getFreeAgentStatColumns(posFilter),
     [posFilter]
   );
+  const detailColumns = useMemo(() => seasonColumns.slice(2), [seasonColumns]);
   const statsGridColumns = useMemo(
-    () => `210px minmax(108px, auto) 48px 62px 62px 62px ${seasonColumns.map(() => "minmax(64px, auto)").join(" ")} 76px 30px`,
-    [seasonColumns]
+    () => `210px minmax(108px, auto) 44px 44px 60px 86px 64px 64px 64px ${detailColumns.map(() => "minmax(64px, auto)").join(" ")} 76px 30px`,
+    [detailColumns]
   );
   const statsTableMinWidth = useMemo(
-    () => 210 + 108 + 48 + 62 + 62 + 62 + 64 * seasonColumns.length + 76 + 30,
-    [seasonColumns]
+    () => 210 + 108 + 44 + 44 + 60 + 86 + 64 * 3 + 64 * detailColumns.length + 76 + 30,
+    [detailColumns]
   );
 
   const setTableScrollPercent = (percent: number) => {
@@ -335,10 +345,17 @@ export default function FreeAgents() {
     const getValue = (player: NFLPlayer): string | number => {
       if (sortKey === "name") return player.name;
       if (sortKey === "wrcTeam") return ownershipMap[player.name.toLowerCase()] ?? "Free Agent";
+      if (sortKey === "age") return Number(playerMetaMap[player.name.toLowerCase()]?.age) || 999;
       if (sortKey === "bye") return player.bye ?? 99;
+      if (sortKey === "opp") {
+        const matchup = matchupMap[normalizeNFLTeamCode(player.nflTeam)];
+        return matchup ? `${matchup.isHome ? "vs" : "@"} ${matchup.opponent}` : "BYE";
+      }
+      if (sortKey === "game") {
+        const matchup = matchupMap[normalizeNFLTeamCode(player.nflTeam)];
+        return matchup ? formatGameTime(matchup) : "";
+      }
       if (sortKey === "proj") return getProjectedPoints(projections, player.name, player.pos, player.nflTeam);
-      if (sortKey === "adp") return player.adp;
-      if (sortKey === "ecr") return fantasyProsRankMap.get(normalizePlayerName(player.name))?.ecr ?? 9999;
       return freeAgentStatValue(seasonStatMap[player.name.toLowerCase()], sortKey);
     };
 
@@ -350,7 +367,7 @@ export default function FreeAgents() {
         : Number(aValue) - Number(bValue);
       return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [baseFiltered, projections, fantasyProsRankMap, ownershipMap, seasonStatMap, sortDirection, sortKey]);
+  }, [baseFiltered, projections, matchupMap, ownershipMap, playerMetaMap, seasonStatMap, sortDirection, sortKey]);
 
   const handleSort = (nextKey: SortKey) => {
     if (nextKey === sortKey) {
@@ -358,23 +375,10 @@ export default function FreeAgents() {
       return;
     }
     setSortKey(nextKey);
-    setSortDirection(nextKey === "name" || nextKey === "wrcTeam" || nextKey === "bye" || nextKey === "adp" || nextKey === "ecr" ? "asc" : "desc");
+    setSortDirection(nextKey === "name" || nextKey === "wrcTeam" || nextKey === "age" || nextKey === "bye" || nextKey === "opp" || nextKey === "game" ? "asc" : "desc");
   };
 
-  const tableHeaders = useMemo(
-    () => [
-      { label: "Player", key: "name" as SortKey, align: "left" as const },
-      { label: "WRC Team", key: "wrcTeam" as SortKey, align: "left" as const },
-      { label: "Bye", key: "bye" as SortKey },
-      { label: "Proj", key: "proj" as SortKey },
-      { label: "ADP", key: "adp" as SortKey },
-      { label: "ECR", key: "ecr" as SortKey },
-      ...seasonColumns.map((column: FreeAgentStatColumn) => ({ label: column.label, key: column.key as SortKey, column })),
-      { label: "Action" },
-      { label: "" },
-    ],
-    [seasonColumns]
-  );
+  const tableHeaders = useMemo(() => getFreeAgentTableColumns(posFilter), [posFilter]);
 
   const positions = ["SFLEX", "QB", "RB", "WR", "TE", "K", "DST"];
   const isCommissioner = franchise?.is_commissioner;
@@ -657,7 +661,8 @@ export default function FreeAgents() {
                     const ownerTeam = ownershipMap[player.name.toLowerCase()];
                     const isOwned = !!ownerTeam;
                     const seasonStats = seasonStatMap[player.name.toLowerCase()];
-                    const fantasyRank = fantasyProsRankMap.get(normalizePlayerName(player.name));
+                    const playerMeta = playerMetaMap[player.name.toLowerCase()];
+                    const matchup = matchupMap[normalizeNFLTeamCode(player.nflTeam)];
                     return (
                       <div
                         key={player.id}
@@ -707,11 +712,6 @@ export default function FreeAgents() {
                                   {depthMap.get(player.name.toLowerCase())?.depthPosition}
                                 </span>
                               )}
-                              {isOwned && (
-                                <span style={{ fontSize: "0.65rem", color: "oklch(0.42 0.1 240)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.03em", background: "oklch(0.92 0.04 240)", border: "1px solid oklch(0.78 0.08 240)", borderRadius: 4, padding: "0px 4px" }}>
-                                  {ownerTeam}
-                                </span>
-                              )}
                             </div>
                           </div>
                           <ChevronRight size={12} color="oklch(0.75 0.06 150)" style={{ flexShrink: 0 }} />
@@ -721,10 +721,30 @@ export default function FreeAgents() {
                           {ownerTeam ?? "Free Agent"}
                         </span>
 
+                        {/* Age */}
+                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", color: "oklch(0.5 0.06 150)", textAlign: "center" as const }}>
+                          {player.pos === "DST" ? "—" : playerMeta?.age ?? "—"}
+                        </span>
+
                         {/* Bye week */}
                         <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", color: "oklch(0.5 0.06 150)", textAlign: "center" as const }}>
                           {player.bye ?? "—"}
                         </span>
+
+                        {/* Opponent and game time use the same weekly matchup source as Lineup. */}
+                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: 700, color: "oklch(0.42 0.06 150)", textAlign: "center" as const, whiteSpace: "nowrap" as const }}>
+                          {matchup ? `${matchup.isHome ? "vs" : "@"} ${matchup.opponent}` : "BYE"}
+                        </span>
+                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem", color: "oklch(0.5 0.06 150)", textAlign: "center" as const, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {matchup ? formatGameTime(matchup).replace(" ET", "") : "—"}
+                        </span>
+
+                        {/* The shared FPTS / FP-G columns precede the position-specific Lineup stats. */}
+                        {seasonColumns.slice(0, 2).map((column) => (
+                          <span key={`fantasy-${column.key}`} style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.84rem", color: "oklch(0.48 0.15 85)", textAlign: "center" as const, whiteSpace: "nowrap" as const }}>
+                            {seasonStats ? formatFreeAgentStat(seasonStats, column) : seasonStatsLoading ? "…" : "—"}
+                          </span>
+                        ))}
 
                         {/* Projected points */}
                         <div style={{ textAlign: "center" as const }}>
@@ -737,18 +757,8 @@ export default function FreeAgents() {
                           )}
                         </div>
 
-                        {/* ADP */}
-                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.85rem", color: "oklch(0.5 0.06 150)", textAlign: "center" as const }}>
-                          {player.adp.toFixed(1)}
-                        </span>
-
-                        {/* FantasyPros expert consensus rank */}
-                        <span title={fantasyRank?.tier ? `FantasyPros Tier ${fantasyRank.tier}` : "FantasyPros ECR"} style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.85rem", color: fantasyRank?.ecr ? "oklch(0.48 0.15 85)" : "oklch(0.65 0.06 150)", textAlign: "center" as const }}>
-                          {fantasyRank?.ecr ?? "—"}
-                        </span>
-
-                        {/* Position-aware Tank01 season totals */}
-                        {seasonColumns.map((column: FreeAgentStatColumn) => (
+                        {/* Position-specific Lineup-equivalent season totals. */}
+                        {detailColumns.map((column: FreeAgentStatColumn) => (
                           <span key={`${column.label}-${column.key}`} style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: column.gold || column.highlight ? 800 : 600, fontSize: "0.84rem", color: column.gold ? "oklch(0.48 0.15 85)" : column.highlight ? "oklch(0.28 0.11 150)" : "oklch(0.38 0.05 150)", textAlign: "center" as const, whiteSpace: "nowrap" as const }}>
                             {seasonStats ? formatFreeAgentStat(seasonStats, column) : seasonStatsLoading ? "…" : "—"}
                           </span>

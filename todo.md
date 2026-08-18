@@ -192,7 +192,17 @@
 
 - [x] Align SFLEX, K, and D/ST Free Agents stat columns with their respective Lineup panels, including final GP.
 - [x] Add a clear sortable WRC Team column that resolves a rostered player’s franchise or shows Free Agent.
-- [ ] Verify rostered and unrostered players as well as aligned stat columns on desktop and mobile.
+- [x] Verify rostered and unrostered players as well as aligned stat columns on desktop and mobile.
+- [x] Confirm production serves the Free Agents WRC Team and Lineup-aligned stat bundle after deployment propagation.
+
+# Full Free Agents Column Parity
+
+- [x] Replace the remaining non-Lineup Free Agents columns with Lineup-equivalent Age, Bye, Opp, Game, FPTS, FP/G, and Proj columns.
+- [x] Preserve WRC Team as the one additional status column and move non-Lineup market metrics out of the roster table.
+- [x] Verify complete SFLEX, K, and D/ST column parity with their Lineup panels on desktop and mobile.
+- [x] Add direct schema regression coverage for full Free Agents-to-Lineup column parity by position.
+- [ ] Verify the final Free Agents full-column parity on a true mobile viewport for SFLEX, K, and D/ST.
+- [ ] Confirm the published production Free Agents page shows the final full-column parity on mobile and desktop.
 
 # Full-Row Inline Swap Candidates
 

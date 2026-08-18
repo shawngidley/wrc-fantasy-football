@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PlayerSeasonStats } from "@/lib/playerSeasonStats";
-import { freeAgentStatValue, getFreeAgentStatColumns } from "./FreeAgents";
+import { freeAgentStatValue, getFreeAgentStatColumns, getFreeAgentTableColumns } from "./FreeAgents";
 
 const stats: PlayerSeasonStats = {
   gp: 17, passCmp: 0, passAtt: 0, passYds: 0, passTD: 4, passInt: 6, passRating: 0,
@@ -28,5 +28,20 @@ describe("Free Agents Lineup stat alignment", () => {
     expect(freeAgentStatValue(stats, "turnovers")).toBe(8);
     expect(freeAgentStatValue(stats, "fgPct")).toBeCloseTo(84.21, 2);
     expect(freeAgentStatValue(stats, "xpPct")).toBeCloseTo(96.97, 2);
+  });
+
+  it("uses complete Lineup-equivalent fields with WRC Team as the one additional status column", () => {
+    expect(getFreeAgentTableColumns("SFLEX").map(column => column.label)).toEqual([
+      "Player", "WRC Team", "Age", "Bye", "Opp", "Game", "FPTS", "FP/G", "Proj",
+      "YDS", "TD", "INT", "ATT", "YDS", "TD", "TGT", "REC", "YDS", "TD", "TO", "GP", "Action", "",
+    ]);
+    expect(getFreeAgentTableColumns("K").map(column => column.label)).toEqual([
+      "Player", "WRC Team", "Age", "Bye", "Opp", "Game", "FPTS", "FP/G", "Proj",
+      "FGM", "FGA", "FG%", "XPM", "XPA", "XP%", "GP", "Action", "",
+    ]);
+    expect(getFreeAgentTableColumns("DST").map(column => column.label)).toEqual([
+      "Player", "WRC Team", "Age", "Bye", "Opp", "Game", "FPTS", "FP/G", "Proj",
+      "SK", "SFT", "TA", "TDDST", "GP", "Action", "",
+    ]);
   });
 });
