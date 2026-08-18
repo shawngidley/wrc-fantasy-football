@@ -79,6 +79,48 @@ function configureDraftDatabase() {
   return { playerInsert };
 }
 
+function configureQueueDatabase() {
+  const queueInsert = vi.fn(() => ({
+    select: vi.fn(() => ({
+      single: vi.fn().mockResolvedValue({
+        data: { id: 19, team_id: "team-shawn", player_name: "Fernando Mendoza", player_pos: "QB", player_nfl_team: "LV", rank: 1, season: 2026 },
+        error: null,
+      }),
+    })),
+  }));
+  let draftQueueCall = 0;
+
+  from.mockImplementation((table: string) => {
+    if (table !== "draft_queue") throw new Error(`Unexpected table: ${table}`);
+    draftQueueCall += 1;
+    if (draftQueueCall === 1) {
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              eq: vi.fn(() => ({ maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }) })),
+            })),
+          })),
+        })),
+      };
+    }
+    if (draftQueueCall === 2) {
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            eq: vi.fn(() => ({
+              order: vi.fn(() => ({ limit: vi.fn(() => ({ maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }) })) })),
+            })),
+          })),
+        })),
+      };
+    }
+    return { insert: queueInsert };
+  });
+
+  return { queueInsert };
+}
+
 describe("validated comprehensive draft player universe", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -112,6 +154,30 @@ describe("validated comprehensive draft player universe", () => {
       draft_round: 1,
       draft_pick: 1,
       is_starter: false,
+    }));
+  });
+
+  it("rejects an unknown player before it can be added to a private draft queue", async () => {
+    from.mockImplementation(() => { throw new Error("Queue database must not be called for an unknown player"); });
+    const caller = appRouter.createCaller({ req: {} as never, res: {} as never, user: null });
+
+    await expect(caller.league.addDraftQueueItem({ season: 2026, playerName: "Not A Player", playerPos: "QB", playerNflTeam: "TEST" }))
+      .rejects.toThrow("validated 2026 WRC draft pool");
+  });
+
+  it("adds a validated rookie to only the signed-in owner’s private draft queue", async () => {
+    const { queueInsert } = configureQueueDatabase();
+    const caller = appRouter.createCaller({ req: {} as never, res: {} as never, user: null });
+
+    await expect(caller.league.addDraftQueueItem({ season: 2026, playerName: "Fernando Mendoza", playerPos: "QB", playerNflTeam: "LV" }))
+      .resolves.toMatchObject({ team_id: "team-shawn", player_name: "Fernando Mendoza", player_pos: "QB", player_nfl_team: "LV" });
+
+    expect(queueInsert).toHaveBeenCalledWith(expect.objectContaining({
+      team_id: "team-shawn",
+      player_name: "Fernando Mendoza",
+      player_pos: "QB",
+      player_nfl_team: "LV",
+      season: 2026,
     }));
   });
 });

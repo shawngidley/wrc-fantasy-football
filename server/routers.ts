@@ -156,13 +156,19 @@ export const appRouter = router({
         playerNflTeam: z.string().max(8).nullable(),
       }))
       .mutation(async ({ input, ctx }) => {
+        const validatedPlayer = input.playerNflTeam
+          ? findDraftUniversePlayer({ name: input.playerName, pos: input.playerPos, nflTeam: input.playerNflTeam })
+          : null;
+        if (!validatedPlayer) {
+          throw new Error("Player is not in the validated 2026 WRC draft pool");
+        }
         const teamId = ctx.teamSession.teamId;
         const { data: existing, error: existingError } = await supabaseAdmin
           .from("draft_queue")
           .select("id, rank")
           .eq("team_id", teamId)
           .eq("season", input.season)
-          .eq("player_name", input.playerName)
+          .eq("player_name", validatedPlayer.name)
           .maybeSingle();
         if (existingError) throw new Error("Unable to check draft queue");
         if (existing) throw new Error("This player is already in your queue");
@@ -181,9 +187,9 @@ export const appRouter = router({
           .insert({
             team_id: teamId,
             season: input.season,
-            player_name: input.playerName,
-            player_pos: input.playerPos,
-            player_nfl_team: input.playerNflTeam,
+            player_name: validatedPlayer.name,
+            player_pos: validatedPlayer.pos,
+            player_nfl_team: validatedPlayer.nflTeam,
             rank: Number(last?.rank ?? 0) + 1,
           })
           .select("id, team_id, player_name, player_pos, player_nfl_team, rank, season")

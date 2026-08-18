@@ -841,7 +841,8 @@ export default function DraftBoard() {
             )}
           </div>
 
-        {/* Owner-visible available player board */}
+        {/* Player browsing now lives in the Draft Players tab. */}
+        {false && (
         <section className="wrc-card" aria-label="Available 2026 draft players" style={{ marginBottom: "1.5rem", overflow: "hidden" }}>
           <div className="wrc-card-gold-stripe" />
           <div style={{ padding: "1rem 1.25rem 0.875rem", borderBottom: "1px solid oklch(0.9 0.005 150)" }}>
@@ -959,6 +960,7 @@ export default function DraftBoard() {
             </table>
           </div>
         </section>
+        )}
 
         {/* Draft Grid */}
         <div style={{ overflowX: "auto", marginBottom: "1.5rem" }}>

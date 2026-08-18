@@ -10,14 +10,16 @@ import { useLocation } from "wouter";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import DraftBoard from "./DraftBoard";
+import DraftPlayers from "./DraftPlayers";
 import Protections from "./Protections";
 import DraftRecap from "./DraftRecap";
 
-type DraftTab = "board" | "protections" | "recap";
+type DraftTab = "board" | "players" | "protections" | "recap";
 
 function getTab(search: string): DraftTab {
   const params = new URLSearchParams(search);
   const t = params.get("tab");
+  if (t === "players") return "players";
   if (t === "protections") return "protections";
   if (t === "recap") return "recap";
   return "board";
@@ -25,7 +27,7 @@ function getTab(search: string): DraftTab {
 
 export default function DraftHub() {
   const { franchise } = useAuth();
-  const [location, navigate] = useLocation();
+  const [, navigate] = useLocation();
 
   // Use local state for the active tab — updates instantly on tap
   const [activeTab, setActiveTab] = useState<DraftTab>(() =>
@@ -37,12 +39,14 @@ export default function DraftHub() {
 
   const tabs: { id: DraftTab; label: string }[] = [
     { id: "board", label: "Draft Order" },
+    { id: "players", label: "Draft Players" },
     { id: "protections", label: "Protections" },
     { id: "recap", label: "Draft Recap" },
   ];
 
   const setTab = (tab: DraftTab) => {
     setActiveTab(tab);
+    navigate(`/draft?tab=${tab}`);
     window.scrollTo(0, 0);
   };
 
@@ -91,6 +95,7 @@ export default function DraftHub() {
       {/* Tab content — render the actual page component */}
       <div style={{ paddingTop: 0 }}>
         {activeTab === "board" && <DraftBoardNoNav />}
+        {activeTab === "players" && <DraftPlayersNoNav />}
         {activeTab === "protections" && <ProtectionsNoNav />}
         {activeTab === "recap" && <DraftRecapNoNav />}
       </div>
@@ -113,6 +118,14 @@ function DraftBoardNoNav() {
   return (
     <div className="draft-hub-child">
       <DraftBoard />
+    </div>
+  );
+}
+
+function DraftPlayersNoNav() {
+  return (
+    <div className="draft-hub-child">
+      <DraftPlayers />
     </div>
   );
 }

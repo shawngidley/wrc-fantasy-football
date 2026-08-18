@@ -829,3 +829,11 @@
 - [x] Add position controls and column sorting while preserving name search and drafted/WRC-rostered exclusions.
 - [x] Keep player selection restricted to the valid current drafting owner or commissioner while allowing every visitor to view the board.
 - [x] Add regression coverage and verify the responsive player board in the Draft Board page.
+
+# Draft Players Tab and Player-Board Queue Actions
+
+- [x] Add a Draft Players tab immediately to the right of Draft Order in the Draft navigation.
+- [x] Move the available-player board, search, filters, and ADP sorting into the Draft Players tab.
+- [x] Add an owner-specific Add to Queue action for every available player, with clear queued and signed-out states.
+- [x] Preserve private queue ownership, valid-player validation, and drafted/WRC-rostered player exclusions.
+- [x] Add regression coverage and verify tab routing plus responsive player-to-queue actions.
