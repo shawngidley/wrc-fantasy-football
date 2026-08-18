@@ -46,7 +46,7 @@ def main() -> None:
         for row in csv.DictReader(raw):
             if row.get("season_type") != "REG":
                 continue
-            kicker_id = row.get("kicker_player_id") or ""
+            kicker_id = row.get("kicker_player_id") or row.get("kicker_player_name") or ""
             if not kicker_id:
                 continue
             output = totals[kicker_id]

@@ -195,6 +195,13 @@
 - [x] Verify rostered and unrostered players as well as aligned stat columns on desktop and mobile.
 - [x] Confirm production serves the Free Agents WRC Team and Lineup-aligned stat bundle after deployment propagation.
 
+# Free Agents Width, Kicker Scoring, and Season Cache
+
+- [x] Widen the desktop Free Agents panel to reduce horizontal stat scrolling.
+- [x] Obtain authoritative 2025 season data for every Free Agents K row and replace provisional unsupported values.
+- [x] Persist normalized season stats with a versioned, time-bounded browser cache for fast repeat Free Agents page loads.
+- [x] Verify desktop layout, fully authoritative K scoring, and warm cached loads on the Free Agents page.
+
 # Full Free Agents Column Parity
 
 - [x] Replace the remaining non-Lineup Free Agents columns with Lineup-equivalent Age, Bye, Opp, Game, FPTS, FP/G, and Proj columns.
@@ -298,6 +305,10 @@
 # Deterministic FantasyPros Adapter Regression
 
 - [x] Replace the rate-limit-sensitive live adapter test with deterministic mocked response coverage.
+
+# Deterministic Tank01 Adapter Regression
+
+- [x] Replace the network-blocked live Tank01 credential test with deterministic proxy authorization coverage.
 
 # Position-Specific Lineup Panels
 

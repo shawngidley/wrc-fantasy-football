@@ -23,14 +23,27 @@ const KICKER_SEASON_STATS_2025: Record<string, CompletedKickerSeasonStats> = {
   "chris boswell": line(17, 27, 32, 42, 43, 151.7),
   "eddy pineiro": line(14, 28, 29, 34, 38, 140.5),
   "evan mcpherson": line(17, 25, 28, 41, 44, 137.8),
+  "graham gano": line(5, 9, 10, 9, 9, 37.8),
+  "harrison butker": line(17, 33, 38, 31, 35, 143.3),
   "jake bates": line(17, 27, 34, 54, 56, 152.6),
   "jake elliott": line(17, 20, 27, 41, 42, 115.2),
   "jason myers": line(17, 41, 48, 48, 48, 206.6),
+  // These 2026 player-pool kickers have no regular-season 2025 kick events in
+  // the completed nflverse play-by-play release, so their validated WRC line is zero.
+  "justin tucker": line(0, 0, 0, 0, 0, 0),
   "joey slye": line(16, 28, 35, 26, 27, 137.2),
   "joshua karty": line(8, 10, 15, 23, 26, 45.3),
   "ka'imi fairbairn": line(15, 44, 48, 28, 28, 203.3),
+  "matt gay": line(12, 17, 23, 26, 26, 92.1),
+  "nick folk": line(16, 28, 29, 22, 22, 134.5),
+  "greg joseph": line(0, 0, 0, 0, 0, 0),
+  "ryan succop": line(0, 0, 0, 0, 0, 0),
+  "robbie gould": line(0, 0, 0, 0, 0, 0),
+  "tyler bass": line(0, 0, 0, 0, 0, 0),
   "tyler loop": line(17, 30, 34, 44, 46, 140.7),
+  "wil lutz": line(17, 28, 32, 39, 39, 132.7),
   "will reichard": line(17, 33, 35, 31, 31, 168.9),
+  "younghoe koo": line(6, 6, 9, 13, 14, 28.3),
   "andy borregales": line(17, 27, 32, 53, 55, 135.8),
 };
 

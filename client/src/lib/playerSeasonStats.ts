@@ -221,7 +221,7 @@ export function normalizeCompletedKickerSeasonStats(source: CompletedKickerSeaso
     sacks: 0, defInt: 0, fumblesRecovered: 0, takeaways: 0, defTD: 0, dstTD: 0, returnTD: 0, safeties: 0, blockKicks: 0, ptsAgainst: 0,
     fumblesLost: 0,
     wrcPts: source.wrcPts,
-    ptsPerGame: Math.round((source.wrcPts / source.games) * 10) / 10,
+    ptsPerGame: source.games > 0 ? Math.round((source.wrcPts / source.games) * 10) / 10 : 0,
   };
 }
 

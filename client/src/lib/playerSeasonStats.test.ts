@@ -77,8 +77,14 @@ describe("normalizeCompletedKickerSeasonStats", () => {
   it("uses exact made- and missed-kick scoring rather than Tank01's unavailable FG yard aggregate", () => {
     const aubrey = normalizeCompletedKickerSeasonStats(getCompletedKickerSeasonStats("Brandon Aubrey")!);
     const borregales = normalizeCompletedKickerSeasonStats(getCompletedKickerSeasonStats("Andres Borregales")!);
+    const butker = normalizeCompletedKickerSeasonStats(getCompletedKickerSeasonStats("Harrison Butker")!);
+    const lutz = normalizeCompletedKickerSeasonStats(getCompletedKickerSeasonStats("Wil Lutz")!);
+    const tucker = normalizeCompletedKickerSeasonStats(getCompletedKickerSeasonStats("Justin Tucker")!);
 
     expect(aubrey).toMatchObject({ gp: 17, fgMade: 36, fgAtt: 42, xpMade: 47, xpAtt: 48, wrcPts: 195.4, ptsPerGame: 11.5 });
     expect(borregales).toMatchObject({ gp: 17, fgMade: 27, fgAtt: 32, xpMade: 53, xpAtt: 55, wrcPts: 135.8 });
+    expect(butker).toMatchObject({ gp: 17, fgMade: 33, fgAtt: 38, xpMade: 31, xpAtt: 35, wrcPts: 143.3, ptsPerGame: 8.4 });
+    expect(lutz).toMatchObject({ gp: 17, fgMade: 28, fgAtt: 32, xpMade: 39, xpAtt: 39, wrcPts: 132.7, ptsPerGame: 7.8 });
+    expect(tucker).toMatchObject({ gp: 0, fgMade: 0, fgAtt: 0, xpMade: 0, xpAtt: 0, wrcPts: 0, ptsPerGame: 0 });
   });
 });

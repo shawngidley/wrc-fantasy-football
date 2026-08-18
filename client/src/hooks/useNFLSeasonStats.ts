@@ -9,6 +9,7 @@ import { normalizeNFLTeamCode } from "@/lib/nflTeamCodes";
 import { DST_SEASON_STATS_2025 } from "@/lib/dstSeasonStats2025";
 import { getCompletedKickerSeasonStats } from "@/lib/kickerSeasonStats2025";
 import { normalizeCompletedDstSeasonStats, normalizeCompletedKickerSeasonStats, normalizeTankSeasonStats, type PlayerSeasonStats } from "@/lib/playerSeasonStats";
+import { readSeasonStatsCache, writeSeasonStatsCache, type SeasonStatsCacheEntry } from "@/lib/seasonStatsCache";
 
 export interface SeasonStatsPlayerInput {
   name: string;
@@ -16,26 +17,11 @@ export interface SeasonStatsPlayerInput {
   nflTeam?: string;
 }
 
-const CACHE_PREFIX = "wrc_tank01_season_stats_v8_";
-const CACHE_TTL_MS = 30 * 60 * 1000;
 const CONCURRENCY = 4;
-
-function cacheKey(name: string) {
-  return `${CACHE_PREFIX}${name.toLowerCase().replace(/[^a-z0-9]/g, "_")}`;
-}
-
-interface SeasonStatsCacheEntry {
-  stats: PlayerSeasonStats;
-  age?: string;
-  headshot?: string;
-}
 
 function cacheGet(name: string): SeasonStatsCacheEntry | null {
   try {
-    const raw = sessionStorage.getItem(cacheKey(name));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as { ts: number; data: SeasonStatsCacheEntry };
-    return Date.now() - parsed.ts < CACHE_TTL_MS ? parsed.data : null;
+    return typeof window === "undefined" ? null : readSeasonStatsCache(window.localStorage, name);
   } catch {
     return null;
   }
@@ -43,7 +29,7 @@ function cacheGet(name: string): SeasonStatsCacheEntry | null {
 
 function cacheSet(name: string, data: SeasonStatsCacheEntry) {
   try {
-    sessionStorage.setItem(cacheKey(name), JSON.stringify({ ts: Date.now(), data }));
+    if (typeof window !== "undefined") writeSeasonStatsCache(window.localStorage, name, data);
   } catch {
     // Cache is an enhancement only; the table still works without it.
   }
@@ -84,7 +70,11 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
     setLoadedCount(Object.keys(next).length);
     setLoading(uncached.length > 0);
     const dstPlayers = uncached.filter(player => player.pos === "DST" && player.nflTeam);
-    const individualPlayers = uncached.filter(player => player.pos !== "DST" || !player.nflTeam);
+    const exactKickers = uncached.filter(player => player.pos === "K" && Boolean(getCompletedKickerSeasonStats(player.name)));
+    // Kicker FPTS must come from exact completed kick events. Do not fall back to
+    // Tank01's aggregate line: it cannot reproduce WRC distance scoring, and a
+    // transient provider response should not hold up the entire K table.
+    const individualPlayers = uncached.filter(player => player.pos !== "K" && (player.pos !== "DST" || !player.nflTeam));
 
     async function loadDstStats() {
       if (!dstPlayers.length) return;
@@ -102,8 +92,8 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
     }
 
     async function loadExactKickerStats() {
-      for (const player of individualPlayers) {
-        const completedSeason = player.pos === "K" ? getCompletedKickerSeasonStats(player.name) : undefined;
+      for (const player of exactKickers) {
+        const completedSeason = getCompletedKickerSeasonStats(player.name);
         if (!completedSeason) continue;
         const stats = normalizeCompletedKickerSeasonStats(completedSeason);
         cacheSet(player.name, { stats });

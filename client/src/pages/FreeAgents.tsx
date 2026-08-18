@@ -30,6 +30,7 @@ import { useNFLDepthCharts } from "@/hooks/useNFLDepthCharts";
 import { useNFLSeasonStats } from "@/hooks/useNFLSeasonStats";
 import { formatSeasonStatColumn, type PlayerSeasonStats, type SeasonStatColumn, type SeasonStatKey } from "@/lib/playerSeasonStats";
 import { normalizeNFLTeamCode } from "@/lib/nflTeamCodes";
+import { getCompletedKickerSeasonStats } from "@/lib/kickerSeasonStats2025";
 import { trpc } from "@/lib/trpc";
 
 // ── Position badge colors ────────────────────────────────────────────────────
@@ -242,6 +243,13 @@ function formatFreeAgentStat(stats: PlayerSeasonStats | undefined, column: FreeA
   return formatSeasonStatColumn(stats, column as SeasonStatColumn);
 }
 
+function formatKickerFantasyStat(player: NFLPlayer, stats: PlayerSeasonStats | undefined, column: FreeAgentStatColumn): string {
+  if (player.pos === "K" && getCompletedKickerSeasonStats(player.name) && stats && (column.key === "wrcPts" || column.key === "ptsPerGame")) {
+    return column.key === "wrcPts" ? stats.wrcPts.toFixed(1) : stats.ptsPerGame.toFixed(1);
+  }
+  return formatFreeAgentStat(stats, column);
+}
+
 // ── Main FreeAgents page ─────────────────────────────────────────────────────
 export default function FreeAgents() {
   const { franchise } = useAuth();
@@ -389,7 +397,7 @@ export default function FreeAgents() {
       <Navigation teamName={franchise?.team_name} />
 
       {/* ── Header ── */}
-      <div style={{ maxWidth: 900, margin: "0 auto", padding: "1.5rem 0.75rem 0" }}>
+      <div style={{ maxWidth: 1360, margin: "0 auto", padding: "1.5rem clamp(0.5rem, 1.2vw, 1.5rem) 0" }}>
         <div className="wrc-page-title" style={{ padding: "1rem 0 1rem" }}>
           <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap" as const, gap: "0.75rem" }}>
             <div>
@@ -753,7 +761,7 @@ export default function FreeAgents() {
                         {/* The shared FPTS / FP-G columns precede the position-specific Lineup stats. */}
                         {seasonColumns.slice(0, 2).map((column) => (
                           <span key={`fantasy-${column.key}`} style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.84rem", color: "oklch(0.48 0.15 85)", textAlign: "center" as const, whiteSpace: "nowrap" as const }}>
-                            {seasonStats ? formatFreeAgentStat(seasonStats, column) : seasonStatsLoading ? "…" : "—"}
+                            {seasonStats ? formatKickerFantasyStat(player, seasonStats, column) : seasonStatsLoading ? "…" : "—"}
                           </span>
                         ))}
 
@@ -771,7 +779,7 @@ export default function FreeAgents() {
                         {/* Position-specific Lineup-equivalent season totals. */}
                         {detailColumns.map((column: FreeAgentStatColumn) => (
                           <span key={`${column.label}-${column.key}`} style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: column.gold || column.highlight ? 800 : 600, fontSize: "0.84rem", color: column.gold ? "oklch(0.48 0.15 85)" : column.highlight ? "oklch(0.28 0.11 150)" : "oklch(0.38 0.05 150)", textAlign: "center" as const, whiteSpace: "nowrap" as const }}>
-                            {seasonStats ? formatFreeAgentStat(seasonStats, column) : seasonStatsLoading ? "…" : "—"}
+                            {seasonStats ? formatKickerFantasyStat(player, seasonStats, column) : seasonStatsLoading ? "…" : "—"}
                           </span>
                         ))}
 
