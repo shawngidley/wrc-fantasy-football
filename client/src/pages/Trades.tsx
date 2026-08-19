@@ -9,6 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { trpc } from "@/lib/trpc";
 import { ArrowLeftRight, Plus, X, DollarSign, CalendarDays, Inbox, Check, XCircle, RefreshCw, CornerUpLeft } from "lucide-react";
 import { TEAMS as WRC_TEAMS } from "@/lib/wrcData";
+import { getTradePickKey, serializeTradePick } from "@/lib/tradePickPayload";
 import { toast } from "sonner";
 
 const TEAMS = WRC_TEAMS.map(t => t.teamName);
@@ -124,7 +125,7 @@ function TradeSideBuilder({
     .reduce((s, a) => s + (a as { type: "faab"; amount: number }).amount, 0);
   const addedPicks = new Set(
     side.assets.filter(a => a.type === "pick")
-      .map(a => { const p = a as { type: "pick"; year: number; round: number }; return `${p.year}-${p.round}`; })
+      .map(a => getTradePickKey(a as { type: "pick"; year: number; round: number; originalTeamId?: string }))
   );
 
   const addAsset = (asset: TradeAsset) => {
@@ -340,6 +341,7 @@ export default function Trades() {
   const [note, setNote] = useState("");
   const [counterToId, setCounterToId] = useState<string | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
+  const recipientTradeData = useTeamData(theirSide.team);
   const inboxQuery = trpc.league.tradeInbox.useQuery(undefined, { enabled: Boolean(franchise?.id), staleTime: 15_000 });
   const createProposalMutation = trpc.league.createTradeProposal.useMutation();
   const respondProposalMutation = trpc.league.respondToTradeProposal.useMutation();
@@ -380,17 +382,19 @@ export default function Trades() {
 
   const sendProposal = async () => {
     if (!franchise?.id || !theirSide.team) { toast.error("Select a team to trade with"); return; }
-    const toTeam = WRC_TEAMS.find(t => t.teamName === theirSide.team);
-    if (!toTeam) { toast.error("Team not found"); return; }
+    if (recipientTradeData.loading) { toast.error("Trade assets are still loading. Please try again shortly."); return; }
+    const toTeamId = recipientTradeData.teamId;
+    if (!toTeamId) { toast.error("The selected trade team could not be resolved. Please select it again."); return; }
     const givePlayers = mySide.assets.filter(a => a.type === "player").map(a => (a as { type: "player"; name: string }).name);
     const receivePlayers = theirSide.assets.filter(a => a.type === "player").map(a => (a as { type: "player"; name: string }).name);
     const faabGiven = mySide.assets.filter(a => a.type === "faab").reduce((s, a) => s + (a as { type: "faab"; amount: number }).amount, 0);
     const faabReceived = theirSide.assets.filter(a => a.type === "faab").reduce((s, a) => s + (a as { type: "faab"; amount: number }).amount, 0);
-    const givePicks = mySide.assets.filter(a => a.type === "pick").map(a => { const p = a as { type: "pick"; year: number; round: number }; return { year: p.year, round: p.round }; });
-    const receivePicks = theirSide.assets.filter(a => a.type === "pick").map(a => { const p = a as { type: "pick"; year: number; round: number }; return { year: p.year, round: p.round }; });
+    const toPickPayload = (asset: TradeAsset) => serializeTradePick(asset as { type: "pick"; year: number; round: number; originalTeamId?: string });
+    const givePicks = mySide.assets.filter(a => a.type === "pick").map(toPickPayload);
+    const receivePicks = theirSide.assets.filter(a => a.type === "pick").map(toPickPayload);
     try {
       const result = await createProposalMutation.mutateAsync({
-        toTeamId: toTeam.id,
+        toTeamId,
         givePlayerNames: givePlayers,
         receivePlayerNames: receivePlayers,
         giveFaab: faabGiven,

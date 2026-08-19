@@ -121,6 +121,55 @@ function configureQueueDatabase() {
   return { queueInsert };
 }
 
+function configureTradeProposalDatabase() {
+  const proposalInsert = vi.fn(() => ({
+    select: vi.fn(() => ({
+      single: vi.fn().mockResolvedValue({ data: { id: "proposal-1" }, error: null }),
+    })),
+  }));
+  let teamCall = 0;
+  let playerCall = 0;
+
+  from.mockImplementation((table: string) => {
+    if (table === "teams") {
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            single: vi.fn().mockImplementation(async () => {
+              teamCall += 1;
+              return {
+                data: teamCall === 1
+                  ? { id: "team-shawn", name: "Vipers", faab: 1000 }
+                  : { id: "team-dan", name: "Legion of Doom", faab: 1000 },
+                error: null,
+              };
+            }),
+          })),
+        })),
+      };
+    }
+    if (table === "players") {
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            in: vi.fn(() => {
+              playerCall += 1;
+              return Promise.resolve({
+                data: [{ name: playerCall === 1 ? "Tua Tagovailoa" : "Javonte Williams" }],
+                error: null,
+              });
+            }),
+          })),
+        })),
+      };
+    }
+    if (table === "trade_proposals") return { insert: proposalInsert };
+    throw new Error(`Unexpected table: ${table}`);
+  });
+
+  return { proposalInsert };
+}
+
 describe("validated comprehensive draft player universe", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -178,6 +227,30 @@ describe("validated comprehensive draft player universe", () => {
       player_pos: "QB",
       player_nfl_team: "LV",
       season: 2026,
+    }));
+  });
+
+  it("creates a valid player trade proposal when the recipient uses the canonical database team ID", async () => {
+    const { proposalInsert } = configureTradeProposalDatabase();
+    const caller = appRouter.createCaller({ req: {} as never, res: {} as never, user: null });
+
+    await expect(caller.league.createTradeProposal({
+      toTeamId: "team-dan",
+      givePlayerNames: ["Tua Tagovailoa"],
+      receivePlayerNames: ["Javonte Williams"],
+      giveFaab: 0,
+      receiveFaab: 0,
+      givePicks: [],
+      receivePicks: [],
+      note: "Let's make a trade.",
+      counterToId: null,
+    })).resolves.toMatchObject({ id: "proposal-1", recipientName: "Legion of Doom", isCounter: false });
+
+    expect(proposalInsert).toHaveBeenCalledWith(expect.objectContaining({
+      from_team_id: "team-shawn",
+      to_team_id: "team-dan",
+      give_player_ids: ["Tua Tagovailoa"],
+      receive_player_ids: ["Javonte Williams"],
     }));
   });
 });

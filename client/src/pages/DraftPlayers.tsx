@@ -7,12 +7,12 @@ import { findDraftQueueItemByPlayerName, useDraftQueue } from "@/hooks/useDraftQ
 import { useNFLADP } from "@/hooks/useNFLADP";
 import { useNFLSeasonStats } from "@/hooks/useNFLSeasonStats";
 import { supabase } from "@/lib/supabase";
-import { formatDraftBoardSeasonStat, resolve2026Adp, sortDraftBoardPlayers, type DraftBoardSortDirection, type DraftBoardSortKey } from "@/lib/draftBoardPlayerBoard";
+import { filterDraftBoardPlayers, formatDraftBoardSeasonStat, resolve2026Adp, sortDraftBoardPlayers, type DraftBoardPlayerFilter, type DraftBoardSortDirection, type DraftBoardSortKey } from "@/lib/draftBoardPlayerBoard";
 import { getNflTeamLogoUrl } from "@/lib/nflTeamLogo";
 import { getEspnHeadshotUrl } from "@/lib/playerHeadshot";
 import { getAvailableDraftUniversePlayers, type DraftUniversePlayer } from "@shared/draftPlayerUniverse";
 
-const POSITIONS = ["ALL", "QB", "RB", "WR", "TE", "K", "DST"] as const;
+const PLAYER_FILTERS = ["ALL", "QB", "RB", "WR", "TE", "K", "DST", "QUE"] as const;
 
 const POS_COLORS: Record<string, string> = {
   QB: "#6366f1", RB: "oklch(0.42 0.15 150)", WR: "#0ea5e9",
@@ -43,7 +43,7 @@ export default function DraftPlayers() {
   const [rosteredNames, setRosteredNames] = useState<Set<string>>(new Set());
   const [draftedNames, setDraftedNames] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
-  const [posFilter, setPosFilter] = useState<(typeof POSITIONS)[number]>("ALL");
+  const [posFilter, setPosFilter] = useState<DraftBoardPlayerFilter>("ALL");
   const [sortKey, setSortKey] = useState<DraftBoardSortKey>("adp");
   const [sortDirection, setSortDirection] = useState<DraftBoardSortDirection>("asc");
   const [queueActionPlayerName, setQueueActionPlayerName] = useState<string | null>(null);
@@ -93,11 +93,7 @@ export default function DraftPlayers() {
   );
 
   const visiblePlayers = useMemo(() => {
-    const term = search.trim().toLowerCase();
-    const matches = availablePlayers.filter(player => {
-      if (posFilter !== "ALL" && player.pos !== posFilter) return false;
-      return !term || player.name.toLowerCase().includes(term) || player.nflTeam.toLowerCase().includes(term);
-    });
+    const matches = filterDraftBoardPlayers(availablePlayers, posFilter, queuedPlayerNames, search);
     return sortDraftBoardPlayers(matches, adpMap, sortKey, sortDirection, seasonStatMap, queuedPlayerNames);
   }, [adpMap, availablePlayers, posFilter, queuedPlayerNames, search, seasonStatMap, sortDirection, sortKey]);
 
@@ -180,8 +176,8 @@ export default function DraftPlayers() {
             </div>
 
             <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap", marginTop: "0.65rem" }}>
-              {POSITIONS.map(position => (
-                <button key={position} type="button" onClick={() => setPosFilter(position)} aria-pressed={posFilter === position} style={{ padding: "0.25rem 0.6rem", borderRadius: 6, border: "1.5px solid", borderColor: posFilter === position ? "oklch(0.28 0.09 150)" : "oklch(0.88 0.01 150)", background: posFilter === position ? "oklch(0.28 0.09 150)" : "white", color: posFilter === position ? "white" : "oklch(0.4 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer" }}>{position}</button>
+              {PLAYER_FILTERS.map(position => (
+                <button key={position} type="button" onClick={() => setPosFilter(position)} aria-pressed={posFilter === position} aria-label={position === "QUE" ? "Show my queued players" : `Show ${position} players`} style={{ padding: "0.25rem 0.6rem", borderRadius: 6, border: "1.5px solid", borderColor: posFilter === position ? "oklch(0.28 0.09 150)" : "oklch(0.88 0.01 150)", background: posFilter === position ? "oklch(0.28 0.09 150)" : "white", color: posFilter === position ? "white" : "oklch(0.4 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, cursor: "pointer" }}>{position}</button>
               ))}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", flexWrap: "wrap", marginTop: "0.55rem" }}>
@@ -215,7 +211,7 @@ export default function DraftPlayers() {
                 <th style={{ textAlign: "right", position: "sticky", top: 0, zIndex: 5, background: "oklch(0.22 0.08 150)" }}><button type="button" onClick={() => toggleSort("adp")} aria-label="Sort by 2026 ADP" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>ADP {sortLabel("adp")}</button></th>
               </tr></thead>
               <tbody>
-                {visiblePlayers.length === 0 ? <tr><td colSpan={7} style={{ padding: "2rem", textAlign: "center", color: "oklch(0.55 0.04 150)" }}>No available players match the current search and position selection.</td></tr> : visiblePlayers.map((player, index) => {
+                {visiblePlayers.length === 0 ? <tr><td colSpan={7} style={{ padding: "2rem", textAlign: "center", color: "oklch(0.55 0.04 150)" }}>{posFilter === "QUE" ? "No players are in your draft queue yet." : "No available players match the current search and filter selection."}</td></tr> : visiblePlayers.map((player, index) => {
                   const queued = isQueued(player.name);
                   const queueActionInProgress = queueActionPlayerName === player.name;
                   const rowBackground = index % 2 === 0 ? "white" : "oklch(0.96 0.008 150)";

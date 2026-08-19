@@ -923,3 +923,23 @@
 
 - [x] Increase the Roster draft-round and FA badge text to exactly 10.9px.
 - [x] Verify the larger badge remains aligned and readable in compact roster rows.
+
+# Published Roster Badge Update Mismatch
+
+- [x] Compare the production and development Roster badge styling after the reported missing update.
+- [x] Confirm no production cache, publication, route, or stale-asset correction is required: the public page serves the updated badge styling.
+- [x] Confirm the public Roster page uses the requested 10.9px draft-round and FA badges.
+
+# My Schedule Complete Owner View and Trade Asset Validation
+
+- [x] Make My Schedule show the selected owner’s complete 2026 schedule rather than only the active week.
+- [x] Preserve weekly schedule navigation and clear return behavior from the owner full-schedule view.
+- [x] Reproduce and trace the “Unable to validate trade assets” failure for an otherwise valid player trade proposal.
+- [x] Correct valid trade-asset validation without weakening owner, roster, draft-pick, or FAAB authorization.
+- [x] Add regression coverage and verify a complete owner schedule plus a valid player trade submission.
+
+# Draft Players Personal Que Filter
+
+- [x] Add a Que filter immediately to the right of DST in the Draft Players filter controls.
+- [x] Restrict the Que filter to the signed-in owner’s saved private queue while retaining all existing position filters.
+- [x] Verify filtered player results, empty queue state, and responsive filter placement.

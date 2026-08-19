@@ -15,6 +15,7 @@ import {
   SCHEDULE_2026, OWNER_TO_TEAM, ownerToTeam, getCurrentWeek,
   derivePlayoffSeeds,
 } from "@/lib/scheduleData2026";
+import { getOwnerRegularSeasonWeeks } from "@/lib/scheduleOwnerView";
 import { useNFLMatchups } from "@/hooks/useNFLMatchups";
 import { useWeeklyResultsWriter } from "@/hooks/useWeeklyResultsWriter";
 import { CheckCircle2, Clock, Edit3, Trophy, X, Zap, RefreshCw, Calendar, User } from "lucide-react";
@@ -326,6 +327,7 @@ export default function ScheduleResults() {
   const visibleMatchups = myScheduleOnly && myOwner
     ? weekMatchups.filter(m => m[0] === myOwner || m[1] === myOwner)
     : weekMatchups;
+  const myScheduleWeeks = getOwnerRegularSeasonWeeks(SCHEDULE_2026, myOwner);
 
   // Running W/L record for "My Schedule" view
   const myRecord = (() => {
@@ -333,7 +335,7 @@ export default function ScheduleResults() {
     let w = 0, l = 0;
     for (const r of allResults) {
       if (!r.is_final) continue;
-      if (r.week > displayWeek) continue;
+      if (!myScheduleOnly && r.week > displayWeek) continue;
       const isHome = r.home_owner === myOwner;
       const isAway = r.away_owner === myOwner;
       if (!isHome && !isAway) continue;
@@ -376,7 +378,7 @@ export default function ScheduleResults() {
         </div>
 
         {/* ── Week selector ── */}
-        <div style={{ overflowX: "auto", marginBottom: "1.25rem" }}>
+        {!myScheduleOnly && <div style={{ overflowX: "auto", marginBottom: "1.25rem" }}>
           <div style={{ display: "flex", gap: "0.35rem", paddingBottom: "0.25rem", minWidth: "max-content" }}>
             {allWeeks.map(w => {
               const weekRes = allResults.filter(r => r.week === w.week);
@@ -394,10 +396,21 @@ export default function ScheduleResults() {
               );
             })}
           </div>
-        </div>
+        </div>}
 
         {/* ── Week header ── */}
-        {displayWeekData && (
+        {myScheduleOnly ? (
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
+            <div>
+              <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1.05rem", fontWeight: 800, letterSpacing: "0.04em", color: "oklch(0.22 0.08 150)" }}>My 2026 Schedule</span>
+              <span style={{ marginLeft: "0.5rem", fontSize: "0.72rem", color: "oklch(0.5 0.04 150)" }}>{myScheduleWeeks.length} regular-season games</span>
+            </div>
+            <button
+              onClick={() => setMyScheduleOnly(false)}
+              style={{ border: "1.5px solid oklch(0.82 0.08 150)", background: "white", color: "oklch(0.35 0.08 150)", borderRadius: 7, padding: "0.3rem 0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.05em", cursor: "pointer" }}
+            >WEEKLY VIEW</button>
+          </div>
+        ) : displayWeekData && (
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
             <div>
               <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1.05rem", fontWeight: 800, letterSpacing: "0.04em", color: "oklch(0.22 0.08 150)" }}>{displayWeekData.label}</span>
@@ -428,41 +441,80 @@ export default function ScheduleResults() {
         {loading ? (
           <div>{[1,2,3,4,5,6].map(i => <div key={i} className="skeleton-shimmer" style={{ height: 60, borderRadius: 10, marginBottom: "0.5rem" }} />)}</div>
         ) : (
-          <div className="wrc-card" style={{ overflow: "hidden", marginBottom: "1.25rem" }}>
-            <div className="wrc-card-gold-stripe" />
-            <div style={{ padding: "0.5rem 0.75rem 0.75rem" }}>
-              {visibleMatchups.length === 0 ? (
-                <div style={{ padding: "2rem", textAlign: "center" as const, color: "oklch(0.55 0.04 150)", fontSize: "0.82rem" }}>
-                  No matchups to display
-                </div>
-              ) : (
-                visibleMatchups.map((m, i) => {
-                  const [ownerA, ownerB] = m;
-                  // Find result: check both home/away orientations
-                  const result = weekResults.find(r =>
-                    (r.home_owner === ownerA && r.away_owner === ownerB) ||
-                    (r.home_owner === ownerB && r.away_owner === ownerA)
-                  );
-                  return (
-                    <MatchupCard
-                      key={i}
-                      weekNum={displayWeek}
-                      ownerA={ownerA}
-                      ownerB={ownerB}
-                      result={result}
-                      isCommissioner={isCommissioner}
-                      myOwner={myOwner}
-                      isCurrent={isCurrent}
-                      isFuture={isFuture}
-                      onEdit={setEditTarget}
-                      seeds={seeds}
-                      displayWeek={displayWeek}
-                    />
-                  );
-                })
-              )}
+          myScheduleOnly ? (
+            <div style={{ display: "grid", gap: "0.75rem", marginBottom: "1.25rem" }}>
+              {myScheduleWeeks.map(week => {
+                const matchup = week.matchups.find(([ownerA, ownerB]) => ownerA === myOwner || ownerB === myOwner);
+                if (!matchup) return null;
+                const [ownerA, ownerB] = matchup;
+                const result = allResults.find(r => r.week === week.week && (
+                  (r.home_owner === ownerA && r.away_owner === ownerB) ||
+                  (r.home_owner === ownerB && r.away_owner === ownerA)
+                ));
+                const weekIsCurrent = week.week === currentWeek;
+                return (
+                  <div key={week.week} className="wrc-card" style={{ overflow: "hidden" }}>
+                    <div className="wrc-card-gold-stripe" />
+                    <div className="wrc-card-header" style={{ padding: "0.45rem 0.75rem" }}>
+                      <span>WEEK {week.week}</span>
+                      <span style={{ marginLeft: "0.5rem", opacity: 0.62, fontSize: "0.7rem", fontWeight: 400 }}>{week.dates}</span>
+                      {weekIsCurrent && <span style={{ marginLeft: "auto", color: "oklch(0.78 0.15 85)", fontSize: "0.62rem", fontWeight: 800, letterSpacing: "0.06em" }}>CURRENT</span>}
+                    </div>
+                    <div style={{ padding: "0.5rem 0.75rem 0.75rem" }}>
+                      <MatchupCard
+                        weekNum={week.week}
+                        ownerA={ownerA}
+                        ownerB={ownerB}
+                        result={result}
+                        isCommissioner={isCommissioner}
+                        myOwner={myOwner}
+                        isCurrent={weekIsCurrent}
+                        isFuture={week.week > currentWeek}
+                        onEdit={setEditTarget}
+                        seeds={seeds}
+                        displayWeek={week.week}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          </div>
+          ) : (
+            <div className="wrc-card" style={{ overflow: "hidden", marginBottom: "1.25rem" }}>
+              <div className="wrc-card-gold-stripe" />
+              <div style={{ padding: "0.5rem 0.75rem 0.75rem" }}>
+                {visibleMatchups.length === 0 ? (
+                  <div style={{ padding: "2rem", textAlign: "center" as const, color: "oklch(0.55 0.04 150)", fontSize: "0.82rem" }}>
+                    No matchups to display
+                  </div>
+                ) : (
+                  visibleMatchups.map((m, i) => {
+                    const [ownerA, ownerB] = m;
+                    const result = weekResults.find(r =>
+                      (r.home_owner === ownerA && r.away_owner === ownerB) ||
+                      (r.home_owner === ownerB && r.away_owner === ownerA)
+                    );
+                    return (
+                      <MatchupCard
+                        key={i}
+                        weekNum={displayWeek}
+                        ownerA={ownerA}
+                        ownerB={ownerB}
+                        result={result}
+                        isCommissioner={isCommissioner}
+                        myOwner={myOwner}
+                        isCurrent={isCurrent}
+                        isFuture={isFuture}
+                        onEdit={setEditTarget}
+                        seeds={seeds}
+                        displayWeek={displayWeek}
+                      />
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          )
         )}
 
         {/* ── Season summary ── */}

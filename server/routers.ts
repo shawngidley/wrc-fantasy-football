@@ -506,8 +506,8 @@ export const appRouter = router({
         receivePlayerNames: z.array(z.string().min(1).max(128)).max(30),
         giveFaab: z.number().int().min(0).max(10_000),
         receiveFaab: z.number().int().min(0).max(10_000),
-        givePicks: z.array(z.object({ year: z.number().int().min(2026).max(2027), round: z.number().int().min(1).max(18) })).max(36),
-        receivePicks: z.array(z.object({ year: z.number().int().min(2026).max(2027), round: z.number().int().min(1).max(18) })).max(36),
+        givePicks: z.array(z.object({ year: z.number().int().min(2026).max(2027), round: z.number().int().min(1).max(18), originalTeamId: z.string().min(1).max(128).optional() })).max(36),
+        receivePicks: z.array(z.object({ year: z.number().int().min(2026).max(2027), round: z.number().int().min(1).max(18), originalTeamId: z.string().min(1).max(128).optional() })).max(36),
         note: z.string().max(1_000),
         counterToId: z.string().uuid().nullable(),
       }))
@@ -516,7 +516,7 @@ export const appRouter = router({
         if (input.toTeamId === fromTeamId) throw new Error("You cannot propose a trade to your own team.");
         const unique = <T,>(items: T[], key: (item: T) => string) => new Set(items.map(key)).size === items.length;
         if (!unique(input.givePlayerNames, name => name.toLowerCase()) || !unique(input.receivePlayerNames, name => name.toLowerCase())
-          || !unique(input.givePicks, pick => `${pick.year}-${pick.round}`) || !unique(input.receivePicks, pick => `${pick.year}-${pick.round}`)) {
+          || !unique(input.givePicks, pick => `${pick.year}-${pick.round}-${pick.originalTeamId ?? "legacy"}`) || !unique(input.receivePicks, pick => `${pick.year}-${pick.round}-${pick.originalTeamId ?? "legacy"}`)) {
           throw new Error("Each trade asset may only be included once.");
         }
         const [fromTeamResponse, toTeamResponse, givePlayersResponse, receivePlayersResponse, givePicksResponse, receivePicksResponse] = await Promise.all([
@@ -524,8 +524,8 @@ export const appRouter = router({
           supabaseAdmin.from("teams").select("id, name, faab").eq("id", input.toTeamId).single(),
           input.givePlayerNames.length ? supabaseAdmin.from("players").select("name").eq("team_id", fromTeamId).in("name", input.givePlayerNames) : Promise.resolve({ data: [], error: null }),
           input.receivePlayerNames.length ? supabaseAdmin.from("players").select("name").eq("team_id", input.toTeamId).in("name", input.receivePlayerNames) : Promise.resolve({ data: [], error: null }),
-          input.givePicks.length ? supabaseAdmin.from("traded_picks").select("year, round").eq("current_owner_team_id", fromTeamId).in("year", input.givePicks.map(pick => pick.year)) : Promise.resolve({ data: [], error: null }),
-          input.receivePicks.length ? supabaseAdmin.from("traded_picks").select("year, round").eq("current_owner_team_id", input.toTeamId).in("year", input.receivePicks.map(pick => pick.year)) : Promise.resolve({ data: [], error: null }),
+          input.givePicks.length ? supabaseAdmin.from("traded_picks").select("year, round, original_team_id").eq("current_owner_team_id", fromTeamId).in("year", input.givePicks.map(pick => pick.year)) : Promise.resolve({ data: [], error: null }),
+          input.receivePicks.length ? supabaseAdmin.from("traded_picks").select("year, round, original_team_id").eq("current_owner_team_id", input.toTeamId).in("year", input.receivePicks.map(pick => pick.year)) : Promise.resolve({ data: [], error: null }),
         ]);
         if (fromTeamResponse.error || toTeamResponse.error || !fromTeamResponse.data || !toTeamResponse.data
           || givePlayersResponse.error || receivePlayersResponse.error || givePicksResponse.error || receivePicksResponse.error) {
@@ -537,8 +537,8 @@ export const appRouter = router({
         if ((givePlayersResponse.data?.length ?? 0) !== input.givePlayerNames.length || (receivePlayersResponse.data?.length ?? 0) !== input.receivePlayerNames.length) {
           throw new Error("One or more selected players are no longer on the proposed roster.");
         }
-        const hasEveryPick = (owned: Array<{ year: number; round: number }> | null, picks: Array<{ year: number; round: number }>) =>
-          picks.every(pick => owned?.some(candidate => candidate.year === pick.year && candidate.round === pick.round));
+        const hasEveryPick = (owned: Array<{ year: number; round: number; original_team_id: string }> | null, picks: Array<{ year: number; round: number; originalTeamId?: string }>) =>
+          picks.every(pick => owned?.some(candidate => candidate.year === pick.year && candidate.round === pick.round && (!pick.originalTeamId || candidate.original_team_id === pick.originalTeamId)));
         if (!hasEveryPick(givePicksResponse.data, input.givePicks) || !hasEveryPick(receivePicksResponse.data, input.receivePicks)) {
           throw new Error("One or more selected draft picks are no longer owned by the proposed team.");
         }
@@ -585,21 +585,21 @@ export const appRouter = router({
 
         const givePlayers = (proposal.give_player_ids ?? []) as string[];
         const receivePlayers = (proposal.receive_player_ids ?? []) as string[];
-        const givePicks = (proposal.give_picks ?? []) as Array<{ year: number; round: number }>;
-        const receivePicks = (proposal.receive_picks ?? []) as Array<{ year: number; round: number }>;
+        const givePicks = (proposal.give_picks ?? []) as Array<{ year: number; round: number; originalTeamId?: string }>;
+        const receivePicks = (proposal.receive_picks ?? []) as Array<{ year: number; round: number; originalTeamId?: string }>;
         const [fromTeamResponse, toTeamResponse, fromPlayersResponse, toPlayersResponse, fromPicksResponse, toPicksResponse] = await Promise.all([
           supabaseAdmin.from("teams").select("id, name, faab").eq("id", proposal.from_team_id).single(),
           supabaseAdmin.from("teams").select("id, name, faab").eq("id", proposal.to_team_id).single(),
           givePlayers.length ? supabaseAdmin.from("players").select("name, position, nfl_team").eq("team_id", proposal.from_team_id).in("name", givePlayers) : Promise.resolve({ data: [], error: null }),
           receivePlayers.length ? supabaseAdmin.from("players").select("name, position, nfl_team").eq("team_id", proposal.to_team_id).in("name", receivePlayers) : Promise.resolve({ data: [], error: null }),
-          givePicks.length ? supabaseAdmin.from("traded_picks").select("year, round").eq("current_owner_team_id", proposal.from_team_id).in("year", givePicks.map(pick => pick.year)) : Promise.resolve({ data: [], error: null }),
-          receivePicks.length ? supabaseAdmin.from("traded_picks").select("year, round").eq("current_owner_team_id", proposal.to_team_id).in("year", receivePicks.map(pick => pick.year)) : Promise.resolve({ data: [], error: null }),
+          givePicks.length ? supabaseAdmin.from("traded_picks").select("year, round, original_team_id").eq("current_owner_team_id", proposal.from_team_id).in("year", givePicks.map(pick => pick.year)) : Promise.resolve({ data: [], error: null }),
+          receivePicks.length ? supabaseAdmin.from("traded_picks").select("year, round, original_team_id").eq("current_owner_team_id", proposal.to_team_id).in("year", receivePicks.map(pick => pick.year)) : Promise.resolve({ data: [], error: null }),
         ]);
         if (fromTeamResponse.error || toTeamResponse.error || !fromTeamResponse.data || !toTeamResponse.data || fromPlayersResponse.error || toPlayersResponse.error || fromPicksResponse.error || toPicksResponse.error) {
           throw new Error("Unable to validate trade assets for acceptance.");
         }
-        const hasEveryPick = (owned: Array<{ year: number; round: number }> | null, picks: Array<{ year: number; round: number }>) =>
-          picks.every(pick => owned?.some(candidate => candidate.year === pick.year && candidate.round === pick.round));
+        const hasEveryPick = (owned: Array<{ year: number; round: number; original_team_id: string }> | null, picks: Array<{ year: number; round: number; originalTeamId?: string }>) =>
+          picks.every(pick => owned?.some(candidate => candidate.year === pick.year && candidate.round === pick.round && (!pick.originalTeamId || candidate.original_team_id === pick.originalTeamId)));
         if ((fromPlayersResponse.data?.length ?? 0) !== givePlayers.length || (toPlayersResponse.data?.length ?? 0) !== receivePlayers.length
           || !hasEveryPick(fromPicksResponse.data, givePicks) || !hasEveryPick(toPicksResponse.data, receivePicks)
           || Number(fromTeamResponse.data.faab ?? 0) < Number(proposal.faab_amount ?? 0)
@@ -619,8 +619,14 @@ export const appRouter = router({
         const [{ error: fromFaabError }, { error: toFaabError }, ...pickTransfers] = await Promise.all([
           supabaseAdmin.from("teams").update({ faab: fromFaab }).eq("id", fromTeam.id),
           supabaseAdmin.from("teams").update({ faab: toFaab }).eq("id", toTeam.id),
-          ...givePicks.map(pick => supabaseAdmin.from("traded_picks").update({ current_owner_team_id: toTeam.id }).eq("year", pick.year).eq("round", pick.round).eq("current_owner_team_id", fromTeam.id)),
-          ...receivePicks.map(pick => supabaseAdmin.from("traded_picks").update({ current_owner_team_id: fromTeam.id }).eq("year", pick.year).eq("round", pick.round).eq("current_owner_team_id", toTeam.id)),
+          ...givePicks.map(pick => {
+            const update = supabaseAdmin.from("traded_picks").update({ current_owner_team_id: toTeam.id }).eq("year", pick.year).eq("round", pick.round).eq("current_owner_team_id", fromTeam.id);
+            return pick.originalTeamId ? update.eq("original_team_id", pick.originalTeamId) : update;
+          }),
+          ...receivePicks.map(pick => {
+            const update = supabaseAdmin.from("traded_picks").update({ current_owner_team_id: fromTeam.id }).eq("year", pick.year).eq("round", pick.round).eq("current_owner_team_id", toTeam.id);
+            return pick.originalTeamId ? update.eq("original_team_id", pick.originalTeamId) : update;
+          }),
         ]);
         if (fromFaabError || toFaabError || pickTransfers.some(result => result.error)) throw new Error("Unable to transfer all trade FAAB or draft picks.");
         const { error: statusError } = await supabaseAdmin.from("trade_proposals").update({ status: "accepted" }).eq("id", proposal.id).eq("to_team_id", recipientTeamId);

@@ -2,6 +2,7 @@ import type { DraftUniversePlayer } from "@shared/draftPlayerUniverse";
 
 export type DraftBoardSortKey = "adp" | "pos" | "name" | "team" | "queue" | "bye" | "fpts" | "fpg";
 export type DraftBoardSortDirection = "asc" | "desc";
+export type DraftBoardPlayerFilter = "ALL" | DraftUniversePlayer["pos"] | "QUE";
 
 export type DraftBoardSortStats = Record<string, { wrcPts?: number; ptsPerGame?: number } | undefined>;
 
@@ -23,6 +24,20 @@ export function resolve2026Adp(player: DraftUniversePlayer, adpMap: Map<string, 
 export function formatDraftBoardSeasonStat(value: number | undefined, loading: boolean): string {
   if (typeof value === "number" && Number.isFinite(value)) return value.toFixed(1);
   return loading ? "…" : "—";
+}
+
+export function filterDraftBoardPlayers(
+  players: readonly DraftUniversePlayer[],
+  filter: DraftBoardPlayerFilter,
+  queuedPlayerNames: ReadonlySet<string>,
+  searchTerm: string,
+): DraftUniversePlayer[] {
+  const term = searchTerm.trim().toLowerCase();
+  return players.filter(player => {
+    if (filter === "QUE" && !queuedPlayerNames.has(player.name.toLowerCase())) return false;
+    if (filter !== "ALL" && filter !== "QUE" && player.pos !== filter) return false;
+    return !term || player.name.toLowerCase().includes(term) || player.nflTeam.toLowerCase().includes(term);
+  });
 }
 
 export function sortDraftBoardPlayers(

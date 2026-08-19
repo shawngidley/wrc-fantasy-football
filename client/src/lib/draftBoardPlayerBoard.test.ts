@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { DraftUniversePlayer } from "@shared/draftPlayerUniverse";
-import { formatDraftBoardSeasonStat, resolve2026Adp, sortDraftBoardPlayers } from "./draftBoardPlayerBoard";
+import { filterDraftBoardPlayers, formatDraftBoardSeasonStat, resolve2026Adp, sortDraftBoardPlayers } from "./draftBoardPlayerBoard";
 import { normalizeCompletedOffenseSeasonStats } from "./completedOffenseSeasonStats2025";
 
 const players: DraftUniversePlayer[] = [
@@ -42,6 +42,14 @@ describe("Draft Board player table", () => {
     expect(sortDraftBoardPlayers(players, new Map(), "bye", "asc", stats, queued).map(player => player.name)).toEqual(["Quarterback", "Runner", "Receiver"]);
     expect(sortDraftBoardPlayers(players, new Map(), "fpts", "desc", stats, queued).map(player => player.name)).toEqual(["Receiver", "Quarterback", "Runner"]);
     expect(sortDraftBoardPlayers(players, new Map(), "fpg", "asc", stats, queued).map(player => player.name)).toEqual(["Quarterback", "Receiver", "Runner"]);
+  });
+
+  it("shows only the signed-in owner's queued players when the Que filter is active", () => {
+    const queued = new Set(["runner", "receiver"]);
+
+    expect(filterDraftBoardPlayers(players, "QUE", queued, "").map(player => player.name)).toEqual(["Runner", "Receiver"]);
+    expect(filterDraftBoardPlayers(players, "QUE", queued, "receiver").map(player => player.name)).toEqual(["Receiver"]);
+    expect(filterDraftBoardPlayers(players, "WR", queued, "").map(player => player.name)).toEqual(["Receiver"]);
   });
 
   it("formats completed-season FPTS and FP/G values while preserving loading and unavailable states", () => {
