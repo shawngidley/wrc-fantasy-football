@@ -918,3 +918,8 @@
 - [x] Replace Free Agents rostered-team names with stable three-letter WRC franchise initials.
 - [x] Render unrostered players as FA and retain the full team name in an accessible label.
 - [x] Narrow the WRC Team column and verify rostered and free-agent labels on desktop and mobile.
+
+# Roster Draft-Round and FA Badge Typography
+
+- [x] Increase the Roster draft-round and FA badge text to exactly 10.9px.
+- [x] Verify the larger badge remains aligned and readable in compact roster rows.

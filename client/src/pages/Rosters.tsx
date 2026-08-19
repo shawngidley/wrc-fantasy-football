@@ -284,7 +284,7 @@ function PlayerRow({ player, alt }: { player: SupabasePlayer; alt: boolean }) {
         letterSpacing: "0.04em", flexShrink: 0,
       }}>{player.nfl_team}</span>
       <span style={{
-        fontSize: "0.6rem", fontFamily: "Barlow Condensed, sans-serif",
+        fontSize: "10.9px", fontFamily: "Barlow Condensed, sans-serif",
         fontWeight: 700, letterSpacing: "0.04em",
         padding: "1px 5px", borderRadius: 3, flexShrink: 0,
         background: isFa ? "oklch(0.93 0.06 250)" : "oklch(0.93 0.03 150)",
