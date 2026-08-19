@@ -943,3 +943,25 @@
 - [x] Add a Que filter immediately to the right of DST in the Draft Players filter controls.
 - [x] Restrict the Que filter to the signed-in owner’s saved private queue while retaining all existing position filters.
 - [x] Verify filtered player results, empty queue state, and responsive filter placement.
+
+# Free Agents Front Actions and Saved Column Customization
+
+- [x] Move Bid and Watchlist actions immediately after WRC Team so they remain visible without horizontal scrolling.
+- [x] Add a Free Agents column chooser for non-essential player data columns.
+- [x] Persist each signed-in owner’s Free Agents column preferences and apply them across their devices.
+- [x] Preserve essential player, WRC Team, Bid, and Watchlist columns along with accessibility and mobile behavior.
+- [x] Add regression coverage and verify action access, saved preferences, and responsive table layout.
+
+# League Navigation Dropdown and Hidden Playoffs
+
+- [x] Hide the Playoffs navigation header while retaining its direct route.
+- [x] Add a League navigation header with Rules, Money, and History as desktop dropdown entries.
+- [x] Mirror the League group in mobile navigation and preserve direct routes, active states, and accessibility.
+- [x] Verify revised desktop and mobile navigation placement and routes.
+
+# Draft Order Queue Row Alignment and Compact Layout
+
+- [x] Align Draft Order queue rows with the Draft Players identity and season-data treatment.
+- [x] Include the same player headshot, position/team, Bye, FPTS, FP/G, and ADP information where available.
+- [x] Reduce the Draft Order queue panel width without weakening desktop or mobile queue usability.
+- [x] Add regression coverage and verify the compact queue layout at desktop and mobile widths.

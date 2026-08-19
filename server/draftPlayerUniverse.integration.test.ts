@@ -15,6 +15,7 @@ vi.mock("./wrcTeamSession", () => ({
 vi.mock("./protectionRelease", () => ({ releaseUnprotectedPlayers }));
 
 import { appRouter } from "./routers";
+import { getDraftUniversePlayerByName } from "../shared/draftPlayerUniverse";
 
 function configureDraftDatabase() {
   const playerInsert = vi.fn().mockResolvedValue({ error: null });
@@ -228,6 +229,19 @@ describe("validated comprehensive draft player universe", () => {
       player_nfl_team: "LV",
       season: 2026,
     }));
+  });
+
+  it("retains Draft Players identity data for a queued player", () => {
+    const player = getDraftUniversePlayerByName("Fernando Mendoza");
+
+    expect(player).toMatchObject({
+      name: "Fernando Mendoza",
+      pos: "QB",
+      nflTeam: "LV",
+      bye: 13,
+      sourcePlayerId: "4837248",
+    });
+    expect(player?.adp).toBeGreaterThan(0);
   });
 
   it("creates a valid player trade proposal when the recipient uses the canonical database team ID", async () => {

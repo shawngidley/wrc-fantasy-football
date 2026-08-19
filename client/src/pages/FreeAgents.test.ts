@@ -30,24 +30,27 @@ describe("Free Agents Lineup stat alignment", () => {
     expect(freeAgentStatValue(stats, "xpPct")).toBeCloseTo(96.97, 2);
   });
 
-  it("uses complete Lineup-equivalent fields with WRC as the one additional status column", () => {
+  it("keeps Bid and Watch first after WRC while allowing optional stats to be customized", () => {
     expect(getFreeAgentTableColumns("SFLEX").map(column => column.label)).toEqual([
-      "Player", "WRC", "Age", "Bye", "Opp", "Game", "FPTS", "FP/G", "Proj",
-      "YDS", "TD", "INT", "ATT", "YDS", "TD", "TGT", "REC", "YDS", "TD", "TO", "GP", "Action", "",
+      "Player", "WRC", "Bid", "Watch", "Age", "Bye", "Opp", "Game", "FPTS", "FP/G",
+      "YDS", "TD", "INT", "ATT", "YDS", "TD", "TGT", "REC", "YDS", "TD", "TO", "GP", "Proj",
     ]);
     expect(getFreeAgentTableColumns("K").map(column => column.label)).toEqual([
-      "Player", "WRC", "Age", "Bye", "Opp", "Game", "FPTS", "FP/G", "Proj",
-      "FGM", "FGA", "FG%", "XPM", "XPA", "XP%", "GP", "Action", "",
+      "Player", "WRC", "Bid", "Watch", "Age", "Bye", "Opp", "Game", "FPTS", "FP/G",
+      "FGM", "FGA", "FG%", "XPM", "XPA", "XP%", "GP", "Proj",
     ]);
     expect(getFreeAgentTableColumns("DST").map(column => column.label)).toEqual([
-      "Player", "WRC", "Age", "Bye", "Opp", "Game", "FPTS", "FP/G", "Proj",
-      "SK", "SFT", "TA", "TDDST", "GP", "Action", "",
+      "Player", "WRC", "Bid", "Watch", "Age", "Bye", "Opp", "Game", "FPTS", "FP/G",
+      "SK", "SFT", "TA", "TDDST", "GP", "Proj",
+    ]);
+    expect(getFreeAgentTableColumns("SFLEX", ["bye", "wrcPts"]).map(column => column.label)).toEqual([
+      "Player", "WRC", "Bid", "Watch", "Bye", "FPTS",
     ]);
   });
 
   it("retains the complete table header schema while the player rows are loading", () => {
     expect(getFreeAgentTableColumns("SFLEX").slice(0, 9).map(column => column.label)).toEqual([
-      "Player", "WRC", "Age", "Bye", "Opp", "Game", "FPTS", "FP/G", "Proj",
+      "Player", "WRC", "Bid", "Watch", "Age", "Bye", "Opp", "Game", "FPTS",
     ]);
   });
 

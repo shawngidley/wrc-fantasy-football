@@ -12,20 +12,24 @@
  *   - Player pool: complete current NFL universe, filtered by position/search
  */
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { Link } from "wouter";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Play, Pause, SkipForward, Search, Music, ArrowLeftRight, RotateCcw, Wifi, WifiOff, ChevronUp, ChevronDown, ListOrdered, Plus, Check } from "lucide-react";
 import { DRAFT_PICKS_2026, getTradedPicks } from "@/lib/draftData2026";
 import { OWNER_TO_TEAM } from "@/lib/scheduleData2026";
-import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026, getAvailableDraftUniversePlayers, type DraftUniversePlayer } from "@shared/draftPlayerUniverse";
+import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026, getAvailableDraftUniversePlayers, getDraftUniversePlayerByName, type DraftUniversePlayer } from "@shared/draftPlayerUniverse";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { fetchPlayerByName, getTeamLogoUrl } from "@/hooks/useTank01Player";
 import { useDraftQueue } from "@/hooks/useDraftQueue";
 import { useNFLADP } from "@/hooks/useNFLADP";
+import { useNFLSeasonStats } from "@/hooks/useNFLSeasonStats";
 import { trpc } from "@/lib/trpc";
 import { WRC_DRAFT_DATE, WRC_DRAFT_DISPLAY } from "@/lib/draftSchedule";
-import { resolve2026Adp, sortDraftBoardPlayers, type DraftBoardSortDirection, type DraftBoardSortKey } from "@/lib/draftBoardPlayerBoard";
+import { formatDraftBoardSeasonStat, resolve2026Adp, sortDraftBoardPlayers, type DraftBoardSortDirection, type DraftBoardSortKey } from "@/lib/draftBoardPlayerBoard";
+import { getNflTeamLogoUrl } from "@/lib/nflTeamLogo";
+import { getEspnHeadshotUrl } from "@/lib/playerHeadshot";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const TIMER_SECONDS = 90;
@@ -43,6 +47,30 @@ const POS_COLORS: Record<string, string> = {
   QB: "#6366f1", RB: "oklch(0.42 0.15 150)", WR: "#0ea5e9",
   TE: "oklch(0.65 0.14 85)", K: "#64748b", DST: "#ef4444",
 };
+
+function DraftQueuePlayerAvatar({ player, playerName, playerPos, nflTeam }: {
+  player: DraftUniversePlayer | null;
+  playerName: string;
+  playerPos: string;
+  nflTeam: string;
+}) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const isDefense = playerPos === "DST";
+  const imageUrl = isDefense ? getNflTeamLogoUrl(nflTeam) : getEspnHeadshotUrl(player?.sourcePlayerId ?? null);
+  const initials = isDefense
+    ? nflTeam.slice(0, 3)
+    : playerName.split(" ").filter(Boolean).map(part => part[0]).slice(0, 2).join("");
+
+  return (
+    <div style={{ flexShrink: 0, width: 30, height: 30, borderRadius: isDefense ? 5 : "50%", overflow: "hidden", background: "oklch(0.93 0.02 150)", border: "1.5px solid oklch(0.86 0.03 150)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      {imageUrl && !imageFailed ? (
+        <img src={imageUrl} alt="" loading="lazy" style={{ width: "100%", height: "100%", objectFit: isDefense ? "contain" : "cover" }} onError={() => setImageFailed(true)} />
+      ) : (
+        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 800, color: "oklch(0.45 0.06 150)" }}>{initials}</span>
+      )}
+    </div>
+  );
+}
 
 const OWNER_COLORS: Record<string, string> = {
   "Greg":"oklch(0.55 0.18 260)","Shawn":"oklch(0.52 0.18 25)",
@@ -199,6 +227,20 @@ export default function DraftBoard() {
     const adp = resolve2026Adp(player, adpMap);
     return adp === null ? "—" : adp.toFixed(1);
   };
+
+  const queuePlayerDetails = useMemo(
+    () => queue.map(item => ({ item, player: getDraftUniversePlayerByName(item.player_name) })),
+    [queue],
+  );
+  const queueSeasonStatPlayers = useMemo(
+    () => queuePlayerDetails
+      .filter((entry): entry is { item: typeof entry.item; player: DraftUniversePlayer } => entry.player !== null)
+      .map(({ player }) => ({ name: player.name, pos: player.pos, nflTeam: player.nflTeam })),
+    [queuePlayerDetails],
+  );
+  const { statMap: queueSeasonStatMap } = useNFLSeasonStats(queueSeasonStatPlayers, true, false);
+  const formatQueueSeasonValue = (player: DraftUniversePlayer | null, key: "wrcPts" | "ptsPerGame") =>
+    player ? formatDraftBoardSeasonStat(queueSeasonStatMap[player.name.toLowerCase()]?.[key], false) : "—";
 
   // Load rostered player names from Supabase to exclude from queue browser
   const [rosteredNames, setRosteredNames] = useState<Set<string>>(new Set());
@@ -719,7 +761,7 @@ export default function DraftBoard() {
         )}
 
         {/* My Queue */}
-          <div style={{ marginBottom: "1.5rem" }}>
+          <div style={{ maxWidth: 740, marginBottom: "1.5rem" }}>
             {!franchise ? (
               <div className="wrc-card" style={{ padding: "2rem", textAlign: "center", background: "rgba(0,0,0,0.48)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.72)" }}>
                 <ListOrdered size={28} style={{ margin: "0 auto 0.5rem", display: "block", opacity: 0.55, color: "oklch(0.78 0.15 85)" }} />
@@ -797,43 +839,78 @@ export default function DraftBoard() {
                     <div style={{ fontSize: "0.78rem", color: "oklch(0.6 0.04 150)", marginTop: "0.25rem" }}>Tap "Add Players" to build your draft list</div>
                   </div>
                 ) : (
-                  <div className="wrc-card">
+                  <div className="wrc-card" style={{ overflow: "hidden" }}>
                     <div className="wrc-card-gold-stripe" />
                     <div className="wrc-card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span>My Queue ({queue.length} players · {queue.filter(q => !draftedNamesLower.has(q.player_name.toLowerCase())).length} available)</span>
                     </div>
-                    <div>
-                      {queue.map((item, idx) => {
+                    <div style={{ overflowX: "auto" }}>
+                      <table className="wrc-table" style={{ minWidth: 560, width: "100%", tableLayout: "fixed" }}>
+                        <colgroup>
+                          <col style={{ width: 36 }} />
+                          <col style={{ width: 220 }} />
+                          <col style={{ width: 44 }} />
+                          <col style={{ width: 62 }} />
+                          <col style={{ width: 62 }} />
+                          <col style={{ width: 58 }} />
+                          <col style={{ width: 78 }} />
+                        </colgroup>
+                        <thead>
+                          <tr>
+                            <th style={{ textAlign: "center" }}>#</th>
+                            <th>PLAYER</th>
+                            <th style={{ textAlign: "center" }}>BYE</th>
+                            <th style={{ textAlign: "right" }}>FPTS</th>
+                            <th style={{ textAlign: "right" }}>FP/G</th>
+                            <th style={{ textAlign: "right" }}>ADP</th>
+                            <th style={{ textAlign: "center" }}>ORDER</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                      {queuePlayerDetails.map(({ item, player }, idx) => {
                         const isDrafted = draftedNamesLower.has(item.player_name.toLowerCase());
+                        const rowBackground = isDrafted ? "oklch(0.97 0.005 150)" : idx % 2 === 0 ? "white" : "oklch(0.96 0.008 150)";
                         return (
-                          <div key={item.id} style={{ display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.65rem 1rem", borderBottom: "1px solid oklch(0.95 0.003 150)", opacity: isDrafted ? 0.4 : 1, background: isDrafted ? "oklch(0.97 0.005 150)" : "white" }}>
-                            {/* Rank number */}
-                            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.75rem", color: "oklch(0.55 0.04 150)", width: 20, textAlign: "center", flexShrink: 0 }}>{idx + 1}</span>
-                            {/* Pos badge */}
-                            <span style={{ width: 30, textAlign: "center", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.66rem", fontWeight: 700, color: "white", background: POS_COLORS[item.player_pos] || "#64748b", borderRadius: 4, padding: "2px 0", flexShrink: 0 }}>{item.player_pos}</span>
-                            {/* Name + team */}
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{ fontWeight: 700, fontSize: "0.88rem", color: isDrafted ? "oklch(0.55 0.04 150)" : "oklch(0.18 0.05 150)", textDecoration: isDrafted ? "line-through" : "none" }}>{item.player_name}</div>
-                              <div style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)" }}>{item.player_nfl_team ?? ""}{isDrafted ? " · Drafted" : ""}</div>
-                            </div>
-                            {/* Up/Down buttons */}
-                            {!isDrafted && (
-                              <div style={{ display: "flex", flexDirection: "column", gap: 1, flexShrink: 0 }}>
-                                <button onClick={() => moveItem(item.id, "up")} disabled={idx === 0} style={{ background: "none", border: "none", cursor: idx === 0 ? "default" : "pointer", color: idx === 0 ? "oklch(0.85 0.01 150)" : "oklch(0.45 0.06 150)", padding: "1px 3px", display: "flex" }}>
-                                  <ChevronUp size={14} />
-                                </button>
-                                <button onClick={() => moveItem(item.id, "down")} disabled={idx === queue.length - 1} style={{ background: "none", border: "none", cursor: idx === queue.length - 1 ? "default" : "pointer", color: idx === queue.length - 1 ? "oklch(0.85 0.01 150)" : "oklch(0.45 0.06 150)", padding: "1px 3px", display: "flex" }}>
-                                  <ChevronDown size={14} />
+                          <tr key={item.id} style={{ opacity: isDrafted ? 0.46 : 1 }}>
+                            <td style={{ textAlign: "center", background: rowBackground, color: "oklch(0.55 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700 }}>{idx + 1}</td>
+                            <td style={{ background: rowBackground }}>
+                              <Link href={`/player/${encodeURIComponent(item.player_name)}`} style={{ display: "flex", alignItems: "center", gap: "0.3rem", textDecoration: "none", minWidth: 0, overflow: "hidden" }}>
+                                <DraftQueuePlayerAvatar player={player} playerName={item.player_name} playerPos={item.player_pos} nflTeam={item.player_nfl_team ?? ""} />
+                                <div style={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
+                                  <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.84rem", color: "oklch(0.22 0.08 150)", lineHeight: 1.12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textDecoration: isDrafted ? "line-through" : "none" }}>{item.player_name}</div>
+                                  <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", marginTop: 2 }}>
+                                    <span style={{ display: "inline-block", minWidth: 27, textAlign: "center", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.62rem", fontWeight: 700, color: "white", background: POS_COLORS[item.player_pos] || "#64748b", borderRadius: 3, padding: "1px 3px" }}>{item.player_pos}</span>
+                                    <span style={{ fontSize: "0.68rem", color: "oklch(0.55 0.06 150)", whiteSpace: "nowrap" }}>{item.player_nfl_team ?? ""}{isDrafted ? " · Drafted" : ""}</span>
+                                  </div>
+                                </div>
+                              </Link>
+                            </td>
+                            <td style={{ textAlign: "center", background: rowBackground, fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: "oklch(0.42 0.06 150)" }}>{player?.bye ?? "—"}</td>
+                            <td style={{ textAlign: "right", background: rowBackground, fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, color: "oklch(0.48 0.15 85)" }}>{formatQueueSeasonValue(player, "wrcPts")}</td>
+                            <td style={{ textAlign: "right", background: rowBackground, fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, color: "oklch(0.48 0.15 85)" }}>{formatQueueSeasonValue(player, "ptsPerGame")}</td>
+                            <td style={{ textAlign: "right", background: rowBackground, fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, color: player && formatADP(player) !== "—" ? "oklch(0.22 0.08 150)" : "oklch(0.6 0.02 150)" }}>{player ? formatADP(player) : "—"}</td>
+                            <td style={{ textAlign: "center", background: rowBackground }}>
+                              <div style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+                                {!isDrafted && (
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                                    <button aria-label={`Move ${item.player_name} up`} onClick={() => moveItem(item.id, "up")} disabled={idx === 0} style={{ background: "none", border: "none", cursor: idx === 0 ? "default" : "pointer", color: idx === 0 ? "oklch(0.85 0.01 150)" : "oklch(0.45 0.06 150)", padding: "1px 3px", display: "flex" }}>
+                                      <ChevronUp size={14} />
+                                    </button>
+                                    <button aria-label={`Move ${item.player_name} down`} onClick={() => moveItem(item.id, "down")} disabled={idx === queue.length - 1} style={{ background: "none", border: "none", cursor: idx === queue.length - 1 ? "default" : "pointer", color: idx === queue.length - 1 ? "oklch(0.85 0.01 150)" : "oklch(0.45 0.06 150)", padding: "1px 3px", display: "flex" }}>
+                                      <ChevronDown size={14} />
+                                    </button>
+                                  </div>
+                                )}
+                                <button aria-label={`Remove ${item.player_name} from the queue`} onClick={() => removeFromQueue(item.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "oklch(0.55 0.22 25)", padding: "2px 4px", display: "flex", alignItems: "center" }}>
+                                  ✕
                                 </button>
                               </div>
-                            )}
-                            {/* Remove button */}
-                            <button onClick={() => removeFromQueue(item.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "oklch(0.55 0.22 25)", padding: "2px 4px", flexShrink: 0, display: "flex", alignItems: "center" }}>
-                              ✕
-                            </button>
-                          </div>
+                            </td>
+                          </tr>
                         );
                       })}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 )}

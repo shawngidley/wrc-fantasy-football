@@ -11,7 +11,7 @@ vi.mock("./wrcTeamSession", () => ({
 import { appRouter } from "./routers";
 
 describe("private league procedures", () => {
-  it("rejects unauthenticated watchlist reads and changes before database access", async () => {
+  it("rejects unauthenticated watchlist and Free Agents preference operations before database access", async () => {
     readWrcTeamSession.mockResolvedValue(null);
     const caller = appRouter.createCaller({ req: {} as never, res: {} as never, user: null });
 
@@ -21,6 +21,9 @@ describe("private league procedures", () => {
       pos: "QB",
       nflTeam: "TEST",
     })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    await expect(caller.league.freeAgentColumnPreferences()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    await expect(caller.league.saveFreeAgentColumnPreferences({ visibleColumns: ["bye", "wrcPts"] }))
+      .rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
 
   it("rejects unauthenticated FAAB bids and non-commissioner bid review", async () => {

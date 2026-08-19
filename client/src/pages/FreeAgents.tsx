@@ -23,7 +23,7 @@ import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } 
 import FAABBidModal from "@/components/FAABBidModal";
 import { supabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
-import { Search, DollarSign, ChevronRight, Trophy, Clock, ArrowUpDown, ArrowUp, ArrowDown, Users, ArrowLeftRight, Star, Bookmark } from "lucide-react";
+import { Search, DollarSign, ChevronRight, Trophy, Clock, ArrowUpDown, ArrowUp, ArrowDown, Users, ArrowLeftRight, Star, Bookmark, SlidersHorizontal } from "lucide-react";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { toast } from "sonner";
 import Navigation from "@/components/Navigation";
@@ -33,6 +33,12 @@ import { formatSeasonStatColumn, type PlayerSeasonStats, type SeasonStatColumn, 
 import { normalizeNFLTeamCode } from "@/lib/nflTeamCodes";
 import { getCompletedKickerSeasonStats } from "@/lib/kickerSeasonStats2025";
 import { trpc } from "@/lib/trpc";
+import {
+  FREE_AGENT_CONFIGURABLE_COLUMNS,
+  normalizeFreeAgentVisibleColumns,
+  toggleFreeAgentVisibleColumn,
+  type FreeAgentConfigurableColumn,
+} from "@/lib/freeAgentColumnPreferences";
 
 // ── Position badge colors ────────────────────────────────────────────────────
 const POS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
@@ -241,23 +247,35 @@ export function getFreeAgentStatColumns(pos: string): FreeAgentStatColumn[] {
   return SFLEX_COLUMNS;
 }
 
-export function getFreeAgentTableColumns(pos: string) {
+export function getFreeAgentTableColumns(
+  pos: string,
+  visibleColumns: readonly FreeAgentConfigurableColumn[] = FREE_AGENT_CONFIGURABLE_COLUMNS,
+) {
   const columns = getFreeAgentStatColumns(pos);
+  const visible = new Set<string>(visibleColumns);
   return [
     { label: "Player", key: "name" as SortKey, align: "left" as const },
     { label: "WRC", key: "wrcTeam" as SortKey, align: "left" as const },
-    { label: "Age", key: "age" as SortKey },
-    { label: "Bye", key: "bye" as SortKey },
-    { label: "Opp", key: "opp" as SortKey },
-    { label: "Game", key: "game" as SortKey },
-    { label: "FPTS", key: "wrcPts" as SortKey },
-    { label: "FP/G", key: "ptsPerGame" as SortKey },
-    { label: "Proj", key: "proj" as SortKey },
-    ...columns.slice(2).map((column) => ({ label: column.label, key: column.key as SortKey, column })),
-    { label: "Action" },
-    { label: "" },
+    { label: "Bid" },
+    { label: "Watch" },
+    ...[
+      { label: "Age", key: "age" as SortKey },
+      { label: "Bye", key: "bye" as SortKey },
+      { label: "Opp", key: "opp" as SortKey },
+      { label: "Game", key: "game" as SortKey },
+      ...columns.map((column) => ({ label: column.label, key: column.key as SortKey, column })),
+      { label: "Proj", key: "proj" as SortKey },
+    ].filter((column) => visible.has(column.key)),
   ];
 }
+
+const FREE_AGENT_COLUMN_LABELS: Record<FreeAgentConfigurableColumn, string> = {
+  age: "Age", bye: "Bye", opp: "Opponent", game: "Game", wrcPts: "FPTS", ptsPerGame: "FP/G", proj: "Projection",
+  passYds: "Pass Yds", passTD: "Pass TD", passInt: "Pass INT", rushAtt: "Rush Att", rushYds: "Rush Yds", rushTD: "Rush TD",
+  targets: "Targets", receptions: "Receptions", recYds: "Rec Yds", recTD: "Rec TD", turnovers: "Turnovers", gp: "Games Played",
+  fgMade: "FG Made", fgAtt: "FG Attempts", fgPct: "FG %", xpMade: "XP Made", xpAtt: "XP Attempts", xpPct: "XP %",
+  sacks: "Sacks", safeties: "Safeties", takeaways: "Takeaways", dstTD: "D/ST TD",
+};
 
 export function getFreeAgentPlayerPool(): NFLPlayer[] {
   return [
@@ -307,11 +325,23 @@ export default function FreeAgents() {
   const [playerScope, setPlayerScope] = useState<"fa" | "all">("fa");
   const [ownershipMap, setOwnershipMap] = useState<Record<string, string>>({});
   const [activeView, setActiveView] = useState<"pool" | "watchlist">("pool");
+  const [columnChooserOpen, setColumnChooserOpen] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState<FreeAgentConfigurableColumn[]>(() => [...FREE_AGENT_CONFIGURABLE_COLUMNS]);
   const tableStatsScrollRef = useRef<HTMLDivElement>(null);
   const [statsScrollPercent, setStatsScrollPercent] = useState(0);
 
   // Watchlist hook
   const { watchlist, isWatched, toggleWatch } = useWatchlist(franchise?.id);
+  const columnPreferencesQuery = trpc.league.freeAgentColumnPreferences.useQuery(undefined, {
+    enabled: !!franchise,
+    staleTime: 60_000,
+  });
+  const saveColumnPreferences = trpc.league.saveFreeAgentColumnPreferences.useMutation();
+
+  useEffect(() => {
+    if (!franchise || columnPreferencesQuery.data === undefined) return;
+    setVisibleColumns(normalizeFreeAgentVisibleColumns(columnPreferencesQuery.data.visibleColumns));
+  }, [franchise, columnPreferencesQuery.data]);
 
   const currentWeek = getCurrentWeek();
   const week = currentWeek > 0 ? currentWeek : 1;
@@ -368,14 +398,38 @@ export default function FreeAgents() {
     () => getFreeAgentStatColumns(posFilter),
     [posFilter]
   );
-  const detailColumns = useMemo(() => seasonColumns.slice(2), [seasonColumns]);
+  const visibleColumnSet = useMemo(() => new Set<string>(visibleColumns), [visibleColumns]);
+  const displaySeasonColumns = useMemo(
+    () => seasonColumns.filter((column) => visibleColumnSet.has(column.key)),
+    [seasonColumns, visibleColumnSet],
+  );
+  const detailColumns = useMemo(
+    () => displaySeasonColumns.filter((column) => column.key !== "wrcPts" && column.key !== "ptsPerGame"),
+    [displaySeasonColumns],
+  );
   const statsGridColumns = useMemo(
-    () => `210px 52px 44px 44px 60px 86px 64px 64px 64px ${detailColumns.map(() => "minmax(64px, auto)").join(" ")} 76px 30px`,
-    [detailColumns]
+    () => [
+      "210px", "52px", "60px", "42px",
+      visibleColumnSet.has("age") && "44px",
+      visibleColumnSet.has("bye") && "44px",
+      visibleColumnSet.has("opp") && "60px",
+      visibleColumnSet.has("game") && "86px",
+      ...displaySeasonColumns.filter((column) => column.key === "wrcPts" || column.key === "ptsPerGame").map(() => "64px"),
+      ...detailColumns.map(() => "minmax(64px, auto)"),
+      visibleColumnSet.has("proj") && "64px",
+    ].filter(Boolean).join(" "),
+    [detailColumns, displaySeasonColumns, visibleColumnSet]
   );
   const statsTableMinWidth = useMemo(
-    () => 210 + 52 + 44 + 44 + 60 + 86 + 64 * 3 + 64 * detailColumns.length + 76 + 30,
-    [detailColumns]
+    () => 364
+      + (visibleColumnSet.has("age") ? 44 : 0)
+      + (visibleColumnSet.has("bye") ? 44 : 0)
+      + (visibleColumnSet.has("opp") ? 60 : 0)
+      + (visibleColumnSet.has("game") ? 86 : 0)
+      + displaySeasonColumns.filter((column) => column.key === "wrcPts" || column.key === "ptsPerGame").length * 64
+      + detailColumns.length * 64
+      + (visibleColumnSet.has("proj") ? 64 : 0),
+    [detailColumns, displaySeasonColumns, visibleColumnSet]
   );
 
   const setTableScrollPercent = (percent: number) => {
@@ -429,11 +483,31 @@ export default function FreeAgents() {
     setSortDirection(nextKey === "name" || nextKey === "wrcTeam" || nextKey === "age" || nextKey === "bye" || nextKey === "opp" || nextKey === "game" ? "asc" : "desc");
   };
 
-  const tableHeaders = useMemo(() => getFreeAgentTableColumns(posFilter), [posFilter]);
+  const tableHeaders = useMemo(() => getFreeAgentTableColumns(posFilter, visibleColumns), [posFilter, visibleColumns]);
 
   const positions = ["SFLEX", "QB", "RB", "WR", "TE", "K", "DST"];
   const isCommissioner = franchise?.is_commissioner;
   const faabBalance = franchise?.faab ?? 1000;
+
+  const toggleColumnVisibility = (column: FreeAgentConfigurableColumn) => {
+    if (!franchise) {
+      toast.error("Sign in to save Free Agents column choices.");
+      return;
+    }
+    const previous = visibleColumns;
+    const next = toggleFreeAgentVisibleColumn(previous, column);
+    setVisibleColumns(next);
+    saveColumnPreferences.mutate(
+      { visibleColumns: next },
+      {
+        onSuccess: (saved) => setVisibleColumns(normalizeFreeAgentVisibleColumns(saved.visibleColumns)),
+        onError: (error) => {
+          setVisibleColumns(previous);
+          toast.error(error.message || "Unable to save Free Agents column choices.");
+        },
+      },
+    );
+  };
 
   return (
     <div className="bg-turf bg-overlay" style={{ minHeight: "100vh" }}>
@@ -619,6 +693,37 @@ export default function FreeAgents() {
                     {pos}
                   </button>
                 ))}
+                <div style={{ position: "relative" as const }}>
+                  <button
+                    type="button"
+                    onClick={() => setColumnChooserOpen((open) => !open)}
+                    aria-expanded={columnChooserOpen}
+                    style={{ padding: "0.3rem 0.65rem", borderRadius: 7, border: "2px solid rgba(255,255,255,0.2)", background: columnChooserOpen ? "oklch(0.22 0.08 150)" : "rgba(255,255,255,0.08)", color: "white", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, letterSpacing: "0.04em", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.3rem" }}
+                  >
+                    <SlidersHorizontal size={13} /> Columns
+                  </button>
+                  {columnChooserOpen && (
+                    <div role="dialog" aria-label="Free Agents column settings" style={{ position: "absolute" as const, zIndex: 20, top: "calc(100% + 0.4rem)", right: 0, width: "min(320px, calc(100vw - 2rem))", padding: "0.7rem", borderRadius: 10, background: "white", border: "1px solid oklch(0.82 0.08 150)", boxShadow: "0 12px 30px rgb(0 0 0 / 0.22)" }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "0.5rem", marginBottom: "0.45rem" }}>
+                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.86rem", color: "oklch(0.22 0.08 150)" }}>Choose data columns</span>
+                        <button type="button" onClick={() => {
+                          const defaults = [...FREE_AGENT_CONFIGURABLE_COLUMNS];
+                          setVisibleColumns(defaults);
+                          if (franchise) saveColumnPreferences.mutate({ visibleColumns: defaults });
+                        }} style={{ border: "none", background: "none", color: "oklch(0.42 0.14 150)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem", cursor: "pointer" }}>Reset</button>
+                      </div>
+                      <p style={{ margin: "0 0 0.55rem", fontSize: "0.68rem", color: "oklch(0.52 0.06 150)" }}>{franchise ? "Saved for your team across devices." : "Sign in to save your choices."}</p>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.3rem 0.55rem" }}>
+                        {FREE_AGENT_CONFIGURABLE_COLUMNS.map((column) => (
+                          <label key={column} style={{ display: "flex", alignItems: "center", gap: "0.35rem", cursor: "pointer", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.74rem", color: "oklch(0.3 0.07 150)" }}>
+                            <input type="checkbox" checked={visibleColumnSet.has(column)} onChange={() => toggleColumnVisibility(column)} disabled={saveColumnPreferences.isPending} />
+                            {FREE_AGENT_COLUMN_LABELS[column]}
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -694,7 +799,7 @@ export default function FreeAgents() {
                     <div style={{ display: "grid", gridTemplateColumns: statsGridColumns, gap: "0.25rem", padding: "0.35rem 0.5rem", background: "oklch(0.96 0.02 150)", borderBottom: "1px solid oklch(0.9 0.04 150)", alignItems: "center" }}>
                       {tableHeaders.map((header, index) => {
                         const active = header.key === sortKey;
-                        const column = "column" in header ? header.column : undefined;
+                        const column = "column" in header ? header.column as FreeAgentStatColumn | undefined : undefined;
                         const alignment = ("align" in header ? header.align : undefined) ?? "center";
                         const isPlayerColumn = index === 0;
                         const headerColor = active
@@ -783,41 +888,28 @@ export default function FreeAgents() {
                           {getWrcTeamLabel(ownerTeam)}
                         </span>
 
-                        {/* Age */}
-                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", color: "oklch(0.5 0.06 150)", textAlign: "center" as const }}>
-                          {player.pos === "DST" ? "—" : playerMeta?.age ?? "—"}
-                        </span>
+                        {/* Bid/trade action and watchlist now follow WRC Team so they stay visible without a table scroll. */}
+                        {isOwned ? (
+                          franchise ? (
+                            <Link href="/trades" style={{ background: "oklch(0.42 0.1 240)", color: "white", border: "none", borderRadius: 7, padding: "0.3rem 0.5rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.68rem", letterSpacing: "0.03em", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.2rem", justifyContent: "center", textDecoration: "none" }}><ArrowLeftRight size={10} />Trade</Link>
+                          ) : <span style={{ fontSize: "0.65rem", color: "oklch(0.55 0.08 240)", textAlign: "center" as const, fontFamily: "Barlow Condensed, sans-serif" }}>Owned</span>
+                        ) : franchise ? (
+                          <button onClick={() => setBidPlayer(player)} style={{ background: "oklch(0.55 0.16 85)", color: "white", border: "none", borderRadius: 7, padding: "0.3rem 0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem", letterSpacing: "0.04em", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem", justifyContent: "center" }}><DollarSign size={11} />Bid</button>
+                        ) : <span style={{ fontSize: "0.68rem", color: "oklch(0.6 0.06 150)", textAlign: "center" as const }}>Sign in</span>}
+                        {franchise ? (
+                          <button onClick={e => { e.stopPropagation(); toggleWatch({ name: player.name, pos: player.pos, nflTeam: player.nflTeam }); }} style={{ background: "none", border: "none", cursor: "pointer", padding: "0.15rem 0", color: isWatched(player.name) ? "oklch(0.55 0.16 85)" : "oklch(0.75 0.06 150)", display: "flex", alignItems: "center", justifyContent: "center" }} title={isWatched(player.name) ? "Remove from watchlist" : "Add to watchlist"}><Star size={15} fill={isWatched(player.name) ? "oklch(0.55 0.16 85)" : "none"} /></button>
+                        ) : <span aria-label="Sign in to use watchlist" />}
 
-                        {/* Bye week */}
-                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", color: "oklch(0.5 0.06 150)", textAlign: "center" as const }}>
-                          {player.bye ?? "—"}
-                        </span>
+                        {visibleColumnSet.has("age") && <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", color: "oklch(0.5 0.06 150)", textAlign: "center" as const }}>{player.pos === "DST" ? "—" : playerMeta?.age ?? "—"}</span>}
+                        {visibleColumnSet.has("bye") && <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", color: "oklch(0.5 0.06 150)", textAlign: "center" as const }}>{player.bye ?? "—"}</span>}
+                        {visibleColumnSet.has("opp") && <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: 700, color: "oklch(0.42 0.06 150)", textAlign: "center" as const, whiteSpace: "nowrap" as const }}>{matchup ? `${matchup.isHome ? "vs" : "@"} ${matchup.opponent}` : "BYE"}</span>}
+                        {visibleColumnSet.has("game") && <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem", color: "oklch(0.5 0.06 150)", textAlign: "center" as const, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>{matchup ? formatGameTime(matchup).replace(" ET", "") : "—"}</span>}
 
-                        {/* Opponent and game time use the same weekly matchup source as Lineup. */}
-                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: 700, color: "oklch(0.42 0.06 150)", textAlign: "center" as const, whiteSpace: "nowrap" as const }}>
-                          {matchup ? `${matchup.isHome ? "vs" : "@"} ${matchup.opponent}` : "BYE"}
-                        </span>
-                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem", color: "oklch(0.5 0.06 150)", textAlign: "center" as const, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {matchup ? formatGameTime(matchup).replace(" ET", "") : "—"}
-                        </span>
-
-                        {/* The shared FPTS / FP-G columns precede the position-specific Lineup stats. */}
-                        {seasonColumns.slice(0, 2).map((column) => (
+                        {displaySeasonColumns.filter((column) => column.key === "wrcPts" || column.key === "ptsPerGame").map((column) => (
                           <span key={`fantasy-${column.key}`} style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.84rem", color: "oklch(0.48 0.15 85)", textAlign: "center" as const, whiteSpace: "nowrap" as const }}>
                             {seasonStats ? formatKickerFantasyStat(player, seasonStats, column) : seasonStatsLoading ? "…" : "—"}
                           </span>
                         ))}
-
-                        {/* Projected points */}
-                        <div style={{ textAlign: "center" as const }}>
-                          {projectionsLoading ? (
-                            <span className="skeleton-shimmer" style={{ display: "inline-block", width: 36, height: 16, borderRadius: 4 }} />
-                          ) : (
-                            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.95rem", color: proj > 0 ? "oklch(0.38 0.14 150)" : "oklch(0.65 0.06 150)" }}>
-                              {proj > 0 ? proj.toFixed(1) : "—"}
-                            </span>
-                          )}
-                        </div>
 
                         {/* Position-specific Lineup-equivalent season totals. */}
                         {detailColumns.map((column: FreeAgentStatColumn) => (
@@ -826,39 +918,10 @@ export default function FreeAgents() {
                           </span>
                         ))}
 
-                        {/* Bid button */}
-                        {isOwned ? (
-                          franchise ? (
-                            <Link
-                              href={`/trades`}
-                              style={{ background: "oklch(0.42 0.1 240)", color: "white", border: "none", borderRadius: 7, padding: "0.3rem 0.5rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.68rem", letterSpacing: "0.03em", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.2rem", justifyContent: "center", textDecoration: "none" }}
-                            >
-                              <ArrowLeftRight size={10} />
-                              Trade
-                            </Link>
-                          ) : (
-                            <span style={{ fontSize: "0.65rem", color: "oklch(0.55 0.08 240)", textAlign: "center" as const, fontFamily: "Barlow Condensed, sans-serif" }}>Owned</span>
-                          )
-                        ) : franchise ? (
-                          <button
-                            onClick={() => setBidPlayer(player)}
-                            style={{ background: "oklch(0.55 0.16 85)", color: "white", border: "none", borderRadius: 7, padding: "0.3rem 0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem", letterSpacing: "0.04em", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem", justifyContent: "center" }}
-                          >
-                            <DollarSign size={11} />
-                            Bid
-                          </button>
-                        ) : (
-                          <span style={{ fontSize: "0.68rem", color: "oklch(0.6 0.06 150)", textAlign: "center" as const }}>Sign in</span>
-                        )}
-                        {/* Star / watchlist button */}
-                        {franchise && (
-                          <button
-                            onClick={e => { e.stopPropagation(); toggleWatch({ name: player.name, pos: player.pos, nflTeam: player.nflTeam }); }}
-                            style={{ background: "none", border: "none", cursor: "pointer", padding: "0.15rem 0", color: isWatched(player.name) ? "oklch(0.55 0.16 85)" : "oklch(0.75 0.06 150)", display: "flex", alignItems: "center", justifyContent: "center" }}
-                            title={isWatched(player.name) ? "Remove from watchlist" : "Add to watchlist"}
-                          >
-                            <Star size={13} fill={isWatched(player.name) ? "oklch(0.55 0.16 85)" : "none"} />
-                          </button>
+                        {visibleColumnSet.has("proj") && (
+                          <div style={{ textAlign: "center" as const }}>
+                            {projectionsLoading ? <span className="skeleton-shimmer" style={{ display: "inline-block", width: 36, height: 16, borderRadius: 4 }} /> : <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.95rem", color: proj > 0 ? "oklch(0.38 0.14 150)" : "oklch(0.65 0.06 150)" }}>{proj > 0 ? proj.toFixed(1) : "—"}</span>}
+                          </div>
                         )}
                       </div>
                     );

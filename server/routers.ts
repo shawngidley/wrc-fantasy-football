@@ -280,6 +280,43 @@ export const appRouter = router({
         if (error || !data) throw new Error("Unable to add player to watchlist");
         return { action: "added" as const, player: data };
       }),
+    freeAgentColumnPreferences: teamProcedure.query(async ({ ctx }) => {
+      const { data, error } = await supabaseAdmin
+        .from("free_agent_column_preferences")
+        .select("visible_columns, updated_at")
+        .eq("team_id", ctx.teamSession.teamId)
+        .maybeSingle();
+      if (error) throw new Error("Unable to load Free Agents column preferences");
+      return {
+        visibleColumns: Array.isArray(data?.visible_columns)
+          ? data.visible_columns.filter((value): value is string => typeof value === "string")
+          : null,
+        updatedAt: data?.updated_at ?? null,
+      };
+    }),
+    saveFreeAgentColumnPreferences: teamProcedure
+      .input(z.object({
+        visibleColumns: z.array(z.string().regex(/^[a-zA-Z][a-zA-Z0-9]*$/).max(32)).max(40),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const visibleColumns = Array.from(new Set(input.visibleColumns));
+        const { data, error } = await supabaseAdmin
+          .from("free_agent_column_preferences")
+          .upsert({
+            team_id: ctx.teamSession.teamId,
+            visible_columns: visibleColumns,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: "team_id" })
+          .select("visible_columns, updated_at")
+          .single();
+        if (error || !data) throw new Error("Unable to save Free Agents column preferences");
+        return {
+          visibleColumns: Array.isArray(data.visible_columns)
+            ? data.visible_columns.filter((value): value is string => typeof value === "string")
+            : [],
+          updatedAt: data.updated_at,
+        };
+      }),
     faabBidRoster: teamProcedure.query(async ({ ctx }) => {
       const teamId = ctx.teamSession.teamId;
       const [{ data: roster, error: rosterError }, { data: team, error: teamError }] = await Promise.all([
