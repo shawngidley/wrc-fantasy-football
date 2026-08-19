@@ -965,3 +965,9 @@
 - [x] Include the same player headshot, position/team, Bye, FPTS, FP/G, and ADP information where available.
 - [x] Reduce the Draft Order queue panel width without weakening desktop or mobile queue usability.
 - [x] Add regression coverage and verify the compact queue layout at desktop and mobile widths.
+
+# Draft Order Queue Control Separation
+
+- [x] Separate the reorder arrows from the remove action so the controls have distinct visual targets.
+- [x] Preserve accessible labels, mobile usability, and queue mutation behavior.
+- [x] Verify the revised action layout and publish the correction.

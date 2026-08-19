@@ -845,7 +845,7 @@ export default function DraftBoard() {
                       <span>My Queue ({queue.length} players · {queue.filter(q => !draftedNamesLower.has(q.player_name.toLowerCase())).length} available)</span>
                     </div>
                     <div style={{ overflowX: "auto" }}>
-                      <table className="wrc-table" style={{ minWidth: 560, width: "100%", tableLayout: "fixed" }}>
+                      <table className="wrc-table" style={{ minWidth: 600, width: "100%", tableLayout: "fixed" }}>
                         <colgroup>
                           <col style={{ width: 36 }} />
                           <col style={{ width: 220 }} />
@@ -853,7 +853,8 @@ export default function DraftBoard() {
                           <col style={{ width: 62 }} />
                           <col style={{ width: 62 }} />
                           <col style={{ width: 58 }} />
-                          <col style={{ width: 78 }} />
+                          <col style={{ width: 52 }} />
+                          <col style={{ width: 66 }} />
                         </colgroup>
                         <thead>
                           <tr>
@@ -864,6 +865,7 @@ export default function DraftBoard() {
                             <th style={{ textAlign: "right" }}>FP/G</th>
                             <th style={{ textAlign: "right" }}>ADP</th>
                             <th style={{ textAlign: "center" }}>ORDER</th>
+                            <th style={{ textAlign: "center", borderLeft: "1px solid rgba(255,255,255,0.22)" }}>REMOVE</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -890,21 +892,21 @@ export default function DraftBoard() {
                             <td style={{ textAlign: "right", background: rowBackground, fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, color: "oklch(0.48 0.15 85)" }}>{formatQueueSeasonValue(player, "ptsPerGame")}</td>
                             <td style={{ textAlign: "right", background: rowBackground, fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, color: player && formatADP(player) !== "—" ? "oklch(0.22 0.08 150)" : "oklch(0.6 0.02 150)" }}>{player ? formatADP(player) : "—"}</td>
                             <td style={{ textAlign: "center", background: rowBackground }}>
-                              <div style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
-                                {!isDrafted && (
-                                  <div style={{ display: "flex", flexDirection: "column", gap: 1 }}>
-                                    <button aria-label={`Move ${item.player_name} up`} onClick={() => moveItem(item.id, "up")} disabled={idx === 0} style={{ background: "none", border: "none", cursor: idx === 0 ? "default" : "pointer", color: idx === 0 ? "oklch(0.85 0.01 150)" : "oklch(0.45 0.06 150)", padding: "1px 3px", display: "flex" }}>
-                                      <ChevronUp size={14} />
-                                    </button>
-                                    <button aria-label={`Move ${item.player_name} down`} onClick={() => moveItem(item.id, "down")} disabled={idx === queue.length - 1} style={{ background: "none", border: "none", cursor: idx === queue.length - 1 ? "default" : "pointer", color: idx === queue.length - 1 ? "oklch(0.85 0.01 150)" : "oklch(0.45 0.06 150)", padding: "1px 3px", display: "flex" }}>
-                                      <ChevronDown size={14} />
-                                    </button>
-                                  </div>
-                                )}
-                                <button aria-label={`Remove ${item.player_name} from the queue`} onClick={() => removeFromQueue(item.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "oklch(0.55 0.22 25)", padding: "2px 4px", display: "flex", alignItems: "center" }}>
-                                  ✕
-                                </button>
-                              </div>
+                              {!isDrafted && (
+                                <div style={{ display: "inline-flex", flexDirection: "column", gap: 1 }}>
+                                  <button aria-label={`Move ${item.player_name} up`} onClick={() => moveItem(item.id, "up")} disabled={idx === 0} style={{ background: "none", border: "none", cursor: idx === 0 ? "default" : "pointer", color: idx === 0 ? "oklch(0.85 0.01 150)" : "oklch(0.45 0.06 150)", padding: "1px 3px", display: "flex" }}>
+                                    <ChevronUp size={14} />
+                                  </button>
+                                  <button aria-label={`Move ${item.player_name} down`} onClick={() => moveItem(item.id, "down")} disabled={idx === queue.length - 1} style={{ background: "none", border: "none", cursor: idx === queue.length - 1 ? "default" : "pointer", color: idx === queue.length - 1 ? "oklch(0.85 0.01 150)" : "oklch(0.45 0.06 150)", padding: "1px 3px", display: "flex" }}>
+                                    <ChevronDown size={14} />
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                            <td style={{ textAlign: "center", background: rowBackground, borderLeft: "1px solid oklch(0.9 0.005 150)" }}>
+                              <button aria-label={`Remove ${item.player_name} from the queue`} onClick={() => removeFromQueue(item.id)} style={{ background: "oklch(0.97 0.03 25)", border: "1px solid oklch(0.84 0.1 25)", borderRadius: 6, cursor: "pointer", color: "oklch(0.5 0.2 25)", width: 28, height: 28, padding: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: "1rem", lineHeight: 1 }}>
+                                ✕
+                              </button>
                             </td>
                           </tr>
                         );
