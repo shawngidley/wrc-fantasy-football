@@ -174,14 +174,12 @@ export const appRouter = router({
         supabaseAdmin.from("team_passkeys").select("credential_id, transports").eq("team_id", teamId),
       ]);
       if (teamError || !team || passkeysError) throw new Error("Unable to start Face ID setup.");
+      if (passkeys?.length) throw new Error("Face ID is already set up for this team. Remove it first to use a different device.");
       const options = await createPasskeyRegistrationOptions({
         teamId,
         teamName: team.name,
         ownerName: team.owner,
-        existingCredentials: (passkeys ?? []).map(passkey => ({
-          credentialId: passkey.credential_id,
-          transports: normalizePasskeyTransports(passkey.transports),
-        })),
+        existingCredentials: [],
       });
       const challengeId = await createPasskeyChallenge("registration", options.challenge, teamId);
       return { options, challengeId };
@@ -212,27 +210,49 @@ export const appRouter = router({
         if (error) throw new Error("This Face ID credential is already registered or could not be saved.");
         return { enrolled: true };
       }),
-    startPasskeyLogin: publicProcedure.mutation(async ({ ctx }) => {
+    passkeyLoginAvailable: publicProcedure
+      .input(z.object({ teamId: z.string().min(1).max(128) }))
+      .query(async ({ input }) => {
+        const { data, error } = await supabaseAdmin
+          .from("team_passkeys")
+          .select("credential_id")
+          .eq("team_id", input.teamId)
+          .limit(1);
+        if (error) throw new Error("Unable to check Face ID availability.");
+        return { available: Boolean(data?.length) };
+      }),
+    startPasskeyLogin: publicProcedure
+      .input(z.object({ teamId: z.string().min(1).max(128) }))
+      .mutation(async ({ input, ctx }) => {
       requireWrcPasskeyOrigin(ctx.req.headers.origin);
-      const options = await createPasskeyAuthenticationOptions();
-      const challengeId = await createPasskeyChallenge("authentication", options.challenge, null);
+      const { data: passkeys, error } = await supabaseAdmin
+        .from("team_passkeys")
+        .select("credential_id, transports")
+        .eq("team_id", input.teamId);
+      if (error) throw new Error("Unable to start Face ID sign-in.");
+      if (!passkeys?.length) throw new Error("Set up Face ID from Settings after signing in with your PIN.");
+      const options = await createPasskeyAuthenticationOptions({
+        credentials: passkeys.map(passkey => ({
+          credentialId: passkey.credential_id,
+          transports: normalizePasskeyTransports(passkey.transports),
+        })),
+      });
+      const challengeId = await createPasskeyChallenge("authentication", options.challenge, input.teamId);
       return { options, challengeId };
-    }),
+      }),
     finishPasskeyLogin: publicProcedure
       .input(z.object({ challengeId: z.string().min(20).max(128), response: z.unknown() }))
       .mutation(async ({ input, ctx }) => {
         requireWrcPasskeyOrigin(ctx.req.headers.origin);
         const response = input.response as { id?: string };
         if (!response.id) throw new Error("Face ID sign-in did not return a credential.");
-        const [{ data: passkey, error: passkeyError }, challenge] = await Promise.all([
-          supabaseAdmin
-            .from("team_passkeys")
-            .select("credential_id, team_id, public_key, counter, transports")
-            .eq("credential_id", response.id)
-            .maybeSingle(),
-          loadUnusedPasskeyChallenge(input.challengeId, "authentication", null),
-        ]);
+        const { data: passkey, error: passkeyError } = await supabaseAdmin
+          .from("team_passkeys")
+          .select("credential_id, team_id, public_key, counter, transports")
+          .eq("credential_id", response.id)
+          .maybeSingle();
         if (passkeyError || !passkey) throw new Error("This Face ID credential is not recognized.");
+        const challenge = await loadUnusedPasskeyChallenge(input.challengeId, "authentication", passkey.team_id);
         await consumePasskeyChallenge(challenge.id);
         const verification = await verifyPasskeyAuthentication({
           response: input.response as Parameters<typeof verifyPasskeyAuthentication>[0]["response"],

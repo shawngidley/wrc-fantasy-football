@@ -47,6 +47,10 @@ export default function Login() {
   const [passkeyAvailable, setPasskeyAvailable] = useState(false);
   const [passkeyLoading, setPasskeyLoading] = useState(false);
   const teamsQuery = trpc.league.teams.useQuery(undefined, { retry: 2, retryDelay: (attempt: number) => 750 * (attempt + 1) });
+  const passkeyStatusQuery = trpc.league.passkeyLoginAvailable.useQuery(
+    { teamId: selectedId },
+    { enabled: Boolean(selectedId) && passkeyAvailable, retry: false, staleTime: 60_000 },
+  );
   const loginMutation = trpc.league.login.useMutation();
   const startPasskeyLoginMutation = trpc.league.startPasskeyLogin.useMutation();
   const finishPasskeyLoginMutation = trpc.league.finishPasskeyLogin.useMutation();
@@ -90,7 +94,11 @@ export default function Login() {
     setError("");
     setPasskeyLoading(true);
     try {
-      const start = await startPasskeyLoginMutation.mutateAsync();
+      if (!selectedId) {
+        setError("Select your team first, then use Face ID.");
+        return;
+      }
+      const start = await startPasskeyLoginMutation.mutateAsync({ teamId: selectedId });
       const response = await startAuthentication({ optionsJSON: start.options });
       const team = await finishPasskeyLoginMutation.mutateAsync({ challengeId: start.challengeId, response });
       login({ ...team, team_name: team.name, owner_name: team.owner });
@@ -265,7 +273,7 @@ export default function Login() {
             >
               {loading ? "Signing In..." : "Sign In"}
             </button>
-            {passkeyAvailable && (
+            {passkeyAvailable && passkeyStatusQuery.data?.available && (
               <>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", margin: "1rem 0" }}>
                   <span style={{ flex: 1, height: 1, background: "oklch(0.88 0.01 150)" }} />
@@ -281,7 +289,7 @@ export default function Login() {
                   <Fingerprint size={18} /> {passkeyLoading ? "Checking Face ID…" : "Sign In with Face ID"}
                 </button>
                 <p style={{ margin: "0.65rem 0 0", textAlign: "center", color: "oklch(0.5 0.04 150)", fontSize: "0.76rem", lineHeight: 1.4 }}>
-                  Set up Face ID from Settings after PIN sign-in.
+                  Face ID is ready for the selected team.
                 </p>
               </>
             )}

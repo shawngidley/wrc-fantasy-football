@@ -466,6 +466,8 @@ export default function Settings() {
     }
   };
 
+  const enrolledPasskey = passkeysQuery.data?.[0] ?? null;
+
   const inputStyle: React.CSSProperties = {
     width: "100%",
     padding: "0.7rem 2.5rem 0.7rem 0.875rem",
@@ -567,23 +569,20 @@ export default function Settings() {
               </div>
             ) : (
               <>
-                {(passkeysQuery.data ?? []).length > 0 && (
-                  <div style={{ display: "grid", gap: "0.55rem", marginBottom: "1rem" }}>
-                    {(passkeysQuery.data ?? []).map(passkey => (
-                      <div key={passkey.credentialId} style={{ display: "flex", alignItems: "center", gap: "0.7rem", borderRadius: 8, border: "1px solid oklch(0.86 0.02 150)", padding: "0.65rem 0.75rem", background: "oklch(0.985 0.004 150)" }}>
-                        <Fingerprint size={17} color="oklch(0.35 0.12 150)" />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: "0.84rem", fontWeight: 700, color: "oklch(0.25 0.07 150)" }}>Face ID sign-in ready</div>
-                          <div style={{ fontSize: "0.72rem", color: "oklch(0.5 0.04 150)" }}>{passkey.lastUsedAt ? `Last used ${new Date(passkey.lastUsedAt).toLocaleDateString()}` : `Added ${new Date(passkey.createdAt).toLocaleDateString()}`}</div>
-                        </div>
-                        <button type="button" onClick={() => void handleRemovePasskey(passkey.credentialId)} disabled={removePasskeyMutation.isPending} style={{ border: "1px solid oklch(0.85 0.08 25)", background: "oklch(0.97 0.02 25)", color: "oklch(0.45 0.18 25)", borderRadius: 6, padding: "0.35rem 0.5rem", cursor: removePasskeyMutation.isPending ? "not-allowed" : "pointer", fontWeight: 700, fontSize: "0.72rem" }}>Remove</button>
-                      </div>
-                    ))}
+                {enrolledPasskey ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.7rem", borderRadius: 8, border: "1px solid oklch(0.82 0.1 150)", padding: "0.75rem", background: "oklch(0.94 0.05 150)" }}>
+                    <Fingerprint size={18} color="oklch(0.35 0.12 150)" />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "oklch(0.25 0.07 150)" }}>Face ID is set up</div>
+                      <div style={{ fontSize: "0.74rem", color: "oklch(0.5 0.04 150)" }}>Use it the next time you sign in.</div>
+                    </div>
+                    <button type="button" onClick={() => void handleRemovePasskey(enrolledPasskey.credentialId)} disabled={removePasskeyMutation.isPending} style={{ border: "1px solid oklch(0.85 0.08 25)", background: "oklch(0.97 0.02 25)", color: "oklch(0.45 0.18 25)", borderRadius: 6, padding: "0.35rem 0.5rem", cursor: removePasskeyMutation.isPending ? "not-allowed" : "pointer", fontWeight: 700, fontSize: "0.72rem" }}>Remove</button>
                   </div>
+                ) : (
+                  <button type="button" onClick={() => void handlePasskeyEnrollment()} disabled={passkeyBusy} style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", border: "none", borderRadius: 8, padding: "0.6rem 1rem", background: "oklch(0.28 0.09 150)", color: "white", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", cursor: passkeyBusy ? "not-allowed" : "pointer", opacity: passkeyBusy ? 0.65 : 1 }}>
+                    <Fingerprint size={16} /> {passkeyBusy ? "Setting Up…" : "Set Up Face ID"}
+                  </button>
                 )}
-                <button type="button" onClick={() => void handlePasskeyEnrollment()} disabled={passkeyBusy} style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", border: "none", borderRadius: 8, padding: "0.6rem 1rem", background: "oklch(0.28 0.09 150)", color: "white", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", cursor: passkeyBusy ? "not-allowed" : "pointer", opacity: passkeyBusy ? 0.65 : 1 }}>
-                  <Fingerprint size={16} /> {passkeyBusy ? "Setting Up…" : (passkeysQuery.data ?? []).length ? "Add Another Device" : "Set Up Face ID"}
-                </button>
               </>
             )}
             {passkeyError && <div style={{ marginTop: "0.8rem", color: "oklch(0.45 0.18 25)", fontSize: "0.82rem", fontWeight: 600 }}>{passkeyError}</div>}

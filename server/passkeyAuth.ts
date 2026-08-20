@@ -68,9 +68,15 @@ export async function createPasskeyRegistrationOptions(input: {
   });
 }
 
-export async function createPasskeyAuthenticationOptions() {
+export async function createPasskeyAuthenticationOptions(input: {
+  credentials: Array<Pick<StoredPasskey, "credentialId" | "transports">>;
+}) {
   return generateAuthenticationOptions({
     rpID: PASSKEY_RP_ID,
+    allowCredentials: input.credentials.map(credential => ({
+      id: credential.credentialId,
+      transports: normalizePasskeyTransports(credential.transports),
+    })),
     userVerification: "required",
   });
 }

@@ -1021,3 +1021,15 @@
 - [x] Provide the reviewed one-time Supabase credential migration for manual execution because browser sign-in is blocked by verification.
 - [x] Confirm the passkey tables exist after the migration is run.
 - [ ] Complete end-to-end Face ID enrollment and sign-in verification on a supported owner device.
+
+# Face ID Enrollment-Gated Login
+
+- [x] Prevent the Face ID login button from appearing before an owner has enrolled a passkey in Settings.
+- [x] Keep clear Settings-based enrollment instructions and PIN fallback for owners without an enrolled passkey.
+- [x] Validate the corrected first-time and returning-owner Face ID paths, then publish the repair.
+
+# Simplified Owner Face ID Experience
+
+- [x] Keep the normal team-and-PIN login as the only default sign-in path.
+- [x] Show one Set Up Face ID action in Settings only after PIN login.
+- [x] Show Sign In with Face ID at login only for teams with an enrolled passkey.

@@ -31,10 +31,12 @@ describe("WRC owner sessions and passkeys", () => {
     expect(options.excludeCredentials).toContainEqual({ id: "existing-passkey", type: "public-key", transports: ["internal"] });
   });
 
-  it("uses discoverable, user-verified credentials for Face ID sign-in", async () => {
-    const options = await createPasskeyAuthenticationOptions();
+  it("uses the enrolled team credential and user verification for Face ID sign-in", async () => {
+    const options = await createPasskeyAuthenticationOptions({
+      credentials: [{ credentialId: "team-passkey", transports: ["internal"] }],
+    });
     expect(options).toMatchObject({ rpId: PASSKEY_RP_ID, userVerification: "required" });
-    expect(options.allowCredentials).toBeUndefined();
+    expect(options.allowCredentials).toContainEqual({ id: "team-passkey", type: "public-key", transports: ["internal"] });
   });
 
   it("filters passkey transports and reconstructs a server verification credential", () => {
