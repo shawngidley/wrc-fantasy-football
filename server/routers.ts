@@ -22,6 +22,16 @@ import { DRAFT_PICKS_2026 } from "../client/src/lib/draftData2026";
 import { storagePut } from "./storage";
 import { finalizeWeeklyResultsFromTank } from "./weeklyResultsFinalize";
 import { assertLoginAllowed, assertStrongLeaguePin, clearLoginFailures, getClientIp, recordLoginFailure } from "./leagueLoginSecurity";
+import { nanoid } from "nanoid";
+import {
+  PASSKEY_CHALLENGE_TTL_MS,
+  createPasskeyAuthenticationOptions,
+  createPasskeyRegistrationOptions,
+  isWrcPasskeyOrigin,
+  normalizePasskeyTransports,
+  verifyPasskeyAuthentication,
+  verifyPasskeyRegistration,
+} from "./passkeyAuth";
 
 const normalizePlayerKey = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
 const WRC_DRAFT_TIMER_SECONDS = 90;
@@ -32,6 +42,54 @@ const WRC_DRAFT_OWNER_TEAM_IDS: Record<string, string> = {
   "Dan": "team-dan", "Scott N.": "team-scottn", "Bill": "team-bill", "Jamie": "team-jamie",
   "Scott M.": "team-scottm", "David S.": "team-davids", "Shawn": "team-shawn", "Greg": "team-greg",
 };
+
+type PasskeyChallengeType = "registration" | "authentication";
+
+function requireWrcPasskeyOrigin(origin: unknown) {
+  if (!isWrcPasskeyOrigin(origin)) {
+    throw new Error("Face ID sign-in is available from wrcfantasyfootball.com only.");
+  }
+}
+
+async function createPasskeyChallenge(type: PasskeyChallengeType, challenge: string, teamId: string | null) {
+  const id = nanoid(32);
+  const expiresAt = new Date(Date.now() + PASSKEY_CHALLENGE_TTL_MS).toISOString();
+  await supabaseAdmin.from("team_passkey_challenges").delete().lt("expires_at", new Date().toISOString());
+  const { error } = await supabaseAdmin.from("team_passkey_challenges").insert({
+    id,
+    challenge,
+    challenge_type: type,
+    team_id: teamId,
+    expires_at: expiresAt,
+  });
+  if (error) throw new Error("Unable to start Face ID sign-in. Please try again.");
+  return id;
+}
+
+async function loadUnusedPasskeyChallenge(id: string, type: PasskeyChallengeType, teamId: string | null) {
+  let query = supabaseAdmin
+    .from("team_passkey_challenges")
+    .select("id, challenge, expires_at, used_at, team_id")
+    .eq("id", id)
+    .eq("challenge_type", type)
+    .is("used_at", null);
+  query = teamId ? query.eq("team_id", teamId) : query.is("team_id", null);
+  const { data, error } = await query.maybeSingle();
+  if (error || !data || new Date(data.expires_at).getTime() < Date.now()) {
+    throw new Error("This Face ID request expired. Please try again.");
+  }
+  return data;
+}
+
+async function consumePasskeyChallenge(id: string) {
+  const { data, error } = await supabaseAdmin
+    .from("team_passkey_challenges")
+    .update({ used_at: new Date().toISOString() })
+    .eq("id", id)
+    .is("used_at", null)
+    .select("id");
+  if (error || !data?.length) throw new Error("This Face ID request has already been used. Please try again.");
+}
 
 function nextDraftState(currentRound: number, currentPick: number) {
   const nextPick = currentPick + 1 >= WRC_DRAFT_TOTAL_TEAMS ? 0 : currentPick + 1;
@@ -93,6 +151,128 @@ export const appRouter = router({
       const session = await readWrcTeamSession(ctx.req);
       return session ? getPublicLeagueTeam(session.teamId) : null;
     }),
+    passkeys: teamProcedure.query(async ({ ctx }) => {
+      const { data, error } = await supabaseAdmin
+        .from("team_passkeys")
+        .select("credential_id, created_at, last_used_at, device_type, backed_up")
+        .eq("team_id", ctx.teamSession.teamId)
+        .order("created_at", { ascending: false });
+      if (error) throw new Error("Unable to load Face ID settings.");
+      return (data ?? []).map(passkey => ({
+        credentialId: passkey.credential_id,
+        createdAt: passkey.created_at,
+        lastUsedAt: passkey.last_used_at,
+        deviceType: passkey.device_type,
+        backedUp: passkey.backed_up,
+      }));
+    }),
+    startPasskeyRegistration: teamProcedure.mutation(async ({ ctx }) => {
+      requireWrcPasskeyOrigin(ctx.req.headers.origin);
+      const teamId = ctx.teamSession.teamId;
+      const [{ data: team, error: teamError }, { data: passkeys, error: passkeysError }] = await Promise.all([
+        supabaseAdmin.from("teams").select("id, name, owner").eq("id", teamId).single(),
+        supabaseAdmin.from("team_passkeys").select("credential_id, transports").eq("team_id", teamId),
+      ]);
+      if (teamError || !team || passkeysError) throw new Error("Unable to start Face ID setup.");
+      const options = await createPasskeyRegistrationOptions({
+        teamId,
+        teamName: team.name,
+        ownerName: team.owner,
+        existingCredentials: (passkeys ?? []).map(passkey => ({
+          credentialId: passkey.credential_id,
+          transports: normalizePasskeyTransports(passkey.transports),
+        })),
+      });
+      const challengeId = await createPasskeyChallenge("registration", options.challenge, teamId);
+      return { options, challengeId };
+    }),
+    finishPasskeyRegistration: teamProcedure
+      .input(z.object({ challengeId: z.string().min(20).max(128), response: z.unknown() }))
+      .mutation(async ({ input, ctx }) => {
+        requireWrcPasskeyOrigin(ctx.req.headers.origin);
+        const challenge = await loadUnusedPasskeyChallenge(input.challengeId, "registration", ctx.teamSession.teamId);
+        await consumePasskeyChallenge(challenge.id);
+        const verification = await verifyPasskeyRegistration({
+          response: input.response as Parameters<typeof verifyPasskeyRegistration>[0]["response"],
+          expectedChallenge: challenge.challenge,
+        });
+        if (!verification.verified) throw new Error("Face ID setup could not be verified. Please try again.");
+        const registration = verification.registrationInfo;
+        const { credential } = registration;
+        const { error } = await supabaseAdmin.from("team_passkeys").insert({
+          credential_id: credential.id,
+          team_id: ctx.teamSession.teamId,
+          public_key: Buffer.from(credential.publicKey).toString("base64url"),
+          counter: credential.counter,
+          transports: credential.transports ?? [],
+          device_type: registration.credentialDeviceType,
+          backed_up: registration.credentialBackedUp,
+          updated_at: new Date().toISOString(),
+        });
+        if (error) throw new Error("This Face ID credential is already registered or could not be saved.");
+        return { enrolled: true };
+      }),
+    startPasskeyLogin: publicProcedure.mutation(async ({ ctx }) => {
+      requireWrcPasskeyOrigin(ctx.req.headers.origin);
+      const options = await createPasskeyAuthenticationOptions();
+      const challengeId = await createPasskeyChallenge("authentication", options.challenge, null);
+      return { options, challengeId };
+    }),
+    finishPasskeyLogin: publicProcedure
+      .input(z.object({ challengeId: z.string().min(20).max(128), response: z.unknown() }))
+      .mutation(async ({ input, ctx }) => {
+        requireWrcPasskeyOrigin(ctx.req.headers.origin);
+        const response = input.response as { id?: string };
+        if (!response.id) throw new Error("Face ID sign-in did not return a credential.");
+        const [{ data: passkey, error: passkeyError }, challenge] = await Promise.all([
+          supabaseAdmin
+            .from("team_passkeys")
+            .select("credential_id, team_id, public_key, counter, transports")
+            .eq("credential_id", response.id)
+            .maybeSingle(),
+          loadUnusedPasskeyChallenge(input.challengeId, "authentication", null),
+        ]);
+        if (passkeyError || !passkey) throw new Error("This Face ID credential is not recognized.");
+        await consumePasskeyChallenge(challenge.id);
+        const verification = await verifyPasskeyAuthentication({
+          response: input.response as Parameters<typeof verifyPasskeyAuthentication>[0]["response"],
+          expectedChallenge: challenge.challenge,
+          passkey: {
+            credentialId: passkey.credential_id,
+            publicKey: passkey.public_key,
+            counter: Number(passkey.counter),
+            transports: normalizePasskeyTransports(passkey.transports),
+          },
+        });
+        if (!verification.verified) throw new Error("Face ID sign-in could not be verified. Please try again.");
+        const { error: updateError } = await supabaseAdmin
+          .from("team_passkeys")
+          .update({
+            counter: verification.authenticationInfo.newCounter,
+            device_type: verification.authenticationInfo.credentialDeviceType,
+            backed_up: verification.authenticationInfo.credentialBackedUp,
+            last_used_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("credential_id", passkey.credential_id);
+        if (updateError) throw new Error("Face ID sign-in could not be completed. Please try again.");
+        const team = await getPublicLeagueTeam(passkey.team_id);
+        if (!team) throw new Error("This team is no longer available.");
+        await writeWrcTeamSession(ctx.res, ctx.req, { teamId: team.id, isCommissioner: team.is_commissioner });
+        return team;
+      }),
+    removePasskey: teamProcedure
+      .input(z.object({ credentialId: z.string().min(1).max(1024) }))
+      .mutation(async ({ input, ctx }) => {
+        const { data, error } = await supabaseAdmin
+          .from("team_passkeys")
+          .delete()
+          .eq("credential_id", input.credentialId)
+          .eq("team_id", ctx.teamSession.teamId)
+          .select("credential_id");
+        if (error || !data?.length) throw new Error("Face ID credential was not found.");
+        return { removed: true, credentialId: input.credentialId };
+      }),
     logout: publicProcedure.mutation(({ ctx }) => {
       clearWrcTeamSession(ctx.res, ctx.req);
       return { success: true };

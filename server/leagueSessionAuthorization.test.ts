@@ -122,6 +122,18 @@ describe("private league procedures", () => {
       .rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
+  it("rejects unauthenticated passkey enrollment and credential-management operations", async () => {
+    readWrcTeamSession.mockResolvedValue(null);
+    const caller = appRouter.createCaller({ req: {} as never, res: {} as never, user: null });
+
+    await expect(caller.league.passkeys()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    await expect(caller.league.startPasskeyRegistration()).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    await expect(caller.league.finishPasskeyRegistration({ challengeId: "a".repeat(20), response: {} }))
+      .rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    await expect(caller.league.removePasskey({ credentialId: "credential-id" }))
+      .rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  });
+
   it("rejects unauthenticated weekly result finalization", async () => {
     readWrcTeamSession.mockResolvedValue(null);
     const caller = appRouter.createCaller({ req: {} as never, res: {} as never, user: null });

@@ -1001,3 +1001,23 @@
 - [x] Remove the standalone Projection group header from Lineup panels.
 - [x] Place FPTS and FP/G immediately to the right of Proj.
 - [x] Span Proj, FPTS, and FP/G with one Fantasy header and verify all table rows remain aligned.
+
+# Owner Login Convenience and Biometric Sign-In Assessment
+
+- [x] Evaluate a longer owner-session duration against the current session-security model.
+- [x] Confirm passkey/WebAuthn feasibility for iPhone biometric authentication in the existing owner-login flow.
+- [x] Present secure options and obtain approval before changing owner login behavior.
+
+# Owner Passkeys, Persistent Sessions, and League Logo Link Preview
+
+- [x] Extend owner sessions from 12 hours to 30 days while preserving secure cookie protections and sign-out behavior.
+- [x] Add secure per-owner passkey enrollment, challenge verification, and passkey-based sign-in with PIN fallback and recovery.
+- [x] Add owner-facing setup and Face ID/passkey sign-in controls with accessible unsupported-device states.
+- [x] Set Open Graph and compatible sharing metadata to use the WRC league logo for Messages and social link previews.
+- [x] Add server and client regression coverage, verify shared-link metadata, and publish the complete enhancement.
+
+# Passkey Credential Migration Handoff
+
+- [x] Provide the reviewed one-time Supabase credential migration for manual execution because browser sign-in is blocked by verification.
+- [x] Confirm the passkey tables exist after the migration is run.
+- [ ] Complete end-to-end Face ID enrollment and sign-in verification on a supported owner device.

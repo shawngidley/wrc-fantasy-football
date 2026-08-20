@@ -3,7 +3,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { getSessionCookieOptions } from "./_core/cookies";
 
 export const WRC_TEAM_SESSION_COOKIE = "wrc_team_session";
-const SESSION_TTL_SECONDS = 60 * 60 * 12;
+export const WRC_TEAM_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 export type WrcTeamSession = {
   teamId: string;
@@ -39,11 +39,11 @@ export async function writeWrcTeamSession(res: Response, req: Request, session: 
   const token = await new SignJWT({ teamId: session.teamId, isCommissioner: session.isCommissioner })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime(`${SESSION_TTL_SECONDS}s`)
+    .setExpirationTime(`${WRC_TEAM_SESSION_TTL_SECONDS}s`)
     .sign(getSigningKey());
   res.cookie(WRC_TEAM_SESSION_COOKIE, token, {
     ...getSessionCookieOptions(req),
-    maxAge: SESSION_TTL_SECONDS * 1000,
+    maxAge: WRC_TEAM_SESSION_TTL_SECONDS * 1000,
   });
 }
 

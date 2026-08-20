@@ -7,9 +7,11 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
-import { Lock, ChevronDown, Trophy } from "lucide-react";
+import { Lock, ChevronDown, Trophy, Fingerprint } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import type { LoggedInTeam } from "@/contexts/AuthContext";
+import { startAuthentication } from "@simplewebauthn/browser";
+import { canUseWrcPasskeys } from "@/lib/wrcPasskey";
 
 interface TeamRow {
   id: string;
@@ -42,14 +44,28 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [loadingTeams, setLoadingTeams] = useState(true);
   const [teamLoadError, setTeamLoadError] = useState("");
+  const [passkeyAvailable, setPasskeyAvailable] = useState(false);
+  const [passkeyLoading, setPasskeyLoading] = useState(false);
   const teamsQuery = trpc.league.teams.useQuery(undefined, { retry: 2, retryDelay: (attempt: number) => 750 * (attempt + 1) });
   const loginMutation = trpc.league.login.useMutation();
+  const startPasskeyLoginMutation = trpc.league.startPasskeyLogin.useMutation();
+  const finishPasskeyLoginMutation = trpc.league.finishPasskeyLogin.useMutation();
 
   useEffect(() => {
     if (teamsQuery.data) setTeams(teamsQuery.data as TeamRow[]);
     setLoadingTeams(teamsQuery.isLoading || teamsQuery.isFetching);
     setTeamLoadError(teamsQuery.isError ? "The team list is temporarily unavailable. Please try again." : "");
   }, [teamsQuery.data, teamsQuery.isError, teamsQuery.isFetching, teamsQuery.isLoading]);
+
+  useEffect(() => {
+    let cancelled = false;
+    canUseWrcPasskeys().then(available => {
+      if (!cancelled) setPasskeyAvailable(available);
+    }).catch(() => {
+      if (!cancelled) setPasskeyAvailable(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,6 +83,23 @@ export default function Login() {
       setError(message.includes("PIN") || message.includes("attempt") ? message : "Incorrect PIN. Please try again.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handlePasskeyLogin = async () => {
+    setError("");
+    setPasskeyLoading(true);
+    try {
+      const start = await startPasskeyLoginMutation.mutateAsync();
+      const response = await startAuthentication({ optionsJSON: start.options });
+      const team = await finishPasskeyLoginMutation.mutateAsync({ challengeId: start.challengeId, response });
+      login({ ...team, team_name: team.name, owner_name: team.owner });
+      navigate("/standings");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Face ID sign-in was not completed.";
+      setError(message.includes("canceled") || message.includes("not allowed") ? "Face ID sign-in was canceled." : message);
+    } finally {
+      setPasskeyLoading(false);
     }
   };
 
@@ -232,6 +265,26 @@ export default function Login() {
             >
               {loading ? "Signing In..." : "Sign In"}
             </button>
+            {passkeyAvailable && (
+              <>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.65rem", margin: "1rem 0" }}>
+                  <span style={{ flex: 1, height: 1, background: "oklch(0.88 0.01 150)" }} />
+                  <span style={{ color: "oklch(0.52 0.04 150)", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.08em" }}>OR</span>
+                  <span style={{ flex: 1, height: 1, background: "oklch(0.88 0.01 150)" }} />
+                </div>
+                <button
+                  type="button"
+                  onClick={handlePasskeyLogin}
+                  disabled={passkeyLoading || loading}
+                  style={{ width: "100%", minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", gap: "0.5rem", borderRadius: 8, border: "1.5px solid oklch(0.35 0.1 150)", background: "white", color: "oklch(0.25 0.08 150)", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.95rem", fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", cursor: passkeyLoading || loading ? "not-allowed" : "pointer", opacity: passkeyLoading || loading ? 0.65 : 1 }}
+                >
+                  <Fingerprint size={18} /> {passkeyLoading ? "Checking Face ID…" : "Sign In with Face ID"}
+                </button>
+                <p style={{ margin: "0.65rem 0 0", textAlign: "center", color: "oklch(0.5 0.04 150)", fontSize: "0.76rem", lineHeight: 1.4 }}>
+                  Set up Face ID from Settings after PIN sign-in.
+                </p>
+              </>
+            )}
           </form>
         </div>
       </div>

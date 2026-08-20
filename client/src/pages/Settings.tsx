@@ -8,14 +8,16 @@ import { useLocation } from "wouter";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import {
-  Lock, LogOut, User, Shield, CheckCircle2, Eye, EyeOff,
+import { Lock, LogOut, User, Shield, CheckCircle2, Eye, EyeOff,
   RefreshCw, ClipboardList, AlertTriangle, Music, Upload, Trash2, Play, Square,
+  Fingerprint,
 } from "lucide-react";
 import { Image } from "lucide-react";
 import { useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { WRC_PROTECTION_DEADLINE, WRC_PROTECTION_DEADLINE_DISPLAY } from "@shared/protectionSchedule";
+import { startRegistration } from "@simplewebauthn/browser";
+import { canUseWrcPasskeys } from "@/lib/wrcPasskey";
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -296,10 +298,18 @@ export default function Settings() {
   const [logoError, setLogoError] = useState("");
   const [logoSuccess, setLogoSuccess] = useState("");
   const logoInputRef = useRef<HTMLInputElement | null>(null);
+  const [passkeyAvailable, setPasskeyAvailable] = useState(false);
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
+  const [passkeyError, setPasskeyError] = useState("");
+  const [passkeySuccess, setPasskeySuccess] = useState("");
   const settingsQuery = trpc.league.teamSettings.useQuery(undefined, { enabled: Boolean(franchise?.id) });
   const changePinMutation = trpc.league.changeTeamPin.useMutation();
   const uploadMediaMutation = trpc.league.uploadTeamMedia.useMutation();
   const removeMediaMutation = trpc.league.removeTeamMedia.useMutation();
+  const passkeysQuery = trpc.league.passkeys.useQuery(undefined, { enabled: Boolean(franchise?.id), retry: false });
+  const startPasskeyRegistrationMutation = trpc.league.startPasskeyRegistration.useMutation();
+  const finishPasskeyRegistrationMutation = trpc.league.finishPasskeyRegistration.useMutation();
+  const removePasskeyMutation = trpc.league.removePasskey.useMutation();
 
   useEffect(() => {
     if (!settingsQuery.data) return;
@@ -310,6 +320,16 @@ export default function Settings() {
       setThemeSongName(decodeURIComponent(parts[parts.length - 1]));
     }
   }, [settingsQuery.data]);
+
+  useEffect(() => {
+    let cancelled = false;
+    canUseWrcPasskeys().then(available => {
+      if (!cancelled) setPasskeyAvailable(available);
+    }).catch(() => {
+      if (!cancelled) setPasskeyAvailable(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -417,6 +437,35 @@ export default function Settings() {
     navigate("/");
   };
 
+  const handlePasskeyEnrollment = async () => {
+    setPasskeyError(""); setPasskeySuccess("");
+    setPasskeyBusy(true);
+    try {
+      const start = await startPasskeyRegistrationMutation.mutateAsync();
+      const response = await startRegistration({ optionsJSON: start.options });
+      await finishPasskeyRegistrationMutation.mutateAsync({ challengeId: start.challengeId, response });
+      await passkeysQuery.refetch();
+      setPasskeySuccess("Face ID sign-in is ready on this device.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Face ID setup was not completed.";
+      setPasskeyError(message.includes("canceled") || message.includes("not allowed") ? "Face ID setup was canceled." : message);
+    } finally {
+      setPasskeyBusy(false);
+    }
+  };
+
+  const handleRemovePasskey = async (credentialId: string) => {
+    if (!window.confirm("Remove this Face ID sign-in method? You can add it again later with your PIN.")) return;
+    setPasskeyError(""); setPasskeySuccess("");
+    try {
+      await removePasskeyMutation.mutateAsync({ credentialId });
+      await passkeysQuery.refetch();
+      setPasskeySuccess("Face ID sign-in method removed.");
+    } catch (error) {
+      setPasskeyError(error instanceof Error ? error.message : "Unable to remove this Face ID sign-in method.");
+    }
+  };
+
   const inputStyle: React.CSSProperties = {
     width: "100%",
     padding: "0.7rem 2.5rem 0.7rem 0.875rem",
@@ -499,6 +548,46 @@ export default function Settings() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Face ID / Passkey Card */}
+        <div className="wrc-card" style={{ marginBottom: "1.25rem" }}>
+          <div className="wrc-card-gold-stripe" />
+          <div className="wrc-card-header" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <Fingerprint size={15} /> Face ID Sign-In
+          </div>
+          <div style={{ padding: "1.25rem" }}>
+            <p style={{ fontSize: "0.85rem", color: "oklch(0.5 0.04 150)", margin: "0 0 1rem", lineHeight: 1.5 }}>
+              Use Face ID, Touch ID, or your device screen lock to sign in without entering your PIN. Your biometric information stays on your device.
+            </p>
+            {!passkeyAvailable ? (
+              <div style={{ borderRadius: 8, padding: "0.75rem 0.9rem", background: "oklch(0.96 0.02 85)", border: "1px solid oklch(0.86 0.06 85)", color: "oklch(0.42 0.1 85)", fontSize: "0.82rem", lineHeight: 1.45 }}>
+                Face ID setup is available from the public WRC site on a device with Face ID, Touch ID, Windows Hello, or another supported device lock.
+              </div>
+            ) : (
+              <>
+                {(passkeysQuery.data ?? []).length > 0 && (
+                  <div style={{ display: "grid", gap: "0.55rem", marginBottom: "1rem" }}>
+                    {(passkeysQuery.data ?? []).map(passkey => (
+                      <div key={passkey.credentialId} style={{ display: "flex", alignItems: "center", gap: "0.7rem", borderRadius: 8, border: "1px solid oklch(0.86 0.02 150)", padding: "0.65rem 0.75rem", background: "oklch(0.985 0.004 150)" }}>
+                        <Fingerprint size={17} color="oklch(0.35 0.12 150)" />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: "0.84rem", fontWeight: 700, color: "oklch(0.25 0.07 150)" }}>Face ID sign-in ready</div>
+                          <div style={{ fontSize: "0.72rem", color: "oklch(0.5 0.04 150)" }}>{passkey.lastUsedAt ? `Last used ${new Date(passkey.lastUsedAt).toLocaleDateString()}` : `Added ${new Date(passkey.createdAt).toLocaleDateString()}`}</div>
+                        </div>
+                        <button type="button" onClick={() => void handleRemovePasskey(passkey.credentialId)} disabled={removePasskeyMutation.isPending} style={{ border: "1px solid oklch(0.85 0.08 25)", background: "oklch(0.97 0.02 25)", color: "oklch(0.45 0.18 25)", borderRadius: 6, padding: "0.35rem 0.5rem", cursor: removePasskeyMutation.isPending ? "not-allowed" : "pointer", fontWeight: 700, fontSize: "0.72rem" }}>Remove</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <button type="button" onClick={() => void handlePasskeyEnrollment()} disabled={passkeyBusy} style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", border: "none", borderRadius: 8, padding: "0.6rem 1rem", background: "oklch(0.28 0.09 150)", color: "white", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", cursor: passkeyBusy ? "not-allowed" : "pointer", opacity: passkeyBusy ? 0.65 : 1 }}>
+                  <Fingerprint size={16} /> {passkeyBusy ? "Setting Up…" : (passkeysQuery.data ?? []).length ? "Add Another Device" : "Set Up Face ID"}
+                </button>
+              </>
+            )}
+            {passkeyError && <div style={{ marginTop: "0.8rem", color: "oklch(0.45 0.18 25)", fontSize: "0.82rem", fontWeight: 600 }}>{passkeyError}</div>}
+            {passkeySuccess && <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", marginTop: "0.8rem", color: "oklch(0.35 0.15 150)", fontSize: "0.82rem", fontWeight: 600 }}><CheckCircle2 size={15} /> {passkeySuccess}</div>}
           </div>
         </div>
 
