@@ -971,3 +971,15 @@
 - [x] Separate the reorder arrows from the remove action so the controls have distinct visual targets.
 - [x] Preserve accessible labels, mobile usability, and queue mutation behavior.
 - [x] Verify the revised action layout and publish the correction.
+
+# Published Draft Order Queue Control Mismatch
+
+- [x] Compare the public Draft Order bundle with the latest published queue-control version.
+- [x] Correct any deployment or stale-asset mismatch preventing the public site from showing separate Order and Remove columns.
+- [x] Verify the public site visibly shows the corrected queue controls.
+
+# Free Agents Mobile Header Alignment and Projection Order
+
+- [x] Correct the mobile Free Agents header and pinned-column alignment so all leading labels remain complete and readable.
+- [x] Move Proj directly before FPTS in the Free Agents position-stat order.
+- [x] Verify SFLEX table headers and row alignment at a true mobile viewport, then publish the correction.

@@ -263,8 +263,8 @@ export function getFreeAgentTableColumns(
       { label: "Bye", key: "bye" as SortKey },
       { label: "Opp", key: "opp" as SortKey },
       { label: "Game", key: "game" as SortKey },
-      ...columns.map((column) => ({ label: column.label, key: column.key as SortKey, column })),
       { label: "Proj", key: "proj" as SortKey },
+      ...columns.map((column) => ({ label: column.label, key: column.key as SortKey, column })),
     ].filter((column) => visible.has(column.key)),
   ];
 }
@@ -414,9 +414,9 @@ export default function FreeAgents() {
       visibleColumnSet.has("bye") && "44px",
       visibleColumnSet.has("opp") && "60px",
       visibleColumnSet.has("game") && "86px",
+      visibleColumnSet.has("proj") && "64px",
       ...displaySeasonColumns.filter((column) => column.key === "wrcPts" || column.key === "ptsPerGame").map(() => "64px"),
       ...detailColumns.map(() => "minmax(64px, auto)"),
-      visibleColumnSet.has("proj") && "64px",
     ].filter(Boolean).join(" "),
     [detailColumns, displaySeasonColumns, visibleColumnSet]
   );
@@ -793,10 +793,10 @@ export default function FreeAgents() {
                   <p style={{ fontSize: "0.8rem", color: "oklch(0.55 0.06 150)", marginTop: "0.25rem" }}>Try a different search or position filter</p>
                 </div>
               ) : (
-                <div ref={tableStatsScrollRef} onScroll={handleTableScroll} style={{ overflowX: "auto", overscrollBehaviorX: "contain", WebkitOverflowScrolling: "touch" }}>
+                <div ref={tableStatsScrollRef} onScroll={handleTableScroll} style={{ overflowX: "auto", overscrollBehaviorX: "contain", WebkitOverflowScrolling: "touch", scrollSnapType: "x mandatory", scrollPaddingLeft: 220 }}>
                   <div style={{ minWidth: statsTableMinWidth }}>
                     {/* Header row */}
-                    <div style={{ display: "grid", gridTemplateColumns: statsGridColumns, gap: "0.25rem", padding: "0.35rem 0.5rem", background: "oklch(0.96 0.02 150)", borderBottom: "1px solid oklch(0.9 0.04 150)", alignItems: "center" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: statsGridColumns, columnGap: 0, padding: "0.35rem 0.5rem", background: "oklch(0.96 0.02 150)", borderBottom: "1px solid oklch(0.9 0.04 150)", alignItems: "center" }}>
                       {tableHeaders.map((header, index) => {
                         const active = header.key === sortKey;
                         const column = "column" in header ? header.column as FreeAgentStatColumn | undefined : undefined;
@@ -814,7 +814,7 @@ export default function FreeAgents() {
                             type="button"
                             onClick={() => handleSort(header.key!)}
                             title={`Sort by ${header.label}`}
-                            style={{ display: "flex", alignItems: "center", justifyContent: alignment === "left" ? "flex-start" : "center", gap: "0.15rem", minHeight: 26, padding: "0.12rem", border: "none", background: active ? "oklch(0.90 0.06 85)" : isPlayerColumn ? "oklch(0.96 0.02 150)" : "transparent", borderRadius: 4, color: headerColor, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" as const, textAlign: alignment, whiteSpace: "nowrap" as const, cursor: "pointer", position: isPlayerColumn ? "sticky" : "relative", left: isPlayerColumn ? 0 : undefined, zIndex: isPlayerColumn ? 5 : 1, boxShadow: isPlayerColumn ? "7px 0 9px -9px rgb(0 0 0 / 0.72)" : "none" }}
+                            style={{ display: "flex", alignItems: "center", justifyContent: alignment === "left" ? "flex-start" : "center", gap: "0.15rem", minHeight: 26, padding: "0.12rem", border: "none", background: active ? "oklch(0.90 0.06 85)" : isPlayerColumn ? "oklch(0.96 0.02 150)" : "transparent", borderRadius: 4, color: headerColor, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" as const, textAlign: alignment, whiteSpace: "nowrap" as const, cursor: "pointer", position: isPlayerColumn ? "sticky" : "relative", left: isPlayerColumn ? 0 : undefined, zIndex: isPlayerColumn ? 5 : 1, width: isPlayerColumn ? "calc(100% + 10px)" : undefined, scrollSnapAlign: isPlayerColumn ? "none" : "start", scrollSnapStop: isPlayerColumn ? "normal" : "always", boxShadow: isPlayerColumn ? "9px 0 11px -8px rgb(0 0 0 / 0.42)" : "none" }}
                           >
                             {header.label}
                             {active ? (sortDirection === "asc" ? <ArrowUp size={11} strokeWidth={3} /> : <ArrowDown size={11} strokeWidth={3} />) : <ArrowUpDown size={10} opacity={0.45} />}
@@ -835,12 +835,12 @@ export default function FreeAgents() {
                         key={player.id}
                         onMouseEnter={e => (e.currentTarget.style.background = isOwned ? "oklch(0.96 0.03 240)" : "oklch(0.97 0.02 150)")}
                         onMouseLeave={e => (e.currentTarget.style.background = isOwned ? "oklch(0.97 0.02 240)" : "white")}
-                        style={{ display: "grid", gridTemplateColumns: statsGridColumns, gap: "0.25rem", padding: "0.45rem 0.5rem", alignItems: "center", borderBottom: "1px solid oklch(0.94 0.02 150)", transition: "background 0.15s", background: isOwned ? "oklch(0.97 0.02 240)" : "white" }}
+                        style={{ display: "grid", gridTemplateColumns: statsGridColumns, columnGap: 0, padding: "0.45rem 0.5rem", alignItems: "center", borderBottom: "1px solid oklch(0.94 0.02 150)", transition: "background 0.15s", background: isOwned ? "oklch(0.97 0.02 240)" : "white" }}
                       >
                         {/* Player info */}
                         <Link
                           href={`/player/${encodeURIComponent(player.name)}`}
-                          style={{ display: "flex", alignItems: "center", gap: "0.3rem", textDecoration: "none", minWidth: 0, overflow: "hidden", position: "sticky", left: 0, zIndex: 3, background: isOwned ? "oklch(0.97 0.02 240)" : "white", boxShadow: "7px 0 9px -9px rgb(0 0 0 / 0.72)" }}
+                          style={{ display: "flex", alignItems: "center", gap: "0.3rem", textDecoration: "none", minWidth: 0, width: "calc(100% + 10px)", overflow: "hidden", position: "sticky", left: 0, zIndex: 3, background: isOwned ? "oklch(0.97 0.02 240)" : "white", boxShadow: "9px 0 11px -8px rgb(0 0 0 / 0.42)" }}
                         >
                           <img
                             src={getTeamLogoUrl(player.nflTeam)}
@@ -905,6 +905,12 @@ export default function FreeAgents() {
                         {visibleColumnSet.has("opp") && <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: 700, color: "oklch(0.42 0.06 150)", textAlign: "center" as const, whiteSpace: "nowrap" as const }}>{matchup ? `${matchup.isHome ? "vs" : "@"} ${matchup.opponent}` : "BYE"}</span>}
                         {visibleColumnSet.has("game") && <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem", color: "oklch(0.5 0.06 150)", textAlign: "center" as const, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>{matchup ? formatGameTime(matchup).replace(" ET", "") : "—"}</span>}
 
+                        {visibleColumnSet.has("proj") && (
+                          <div style={{ textAlign: "center" as const }}>
+                            {projectionsLoading ? <span className="skeleton-shimmer" style={{ display: "inline-block", width: 36, height: 16, borderRadius: 4 }} /> : <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.95rem", color: proj > 0 ? "oklch(0.38 0.14 150)" : "oklch(0.65 0.06 150)" }}>{proj > 0 ? proj.toFixed(1) : "—"}</span>}
+                          </div>
+                        )}
+
                         {displaySeasonColumns.filter((column) => column.key === "wrcPts" || column.key === "ptsPerGame").map((column) => (
                           <span key={`fantasy-${column.key}`} style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.84rem", color: "oklch(0.48 0.15 85)", textAlign: "center" as const, whiteSpace: "nowrap" as const }}>
                             {seasonStats ? formatKickerFantasyStat(player, seasonStats, column) : seasonStatsLoading ? "…" : "—"}
@@ -918,11 +924,6 @@ export default function FreeAgents() {
                           </span>
                         ))}
 
-                        {visibleColumnSet.has("proj") && (
-                          <div style={{ textAlign: "center" as const }}>
-                            {projectionsLoading ? <span className="skeleton-shimmer" style={{ display: "inline-block", width: 36, height: 16, borderRadius: 4 }} /> : <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.95rem", color: proj > 0 ? "oklch(0.38 0.14 150)" : "oklch(0.65 0.06 150)" }}>{proj > 0 ? proj.toFixed(1) : "—"}</span>}
-                          </div>
-                        )}
                       </div>
                     );
                     })}
