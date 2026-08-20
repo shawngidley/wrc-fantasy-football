@@ -37,7 +37,7 @@ describe("LineupRosterTable D/ST candidate rows", () => {
     });
   });
 
-  it("places Projection and each profile's primary stat block before FPTS", () => {
+  it("keeps Proj, FPTS, and FP/G together beneath one Fantasy header before each profile's stat block", () => {
     const shared = {
       title: "Column-order validation", metaMap: {}, matchupMap: {} as never, injuries: [], selectedId: null,
       isReadOnly: true, onSelect: () => undefined, onPlayerClick: () => undefined,
@@ -53,13 +53,18 @@ describe("LineupRosterTable D/ST candidate rows", () => {
       const html = renderToStaticMarkup(createElement(LineupRosterTable, {
         ...shared, profile, players: [player], statMap: { [player.name.toLowerCase()]: normalizeTankSeasonStats({ gamesPlayed: "17" } as never, player.pos) },
       }));
-      const projectionHeader = html.indexOf(">PROJ</th>");
-      const statHeader = html.indexOf(`>${statLabel}</th>`);
-      const fantasyHeader = html.indexOf(">FPTS</th>");
+      const headerMarkup = html.match(/<thead>(.*?)<\/thead>/s)?.[1] ?? "";
+      const projectionHeader = headerMarkup.indexOf(">PROJ</th>");
+      const statHeader = headerMarkup.indexOf(`>${statLabel}</th>`);
+      const fantasyHeader = headerMarkup.indexOf(">FPTS</th>");
+      const pointsPerGameHeader = headerMarkup.indexOf(">FP/G</th>");
 
       expect(projectionHeader).toBeGreaterThan(-1);
-      expect(statHeader).toBeGreaterThan(projectionHeader);
-      expect(fantasyHeader).toBeGreaterThan(statHeader);
+      expect(fantasyHeader).toBeGreaterThan(projectionHeader);
+      expect(pointsPerGameHeader).toBeGreaterThan(fantasyHeader);
+      expect(statHeader).toBeGreaterThan(pointsPerGameHeader);
+      expect(headerMarkup).not.toContain(">PROJECTION</th>");
+      expect(headerMarkup.match(/>FANTASY<\/th>/g)).toHaveLength(1);
     });
   });
 

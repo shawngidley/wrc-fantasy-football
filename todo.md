@@ -989,3 +989,15 @@
 - [x] Move Proj and all position-specific stat columns immediately before FPTS in Lineup panels.
 - [x] Keep SFLEX, K, and D/ST headers, player rows, and inline candidate rows aligned after the reorder.
 - [x] Add regression coverage and verify the responsive Lineup layout before publication.
+
+# Published Lineup Column-Order Mismatch
+
+- [ ] Compare the public Lineup bundle with the latest published column sequence.
+- [ ] Correct any deployment or stale-asset mismatch preventing the public Lineup page from showing Proj and stats before FPTS.
+- [ ] Verify the public Lineup page visibly shows the corrected order.
+
+# Unified Lineup Fantasy Header
+
+- [x] Remove the standalone Projection group header from Lineup panels.
+- [x] Place FPTS and FP/G immediately to the right of Proj.
+- [x] Span Proj, FPTS, and FP/G with one Fantasy header and verify all table rows remain aligned.
