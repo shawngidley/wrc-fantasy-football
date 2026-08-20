@@ -37,6 +37,32 @@ describe("LineupRosterTable D/ST candidate rows", () => {
     });
   });
 
+  it("places Projection and each profile's primary stat block before FPTS", () => {
+    const shared = {
+      title: "Column-order validation", metaMap: {}, matchupMap: {} as never, injuries: [], selectedId: null,
+      isReadOnly: true, onSelect: () => undefined, onPlayerClick: () => undefined,
+      getInlineChoices: () => [], onInlineSwap: () => undefined,
+    };
+    const profiles = [
+      { profile: "SFLEX" as const, player: { id: "sf", name: "Test Quarterback", nflTeam: "TB", pos: "QB", pts: 0, proj: 0, status: "Active", slot: "QB", byeWeek: 9 }, statLabel: "YDS" },
+      { profile: "K" as const, player: { id: "k", name: "Test Kicker", nflTeam: "TB", pos: "K", pts: 0, proj: 0, status: "Active", slot: "K", byeWeek: 9 }, statLabel: "FGM" },
+      { profile: "DST" as const, player: starter, statLabel: "SK" },
+    ];
+
+    profiles.forEach(({ profile, player, statLabel }) => {
+      const html = renderToStaticMarkup(createElement(LineupRosterTable, {
+        ...shared, profile, players: [player], statMap: { [player.name.toLowerCase()]: normalizeTankSeasonStats({ gamesPlayed: "17" } as never, player.pos) },
+      }));
+      const projectionHeader = html.indexOf(">PROJ</th>");
+      const statHeader = html.indexOf(`>${statLabel}</th>`);
+      const fantasyHeader = html.indexOf(">FPTS</th>");
+
+      expect(projectionHeader).toBeGreaterThan(-1);
+      expect(statHeader).toBeGreaterThan(projectionHeader);
+      expect(fantasyHeader).toBeGreaterThan(statHeader);
+    });
+  });
+
   it("uses the requested SK, SFT, TA, and TDDST mapping in both standard and expanded candidate rows", () => {
     const html = renderToStaticMarkup(createElement(LineupRosterTable, {
       title: "D/ST · 2 players",

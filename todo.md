@@ -983,3 +983,9 @@
 - [x] Correct the mobile Free Agents header and pinned-column alignment so all leading labels remain complete and readable.
 - [x] Move Proj directly before FPTS in the Free Agents position-stat order.
 - [x] Verify SFLEX table headers and row alignment at a true mobile viewport, then publish the correction.
+
+# Lineup Projection and Stat Column Reorder
+
+- [x] Move Proj and all position-specific stat columns immediately before FPTS in Lineup panels.
+- [x] Keep SFLEX, K, and D/ST headers, player rows, and inline candidate rows aligned after the reorder.
+- [x] Add regression coverage and verify the responsive Lineup layout before publication.
