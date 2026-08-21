@@ -29,7 +29,14 @@ interface UseNFLProjectionsResult {
   error: string | null;
 }
 
-const CACHE_PREFIX = "wrc_nfl_proj_";
+const CACHE_PREFIX = "wrc_nfl_proj_v2_";
+const PROJECTION_NAME_ALIASES: Record<string, string> = {
+  "kenneth gainwell": "kenny gainwell",
+};
+
+function normalizeProjectionName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
 
 // ── NFL team abbreviation normalizer (handles KAN→KC, TAM→TB, ARZ→ARI, JAX→JAC) ──
 function normalizeAbv(abv: string): string {
@@ -138,7 +145,9 @@ export function useNFLProjections(week: number, season = 2026): UseNFLProjection
           const team = (p.team     as string) ?? "";
           if (!name) continue;
           const proj = calcWRCProj(p, pos);
-          map[name.toLowerCase()] = { proj, pos, team, longName: name };
+          const entry = { proj, pos, team, longName: name };
+          map[name.toLowerCase()] = entry;
+          map[normalizeProjectionName(name)] = entry;
         }
 
         // ── DST projections — keyed by teamAbv (e.g. "BUF") ───────────────
@@ -185,6 +194,8 @@ export function getProjectedPoints(
     const entry = projections[`dst:${normAbv}`];
     return entry?.proj ?? 0;
   }
-  const entry = projections[playerName.toLowerCase()];
+  const rawName = playerName.toLowerCase();
+  const canonicalName = PROJECTION_NAME_ALIASES[rawName] ?? rawName;
+  const entry = projections[rawName] ?? projections[canonicalName] ?? projections[normalizeProjectionName(canonicalName)];
   return entry?.proj ?? 0;
 }

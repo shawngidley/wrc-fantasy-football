@@ -1143,6 +1143,12 @@
 - [ ] Map the Lineup row to the exact completed-season record rather than a zero-point fallback.
 - [ ] Verify the published Lineup row shows Gainwell’s FPTS and FP/G values.
 
+# Canonical Lineup Projection Matching
+
+- [ ] Trace missing FantasyPros projection matches for Kenneth Gainwell and D.J. Moore.
+- [ ] Add canonical player-name aliases or identifiers to projection matching where required.
+- [ ] Verify Bill's Lineup shows projected stats for both players, then publish.
+
 # Published State-Lottery Ball Mismatch
 
 - [ ] Compare the public Draft Lottery bundle with the latest state-lottery ball release.
