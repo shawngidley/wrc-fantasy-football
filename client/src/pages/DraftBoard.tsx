@@ -17,6 +17,7 @@ import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Play, Pause, SkipForward, Search, Music, ArrowLeftRight, RotateCcw, Wifi, WifiOff, ChevronUp, ChevronDown, ListOrdered, Plus, Check } from "lucide-react";
 import { DRAFT_PICKS_2026, getTradedPicks } from "@/lib/draftData2026";
+import { applyDraftLottery, isValidDraftLotteryResult } from "@shared/draftLottery";
 import { OWNER_TO_TEAM } from "@/lib/scheduleData2026";
 import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026, getAvailableDraftUniversePlayers, getDraftUniversePlayerByName, type DraftUniversePlayer } from "@shared/draftPlayerUniverse";
 import { supabase } from "@/lib/supabase";
@@ -124,9 +125,9 @@ interface DbDraftPick {
 
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-function getOwnerForSlot(round: number, pickIdx: number): string {
+function getOwnerForSlot(round: number, pickIdx: number, picks = DRAFT_PICKS_2026): string {
   // Find the pick in DRAFT_PICKS_2026 that matches round + pickInRound
-  const match = DRAFT_PICKS_2026.find(p => p.round === round && p.pickInRound === pickIdx + 1);
+  const match = picks.find(p => p.round === round && p.pickInRound === pickIdx + 1);
   return match?.owner ?? ROUND1_ORDER[pickIdx] ?? "?";
 }
 
@@ -215,6 +216,9 @@ export default function DraftBoard() {
   const [revealedPickIds, setRevealedPickIds] = useState<Set<number>>(new Set());
   const draftActionMutation = trpc.league.commissionerDraftAction.useMutation();
   const makeDraftPickMutation = trpc.league.makeDraftPick.useMutation();
+  const lotteryQuery = trpc.league.draftLottery.useQuery(undefined, { refetchInterval: 5000 });
+  const resolvedDraftOrder = useMemo(() => applyDraftLottery(DRAFT_PICKS_2026, isValidDraftLotteryResult(lotteryQuery.data?.resultOwners) ? lotteryQuery.data.resultOwners : null), [lotteryQuery.data?.resultOwners]);
+  const resolvedRound1Order = useMemo(() => resolvedDraftOrder.filter(pick => pick.round === 1).map(pick => pick.owner), [resolvedDraftOrder]);
 
   // Draft queue hook
   const franchiseId = franchise?.id ?? null;
@@ -301,7 +305,7 @@ export default function DraftBoard() {
   }, [dbPicks, revealedPickIds]);
 
   // Current owner on the clock
-  const currentOwner = getOwnerForSlot(curRound, curPick);
+  const currentOwner = getOwnerForSlot(curRound, curPick, resolvedDraftOrder);
   const currentTeamName = getTeamForOwner(currentOwner);
   const isMyTurn = franchise?.team_name === currentTeamName || franchise?.owner === currentOwner;
 
@@ -1047,7 +1051,7 @@ export default function DraftBoard() {
             {/* Column headers — owner names */}
             <div style={{ display: "grid", gridTemplateColumns: `60px repeat(${TOTAL_TEAMS}, 1fr)`, gap: 2, marginBottom: 2 }}>
               <div style={{ background: "rgba(0,0,0,0.5)", padding: "0.4rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", color: "rgba(255,255,255,0.5)", textAlign: "center" }}>RD</div>
-              {ROUND1_ORDER.map((owner, i) => (
+              {resolvedRound1Order.map((owner, i) => (
                 <div key={i} style={{ background: OWNER_COLORS[owner] ?? "oklch(0.22 0.08 150)", padding: "0.4rem 0.25rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.62rem", fontWeight: 700, color: "white", textAlign: "center", letterSpacing: "0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderRadius: "3px 3px 0 0" }}>
                   {owner}
                 </div>
@@ -1058,7 +1062,7 @@ export default function DraftBoard() {
             {Array.from({ length: TOTAL_ROUNDS }, (_, r) => {
               const round = r + 1;
               // For even rounds, column order reverses (snake)
-              const colOwners = round % 2 === 1 ? ROUND1_ORDER : [...ROUND1_ORDER].reverse();
+              const colOwners = round % 2 === 1 ? resolvedRound1Order : [...resolvedRound1Order].reverse();
               return (
                 <div key={r} style={{ display: "grid", gridTemplateColumns: `60px repeat(${TOTAL_TEAMS}, 1fr)`, gap: 2, marginBottom: 2 }}>
                   <div style={{ background: "rgba(0,0,0,0.4)", padding: "0.4rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, color: "rgba(255,255,255,0.7)", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1068,7 +1072,7 @@ export default function DraftBoard() {
                   {colOwners.map((colOwner, p) => {
                     // Find the actual pick for this cell using DRAFT_PICKS_2026 order
                     const pickInRound = p + 1;
-                    const draftOrderPick = DRAFT_PICKS_2026.find(dp => dp.round === round && dp.pickInRound === pickInRound);
+                    const draftOrderPick = resolvedDraftOrder.find(dp => dp.round === round && dp.pickInRound === pickInRound);
                     const cellOwner = draftOrderPick?.owner ?? colOwner;
                     const cellKey = `${round}-${p}`;
                     const dbPick = picksMap[cellKey];
