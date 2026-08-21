@@ -205,6 +205,10 @@ export function getProjectedPoints(
   }
   const rawName = playerName.toLowerCase();
   const canonicalName = PROJECTION_NAME_ALIASES[rawName] ?? rawName;
-  const entry = projections[rawName] ?? projections[canonicalName] ?? projections[normalizeProjectionName(canonicalName)];
+  const normalizedName = normalizeProjectionName(canonicalName);
+  const entry = projections[rawName]
+    ?? projections[canonicalName]
+    ?? projections[normalizedName]
+    ?? Object.entries(projections).find(([key]) => normalizeProjectionName(key) === normalizedName)?.[1];
   return entry?.proj ?? 0;
 }

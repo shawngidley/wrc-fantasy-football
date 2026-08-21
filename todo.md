@@ -1161,6 +1161,18 @@
 - [ ] Identify name, punctuation, and canonical-identity mismatches separate from genuinely unavailable provider projections.
 - [ ] Apply systemic aliases or matching normalization, validate all rostered rows, and report findings to the commissioner.
 
+# Bidirectional Player Suffix Projection Matching
+
+- [ ] Match rostered names with Jr., Sr., and Roman-numeral suffixes to provider records that omit the suffix.
+- [ ] Verify Chris Godwin Jr. and other suffix-bearing rostered players resolve current-week projections.
+- [ ] Publish the suffix matching repair and report the outcome.
+
+# Systematic Suffix-Bearing Lineup Projection Gap
+
+- [ ] Compare all suffix-bearing roster names against the actual loaded client projection map.
+- [ ] Correct the shared Lineup projection resolution path for suffix-bearing player rows.
+- [ ] Verify every affected suffix-bearing roster row and report the completed audit.
+
 # Published State-Lottery Ball Mismatch
 
 - [ ] Compare the public Draft Lottery bundle with the latest state-lottery ball release.
