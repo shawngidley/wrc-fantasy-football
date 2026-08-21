@@ -1101,6 +1101,12 @@
 - [ ] Apply the full Round 1 and linked Round 2 order only after the final 1.01 reveal completes.
 - [ ] Keep server draft-turn validation aligned with the publicly applied order, then verify and publish.
 
+# Lineup Player Headshot and Age Completion
+
+- [x] Resolve missing Lineup player headshots through complete player metadata and image fallbacks.
+- [x] Resolve missing Lineup ages through the authoritative player metadata path.
+- [x] Verify all SFLEX, K, and D/ST Lineup rows retain correct identity fallbacks, then publish.
+
 # Published State-Lottery Ball Mismatch
 
 - [ ] Compare the public Draft Lottery bundle with the latest state-lottery ball release.

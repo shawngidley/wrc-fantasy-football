@@ -11,6 +11,8 @@ import { getCompletedKickerSeasonStats } from "@/lib/kickerSeasonStats2025";
 import { getCompletedOffenseSeasonStats2025, normalizeCompletedOffenseSeasonStats } from "@/lib/completedOffenseSeasonStats2025";
 import { normalizeCompletedDstSeasonStats, normalizeCompletedKickerSeasonStats, normalizeTankSeasonStats, type PlayerSeasonStats } from "@/lib/playerSeasonStats";
 import { readSeasonStatsCache, writeSeasonStatsCache, type SeasonStatsCacheEntry } from "@/lib/seasonStatsCache";
+import { getDraftUniversePlayerByName } from "@shared/draftPlayerUniverse";
+import { getEspnHeadshotUrl } from "@/lib/playerHeadshot";
 
 export interface SeasonStatsPlayerInput {
   name: string;
@@ -68,7 +70,8 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
         next[player.name.toLowerCase()] = cached.stats;
         nextMeta[player.name.toLowerCase()] = { age: cached.age, headshot: cached.headshot };
       }
-      return !cached || ignoreCachedOffense;
+      const needsIdentityRefresh = allowProviderFallback && player.pos !== "DST" && (!cached?.age || !cached?.headshot);
+      return !cached || ignoreCachedOffense || needsIdentityRefresh;
     });
 
     setStatMap(next);
@@ -135,13 +138,19 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
         const tankPlayer = await fetchPlayerByName(player.name);
         if (cancelled) return;
         const exactKickerSeason = player.pos === "K" ? getCompletedKickerSeasonStats(player.name) : undefined;
-        const stats = exactKickerSeason
-          ? next[player.name.toLowerCase()] ?? normalizeCompletedKickerSeasonStats(exactKickerSeason)
-          : normalizeTankSeasonStats(tankPlayer?.stats, player.pos);
-        const meta = { age: tankPlayer?.age, headshot: tankPlayer?.espnHeadshot };
+        const key = player.name.toLowerCase();
+        const stats = next[key]
+          ?? (exactKickerSeason
+            ? normalizeCompletedKickerSeasonStats(exactKickerSeason)
+            : normalizeTankSeasonStats(tankPlayer?.stats, player.pos));
+        const universePlayer = getDraftUniversePlayerByName(player.name);
+        const meta = {
+          age: tankPlayer?.age,
+          headshot: tankPlayer?.espnHeadshot ?? getEspnHeadshotUrl(universePlayer?.sourcePlayerId) ?? undefined,
+        };
         cacheSet(player.name, { stats, ...meta });
-        next[player.name.toLowerCase()] = stats;
-        nextMeta[player.name.toLowerCase()] = meta;
+        next[key] = stats;
+        nextMeta[key] = meta;
         setStatMap({ ...next });
         setPlayerMetaMap({ ...nextMeta });
         setLoadedCount(Object.keys(next).length);
@@ -152,7 +161,7 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
       await Promise.all([loadDstStats(), loadExactKickerStats()]);
       const completedNames = await loadCompletedOffenseStats();
       const unresolved = allowProviderFallback
-        ? individualPlayers.filter(player => !completedNames.has(player.name))
+        ? individualPlayers
         : [];
       individualPlayers.splice(0, individualPlayers.length, ...unresolved);
       await Promise.all(Array.from({ length: Math.min(CONCURRENCY, individualPlayers.length) }, () => worker()));
