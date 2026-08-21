@@ -25,6 +25,7 @@ import { storagePut } from "./storage";
 import { finalizeWeeklyResultsFromTank } from "./weeklyResultsFinalize";
 import { assertLoginAllowed, assertStrongLeaguePin, clearLoginFailures, getClientIp, recordLoginFailure } from "./leagueLoginSecurity";
 import { nanoid } from "nanoid";
+import { randomInt } from "node:crypto";
 import {
   PASSKEY_CHALLENGE_TTL_MS,
   createPasskeyAuthenticationOptions,
@@ -148,7 +149,11 @@ export const appRouter = router({
       if (lotteryError || !lottery || draftError || !draftState) throw new Error("Unable to start the draft lottery.");
       if (draftState.started) throw new Error("The lottery cannot run after the draft has started.");
       if (lottery.status === "drawn") throw new Error("The draft lottery has already been finalized.");
-      const result = [...DRAFT_LOTTERY_OWNERS].sort(() => crypto.getRandomValues(new Uint32Array(1))[0] - 0x80000000);
+      const result = [...DRAFT_LOTTERY_OWNERS];
+      for (let index = result.length - 1; index > 0; index -= 1) {
+        const swapIndex = randomInt(index + 1);
+        [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+      }
       if (!isValidDraftLotteryResult(result)) throw new Error("Unable to create a valid lottery result.");
       const { data, error } = await supabaseAdmin.from("draft_lottery").update({ status: "drawn", result_owners: result, drawn_by_team_id: ctx.teamSession.teamId, drawn_at: new Date().toISOString() }).eq("id", 1).eq("status", "pending").select("status, eligible_owners, result_owners, drawn_at").single();
       if (error || !data) throw new Error("The lottery was already run or could not be saved.");
