@@ -1036,20 +1036,49 @@
 
 # Draft Lottery Assessment
 
-- [ ] Review draft slots one through six and the linked second-round pick structure without altering established later rounds.
-- [ ] Define a commissioner-run, auditable lottery with synchronized owner-visible results.
-- [ ] Present a Draft Lottery page and Draft navigation recommendation for approval before implementation.
+- [x] Review draft slots one through six and the linked second-round pick structure without altering established later rounds.
+- [x] Define a commissioner-run, auditable lottery with synchronized owner-visible results.
+- [x] Present a Draft Lottery page and Draft navigation recommendation for approval before implementation.
 
 # Confirmed Equal-Odds Draft Lottery Rules
 
-- [ ] Use equal one-in-six odds for Greg, Shawn, Bill, David R., Jason, and Scott N.
-- [ ] Assign each lottery result to linked Round 1 and inverse Round 2 snake positions while preserving all other picks.
-- [ ] Await explicit approval before implementing the Draft Lottery page and permanent order update.
+- [x] Use equal one-in-six odds for Greg, Shawn, Bill, David R., Jason, and Scott N.
+- [x] Assign each lottery result to linked Round 1 and inverse Round 2 snake positions while preserving all other picks.
+- [x] Obtain explicit approval before implementing the Draft Lottery page and permanent order update.
 
 # Approved Draft Lottery Build
 
-- [ ] Create protected, auditable lottery state and a server-side equal-odds draw for the six eligible owners.
-- [ ] Apply the locked result to Round 1 picks 1–6 and linked Round 2 picks 7–12, preserving every other pick.
-- [ ] Add a commissioner-controlled Draft Lottery page with synchronized owner-visible reveal and final order.
-- [ ] Add Draft Lottery navigation for desktop and mobile, then connect the resolved order to draft validation, board, and recap.
-- [ ] Add regression coverage, validate the responsive experience, and publish.
+- [x] Create protected, auditable lottery state and a server-side equal-odds draw for the six eligible owners.
+- [x] Apply the locked result to Round 1 picks 1–6 and linked Round 2 picks 7–12, preserving every other pick.
+- [x] Add a commissioner-controlled Draft Lottery page with synchronized owner-visible reveal and final order.
+- [x] Add Draft Lottery navigation for desktop and mobile, then connect the resolved order to draft validation and board.
+- [x] Add regression coverage, validate the responsive experience, and publish.
+
+# Published Draft Lottery Visibility
+
+- [x] Confirm the public Draft Lottery route and navigation entry are visible on the live site.
+- [x] Correct any hidden or stale Draft Lottery access point and verify it on the public domain.
+
+# Draft Lottery Suspense Reveal Assessment
+
+- [x] Explain the current locked equal-odds draw and result display behavior.
+- [x] Recommend a sequential, owner-visible lottery reveal order and suspense graphics before implementation.
+
+# Draft Lottery 45-Second Sequential Reveal
+
+- [x] Hold each sixth-through-first lottery placement on screen for 45 seconds before advancing.
+- [x] Synchronize reveal state and countdown so all owners see the same current placement and time remaining.
+- [x] Obtain approval before implementing the live reveal experience.
+
+# Visible Draft Lottery Bin Effect
+
+- [x] Show all six eligible team names circulating inside a visible lottery-bin animation before each selection.
+- [x] Animate the selected team card out of the bin and into the current reveal while remaining teams continue circulating.
+- [x] Preserve reduced-motion and accessible text alternatives for the visual lottery effect.
+
+# Approved Animated Draft Lottery Reveal
+
+- [x] Persist a commissioner-started 45-second reveal event with a locked sixth-through-first result sequence.
+- [x] Synchronize the current reveal step and countdown for every owner viewing the Draft Lottery page.
+- [x] Build the responsive animated lottery bin, selected-team exit, and result rail.
+- [x] Add regression coverage, validate the completed event and reduced-motion state, then publish.

@@ -59,6 +59,13 @@ function configureDraftDatabase() {
         })),
       };
     }
+    if (table === "draft_lottery") {
+      return {
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({ maybeSingle: vi.fn().mockResolvedValue({ data: { result_owners: null }, error: null }) })),
+        })),
+      };
+    }
     if (table === "players") {
       return {
         select: vi.fn(() => ({

@@ -137,9 +137,9 @@ export const appRouter = router({
   league: router({
     teams: publicProcedure.query(() => listPublicLeagueTeams()),
     draftLottery: publicProcedure.query(async () => {
-      const { data, error } = await supabaseAdmin.from("draft_lottery").select("status, eligible_owners, result_owners, drawn_at").eq("id", 1).single();
+      const { data, error } = await supabaseAdmin.from("draft_lottery").select("status, eligible_owners, result_owners, drawn_at, reveal_status, reveal_started_at").eq("id", 1).single();
       if (error || !data) throw new Error("Unable to load the draft lottery.");
-      return { status: data.status as "pending" | "drawn", eligibleOwners: data.eligible_owners as string[], resultOwners: data.result_owners as string[] | null, drawnAt: data.drawn_at as string | null };
+      return { status: data.status as "pending" | "drawn", eligibleOwners: data.eligible_owners as string[], resultOwners: data.result_owners as string[] | null, drawnAt: data.drawn_at as string | null, revealStatus: data.reveal_status as "pending" | "running", revealStartedAt: data.reveal_started_at as string | null };
     }),
     commissionerRunDraftLottery: commissionerProcedure.mutation(async ({ ctx }) => {
       const [{ data: lottery, error: lotteryError }, { data: draftState, error: draftError }] = await Promise.all([
@@ -155,9 +155,14 @@ export const appRouter = router({
         [result[index], result[swapIndex]] = [result[swapIndex], result[index]];
       }
       if (!isValidDraftLotteryResult(result)) throw new Error("Unable to create a valid lottery result.");
-      const { data, error } = await supabaseAdmin.from("draft_lottery").update({ status: "drawn", result_owners: result, drawn_by_team_id: ctx.teamSession.teamId, drawn_at: new Date().toISOString() }).eq("id", 1).eq("status", "pending").select("status, eligible_owners, result_owners, drawn_at").single();
+      const { data, error } = await supabaseAdmin.from("draft_lottery").update({ status: "drawn", result_owners: result, drawn_by_team_id: ctx.teamSession.teamId, drawn_at: new Date().toISOString(), reveal_status: "pending", reveal_started_at: null }).eq("id", 1).eq("status", "pending").select("status, eligible_owners, result_owners, drawn_at, reveal_status, reveal_started_at").single();
       if (error || !data) throw new Error("The lottery was already run or could not be saved.");
-      return { status: data.status as "drawn", eligibleOwners: data.eligible_owners as string[], resultOwners: data.result_owners as string[], drawnAt: data.drawn_at as string };
+      return { status: data.status as "drawn", eligibleOwners: data.eligible_owners as string[], resultOwners: data.result_owners as string[], drawnAt: data.drawn_at as string, revealStatus: data.reveal_status as "pending", revealStartedAt: null };
+    }),
+    commissionerStartDraftLotteryReveal: commissionerProcedure.mutation(async () => {
+      const { data, error } = await supabaseAdmin.from("draft_lottery").update({ reveal_status: "running", reveal_started_at: new Date().toISOString() }).eq("id", 1).eq("status", "drawn").eq("reveal_status", "pending").select("reveal_status, reveal_started_at").single();
+      if (error || !data) throw new Error("The lottery must be drawn once before the live reveal can start.");
+      return { revealStatus: data.reveal_status as "running", revealStartedAt: data.reveal_started_at as string };
     }),
     login: publicProcedure
       .input(z.object({ teamId: z.string().min(1), pin: z.string().min(1).max(12) }))
