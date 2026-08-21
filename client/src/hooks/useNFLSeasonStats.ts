@@ -21,6 +21,9 @@ export interface SeasonStatsPlayerInput {
 }
 
 const CONCURRENCY = 4;
+const COMPLETED_SEASON_ALIASES: Record<string, string> = {
+  "Kenneth Gainwell": "Kenny Gainwell",
+};
 
 function getAgeFromBirthDate(birthDate: string): string | undefined {
   const birth = new Date(birthDate);
@@ -126,9 +129,15 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
         const completedSeason = getCompletedKickerSeasonStats(player.name);
         if (!completedSeason) continue;
         const stats = normalizeCompletedKickerSeasonStats(completedSeason);
-        cacheSet(player.name, { stats });
+        const tankPlayer = await fetchPlayerByName(player.name);
+        const universePlayer = getDraftUniversePlayerByName(player.name);
+        const age = tankPlayer?.age || await fetchEspnAge(universePlayer?.sourcePlayerId ?? undefined);
+        const headshot = tankPlayer?.espnHeadshot ?? getEspnHeadshotUrl(universePlayer?.sourcePlayerId) ?? undefined;
+        cacheSet(player.name, { stats, age, headshot });
         next[player.name.toLowerCase()] = stats;
+        nextMeta[player.name.toLowerCase()] = { age, headshot };
         setStatMap({ ...next });
+        setPlayerMetaMap({ ...nextMeta });
         setLoadedCount(Object.keys(next).length);
       }
     }
@@ -137,7 +146,7 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
       const completed = await getCompletedOffenseSeasonStats2025();
       const completedNames = new Set<string>();
       for (const player of offensePlayers) {
-        const line = completed[player.name];
+        const line = completed[player.name] ?? completed[COMPLETED_SEASON_ALIASES[player.name] ?? player.name];
         if (!line || !["QB", "RB", "WR", "TE"].includes(player.pos)) continue;
         const stats = normalizeCompletedOffenseSeasonStats(line);
         cacheSet(player.name, { stats });

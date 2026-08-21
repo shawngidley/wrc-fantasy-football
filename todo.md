@@ -1131,6 +1131,12 @@
 - [ ] Preserve the Player Page’s existing stat and scoring presentation while using the canonical fallback.
 - [ ] Verify Gainwell’s profile stats and publish the repair.
 
+# Kenneth Gainwell Lineup Stat Alias
+
+- [ ] Map Kenneth Gainwell’s Lineup row to the canonical completed-season stat identity.
+- [ ] Preserve completed-season scoring and player metadata while resolving the stat alias.
+- [ ] Verify Gainwell’s Lineup FPTS and FP/G values, then publish.
+
 # Published State-Lottery Ball Mismatch
 
 - [ ] Compare the public Draft Lottery bundle with the latest state-lottery ball release.
