@@ -26,6 +26,8 @@ import { getNflTeamLogoUrl } from "@/lib/nflTeamLogo";
 import { fetchTeamSchedule } from "@/hooks/useNFLTeamSchedule";
 import { NFL_PLAYERS_2026 } from "@/lib/nflPlayers2026";
 import { supabase } from "@/lib/supabase";
+import { getDraftUniversePlayerByName } from "@shared/draftPlayerUniverse";
+import { getEspnHeadshotUrl } from "@/lib/playerHeadshot";
 
 const STARTER_SLOTS = [
   { slot: "QB",    label: "Quarterback",   eligible: ["QB"] },
@@ -333,7 +335,8 @@ export function mobileLineupName(player: Pick<Player, "name" | "pos">): string {
 function LineupIdentity({ player, meta }: { player: Player; meta?: { age?: string; headshot?: string } }) {
   const [imageFailed, setImageFailed] = useState(false);
   const initials = player.name.split(" ").map(part => part[0]).slice(0, 2).join("");
-  const identityImage = player.pos === "DST" ? getNflTeamLogoUrl(player.nflTeam) : meta?.headshot;
+  const canonicalHeadshot = getEspnHeadshotUrl(getDraftUniversePlayerByName(player.name)?.sourcePlayerId);
+  const identityImage = player.pos === "DST" ? getNflTeamLogoUrl(player.nflTeam) : meta?.headshot ?? canonicalHeadshot;
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "var(--lineup-identity-gap)", minWidth: 0 }}>
       {identityImage && !imageFailed ? (

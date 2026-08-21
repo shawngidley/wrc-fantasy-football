@@ -1107,6 +1107,12 @@
 - [x] Resolve missing Lineup ages through the authoritative player metadata path.
 - [x] Verify all SFLEX, K, and D/ST Lineup rows retain correct identity fallbacks, then publish.
 
+# Persisted Lineup Identity Metadata Failure
+
+- [ ] Trace why published Lineup roster rows still show initials and blank ages after the initial metadata repair.
+- [ ] Correct identity metadata loading and invalidate stale player metadata where needed.
+- [ ] Verify the public owner Lineup shows the repaired ages and headshots, then publish.
+
 # Published State-Lottery Ball Mismatch
 
 - [ ] Compare the public Draft Lottery bundle with the latest state-lottery ball release.
