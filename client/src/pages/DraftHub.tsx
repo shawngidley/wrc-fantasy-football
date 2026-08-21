@@ -93,6 +93,12 @@ export default function DraftHub() {
               {tab.label}
             </button>
           ))}
+          <button
+            onClick={() => navigate("/draft-lottery")}
+            style={{ padding: "0.75rem 1.25rem", background: "none", border: "none", borderBottom: "3px solid transparent", color: "rgba(255,255,255,0.55)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.85rem", letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", whiteSpace: "nowrap" }}
+          >
+            Draft Lottery
+          </button>
         </div>
       </div>
 
