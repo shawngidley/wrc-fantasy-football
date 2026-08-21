@@ -15,7 +15,7 @@ export interface NFLPlayer {
 
 let _id = 0;
 function p(name: string, pos: NFLPlayer["pos"], nflTeam: string, adp: number, bye: number | null = null): NFLPlayer {
-  return { id: `pl${++_id}`, name, pos, nflTeam, adp, bye };
+  return { id: `pl${++_id}`, name, pos, nflTeam, adp, bye: nflTeam.toUpperCase() === "JAC" ? 7 : bye };
 }
 
 export const NFL_PLAYERS_2026: NFLPlayer[] = [
