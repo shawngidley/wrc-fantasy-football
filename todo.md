@@ -1082,3 +1082,9 @@
 - [x] Synchronize the current reveal step and countdown for every owner viewing the Draft Lottery page.
 - [x] Build the responsive animated lottery bin, selected-team exit, and result rail.
 - [x] Add regression coverage, validate the completed event and reduced-motion state, then publish.
+
+# Pre-Draw Active Lottery Bin
+
+- [x] Animate all six eligible team cards inside the lottery bin while the lottery remains pending.
+- [x] Preserve the same active circulation after the draw is locked and before the commissioner starts the reveal.
+- [x] Verify and publish the always-active pre-draw bin effect.
