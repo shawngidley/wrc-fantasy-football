@@ -139,7 +139,9 @@ export const appRouter = router({
     draftLottery: publicProcedure.query(async () => {
       const { data, error } = await supabaseAdmin.from("draft_lottery").select("status, eligible_owners, result_owners, drawn_at, reveal_status, reveal_started_at").eq("id", 1).single();
       if (error || !data) throw new Error("Unable to load the draft lottery.");
-      return { status: data.status as "pending" | "drawn", eligibleOwners: data.eligible_owners as string[], resultOwners: data.result_owners as string[] | null, drawnAt: data.drawn_at as string | null, revealStatus: data.reveal_status as "pending" | "running", revealStartedAt: data.reveal_started_at as string | null };
+      const revealStartedAt = data.reveal_started_at as string | null;
+      const revealComplete = data.reveal_status === "running" && revealStartedAt !== null && Date.now() - new Date(revealStartedAt).getTime() >= 6 * 45_000;
+      return { status: data.status as "pending" | "drawn", eligibleOwners: data.eligible_owners as string[], resultOwners: data.result_owners as string[] | null, appliedResultOwners: revealComplete ? data.result_owners as string[] : null, drawnAt: data.drawn_at as string | null, revealStatus: data.reveal_status as "pending" | "running", revealStartedAt };
     }),
     commissionerRunDraftLottery: commissionerProcedure.mutation(async ({ ctx }) => {
       const [{ data: lottery, error: lotteryError }, { data: draftState, error: draftError }] = await Promise.all([
@@ -946,8 +948,9 @@ export const appRouter = router({
         if (!state.started || state.paused || state.complete) throw new Error("The draft is not currently accepting picks.");
         await releaseUnprotectedPlayers();
         const overall = (state.current_round - 1) * WRC_DRAFT_TOTAL_TEAMS + state.current_pick + 1;
-        const { data: lottery } = await supabaseAdmin.from("draft_lottery").select("result_owners").eq("id", 1).maybeSingle();
-        const resultOwners = isValidDraftLotteryResult(lottery?.result_owners) ? lottery.result_owners : null;
+        const { data: lottery } = await supabaseAdmin.from("draft_lottery").select("result_owners, reveal_status, reveal_started_at").eq("id", 1).maybeSingle();
+        const revealComplete = lottery?.reveal_status === "running" && lottery?.reveal_started_at && Date.now() - new Date(lottery.reveal_started_at).getTime() >= 6 * 45_000;
+        const resultOwners = revealComplete && isValidDraftLotteryResult(lottery?.result_owners) ? lottery.result_owners : null;
         const order = applyDraftLottery(DRAFT_PICKS_2026, resultOwners);
         const currentPick = order.find(pick => pick.overall === overall);
         if (!currentPick) throw new Error("Unable to identify the current draft pick.");

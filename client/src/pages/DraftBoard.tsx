@@ -217,7 +217,7 @@ export default function DraftBoard() {
   const draftActionMutation = trpc.league.commissionerDraftAction.useMutation();
   const makeDraftPickMutation = trpc.league.makeDraftPick.useMutation();
   const lotteryQuery = trpc.league.draftLottery.useQuery(undefined, { refetchInterval: 5000 });
-  const resolvedDraftOrder = useMemo(() => applyDraftLottery(DRAFT_PICKS_2026, isValidDraftLotteryResult(lotteryQuery.data?.resultOwners) ? lotteryQuery.data.resultOwners : null), [lotteryQuery.data?.resultOwners]);
+  const resolvedDraftOrder = useMemo(() => applyDraftLottery(DRAFT_PICKS_2026, isValidDraftLotteryResult(lotteryQuery.data?.appliedResultOwners) ? lotteryQuery.data.appliedResultOwners : null), [lotteryQuery.data?.appliedResultOwners]);
   const resolvedRound1Order = useMemo(() => resolvedDraftOrder.filter(pick => pick.round === 1).map(pick => pick.owner), [resolvedDraftOrder]);
 
   // Draft queue hook

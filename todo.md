@@ -1094,3 +1094,14 @@
 - [x] Replace rectangular team cards in the lottery bin with labeled spherical lottery balls.
 - [x] Preserve legible owner identification, active circulation, and the selected-ball reveal transition.
 - [x] Verify the state-lottery ball layout on mobile and desktop, then publish.
+
+# Delayed Draft Board Lottery Application
+
+- [ ] Keep the locked lottery result off the Draft Board while the live sixth-through-first reveal is in progress.
+- [ ] Apply the full Round 1 and linked Round 2 order only after the final 1.01 reveal completes.
+- [ ] Keep server draft-turn validation aligned with the publicly applied order, then verify and publish.
+
+# Published State-Lottery Ball Mismatch
+
+- [ ] Compare the public Draft Lottery bundle with the latest state-lottery ball release.
+- [ ] Correct any deployment or stale-asset mismatch and verify the public glass-bin presentation.
