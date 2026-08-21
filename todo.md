@@ -1149,6 +1149,12 @@
 - [ ] Add canonical player-name aliases or identifiers to projection matching where required.
 - [ ] Verify Bill's Lineup shows projected stats for both players, then publish.
 
+# Current-Week Provider Projection Resolution
+
+- [ ] Inspect current-week provider records for Kenneth Gainwell and D.J. Moore.
+- [ ] Add a valid projection fallback or explicitly render unavailable projections when no provider value exists.
+- [ ] Verify Bill's Lineup projection display and publish the resolution.
+
 # Published State-Lottery Ball Mismatch
 
 - [ ] Compare the public Draft Lottery bundle with the latest state-lottery ball release.

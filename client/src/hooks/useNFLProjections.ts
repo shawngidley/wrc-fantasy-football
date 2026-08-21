@@ -148,6 +148,12 @@ export function useNFLProjections(week: number, season = 2026): UseNFLProjection
           const entry = { proj, pos, team, longName: name };
           map[name.toLowerCase()] = entry;
           map[normalizeProjectionName(name)] = entry;
+          for (const [displayName, canonicalName] of Object.entries(PROJECTION_NAME_ALIASES)) {
+            if (canonicalName === name.toLowerCase()) {
+              map[displayName] = entry;
+              map[normalizeProjectionName(displayName)] = entry;
+            }
+          }
         }
 
         // ── DST projections — keyed by teamAbv (e.g. "BUF") ───────────────
