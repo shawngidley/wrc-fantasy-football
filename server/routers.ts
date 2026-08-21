@@ -18,6 +18,8 @@ import { validateProtectionSubmission } from "./protectionRules";
 import { releaseUnprotectedPlayers } from "./protectionRelease";
 import { isProtectionDeadlinePassed } from "@shared/protectionSchedule";
 import { findDraftUniversePlayer } from "@shared/draftPlayerUniverse";
+import { DRAFT_LOTTERY_OWNERS, isValidDraftLotteryResult } from "@shared/draftLottery";
+import { applyDraftLottery } from "@shared/draftLottery";
 import { DRAFT_PICKS_2026 } from "../client/src/lib/draftData2026";
 import { storagePut } from "./storage";
 import { finalizeWeeklyResultsFromTank } from "./weeklyResultsFinalize";
@@ -133,6 +135,25 @@ export const appRouter = router({
 
   league: router({
     teams: publicProcedure.query(() => listPublicLeagueTeams()),
+    draftLottery: publicProcedure.query(async () => {
+      const { data, error } = await supabaseAdmin.from("draft_lottery").select("status, eligible_owners, result_owners, drawn_at").eq("id", 1).single();
+      if (error || !data) throw new Error("Unable to load the draft lottery.");
+      return { status: data.status as "pending" | "drawn", eligibleOwners: data.eligible_owners as string[], resultOwners: data.result_owners as string[] | null, drawnAt: data.drawn_at as string | null };
+    }),
+    commissionerRunDraftLottery: commissionerProcedure.mutation(async ({ ctx }) => {
+      const [{ data: lottery, error: lotteryError }, { data: draftState, error: draftError }] = await Promise.all([
+        supabaseAdmin.from("draft_lottery").select("status").eq("id", 1).single(),
+        supabaseAdmin.from("draft_state").select("started").eq("id", 1).single(),
+      ]);
+      if (lotteryError || !lottery || draftError || !draftState) throw new Error("Unable to start the draft lottery.");
+      if (draftState.started) throw new Error("The lottery cannot run after the draft has started.");
+      if (lottery.status === "drawn") throw new Error("The draft lottery has already been finalized.");
+      const result = [...DRAFT_LOTTERY_OWNERS].sort(() => crypto.getRandomValues(new Uint32Array(1))[0] - 0x80000000);
+      if (!isValidDraftLotteryResult(result)) throw new Error("Unable to create a valid lottery result.");
+      const { data, error } = await supabaseAdmin.from("draft_lottery").update({ status: "drawn", result_owners: result, drawn_by_team_id: ctx.teamSession.teamId, drawn_at: new Date().toISOString() }).eq("id", 1).eq("status", "pending").select("status, eligible_owners, result_owners, drawn_at").single();
+      if (error || !data) throw new Error("The lottery was already run or could not be saved.");
+      return { status: data.status as "drawn", eligibleOwners: data.eligible_owners as string[], resultOwners: data.result_owners as string[], drawnAt: data.drawn_at as string };
+    }),
     login: publicProcedure
       .input(z.object({ teamId: z.string().min(1), pin: z.string().min(1).max(12) }))
       .mutation(async ({ input, ctx }) => {
@@ -915,7 +936,10 @@ export const appRouter = router({
         if (!state.started || state.paused || state.complete) throw new Error("The draft is not currently accepting picks.");
         await releaseUnprotectedPlayers();
         const overall = (state.current_round - 1) * WRC_DRAFT_TOTAL_TEAMS + state.current_pick + 1;
-        const currentPick = DRAFT_PICKS_2026.find(pick => pick.overall === overall);
+        const { data: lottery } = await supabaseAdmin.from("draft_lottery").select("result_owners").eq("id", 1).maybeSingle();
+        const resultOwners = isValidDraftLotteryResult(lottery?.result_owners) ? lottery.result_owners : null;
+        const order = applyDraftLottery(DRAFT_PICKS_2026, resultOwners);
+        const currentPick = order.find(pick => pick.overall === overall);
         if (!currentPick) throw new Error("Unable to identify the current draft pick.");
         const expectedTeamId = WRC_DRAFT_OWNER_TEAM_IDS[currentPick.owner];
         if (!ctx.teamSession.isCommissioner && ctx.teamSession.teamId !== expectedTeamId) throw new Error("It is not your team’s turn to draft.");

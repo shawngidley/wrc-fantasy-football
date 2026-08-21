@@ -1033,3 +1033,23 @@
 - [x] Keep the normal team-and-PIN login as the only default sign-in path.
 - [x] Show one Set Up Face ID action in Settings only after PIN login.
 - [x] Show Sign In with Face ID at login only for teams with an enrolled passkey.
+
+# Draft Lottery Assessment
+
+- [ ] Review draft slots one through six and the linked second-round pick structure without altering established later rounds.
+- [ ] Define a commissioner-run, auditable lottery with synchronized owner-visible results.
+- [ ] Present a Draft Lottery page and Draft navigation recommendation for approval before implementation.
+
+# Confirmed Equal-Odds Draft Lottery Rules
+
+- [ ] Use equal one-in-six odds for Greg, Shawn, Bill, David R., Jason, and Scott N.
+- [ ] Assign each lottery result to linked Round 1 and inverse Round 2 snake positions while preserving all other picks.
+- [ ] Await explicit approval before implementing the Draft Lottery page and permanent order update.
+
+# Approved Draft Lottery Build
+
+- [ ] Create protected, auditable lottery state and a server-side equal-odds draw for the six eligible owners.
+- [ ] Apply the locked result to Round 1 picks 1–6 and linked Round 2 picks 7–12, preserving every other pick.
+- [ ] Add a commissioner-controlled Draft Lottery page with synchronized owner-visible reveal and final order.
+- [ ] Add Draft Lottery navigation for desktop and mobile, then connect the resolved order to draft validation, board, and recap.
+- [ ] Add regression coverage, validate the responsive experience, and publish.
