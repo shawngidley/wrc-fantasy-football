@@ -1119,6 +1119,12 @@
 - [ ] Apply complete age and headshot fallbacks to kicker rows on the Lineup page.
 - [ ] Verify Gainwell’s player profile and all kicker identity rows, then publish.
 
+# Canonical Gainwell and Kicker Metadata Source
+
+- [ ] Retrieve and store canonical ESPN athlete identities and birth dates for Kenneth Gainwell and all lineup-eligible kickers.
+- [ ] Use canonical metadata for Lineup ages/headshots and player-profile fallback when provider data is absent.
+- [ ] Verify the affected player profile and kicker rows, then publish.
+
 # Published State-Lottery Ball Mismatch
 
 - [ ] Compare the public Draft Lottery bundle with the latest state-lottery ball release.

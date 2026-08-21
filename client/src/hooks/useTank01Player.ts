@@ -104,23 +104,24 @@ export async function fetchPlayerById(playerID: string): Promise<Tank01Player | 
 
 // ── Fetch player by name ─────────────────────────────────────────────────────
 export async function fetchPlayerByName(name: string): Promise<Tank01Player | null> {
-  const cacheKey = `name_${name.toLowerCase().replace(/\s+/g, "_")}`;
+  const canonicalName = name.trim().toLowerCase().replace(/[^a-z0-9]/g, "") === "kennethgainwell" ? "Kenny Gainwell" : name;
+  const cacheKey = `name_${canonicalName.toLowerCase().replace(/\s+/g, "_")}`;
   const cached = cacheGet<Tank01Player>(cacheKey);
   if (cached) return normalizeTankPlayer(cached);
 
   try {
     const res = await fetch(
-      `${BASE_URL}/getNFLPlayerInfo?playerName=${encodeURIComponent(name)}&getStats=true`,
+      `${BASE_URL}/getNFLPlayerInfo?playerName=${encodeURIComponent(canonicalName)}&getStats=true`,
       { headers: HEADERS }
     );
     if (!res.ok) return null;
     const json = await res.json();
     // getNFLPlayerInfo by name returns an array
     const list: Tank01Player[] = Array.isArray(json.body) ? json.body : [json.body];
-    const normalizedName = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const normalizedName = canonicalName.toLowerCase().replace(/[^a-z0-9]/g, "");
     const player = list.find(candidate => (candidate.longName || `${candidate.firstName} ${candidate.lastName}`).toLowerCase().replace(/[^a-z0-9]/g, "") === normalizedName) ?? list[0];
     if (!player || !player.playerID) {
-      const universePlayer = getDraftUniversePlayerByName(name);
+      const universePlayer = getDraftUniversePlayerByName(canonicalName);
       return universePlayer?.sourcePlayerId ? fetchPlayerById(universePlayer.sourcePlayerId) : null;
     }
     const normalizedPlayer = normalizeTankPlayer(player);

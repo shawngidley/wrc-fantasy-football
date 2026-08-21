@@ -22,6 +22,26 @@ export interface SeasonStatsPlayerInput {
 
 const CONCURRENCY = 4;
 
+function getAgeFromBirthDate(birthDate: string): string | undefined {
+  const birth = new Date(birthDate);
+  if (Number.isNaN(birth.getTime())) return undefined;
+  const now = new Date();
+  let age = now.getUTCFullYear() - birth.getUTCFullYear();
+  const birthdayPassed = now.getUTCMonth() > birth.getUTCMonth() || (now.getUTCMonth() === birth.getUTCMonth() && now.getUTCDate() >= birth.getUTCDate());
+  if (!birthdayPassed) age -= 1;
+  return String(age);
+}
+
+async function fetchEspnAge(athleteId?: string): Promise<string | undefined> {
+  if (!athleteId) return undefined;
+  try {
+    const response = await fetch(`https://site.api.espn.com/apis/common/v3/sports/football/nfl/athletes/${athleteId}`);
+    if (!response.ok) return undefined;
+    const data = await response.json() as { athlete?: { birthDate?: string } };
+    return data.athlete?.birthDate ? getAgeFromBirthDate(data.athlete.birthDate) : undefined;
+  } catch { return undefined; }
+}
+
 function cacheGet(name: string): SeasonStatsCacheEntry | null {
   try {
     return typeof window === "undefined" ? null : readSeasonStatsCache(window.localStorage, name);
@@ -144,8 +164,9 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
             ? normalizeCompletedKickerSeasonStats(exactKickerSeason)
             : normalizeTankSeasonStats(tankPlayer?.stats, player.pos));
         const universePlayer = getDraftUniversePlayerByName(player.name);
+        const espnAge = tankPlayer?.age || await fetchEspnAge(universePlayer?.sourcePlayerId ?? undefined);
         const meta = {
-          age: tankPlayer?.age,
+          age: espnAge,
           headshot: tankPlayer?.espnHeadshot ?? getEspnHeadshotUrl(universePlayer?.sourcePlayerId) ?? undefined,
         };
         cacheSet(player.name, { stats, ...meta });
