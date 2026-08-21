@@ -1173,6 +1173,12 @@
 - [ ] Correct the shared Lineup projection resolution path for suffix-bearing player rows.
 - [ ] Verify every affected suffix-bearing roster row and report the completed audit.
 
+# Jacksonville Jaguars 2026 Bye Week Audit
+
+- [ ] Audit Jacksonville player and D/ST bye values in the Lineup, Free Agents, Draft Players, player detail, and shared schedule paths.
+- [ ] Normalize every Jacksonville record to the verified 2026 Week 7 bye.
+- [ ] Add regression coverage, verify user-facing Jacksonville entries, and publish the correction.
+
 # Published State-Lottery Ball Mismatch
 
 - [ ] Compare the public Draft Lottery bundle with the latest state-lottery ball release.

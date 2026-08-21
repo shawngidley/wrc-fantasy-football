@@ -605,7 +605,9 @@ export default function Lineup() {
       pts: 0,
       proj: 0,   // filled in below once projections arrive
       status: "Active",
-      byeWeek: byeWeeksByTeam[normalizeNFLTeam(rp.nflTeam)] ?? staticPlayer?.bye ?? rp.byeWeek ?? undefined,
+      byeWeek: normalizeNFLTeam(rp.nflTeam) === "JAC"
+        ? 7
+        : byeWeeksByTeam[normalizeNFLTeam(rp.nflTeam)] ?? staticPlayer?.bye ?? rp.byeWeek ?? undefined,
       seasonFpts: undefined,
       seasonStats: undefined,
       isBench: false,
