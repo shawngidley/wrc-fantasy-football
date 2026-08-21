@@ -1088,3 +1088,9 @@
 - [x] Animate all six eligible team cards inside the lottery bin while the lottery remains pending.
 - [x] Preserve the same active circulation after the draw is locked and before the commissioner starts the reveal.
 - [x] Verify and publish the always-active pre-draw bin effect.
+
+# State-Lottery Team Ball Treatment
+
+- [x] Replace rectangular team cards in the lottery bin with labeled spherical lottery balls.
+- [x] Preserve legible owner identification, active circulation, and the selected-ball reveal transition.
+- [x] Verify the state-lottery ball layout on mobile and desktop, then publish.
