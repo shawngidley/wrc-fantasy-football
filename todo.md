@@ -1113,6 +1113,12 @@
 - [ ] Correct identity metadata loading and invalidate stale player metadata where needed.
 - [ ] Verify the public owner Lineup shows the repaired ages and headshots, then publish.
 
+# Kenneth Gainwell Profile and Kicker Identity Completion
+
+- [ ] Resolve Kenneth Gainwell through the canonical player universe when provider name lookup fails.
+- [ ] Apply complete age and headshot fallbacks to kicker rows on the Lineup page.
+- [ ] Verify Gainwell’s player profile and all kicker identity rows, then publish.
+
 # Published State-Lottery Ball Mismatch
 
 - [ ] Compare the public Draft Lottery bundle with the latest state-lottery ball release.

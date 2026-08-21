@@ -6,6 +6,7 @@
 import { useState, useEffect } from "react";
 import { normalizeNFLTeamCode } from "@/lib/nflTeamCodes";
 import type { Tank01Stats } from "@/lib/scoringEngine";
+import { getDraftUniversePlayerByName } from "@shared/draftPlayerUniverse";
 
 const BASE_URL = "/api/tank01";
 const HEADERS = {};
@@ -116,8 +117,12 @@ export async function fetchPlayerByName(name: string): Promise<Tank01Player | nu
     const json = await res.json();
     // getNFLPlayerInfo by name returns an array
     const list: Tank01Player[] = Array.isArray(json.body) ? json.body : [json.body];
-    const player = list[0];
-    if (!player || !player.playerID) return null;
+    const normalizedName = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const player = list.find(candidate => (candidate.longName || `${candidate.firstName} ${candidate.lastName}`).toLowerCase().replace(/[^a-z0-9]/g, "") === normalizedName) ?? list[0];
+    if (!player || !player.playerID) {
+      const universePlayer = getDraftUniversePlayerByName(name);
+      return universePlayer?.sourcePlayerId ? fetchPlayerById(universePlayer.sourcePlayerId) : null;
+    }
     const normalizedPlayer = normalizeTankPlayer(player);
     cacheSet(cacheKey, normalizedPlayer);
     return normalizedPlayer;
