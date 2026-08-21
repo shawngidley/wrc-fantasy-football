@@ -1125,6 +1125,12 @@
 - [ ] Use canonical metadata for Lineup ages/headshots and player-profile fallback when provider data is absent.
 - [ ] Verify the affected player profile and kicker rows, then publish.
 
+# Kenneth Gainwell Profile Stats Resolution
+
+- [ ] Resolve completed-season stats for Kenneth Gainwell through his canonical provider identity.
+- [ ] Preserve the Player Page’s existing stat and scoring presentation while using the canonical fallback.
+- [ ] Verify Gainwell’s profile stats and publish the repair.
+
 # Published State-Lottery Ball Mismatch
 
 - [ ] Compare the public Draft Lottery bundle with the latest state-lottery ball release.

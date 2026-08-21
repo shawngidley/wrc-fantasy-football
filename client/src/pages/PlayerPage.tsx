@@ -483,8 +483,9 @@ export default function PlayerPage() {
   // Decode the player name from the URL
   const rawName = params.playerName ?? "";
   const playerName = decodeURIComponent(rawName.replace(/-/g, " "));
+  const providerPlayerName = playerName.trim().toLowerCase() === "kenneth gainwell" ? "Kenny Gainwell" : playerName;
 
-  const { player, loading, error } = useTank01PlayerByName(playerName || null);
+  const { player, loading, error } = useTank01PlayerByName(providerPlayerName || null);
   const canonicalTeam = normalizeNFLTeamCode(player?.team);
 
   // Find WRC ownership via live Supabase query
