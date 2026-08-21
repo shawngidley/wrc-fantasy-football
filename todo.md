@@ -1155,6 +1155,12 @@
 - [ ] Add a valid projection fallback or explicitly render unavailable projections when no provider value exists.
 - [ ] Verify Bill's Lineup projection display and publish the resolution.
 
+# League-Wide Roster Projection Audit
+
+- [ ] Compare every rostered QB, RB, WR, TE, and K against current-week projection records.
+- [ ] Identify name, punctuation, and canonical-identity mismatches separate from genuinely unavailable provider projections.
+- [ ] Apply systemic aliases or matching normalization, validate all rostered rows, and report findings to the commissioner.
+
 # Published State-Lottery Ball Mismatch
 
 - [ ] Compare the public Draft Lottery bundle with the latest state-lottery ball release.

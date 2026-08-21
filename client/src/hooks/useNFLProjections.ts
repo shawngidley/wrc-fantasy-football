@@ -29,13 +29,16 @@ interface UseNFLProjectionsResult {
   error: string | null;
 }
 
-const CACHE_PREFIX = "wrc_nfl_proj_v2_";
+const CACHE_PREFIX = "wrc_nfl_proj_v3_";
 const PROJECTION_NAME_ALIASES: Record<string, string> = {
   "kenneth gainwell": "kenny gainwell",
 };
 
 function normalizeProjectionName(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  return name
+    .toLowerCase()
+    .replace(/\b(jr|sr|ii|iii|iv|v)\.?$/i, "")
+    .replace(/[^a-z0-9]/g, "");
 }
 
 // ── NFL team abbreviation normalizer (handles KAN→KC, TAM→TB, ARZ→ARI, JAX→JAC) ──
