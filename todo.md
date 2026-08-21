@@ -1137,6 +1137,12 @@
 - [ ] Preserve completed-season scoring and player metadata while resolving the stat alias.
 - [ ] Verify Gainwell’s Lineup FPTS and FP/G values, then publish.
 
+# Kenneth Gainwell Exact Completed Stat Key
+
+- [ ] Inspect the completed-season source key and record for Kenneth Gainwell.
+- [ ] Map the Lineup row to the exact completed-season record rather than a zero-point fallback.
+- [ ] Verify the published Lineup row shows Gainwell’s FPTS and FP/G values.
+
 # Published State-Lottery Ball Mismatch
 
 - [ ] Compare the public Draft Lottery bundle with the latest state-lottery ball release.
