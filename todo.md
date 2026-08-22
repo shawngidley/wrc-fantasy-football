@@ -1218,6 +1218,10 @@
 - [x] Clarify that the scheduled time does not automatically start the draw; only the commissioner’s Run Draft Lottery action does.
 - [x] Verify and publish the Lottery schedule display.
 
+# Draft Lottery Copy Refinement
+
+- [x] Remove the redundant manual-start explanatory sentence while retaining the scheduled date and time.
+
 # Published State-Lottery Ball Mismatch
 
 - [ ] Compare the public Draft Lottery bundle with the latest state-lottery ball release.
