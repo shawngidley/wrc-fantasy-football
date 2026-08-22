@@ -13,6 +13,7 @@ import { releasePostDeadlinePlayers } from "../scheduledProtectionRelease";
 import { proxyTank01Request } from "../tank01Proxy";
 import { serveCompletedOffenseSnapshot } from "../seasonStatsSnapshot";
 import { refreshSharedSeasonStatsSchedule } from "../seasonStatsRefresh";
+import { finalizeWeeklyResultsSchedule } from "../scheduledWeeklyResultsFinalize";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -66,6 +67,7 @@ async function startServer() {
   app.post("/api/scheduled/season-stats-refresh", refreshSharedSeasonStatsSchedule);
   app.post("/api/scheduled/fantasypros-archive", collectFantasyProsArchive);
   app.post("/api/scheduled/release-unprotected-players", releasePostDeadlinePlayers);
+  app.post("/api/scheduled/weekly-results-finalize", finalizeWeeklyResultsSchedule);
   // tRPC API
   app.use(
     "/api/trpc",

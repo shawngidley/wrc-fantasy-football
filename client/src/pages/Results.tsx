@@ -312,12 +312,6 @@ export default function Results() {
   const isCommissioner = franchise?.is_commissioner === true;
 
   const currentWeek = getCurrentWeek() || 1;
-  const { matchups: matchupMap } = useNFLMatchups(currentWeek);
-  const { autoWriteStatus, autoWriteError, forceWriteResults } = useWeeklyResultsWriter(
-    currentWeek, 2026, matchupMap,
-    false // don't auto-trigger on Results page; commissioner uses force button
-  );
-  const [forceWeek, setForceWeek] = useState<number>(currentWeek);
 
   const [allResults, setAllResults] = useState<WeeklyResult[]>([]);
   const [loading, setLoading] = useState(true);
@@ -383,32 +377,6 @@ export default function Results() {
               <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, letterSpacing: "0.06em", color: "oklch(0.38 0.14 85)" }}>
                 COMMISSIONER MODE — Click any matchup to enter or edit the final score
               </span>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" as const }}>
-              <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", color: "oklch(0.45 0.08 85)" }}>Auto-score week:</span>
-              <select
-                value={forceWeek}
-                onChange={e => setForceWeek(parseInt(e.target.value))}
-                style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, borderRadius: 6, border: "1.5px solid oklch(0.75 0.1 85)", padding: "0.25rem 0.5rem", background: "white", color: "oklch(0.3 0.1 85)", cursor: "pointer" }}
-              >
-                {SCHEDULE_2026.filter(w => w.type === "regular").map(w => (
-                  <option key={w.week} value={w.week}>Week {w.week}</option>
-                ))}
-              </select>
-              <button
-                onClick={() => forceWriteResults(forceWeek)}
-                disabled={autoWriteStatus === "running"}
-                style={{ display: "flex", alignItems: "center", gap: "0.35rem", background: autoWriteStatus === "done" ? "oklch(0.42 0.15 150)" : "oklch(0.38 0.14 85)", color: "white", border: "none", borderRadius: 7, padding: "0.35rem 0.875rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, letterSpacing: "0.05em", cursor: autoWriteStatus === "running" ? "wait" : "pointer", opacity: autoWriteStatus === "running" ? 0.7 : 1 }}
-              >
-                {autoWriteStatus === "running"
-                  ? <><RefreshCw size={12} style={{ animation: "spin 1s linear infinite" }} /> Scoring...</>
-                  : autoWriteStatus === "done"
-                    ? <><CheckCircle2 size={12} /> Scores Written!</>
-                    : <><Zap size={12} /> Auto-Score Week {forceWeek}</>}
-              </button>
-              {autoWriteError && (
-                <span style={{ fontSize: "0.7rem", color: "#ef4444" }}>{autoWriteError}</span>
-              )}
             </div>
           </div>
         )}

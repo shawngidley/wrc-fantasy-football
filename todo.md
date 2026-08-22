@@ -1222,6 +1222,18 @@
 
 - [x] Remove the redundant manual-start explanatory sentence while retaining the scheduled date and time.
 
+# Weekly Live Scoring Finalization Audit
+
+- [ ] Inspect whether completed NFL weeks persist final matchup outcomes and scoring results.
+- [ ] Report the current weekly result behavior and any remaining automation gap.
+
+# Automatic Weekly Result Finalization
+
+- [x] Detect when all scheduled NFL games for a WRC scoring week are final.
+- [x] Automatically persist final matchup scores, median, and standings without commissioner action.
+- [x] Keep the process idempotent, server-controlled, and inaccessible to owners.
+- [x] Add automated coverage, validate weekly settlement behavior, publish, and synchronize GitHub.
+
 # Published State-Lottery Ball Mismatch
 
 - [ ] Compare the public Draft Lottery bundle with the latest state-lottery ball release.
