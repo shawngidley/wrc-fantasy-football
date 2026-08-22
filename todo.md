@@ -1179,6 +1179,45 @@
 - [ ] Normalize every Jacksonville record to the verified 2026 Week 7 bye.
 - [ ] Add regression coverage, verify user-facing Jacksonville entries, and publish the correction.
 
+# Supabase Analytics Log Endpoint Retirement Audit
+
+- [ ] Search project code and configuration for direct calls to analytics/endpoints/logs.all.
+- [ ] Identify whether WRC Fantasy Football requires migration to analytics/endpoints/logs before September 23, 2026.
+- [ ] Report verified impact and any required action to the commissioner.
+
+# GitHub Export Status Check
+
+- [ ] Inspect WRC Fantasy Football repository remotes and project GitHub configuration.
+- [ ] Report whether the project has been exported to GitHub.
+
+# Approved GitHub Code Backup
+
+- [ ] Verify GitHub account connection and choose the WRC Fantasy Football backup repository.
+- [ ] Export the current project code to GitHub without altering the live deployment.
+- [ ] Confirm the repository URL and backup completion to the commissioner.
+
+# Continuous GitHub Backup Workflow
+
+- [ ] Keep the private WRC Fantasy Football GitHub repository synchronized after every completed site update.
+- [ ] Confirm the current GitHub mirror is aligned with the latest published project version.
+
+# Single GitHub Repository Consolidation
+
+- [ ] Compare the intended primary `wrc-fantasy-football` repository with the current code mirror.
+- [ ] Make the intended primary repository the active WRC backup remote and confirm the latest code is pushed.
+- [ ] Keep the duplicate backup repository intact until explicit deletion approval is given.
+
+# Confirmed Duplicate GitHub Repository Removal
+
+- [ ] Delete only the disconnected `wrc-fantasy-football-backup` repository after confirmation.
+- [ ] Verify the active `wrc-fantasy-football` repository remains intact and is the sole backup remote.
+
+# Draft Lottery Scheduled Manual Start
+
+- [x] Display Sunday, August 23, 2026 at 9:00 PM ET on the Draft Lottery page.
+- [x] Clarify that the scheduled time does not automatically start the draw; only the commissioner’s Run Draft Lottery action does.
+- [x] Verify and publish the Lottery schedule display.
+
 # Published State-Lottery Ball Mismatch
 
 - [ ] Compare the public Draft Lottery bundle with the latest state-lottery ball release.
