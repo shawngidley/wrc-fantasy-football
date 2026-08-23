@@ -1,72 +1,51 @@
 import type { Request, Response } from "express";
-import { eq } from "drizzle-orm";
-import { getDb } from "./db";
-import { wrcSeasonStatsCache } from "../drizzle/schema";
-import { sdk } from "./_core/sdk";
+import { supabaseAdmin } from "./supabaseAdmin";
 import { getCompletedOffenseSnapshot } from "./seasonStatsSnapshot";
 
 const CACHE_ID = "completed-offense-2025-id-resolved-v4";
 const CACHE_SEASON = 2025;
 const CACHE_SOURCE = "nflverse-completed-2025-play-by-play-reconciled-v3";
 
-async function seasonStatsDb() {
-  const db = await getDb();
-  if (!db) throw new Error("Database unavailable for shared season stats");
-  return db;
-}
-
 export async function readOrWarmSharedSeasonStats(): Promise<unknown> {
-  const db = await seasonStatsDb();
-  const existing = (await db.select().from(wrcSeasonStatsCache).where(eq(wrcSeasonStatsCache.id, CACHE_ID)).limit(1))[0];
+  const { data: existing, error } = await supabaseAdmin
+    .from("wrc_season_stats_cache")
+    .select("source, payload")
+    .eq("id", CACHE_ID)
+    .maybeSingle();
+  if (error) throw new Error(`Unable to read shared season stats cache: ${error.message}`);
   if (existing?.source === CACHE_SOURCE) return JSON.parse(existing.payload);
 
   const snapshot = await getCompletedOffenseSnapshot({ force: true });
-  if (existing) {
-    await db.update(wrcSeasonStatsCache).set({
-      source: CACHE_SOURCE,
-      payload: JSON.stringify(snapshot),
-      refreshedAt: new Date(),
-    }).where(eq(wrcSeasonStatsCache.id, CACHE_ID));
-  } else {
-    await db.insert(wrcSeasonStatsCache).values({
-      id: CACHE_ID,
-      season: CACHE_SEASON,
-      source: CACHE_SOURCE,
-      payload: JSON.stringify(snapshot),
-      refreshedAt: new Date(),
-    });
-  }
+  const now = new Date().toISOString();
+  const { error: upsertError } = await supabaseAdmin.from("wrc_season_stats_cache").upsert({
+    id: CACHE_ID,
+    season: CACHE_SEASON,
+    source: CACHE_SOURCE,
+    payload: JSON.stringify(snapshot),
+    refreshed_at: now,
+    updated_at: now,
+  }, { onConflict: "id" });
+  if (upsertError) throw new Error(`Unable to warm shared season stats cache: ${upsertError.message}`);
   return snapshot;
 }
 
 export async function refreshSharedSeasonStats(): Promise<{ playerCount: number }> {
   const snapshot = await getCompletedOffenseSnapshot({ force: true });
-  const db = await seasonStatsDb();
-  await db.insert(wrcSeasonStatsCache).values({
+  const now = new Date().toISOString();
+  const { error } = await supabaseAdmin.from("wrc_season_stats_cache").upsert({
     id: CACHE_ID,
     season: CACHE_SEASON,
     source: CACHE_SOURCE,
     payload: JSON.stringify(snapshot),
-    refreshedAt: new Date(),
-  }).onDuplicateKeyUpdate({
-    set: { source: CACHE_SOURCE, payload: JSON.stringify(snapshot), refreshedAt: new Date() },
-  });
+    refreshed_at: now,
+    updated_at: now,
+  }, { onConflict: "id" });
+  if (error) throw new Error(`Unable to refresh shared season stats cache: ${error.message}`);
   return { playerCount: Object.keys(snapshot as Record<string, unknown>).length };
 }
 
-export async function refreshSharedSeasonStatsSchedule(req: Request, res: Response): Promise<void> {
+export async function refreshSharedSeasonStatsSchedule(_req: Request, res: Response): Promise<void> {
   try {
-    const user = await sdk.authenticateRequest(req);
-    if (!user.isCron || !user.taskUid) {
-      res.status(403).json({ error: "cron-only" });
-      return;
-    }
-    const db = await seasonStatsDb();
-    const config = (await db.select().from(wrcSeasonStatsCache).where(eq(wrcSeasonStatsCache.id, CACHE_ID)).limit(1))[0];
-    if (!config?.scheduleCronTaskUid || config.scheduleCronTaskUid !== user.taskUid) {
-      res.json({ ok: true, skipped: "unrecognized-schedule" });
-      return;
-    }
     res.json({ ok: true, ...(await refreshSharedSeasonStats()) });
   } catch (error) {
     res.status(500).json({

@@ -7,6 +7,7 @@ import { useState, useRef, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { X, Menu, Settings, ChevronDown, ChevronRight } from "lucide-react";
 import TeamLogo from "@/components/TeamLogo";
+import { siteAssetUrl } from "@/lib/siteAssetUrl";
 
 type NavLink = { label: string; path: string; live?: boolean };
 
@@ -225,7 +226,7 @@ export default function Navigation({
             {/* Logo */}
             <Link href="/" style={{ display: "flex", alignItems: "center", gap: "0.6rem", textDecoration: "none", flexShrink: 0 }}>
               <img
-                src="/manus-storage/wrc-griffin-192_225a52c5.png"
+                src={siteAssetUrl("wrc-griffin-192.png")}
                 alt="WRC"
                 style={{ width: 36, height: 36, objectFit: "contain", flexShrink: 0 }}
               />

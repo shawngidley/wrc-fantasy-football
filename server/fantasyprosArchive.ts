@@ -1,11 +1,23 @@
 import { createHash } from "node:crypto";
-import { desc, gte, lt } from "drizzle-orm";
-import { fantasyprosNewsArchive, fantasyprosNewsArchiveConfig } from "../drizzle/schema";
-import { getDb } from "./db";
+import { supabaseAdmin } from "./supabaseAdmin";
 import type { FantasyProsNewsItem } from "./fantasypros";
 
 export const ARCHIVE_RETENTION_DAYS = 30;
 export const ELIGIBLE_FANTASY_NEWS_POSITIONS = new Set(["QB", "RB", "WR", "TE", "K"]);
+
+type ArchiveRow = {
+  source_item_id: string | null;
+  player_id: number | null;
+  player_name: string;
+  team: string | null;
+  position: string | null;
+  title: string;
+  description: string | null;
+  impact: string | null;
+  author: string | null;
+  article_url: string | null;
+  published_at: string;
+};
 
 export function isEligibleFantasyProsNews(item: FantasyProsNewsItem): boolean {
   return Boolean(item.playerName && item.title && item.position && ELIGIBLE_FANTASY_NEWS_POSITIONS.has(item.position));
@@ -21,19 +33,19 @@ function asDate(value: string): Date | null {
   return Number.isFinite(date.getTime()) ? date : null;
 }
 
-function archiveRowToNews(row: typeof fantasyprosNewsArchive.$inferSelect): FantasyProsNewsItem {
+function archiveRowToNews(row: ArchiveRow): FantasyProsNewsItem {
   return {
-    id: Number(row.sourceItemId ?? 0),
-    playerId: row.playerId ?? null,
-    playerName: row.playerName,
+    id: Number(row.source_item_id ?? 0),
+    playerId: row.player_id ?? null,
+    playerName: row.player_name,
     team: row.team ?? "",
     position: row.position ?? undefined,
     title: row.title,
     description: row.description ?? "",
     impact: row.impact ?? "",
     author: row.author ?? "FantasyPros",
-    published: row.publishedAt.toISOString(),
-    link: row.articleUrl ?? "",
+    published: row.published_at,
+    link: row.article_url ?? "",
     categories: [],
   };
 }
@@ -48,9 +60,6 @@ export function mergeFantasyProsNews(current: FantasyProsNewsItem[], archived: F
 }
 
 export async function archiveFantasyProsNews(items: FantasyProsNewsItem[]): Promise<{ archived: number; pruned: number }> {
-  const db = await getDb();
-  if (!db) throw new Error("Archive database is not available");
-
   const now = new Date();
   const rows = items
     .filter(isEligibleFantasyProsNews)
@@ -60,65 +69,52 @@ export async function archiveFantasyProsNews(items: FantasyProsNewsItem[]): Prom
       const expiresAt = new Date(publishedAt.getTime() + ARCHIVE_RETENTION_DAYS * 24 * 60 * 60 * 1000);
       if (expiresAt <= now) return null;
       return {
-        archiveKey: fantasyProsArchiveKey(item),
+        archive_key: fantasyProsArchiveKey(item),
         source: "FantasyPros",
-        sourceItemId: item.id ? String(item.id) : null,
-        playerId: item.playerId,
-        playerName: item.playerName,
+        source_item_id: item.id ? String(item.id) : null,
+        player_id: item.playerId,
+        player_name: item.playerName,
         team: item.team || null,
         position: item.position || null,
         title: item.title,
         description: item.description || null,
         impact: item.impact || null,
         author: item.author || null,
-        articleUrl: item.link || null,
-        publishedAt,
-        expiresAt,
+        article_url: item.link || null,
+        published_at: publishedAt.toISOString(),
+        expires_at: expiresAt.toISOString(),
+        captured_at: now.toISOString(),
       };
     })
     .filter((row): row is NonNullable<typeof row> => Boolean(row));
 
   if (rows.length) {
-    await db.insert(fantasyprosNewsArchive).values(rows).onDuplicateKeyUpdate({
-      set: {
-        capturedAt: now,
-      },
-    });
+    const { error } = await supabaseAdmin.from("fantasypros_news_archive").upsert(rows, { onConflict: "archive_key" });
+    if (error) throw new Error(`Unable to archive FantasyPros news: ${error.message}`);
   }
-  const prunedResult = await db.delete(fantasyprosNewsArchive).where(lt(fantasyprosNewsArchive.expiresAt, now));
-  await db.insert(fantasyprosNewsArchiveConfig).values({
+  const { error: pruneError, count } = await supabaseAdmin
+    .from("fantasypros_news_archive")
+    .delete({ count: "exact" })
+    .lt("expires_at", now.toISOString());
+  if (pruneError) throw new Error(`Unable to prune FantasyPros archive: ${pruneError.message}`);
+  const { error: configError } = await supabaseAdmin.from("fantasypros_news_archive_config").upsert({
     id: "rolling-archive",
-    retentionDays: ARCHIVE_RETENTION_DAYS,
-    lastCollectedAt: now,
-  }).onDuplicateKeyUpdate({
-    set: { lastCollectedAt: now, retentionDays: ARCHIVE_RETENTION_DAYS },
-  });
-  return { archived: rows.length, pruned: Number(prunedResult[0]?.affectedRows ?? 0) };
+    retention_days: ARCHIVE_RETENTION_DAYS,
+    last_collected_at: now.toISOString(),
+    updated_at: now.toISOString(),
+  }, { onConflict: "id" });
+  if (configError) throw new Error(`Unable to update FantasyPros archive schedule config: ${configError.message}`);
+  return { archived: rows.length, pruned: count ?? 0 };
 }
 
 export async function getArchivedFantasyProsNews(): Promise<FantasyProsNewsItem[]> {
-  const db = await getDb();
-  if (!db) return [];
   const cutoff = new Date(Date.now() - ARCHIVE_RETENTION_DAYS * 24 * 60 * 60 * 1000);
-  const rows = await db.select().from(fantasyprosNewsArchive)
-    .where(gte(fantasyprosNewsArchive.publishedAt, cutoff))
-    .orderBy(desc(fantasyprosNewsArchive.publishedAt));
-  return rows.map(archiveRowToNews);
+  const { data, error } = await supabaseAdmin
+    .from("fantasypros_news_archive")
+    .select("source_item_id, player_id, player_name, team, position, title, description, impact, author, article_url, published_at")
+    .gte("published_at", cutoff.toISOString())
+    .order("published_at", { ascending: false });
+  if (error) return [];
+  return (data ?? []).map(row => archiveRowToNews(row as ArchiveRow));
 }
 
-export async function getArchiveScheduleTaskUid(): Promise<string | null> {
-  const db = await getDb();
-  if (!db) return null;
-  const [config] = await db.select().from(fantasyprosNewsArchiveConfig).limit(1);
-  return config?.scheduleCronTaskUid ?? null;
-}
-
-export async function setArchiveScheduleTaskUid(taskUid: string): Promise<void> {
-  const db = await getDb();
-  if (!db) throw new Error("Archive database is not available");
-  await db.insert(fantasyprosNewsArchiveConfig).values({
-    id: "rolling-archive",
-    scheduleCronTaskUid: taskUid,
-    retentionDays: ARCHIVE_RETENTION_DAYS,
-  }).onDuplicateKeyUpdate({ set: { scheduleCronTaskUid: taskUid } });
-}

@@ -1,6 +1,5 @@
 import type { Request, Response } from "express";
 import { getCurrentWeek } from "../client/src/lib/scheduleData2026";
-import { sdk } from "./_core/sdk";
 import { supabaseAdmin } from "./supabaseAdmin";
 import { finalizeWeeklyResultsFromTank } from "./weeklyResultsFinalize";
 
@@ -39,13 +38,8 @@ export async function autoFinalizeCompletedWeeklyResults() {
   return { season: SEASON, currentWeek, finalizedWeeks, pendingWeeks };
 }
 
-export async function finalizeWeeklyResultsSchedule(req: Request, res: Response): Promise<void> {
+export async function finalizeWeeklyResultsSchedule(_req: Request, res: Response): Promise<void> {
   try {
-    const user = await sdk.authenticateRequest(req);
-    if (!user.isCron || !user.taskUid) {
-      res.status(403).json({ error: "cron-only" });
-      return;
-    }
     res.json({ ok: true, ...(await autoFinalizeCompletedWeeklyResults()) });
   } catch (error) {
     res.status(500).json({

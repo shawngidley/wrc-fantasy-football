@@ -12,6 +12,7 @@ import { trpc } from "@/lib/trpc";
 import type { LoggedInTeam } from "@/contexts/AuthContext";
 import { startAuthentication } from "@simplewebauthn/browser";
 import { canUseWrcPasskeys } from "@/lib/wrcPasskey";
+import { siteAssetUrl } from "@/lib/siteAssetUrl";
 
 interface TeamRow {
   id: string;
@@ -129,7 +130,7 @@ export default function Login() {
           borderRadius: 12,
           marginBottom: "1rem",
         }}>
-          <img src="/manus-storage/wrc-griffin-192_225a52c5.png" alt="WRC" style={{ width: 64, height: 64, objectFit: "contain", borderRadius: 8 }} />
+          <img src={siteAssetUrl("wrc-griffin-192.png")} alt="WRC" style={{ width: 64, height: 64, objectFit: "contain", borderRadius: 8 }} />
         </div>
         <h1 style={{
           fontFamily: "Barlow Condensed, sans-serif",

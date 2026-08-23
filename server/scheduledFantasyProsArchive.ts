@@ -1,21 +1,10 @@
 import type { Request, Response } from "express";
-import { sdk } from "./_core/sdk";
 import { getFantasyProsNews, getFantasyProsRanks } from "./fantasypros";
 import { attachFantasyProsPlayerNames } from "./fantasyprosNewsNames";
-import { archiveFantasyProsNews, getArchiveScheduleTaskUid } from "./fantasyprosArchive";
+import { archiveFantasyProsNews } from "./fantasyprosArchive";
 
-export async function collectFantasyProsArchive(req: Request, res: Response): Promise<void> {
+export async function collectFantasyProsArchive(_req: Request, res: Response): Promise<void> {
   try {
-    const user = await sdk.authenticateRequest(req);
-    if (!user.isCron || !user.taskUid) {
-      res.status(403).json({ error: "cron-only" });
-      return;
-    }
-    const configuredTaskUid = await getArchiveScheduleTaskUid();
-    if (!configuredTaskUid || configuredTaskUid !== user.taskUid) {
-      res.json({ ok: true, skipped: "unrecognized-schedule" });
-      return;
-    }
     const [news, ...rankGroups] = await Promise.all([
       getFantasyProsNews(100),
       ...["QB", "RB", "WR", "TE", "K"].map(position => getFantasyProsRanks(position, 1)),

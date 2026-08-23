@@ -94,9 +94,9 @@
 
 /* Background image URLs */
 :root {
-  --bg-stadium-night: url('/manus-storage/bg-stadium-night_5cfb7155.png');
-  --bg-turf: url('/manus-storage/bg-turf_c4773c1e.png');
-  --bg-crowd: url('/manus-storage/bg-crowd_f0a294dc.png');
+  --bg-stadium-night: url('https://aquroadkdiltzsvahuff.supabase.co/storage/v1/object/public/site-assets/bg-stadium-night.png');
+  --bg-turf: url('https://aquroadkdiltzsvahuff.supabase.co/storage/v1/object/public/site-assets/bg-turf.png');
+  --bg-crowd: url('https://aquroadkdiltzsvahuff.supabase.co/storage/v1/object/public/site-assets/bg-crowd.png');
 }
 
 @layer base {

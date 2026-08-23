@@ -1,19 +1,8 @@
 import "dotenv/config";
-import express from "express";
 import { createServer } from "http";
 import net from "net";
-import { createExpressMiddleware } from "@trpc/server/adapters/express";
-import { registerOAuthRoutes } from "./oauth";
-import { registerStorageProxy } from "./storageProxy";
-import { appRouter } from "../routers";
-import { createContext } from "./context";
+import { createApp } from "./app";
 import { serveStatic, setupVite } from "./vite";
-import { collectFantasyProsArchive } from "../scheduledFantasyProsArchive";
-import { releasePostDeadlinePlayers } from "../scheduledProtectionRelease";
-import { proxyTank01Request } from "../tank01Proxy";
-import { serveCompletedOffenseSnapshot } from "../seasonStatsSnapshot";
-import { refreshSharedSeasonStatsSchedule } from "../seasonStatsRefresh";
-import { finalizeWeeklyResultsSchedule } from "../scheduledWeeklyResultsFinalize";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -35,47 +24,9 @@ async function findAvailablePort(startPort: number = 3000): Promise<number> {
 }
 
 async function startServer() {
-  const app = express();
+  const app = createApp();
   const server = createServer(app);
-  app.disable("x-powered-by");
-  app.use((_req, res, next) => {
-    res.setHeader("Content-Security-Policy", [
-      "default-src 'self'",
-      "base-uri 'self'",
-      "object-src 'none'",
-      "script-src 'self' https://manus-analytics.com",
-      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-      "img-src 'self' data: blob: https:",
-      "font-src 'self' data: https://fonts.gstatic.com",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://site.api.espn.com https://manus-analytics.com",
-      "media-src 'self' blob: https:",
-      "frame-ancestors 'none'",
-      "form-action 'self'",
-    ].join("; "));
-    res.setHeader("X-Frame-Options", "DENY");
-    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-    res.setHeader("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
-    next();
-  });
-  // Configure body parser with larger size limit for file uploads
-  app.use(express.json({ limit: "50mb" }));
-  app.use(express.urlencoded({ limit: "50mb", extended: true }));
-  registerStorageProxy(app);
-  registerOAuthRoutes(app);
-  app.get("/api/tank01/:endpoint", proxyTank01Request);
-  app.get("/api/season-stats-2025", serveCompletedOffenseSnapshot);
-  app.post("/api/scheduled/season-stats-refresh", refreshSharedSeasonStatsSchedule);
-  app.post("/api/scheduled/fantasypros-archive", collectFantasyProsArchive);
-  app.post("/api/scheduled/release-unprotected-players", releasePostDeadlinePlayers);
-  app.post("/api/scheduled/weekly-results-finalize", finalizeWeeklyResultsSchedule);
-  // tRPC API
-  app.use(
-    "/api/trpc",
-    createExpressMiddleware({
-      router: appRouter,
-      createContext,
-    })
-  );
+
   // development mode uses Vite, production mode uses static files
   if (process.env.NODE_ENV === "development") {
     await setupVite(app, server);

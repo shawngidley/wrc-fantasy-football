@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "./supabaseAdmin";
-import { isProtectionDeadlinePassed } from "@shared/protectionSchedule";
+import { isProtectionDeadlinePassed } from "../shared/protectionSchedule";
 
 /**
  * Releases all rostered players that were not saved as protections. The update

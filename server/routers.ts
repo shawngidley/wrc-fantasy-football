@@ -1,6 +1,4 @@
-import { COOKIE_NAME } from "@shared/const";
 import { z } from "zod";
-import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { commissionerProcedure, publicProcedure, router, teamProcedure } from "./_core/trpc";
 import {
@@ -16,10 +14,10 @@ import { clearWrcTeamSession, readWrcTeamSession, writeWrcTeamSession } from "./
 import { supabaseAdmin } from "./supabaseAdmin";
 import { validateProtectionSubmission } from "./protectionRules";
 import { releaseUnprotectedPlayers } from "./protectionRelease";
-import { isProtectionDeadlinePassed } from "@shared/protectionSchedule";
-import { findDraftUniversePlayer } from "@shared/draftPlayerUniverse";
-import { DRAFT_LOTTERY_OWNERS, isValidDraftLotteryResult } from "@shared/draftLottery";
-import { applyDraftLottery } from "@shared/draftLottery";
+import { isProtectionDeadlinePassed } from "../shared/protectionSchedule";
+import { findDraftUniversePlayer } from "../shared/draftPlayerUniverse";
+import { DRAFT_LOTTERY_OWNERS, isValidDraftLotteryResult } from "../shared/draftLottery";
+import { applyDraftLottery } from "../shared/draftLottery";
 import { DRAFT_PICKS_2026 } from "../client/src/lib/draftData2026";
 import { storagePut } from "./storage";
 import { finalizeWeeklyResultsFromTank } from "./weeklyResultsFinalize";
@@ -123,16 +121,6 @@ async function mapWithConcurrency<T, R>(items: T[], limit: number, mapper: (item
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
-  auth: router({
-    me: publicProcedure.query(opts => opts.ctx.user),
-    logout: publicProcedure.mutation(({ ctx }) => {
-      const cookieOptions = getSessionCookieOptions(ctx.req);
-      ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return {
-        success: true,
-      } as const;
-    }),
-  }),
 
   league: router({
     teams: publicProcedure.query(() => listPublicLeagueTeams()),
@@ -1366,13 +1354,6 @@ export const appRouter = router({
       .input(z.object({ position: z.enum(["QB", "RB", "WR", "TE", "K", "DST", "OP"]), week: z.number().int().min(0).max(18) }))
       .query(({ input }) => getFantasyProsProjections(input.position, input.week)),
   }),
-
-  // TODO: add feature routers here, e.g.
-  // todo: router({
-  //   list: protectedProcedure.query(({ ctx }) =>
-  //     db.getUserTodos(ctx.user.id)
-  //   ),
-  // }),
 });
 
 export type AppRouter = typeof appRouter;

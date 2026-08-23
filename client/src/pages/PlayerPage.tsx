@@ -13,6 +13,7 @@ import { useWatchlist } from "@/hooks/useWatchlist";
 import { calcFantasyPoints, injuryColor, injuryLabel } from "@/lib/scoringEngine";
 import type { Tank01Stats } from "@/lib/scoringEngine";
 import { formatSeasonStatColumn, getSeasonStatColumns, normalizeTankSeasonStats } from "@/lib/playerSeasonStats";
+import { siteAssetUrl } from "@/lib/siteAssetUrl";
 import { getCurrentWeek } from "@/lib/scheduleData2026";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -594,7 +595,7 @@ export default function PlayerPage() {
               overflow: "hidden",
               animation: "wrc-pulse 1.4s ease-in-out infinite",
             }}>
-              <img src="/manus-storage/wrc-griffin-192_225a52c5.png" alt="WRC" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              <img src={siteAssetUrl("wrc-griffin-192.png")} alt="WRC" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
             </div>
             {/* Player name */}
             <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1.1rem", color: "rgba(255,255,255,0.9)", letterSpacing: "0.06em", textTransform: "uppercase" }}>

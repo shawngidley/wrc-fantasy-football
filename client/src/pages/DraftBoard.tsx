@@ -17,6 +17,7 @@ import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Play, Pause, SkipForward, Search, Music, ArrowLeftRight, RotateCcw, Wifi, WifiOff, ChevronUp, ChevronDown, ListOrdered, Plus, Check } from "lucide-react";
 import { DRAFT_PICKS_2026, getTradedPicks } from "@/lib/draftData2026";
+import { siteAssetUrl } from "@/lib/siteAssetUrl";
 import { applyDraftLottery, isValidDraftLotteryResult } from "@shared/draftLottery";
 import { OWNER_TO_TEAM } from "@/lib/scheduleData2026";
 import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026, getAvailableDraftUniversePlayers, getDraftUniversePlayerByName, type DraftUniversePlayer } from "@shared/draftPlayerUniverse";
@@ -281,7 +282,7 @@ export default function DraftBoard() {
 
   // Pre-load the chime audio on mount
   useEffect(() => {
-    const audio = new Audio("/manus-storage/nfl-draft-chime_9c48384a.mp3");
+    const audio = new Audio(siteAssetUrl("nfl-draft-chime.mp3"));
     audio.preload = "auto";
     chimeRef.current = audio;
   }, []);
