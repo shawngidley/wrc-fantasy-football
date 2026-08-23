@@ -94,9 +94,11 @@
 
 /* Background image URLs */
 :root {
-  --bg-stadium-night: url('https://aquroadkdiltzsvahuff.supabase.co/storage/v1/object/public/site-assets/bg-stadium-night.png');
-  --bg-turf: url('https://aquroadkdiltzsvahuff.supabase.co/storage/v1/object/public/site-assets/bg-turf.png');
-  --bg-crowd: url('https://aquroadkdiltzsvahuff.supabase.co/storage/v1/object/public/site-assets/bg-crowd.png');
+  --bg-stadium-night: url('https://aquroadkdiltzsvahuff.supabase.co/storage/v1/object/public/site-assets/bg-stadium-night.jpg');
+  --bg-turf: url('https://aquroadkdiltzsvahuff.supabase.co/storage/v1/object/public/site-assets/bg-turf.jpg');
+  --bg-crowd: url('https://aquroadkdiltzsvahuff.supabase.co/storage/v1/object/public/site-assets/bg-stadium-night.jpg');
+  --bg-stadium-dawn: url('https://aquroadkdiltzsvahuff.supabase.co/storage/v1/object/public/site-assets/bg-stadium-dawn.jpg');
+  --bg-tunnel: url('https://aquroadkdiltzsvahuff.supabase.co/storage/v1/object/public/site-assets/bg-tunnel.jpg');
 }
 
 @layer base {
@@ -148,6 +150,18 @@
 }
 .bg-crowd {
   background-image: var(--bg-crowd);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+.bg-stadium-dawn {
+  background-image: var(--bg-stadium-dawn);
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+.bg-tunnel {
+  background-image: var(--bg-tunnel);
   background-size: cover;
   background-position: center;
   background-attachment: fixed;

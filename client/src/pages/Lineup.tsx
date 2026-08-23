@@ -830,7 +830,7 @@ export default function Lineup() {
   };
 
   return (
-    <div className="bg-turf bg-overlay" style={{ minHeight: "100vh" }}>
+    <div className="bg-tunnel bg-overlay" style={{ minHeight: "100vh" }}>
       <Navigation showTicker={false} teamName={franchise?.team_name} />
 
       <div style={{ width: "100%", maxWidth: 1360, margin: "0 auto", padding: "1.5rem clamp(0.35rem, 1.2vw, 1.5rem) 3rem" }}>
