@@ -1,6 +1,4 @@
 import { z } from "zod";
-import { isProtectionDeadlinePassed } from "@shared/protectionSchedule";
-import { releaseUnprotectedPlayers } from "./protectionRelease";
 import { systemRouter } from "./_core/systemRouter";
 import { commissionerProcedure, publicProcedure, router, teamProcedure } from "./_core/trpc";
 import {
