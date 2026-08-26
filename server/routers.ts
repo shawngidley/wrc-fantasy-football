@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { isProtectionDeadlinePassed } from "@shared/protectionSchedule";
+import { releaseUnprotectedPlayers } from "./protectionRelease";
 import { systemRouter } from "./_core/systemRouter";
 import { commissionerProcedure, publicProcedure, router, teamProcedure } from "./_core/trpc";
 import {
@@ -1225,6 +1227,12 @@ export const appRouter = router({
       ]);
       if (teamsError || protectionsError) throw new Error("Unable to load protection overview.");
       return { teams: teams ?? [], protections: protections ?? [] };
+    }),
+    commissionerReleaseUnprotectedPlayers: commissionerProcedure.mutation(async () => {
+      if (!isProtectionDeadlinePassed()) {
+        throw new Error("The protection deadline hasn't passed yet — releasing now would cut protected players before selections lock.");
+      }
+      return releaseUnprotectedPlayers();
     }),
     changeTeamPin: teamProcedure
       .input(z.object({ currentPin: z.string().min(1).max(12), newPin: z.string().min(6).max(12) }))

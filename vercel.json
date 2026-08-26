@@ -12,7 +12,7 @@
   "crons": [
     { "path": "/api/scheduled/season-stats-refresh", "schedule": "0 7 * * *" },
     { "path": "/api/scheduled/fantasypros-archive", "schedule": "0 8 * * *" },
-    { "path": "/api/scheduled/release-unprotected-players", "schedule": "0 9 * * *" },
+    { "path": "/api/scheduled/release-unprotected-players", "schedule": "5 1 * * *" },
     { "path": "/api/scheduled/weekly-results-finalize", "schedule": "0 10 * * *" }
   ],
   "headers": [

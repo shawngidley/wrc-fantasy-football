@@ -184,6 +184,13 @@ function CommissionerProtectionsPanel() {
     }
   }, [protectionOverviewQuery.data, protectionOverviewQuery.isFetching, protectionOverviewQuery.isLoading]);
 
+  const releaseMutation = trpc.league.commissionerReleaseUnprotectedPlayers.useMutation();
+  const [confirmingRelease, setConfirmingRelease] = useState(false);
+  const teamsNotSubmitted = teams.filter(team => {
+    const teamProts = protections.filter(p => p.team_id === team.id);
+    return !(teamProts.length > 0 && teamProts.some(p => p.submitted));
+  });
+
   return (
     <div className="wrc-card" style={{ marginBottom: "1.25rem", border: "2px solid oklch(0.78 0.15 85)" }}>
       <div className="wrc-card-gold-stripe" />
@@ -194,6 +201,54 @@ function CommissionerProtectionsPanel() {
           {isPastDeadline ? "DEADLINE PASSED" : `DEADLINE: ${WRC_PROTECTION_DEADLINE_DISPLAY.toUpperCase()}`}
         </span>
       </div>
+      {isPastDeadline && (
+        <div style={{ padding: "0.85rem 1.25rem", borderBottom: "1px solid oklch(0.9 0.02 150)", background: "oklch(0.98 0.01 85)" }}>
+          {releaseMutation.data ? (
+            <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "oklch(0.35 0.15 150)", display: "flex", alignItems: "center", gap: 6 }}>
+              <CheckCircle2 size={15} />
+              {releaseMutation.data.released > 0
+                ? `Released ${releaseMutation.data.released} unprotected player${releaseMutation.data.released === 1 ? "" : "s"} to free agency.`
+                : "No unprotected players remained — nothing to release (the automatic Vercel Cron release may have already run)."}
+            </div>
+          ) : !confirmingRelease ? (
+            <button
+              onClick={() => setConfirmingRelease(true)}
+              style={{ fontSize: "0.8rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.04em", color: "white", background: "oklch(0.5 0.18 25)", border: "none", borderRadius: 5, padding: "0.5rem 1rem", cursor: "pointer" }}
+            >
+              Process Cuts — Release Unprotected Players
+            </button>
+          ) : (
+            <div>
+              <p style={{ fontSize: "0.82rem", color: "oklch(0.35 0.06 150)", marginBottom: "0.6rem" }}>
+                This will release every rostered player who wasn't saved as a protection — irreversible. The automatic 9:05 PM ET
+                Vercel Cron run may already have done this; if a team's roster looks correct below, you likely don't need this.
+                {teamsNotSubmitted.length > 0 && (
+                  <> <strong style={{ color: "oklch(0.5 0.18 25)" }}>{teamsNotSubmitted.length} team{teamsNotSubmitted.length === 1 ? "" : "s"}</strong> never submitted: {teamsNotSubmitted.map(t => t.name).join(", ")} — their entire roster will hit free agency.</>
+                )}
+              </p>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <button
+                  onClick={() => releaseMutation.mutate()}
+                  disabled={releaseMutation.isPending}
+                  style={{ fontSize: "0.8rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.04em", color: "white", background: "oklch(0.5 0.18 25)", border: "none", borderRadius: 5, padding: "0.5rem 1rem", cursor: releaseMutation.isPending ? "not-allowed" : "pointer", opacity: releaseMutation.isPending ? 0.6 : 1 }}
+                >
+                  {releaseMutation.isPending ? "Processing…" : "Confirm — Release Now"}
+                </button>
+                <button
+                  onClick={() => setConfirmingRelease(false)}
+                  disabled={releaseMutation.isPending}
+                  style={{ fontSize: "0.8rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif", color: "oklch(0.4 0.02 150)", background: "white", border: "1px solid oklch(0.85 0.02 150)", borderRadius: 5, padding: "0.5rem 1rem", cursor: "pointer" }}
+                >
+                  Cancel
+                </button>
+              </div>
+              {releaseMutation.error && (
+                <p style={{ fontSize: "0.78rem", color: "oklch(0.5 0.18 25)", marginTop: "0.5rem" }}>{releaseMutation.error.message}</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
       <div style={{ padding: "1.25rem" }}>
         {loadingData ? (
           <div style={{ textAlign: "center", padding: "2rem", color: "oklch(0.55 0.04 150)", fontSize: "0.88rem" }}>Loading protections…</div>
