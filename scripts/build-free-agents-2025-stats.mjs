@@ -13,7 +13,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const PBP_URL = "https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_2025.csv.gz";
 const ROSTER_URL = "https://github.com/nflverse/nflverse-data/releases/download/rosters/roster_2025.csv";
-const PLAYERS_PATH = new URL("../client/src/lib/nflPlayers2026.ts", import.meta.url);
+const PLAYERS_PATH = new URL("../shared/currentDraftPlayerUniverse2026.ts", import.meta.url);
 const OUTPUT_PATH = new URL("../free_agents_2025_offense_complete_v3_9aa995df.json", import.meta.url);
 const SUPABASE_URL = "https://aquroadkdiltzsvahuff.supabase.co";
 const STORAGE_KEY = "free_agents_2025_offense_complete_v3_9aa995df.json";
@@ -28,11 +28,21 @@ function canonicalName(name) {
 }
 
 function playerPool() {
+  // currentDraftPlayerUniverse2026.ts is the actual, current, comprehensive
+  // player list the rest of the app uses (queue, draft board, protections).
+  // The old nflPlayers2026.ts this used to read from is a smaller, stale
+  // list that was missing players entirely (e.g. Luther Burden III), so
+  // anyone missing from it silently got no season-stats entry at all --
+  // not even a zero-stat placeholder.
   const text = readFileSync(PLAYERS_PATH, "utf-8");
-  const pattern = /p\("([^"]+)"\s*,\s*"(QB|RB|WR|TE)"\s*,\s*"([^"]+)"/g;
+  const match = text.match(/String\.raw`\n(\[.*\])\n`/s);
+  if (!match) throw new Error("Could not locate the player universe JSON array in currentDraftPlayerUniverse2026.ts");
+  const players = JSON.parse(match[1]);
   const pool = new Map();
-  for (const match of text.matchAll(pattern)) {
-    pool.set(match[1], { pos: match[2], team: match[3] });
+  for (const p of players) {
+    if (p.pos === "QB" || p.pos === "RB" || p.pos === "WR" || p.pos === "TE") {
+      pool.set(p.name, { pos: p.pos, team: p.nflTeam });
+    }
   }
   return pool;
 }

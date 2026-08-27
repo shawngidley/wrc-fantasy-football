@@ -17,7 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 PBP = Path("/tmp/play_by_play_2025.csv.gz")
 ROSTER = Path("/tmp/roster_2025.csv")
-PLAYERS = ROOT / "client/src/lib/nflPlayers2026.ts"
+PLAYERS = ROOT / "shared/currentDraftPlayerUniverse2026.ts"
 OUTPUT = Path("/tmp/free_agents_2025_offense.json")
 
 
@@ -29,9 +29,22 @@ def number(value: str | None) -> int:
 
 
 def player_pool() -> dict[str, dict[str, str]]:
+    # currentDraftPlayerUniverse2026.ts is the actual, current, comprehensive
+    # player list the rest of the app uses (queue, draft board, protections).
+    # This used to read from client/src/lib/nflPlayers2026.ts, a smaller,
+    # stale list that was missing players entirely (e.g. Luther Burden III),
+    # so anyone missing from it silently got no season-stats entry at all --
+    # not even a zero-stat placeholder.
     text = PLAYERS.read_text(encoding="utf-8")
-    pattern = re.compile(r'p\("([^"]+)"\s*,\s*"(QB|RB|WR|TE)"\s*,\s*"([^"]+)"')
-    return {name: {"pos": pos, "team": team} for name, pos, team in pattern.findall(text)}
+    match = re.search(r"String\.raw`\n(\[.*\])\n`", text, re.DOTALL)
+    if not match:
+        raise RuntimeError("Could not locate the player universe JSON array in currentDraftPlayerUniverse2026.ts")
+    players = json.loads(match.group(1))
+    return {
+        p["name"]: {"pos": p["pos"], "team": p["nflTeam"]}
+        for p in players
+        if p["pos"] in ("QB", "RB", "WR", "TE")
+    }
 
 
 def canonical_name(name: str) -> str:
