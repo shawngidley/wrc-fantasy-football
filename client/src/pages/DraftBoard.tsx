@@ -99,6 +99,11 @@ const OWNER_TO_TEAM_ID: Record<string, string> = {
   "Greg":     "team-greg",
 };
 
+// Reverse of OWNER_TO_TEAM_ID, for placing protected players on the board by team_id
+const TEAM_ID_TO_OWNER: Record<string, string> = Object.fromEntries(
+  Object.entries(OWNER_TO_TEAM_ID).map(([owner, teamId]) => [teamId, owner]),
+);
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 interface DbDraftState {
   id: number;
@@ -304,6 +309,25 @@ export default function DraftBoard() {
     }
     return m;
   }, [dbPicks, revealedPickIds]);
+
+  // Protected players: each occupies their own team's column at the round
+  // their protection cost. Built with the same "round-columnIndex" key
+  // convention as picksMap so both can be looked up identically per cell.
+  const protectionsQuery = trpc.league.allProtections.useQuery();
+  const protectedMap = useMemo(() => {
+    const m: Record<string, { name: string; pos: string; nflTeam: string }> = {};
+    for (const p of protectionsQuery.data ?? []) {
+      const owner = TEAM_ID_TO_OWNER[p.team_id];
+      const rawPlayer = p.players as { name: string; position: string; nfl_team: string } | { name: string; position: string; nfl_team: string }[] | null;
+      const player = Array.isArray(rawPlayer) ? rawPlayer[0] : rawPlayer;
+      if (!owner || !player || p.forfeited_round == null) continue;
+      const colOwners = p.forfeited_round % 2 === 1 ? resolvedRound1Order : [...resolvedRound1Order].reverse();
+      const colIndex = colOwners.indexOf(owner);
+      if (colIndex === -1) continue;
+      m[`${p.forfeited_round}-${colIndex}`] = { name: player.name, pos: player.position, nflTeam: player.nfl_team };
+    }
+    return m;
+  }, [protectionsQuery.data, resolvedRound1Order]);
 
   // Current owner on the clock
   const currentOwner = getOwnerForSlot(curRound, curPick, resolvedDraftOrder);
@@ -1077,22 +1101,32 @@ export default function DraftBoard() {
                     const cellOwner = draftOrderPick?.owner ?? colOwner;
                     const cellKey = `${round}-${p}`;
                     const dbPick = picksMap[cellKey];
-                    const isCurrent = started && !complete && round === curRound && p === curPick;
+                    const protectedPlayer = protectedMap[cellKey];
+                    const isCurrent = started && !complete && round === curRound && p === curPick && !protectedPlayer;
                     const isTraded = draftOrderPick?.isTraded ?? false;
 
                     return (
                       <div key={p} style={{
-                        background: isCurrent ? "oklch(0.78 0.15 85)" : dbPick ? "oklch(0.94 0.01 150)" : "rgba(255,255,255,0.06)",
-                        border: isCurrent ? "2px solid oklch(0.65 0.14 85)" : isTraded ? "1.5px solid oklch(0.78 0.15 85 / 0.6)" : "1px solid rgba(255,255,255,0.06)",
+                        background: protectedPlayer ? "oklch(0.95 0.06 85)" : isCurrent ? "oklch(0.78 0.15 85)" : dbPick ? "oklch(0.94 0.01 150)" : "rgba(255,255,255,0.06)",
+                        border: protectedPlayer ? "1.5px solid oklch(0.78 0.15 85)" : isCurrent ? "2px solid oklch(0.65 0.14 85)" : isTraded ? "1.5px solid oklch(0.78 0.15 85 / 0.6)" : "1px solid rgba(255,255,255,0.06)",
                         borderRadius: 4, padding: "0.3rem 0.2rem", minHeight: 52,
                         display: "flex", flexDirection: "column", justifyContent: "center",
                         transition: "background 0.2s",
                         animation: isCurrent ? "gold-pulse 1.4s ease-in-out infinite" : dbPick ? "fadeInUp 0.25s ease both" : "none",
                         cursor: isCurrent && (isMyTurn || isCommissioner) ? "pointer" : "default",
                       }}
+                        title={protectedPlayer ? `Protected — ${cellOwner} forfeited this round to keep ${protectedPlayer.name}` : undefined}
                         onClick={() => { if (isCurrent && (isMyTurn || isCommissioner)) setShowPlayerPool(true); }}
                       >
-                        {dbPick ? (
+                        {protectedPlayer ? (
+                          <>
+                            <div style={{ fontSize: "0.5rem", fontWeight: 800, color: "oklch(0.42 0.15 85)", textAlign: "center", letterSpacing: "0.06em", marginBottom: 1 }}>🔒 PROTECTED</div>
+                            <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.62rem", fontWeight: 700, color: "oklch(0.22 0.08 150)", textAlign: "center", lineHeight: 1.2, padding: "0 2px" }}>{protectedPlayer.name}</div>
+                            <div style={{ textAlign: "center", marginTop: 2 }}>
+                              <span style={{ fontSize: "0.55rem", fontWeight: 700, color: "white", background: POS_COLORS[protectedPlayer.pos] || "#64748b", borderRadius: 3, padding: "1px 3px" }}>{protectedPlayer.pos}</span>
+                            </div>
+                          </>
+                        ) : dbPick ? (
                           <>
                             <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.62rem", fontWeight: 700, color: "oklch(0.22 0.08 150)", textAlign: "center", lineHeight: 1.2, padding: "0 2px" }}>{dbPick.player_name}</div>
                             <div style={{ textAlign: "center", marginTop: 2 }}>

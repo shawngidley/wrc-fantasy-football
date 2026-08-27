@@ -94169,7 +94169,7 @@ var appRouter = router({
       return { teams: teams ?? [], protections: protections ?? [] };
     }),
     allProtections: publicProcedure.query(async () => {
-      const { data, error: error51 } = await supabaseAdmin.from("protections").select("player_id, forfeited_round");
+      const { data, error: error51 } = await supabaseAdmin.from("protections").select("team_id, player_id, forfeited_round, players(name, position, nfl_team)");
       if (error51) throw new Error("Unable to load protections.");
       return data ?? [];
     }),
