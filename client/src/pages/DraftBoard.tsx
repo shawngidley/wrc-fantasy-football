@@ -21,6 +21,7 @@ import { siteAssetUrl } from "@/lib/siteAssetUrl";
 import { applyDraftLottery, isValidDraftLotteryResult } from "@shared/draftLottery";
 import { OWNER_TO_TEAM } from "@/lib/scheduleData2026";
 import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026, getAvailableDraftUniversePlayers, getDraftUniversePlayerByName, type DraftUniversePlayer } from "@shared/draftPlayerUniverse";
+import { normalizePlayerName } from "@shared/playerNameMatch";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { fetchPlayerByName, getTeamLogoUrl } from "@/hooks/useTank01Player";
@@ -260,22 +261,23 @@ export default function DraftBoard() {
       .select("name")
       .not("team_id", "is", null)
       .then(({ data }) => {
-        if (data) setRosteredNames(new Set(data.map((p: { name: string }) => p.name.toLowerCase())));
+        if (data) setRosteredNames(new Set(data.map((p: { name: string }) => normalizePlayerName(p.name))));
       });
   }, []);
 
   // Drafted player names (for graying out in queue)
   const draftedNames = useMemo(() => new Set(dbPicks.map(p => p.player_name)), [dbPicks]);
-  const draftedNamesLower = useMemo(() => new Set(dbPicks.map(p => p.player_name.toLowerCase())), [dbPicks]);
+  const draftedNamesNormalized = useMemo(() => new Set(dbPicks.map(p => normalizePlayerName(p.player_name))), [dbPicks]);
 
   // Queue browser filtered players
   const queueFilteredPlayers = useMemo(() => {
     return CURRENT_DRAFT_PLAYER_UNIVERSE_2026.filter(p => {
+      const normalizedName = normalizePlayerName(p.name);
       // Only show undrafted players not already in the queue
-      if (draftedNames.has(p.name)) return false;
-      // Exclude players already on a WRC roster
-      if (rosteredNames.has(p.name.toLowerCase())) return false;
-      if (queue.some(q => q.player_name.toLowerCase() === p.name.toLowerCase())) return false;
+      if (draftedNamesNormalized.has(normalizedName)) return false;
+      // Exclude players already on a WRC roster (including protected players)
+      if (rosteredNames.has(normalizedName)) return false;
+      if (queue.some(q => normalizePlayerName(q.player_name) === normalizedName)) return false;
       if (queuePosFilter !== "ALL" && p.pos !== queuePosFilter) return false;
       if (queueSearch) {
         const q = queueSearch.toLowerCase();
@@ -283,7 +285,7 @@ export default function DraftBoard() {
       }
       return true;
     }).sort((a, b) => (resolve2026Adp(a, adpMap) ?? Number.POSITIVE_INFINITY) - (resolve2026Adp(b, adpMap) ?? Number.POSITIVE_INFINITY));
-  }, [queueSearch, queuePosFilter, draftedNames, queue, rosteredNames, adpMap]);
+  }, [queueSearch, queuePosFilter, draftedNamesNormalized, queue, rosteredNames, adpMap]);
 
   // Pre-load the chime audio on mount
   useEffect(() => {
@@ -759,7 +761,7 @@ export default function DraftBoard() {
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", alignItems: "flex-start" }}>
                 {/* Queue suggestion — top available player */}
                 {(() => {
-                  const topQueued = queue.find(q => !draftedNamesLower.has(q.player_name.toLowerCase()));
+                  const topQueued = queue.find(q => !draftedNamesNormalized.has(normalizePlayerName(q.player_name)));
                   if (!topQueued) return null;
                   const qPlayer = CURRENT_DRAFT_PLAYER_UNIVERSE_2026.find(p => p.name.toLowerCase() === topQueued.player_name.toLowerCase());
                   if (!qPlayer) return null;
@@ -847,7 +849,7 @@ export default function DraftBoard() {
                     </div>
                     <div style={{ maxHeight: 320, overflowY: "auto" }}>
                       {queueFilteredPlayers.map(player => {
-                        const drafted = draftedNamesLower.has(player.name.toLowerCase());
+                        const drafted = draftedNamesNormalized.has(normalizePlayerName(player.name));
                         const queued = isQueued(player.name);
                         return (
                           <div key={player.id} style={{ display: "flex", alignItems: "center", gap: "0.65rem", padding: "0.6rem 1rem", borderBottom: "1px solid oklch(0.95 0.003 150)", opacity: drafted ? 0.4 : 1 }}>
@@ -881,7 +883,7 @@ export default function DraftBoard() {
                   <div className="wrc-card" style={{ overflow: "hidden" }}>
                     <div className="wrc-card-gold-stripe" />
                     <div className="wrc-card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span>My Queue ({queue.length} players · {queue.filter(q => !draftedNamesLower.has(q.player_name.toLowerCase())).length} available)</span>
+                      <span>My Queue ({queue.length} players · {queue.filter(q => !draftedNamesNormalized.has(normalizePlayerName(q.player_name))).length} available)</span>
                     </div>
                     <div style={{ overflowX: "auto" }}>
                       <table className="wrc-table" style={{ minWidth: 600, width: "100%", tableLayout: "fixed" }}>
@@ -909,7 +911,7 @@ export default function DraftBoard() {
                         </thead>
                         <tbody>
                       {queuePlayerDetails.map(({ item, player }, idx) => {
-                        const isDrafted = draftedNamesLower.has(item.player_name.toLowerCase());
+                        const isDrafted = draftedNamesNormalized.has(normalizePlayerName(item.player_name));
                         const rowBackground = isDrafted ? "oklch(0.97 0.005 150)" : idx % 2 === 0 ? "white" : "oklch(0.96 0.008 150)";
                         return (
                           <tr key={item.id} style={{ opacity: isDrafted ? 0.46 : 1 }}>
