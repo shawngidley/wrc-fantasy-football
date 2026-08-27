@@ -309,9 +309,11 @@ export default function DraftBoard() {
     return m;
   }, [dbPicks, revealedPickIds]);
 
-  // Protected players: each occupies their own team's column at the round
-  // their protection cost. Built with the same "round-columnIndex" key
-  // convention as picksMap so both can be looked up identically per cell.
+  // Protected players: placed at the physical draft position their team's
+  // fixed column translates to for that round. Columns never move (each team
+  // keeps the same column all 18 rounds); only the physical pick position
+  // within a row reverses on even rounds, same as picksMap's own keying
+  // (dbPick.pick), so both maps share one consistent lookup key.
   const protectionsQuery = trpc.league.allProtections.useQuery();
   const protectedMap = useMemo(() => {
     const m: Record<string, { name: string; pos: string; nflTeam: string }> = {};
@@ -320,10 +322,10 @@ export default function DraftBoard() {
       const rawPlayer = p.players as { name: string; position: string; nfl_team: string } | { name: string; position: string; nfl_team: string }[] | null;
       const player = Array.isArray(rawPlayer) ? rawPlayer[0] : rawPlayer;
       if (!owner || !player || p.forfeited_round == null) continue;
-      const colOwners = p.forfeited_round % 2 === 1 ? ROUND1_ORDER : [...ROUND1_ORDER].reverse();
-      const colIndex = colOwners.indexOf(owner);
-      if (colIndex === -1) continue;
-      m[`${p.forfeited_round}-${colIndex}`] = { name: player.name, pos: player.position, nflTeam: player.nfl_team };
+      const columnIndex = ROUND1_ORDER.indexOf(owner);
+      if (columnIndex === -1) continue;
+      const physicalPick = p.forfeited_round % 2 === 1 ? columnIndex : (TOTAL_TEAMS - 1 - columnIndex);
+      m[`${p.forfeited_round}-${physicalPick}`] = { name: player.name, pos: player.position, nflTeam: player.nfl_team };
     }
     return m;
   }, [protectionsQuery.data]);
@@ -1085,23 +1087,27 @@ export default function DraftBoard() {
             {/* Pick rows */}
             {Array.from({ length: TOTAL_ROUNDS }, (_, r) => {
               const round = r + 1;
-              // For even rounds, column order reverses (snake)
-              const colOwners = round % 2 === 1 ? ROUND1_ORDER : [...ROUND1_ORDER].reverse();
               return (
                 <div key={r} style={{ display: "grid", gridTemplateColumns: `60px repeat(${TOTAL_TEAMS}, 1fr)`, gap: 2, marginBottom: 2 }}>
                   <div style={{ background: "rgba(0,0,0,0.4)", padding: "0.4rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, color: "rgba(255,255,255,0.7)", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
                     {round}
                     {round <= 2 && <span style={{ fontSize: "0.5rem", color: "oklch(0.78 0.15 85)", marginLeft: 2 }}>L</span>}
                   </div>
-                  {colOwners.map((colOwner, p) => {
-                    // Find the actual pick for this cell using DRAFT_PICKS_2026 order
-                    const pickInRound = p + 1;
+                  {ROUND1_ORDER.map((colOwner, p) => {
+                    // Column identity (p / colOwner) is fixed for every round -- each team
+                    // keeps the same visual column all 18 rounds. Only the *physical* pick
+                    // position within the row reverses on even rounds (the actual snake),
+                    // which is what determines both the DRAFT_PICKS_2026 lookup and the
+                    // dbPick/protection key (matching server's current_pick/dbPick.pick,
+                    // which are physical-position-based, not column-based).
+                    const physicalPick = round % 2 === 1 ? p : (TOTAL_TEAMS - 1 - p);
+                    const pickInRound = physicalPick + 1;
                     const draftOrderPick = resolvedDraftOrder.find(dp => dp.round === round && dp.pickInRound === pickInRound);
                     const cellOwner = draftOrderPick?.owner ?? colOwner;
-                    const cellKey = `${round}-${p}`;
+                    const cellKey = `${round}-${physicalPick}`;
                     const dbPick = picksMap[cellKey];
                     const protectedPlayer = protectedMap[cellKey];
-                    const isCurrent = started && !complete && round === curRound && p === curPick && !protectedPlayer;
+                    const isCurrent = started && !complete && round === curRound && physicalPick === curPick && !protectedPlayer;
                     const isTraded = draftOrderPick?.isTraded ?? false;
                     // Rounds 1-2 use the actual lottery result for who's picking, while every
                     // other round (and the column header itself) stays on the fixed placeholder

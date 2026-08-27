@@ -93287,10 +93287,10 @@ async function getProtectedDraftSlots(staticRound1Order) {
   for (const p of protections ?? []) {
     const owner = WRC_TEAM_ID_TO_OWNER[p.team_id];
     if (!owner || p.forfeited_round == null) continue;
-    const colOwners = p.forfeited_round % 2 === 1 ? staticRound1Order : [...staticRound1Order].reverse();
-    const colIndex = colOwners.indexOf(owner);
-    if (colIndex === -1) continue;
-    slots.add(`${p.forfeited_round}-${colIndex}`);
+    const columnIndex = staticRound1Order.indexOf(owner);
+    if (columnIndex === -1) continue;
+    const physicalPick = p.forfeited_round % 2 === 1 ? columnIndex : WRC_DRAFT_TOTAL_TEAMS - 1 - columnIndex;
+    slots.add(`${p.forfeited_round}-${physicalPick}`);
   }
   return slots;
 }

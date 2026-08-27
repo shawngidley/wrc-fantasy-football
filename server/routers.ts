@@ -96,14 +96,16 @@ const WRC_TEAM_ID_TO_OWNER: Record<string, string> = Object.fromEntries(
   Object.entries(WRC_DRAFT_OWNER_TEAM_IDS).map(([owner, teamId]) => [teamId, owner]),
 );
 
-// Returns a Set of "round-columnIndex" keys for every slot occupied by a
-// protected player, using the same column convention as the live draft grid:
-// columnIndex is the team's fixed home column from the STATIC (pre-lottery)
-// round 1 order, reversed on even rounds for the snake. This is deliberately
-// NOT the lottery-resolved order -- the lottery only decides who actually
-// picks in rounds 1-2; every team's column identity for the rest of the
-// draft (and thus which slot a protection occupies) stays on the fixed
-// placeholder order regardless of lottery outcome.
+// Returns a Set of "round-physicalPick" keys for every slot occupied by a
+// protected player, keyed the same way draft_state.current_pick and
+// draft_picks.pick already are (physical position within the round, 0-11 --
+// NOT a fixed column index). Column identity comes from the STATIC
+// (pre-lottery) round 1 order -- every team keeps the same column for all
+// 18 rounds regardless of lottery outcome -- but a team's column only equals
+// its physical pick position on odd rounds; on even rounds the snake means
+// column p sits at physical position (TOTAL_TEAMS - 1 - p). Getting this
+// backwards would make nextDraftState check the wrong slot (or even the
+// wrong team's slot) on every even round.
 async function getProtectedDraftSlots(staticRound1Order: string[]): Promise<Set<string>> {
   const { data: protections, error } = await supabaseAdmin.from("protections").select("team_id, forfeited_round");
   if (error) throw new Error("Unable to load protections while advancing the draft.");
@@ -111,10 +113,10 @@ async function getProtectedDraftSlots(staticRound1Order: string[]): Promise<Set<
   for (const p of protections ?? []) {
     const owner = WRC_TEAM_ID_TO_OWNER[p.team_id];
     if (!owner || p.forfeited_round == null) continue;
-    const colOwners = p.forfeited_round % 2 === 1 ? staticRound1Order : [...staticRound1Order].reverse();
-    const colIndex = colOwners.indexOf(owner);
-    if (colIndex === -1) continue;
-    slots.add(`${p.forfeited_round}-${colIndex}`);
+    const columnIndex = staticRound1Order.indexOf(owner);
+    if (columnIndex === -1) continue;
+    const physicalPick = p.forfeited_round % 2 === 1 ? columnIndex : (WRC_DRAFT_TOTAL_TEAMS - 1 - columnIndex);
+    slots.add(`${p.forfeited_round}-${physicalPick}`);
   }
   return slots;
 }
