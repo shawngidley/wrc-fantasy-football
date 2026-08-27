@@ -528,7 +528,7 @@ export default function DraftBoard() {
   // ── Render ────────────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="bg-stadium-night bg-overlay" style={{ minHeight: "100vh" }}>
+      <div className="bg-crowd bg-overlay" style={{ minHeight: "100vh" }}>
         <Navigation showTicker={false} teamName={franchise?.team_name} />
         <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "60vh" }}>
           <div style={{ textAlign: "center", color: "white" }}>
@@ -541,7 +541,7 @@ export default function DraftBoard() {
   }
 
   return (
-    <div className="bg-stadium-night bg-overlay" style={{ minHeight: "100vh" }}>
+    <div className="bg-crowd bg-overlay" style={{ minHeight: "100vh" }}>
       <Navigation showTicker={false} teamName={franchise?.team_name} />
 
       <div style={{ maxWidth: 1400, margin: "0 auto", padding: "1rem 1rem 3rem" }}>

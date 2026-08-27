@@ -145,7 +145,7 @@ export default function DraftPlayers() {
       : "Validated 2026 ADP unavailable";
 
   return (
-    <main className="bg-stadium-night bg-overlay" style={{ minHeight: "100vh" }}>
+    <main className="bg-crowd bg-overlay" style={{ minHeight: "100vh" }}>
       <div style={{ maxWidth: 1120, margin: "0 auto", padding: "1rem 1rem 3rem" }}>
         <div className="wrc-page-title" style={{ padding: 0, marginBottom: "1rem" }}>
           <h1>Draft Players</h1>
