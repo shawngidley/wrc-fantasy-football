@@ -93277,17 +93277,39 @@ async function consumePasskeyChallenge(id) {
   const { data, error: error51 } = await supabaseAdmin.from("team_passkey_challenges").update({ used_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", id).is("used_at", null).select("id");
   if (error51 || !data?.length) throw new Error("This Face ID request has already been used. Please try again.");
 }
-function nextDraftState(currentRound, currentPick) {
-  const nextPick = currentPick + 1 >= WRC_DRAFT_TOTAL_TEAMS ? 0 : currentPick + 1;
-  const nextRound = currentPick + 1 >= WRC_DRAFT_TOTAL_TEAMS ? currentRound + 1 : currentRound;
-  const complete = nextRound > WRC_DRAFT_TOTAL_ROUNDS;
-  return {
-    current_round: complete ? currentRound : nextRound,
-    current_pick: complete ? currentPick : nextPick,
-    complete,
-    paused: false,
-    timer_seconds: WRC_DRAFT_TIMER_SECONDS
-  };
+var WRC_TEAM_ID_TO_OWNER = Object.fromEntries(
+  Object.entries(WRC_DRAFT_OWNER_TEAM_IDS).map(([owner, teamId]) => [teamId, owner])
+);
+async function getProtectedDraftSlots(resolvedRound1Order) {
+  const { data: protections, error: error51 } = await supabaseAdmin.from("protections").select("team_id, forfeited_round");
+  if (error51) throw new Error("Unable to load protections while advancing the draft.");
+  const slots = /* @__PURE__ */ new Set();
+  for (const p of protections ?? []) {
+    const owner = WRC_TEAM_ID_TO_OWNER[p.team_id];
+    if (!owner || p.forfeited_round == null) continue;
+    const colOwners = p.forfeited_round % 2 === 1 ? resolvedRound1Order : [...resolvedRound1Order].reverse();
+    const colIndex = colOwners.indexOf(owner);
+    if (colIndex === -1) continue;
+    slots.add(`${p.forfeited_round}-${colIndex}`);
+  }
+  return slots;
+}
+function nextDraftState(currentRound, currentPick, protectedSlots = /* @__PURE__ */ new Set()) {
+  let round = currentRound;
+  let pick2 = currentPick;
+  for (let i = 0; i < WRC_DRAFT_TOTAL_ROUNDS * WRC_DRAFT_TOTAL_TEAMS; i++) {
+    const nextPick = pick2 + 1 >= WRC_DRAFT_TOTAL_TEAMS ? 0 : pick2 + 1;
+    const nextRound = pick2 + 1 >= WRC_DRAFT_TOTAL_TEAMS ? round + 1 : round;
+    if (nextRound > WRC_DRAFT_TOTAL_ROUNDS) {
+      return { current_round: round, current_pick: pick2, complete: true, paused: false, timer_seconds: WRC_DRAFT_TIMER_SECONDS };
+    }
+    round = nextRound;
+    pick2 = nextPick;
+    if (!protectedSlots.has(`${round}-${pick2}`)) {
+      return { current_round: round, current_pick: pick2, complete: false, paused: false, timer_seconds: WRC_DRAFT_TIMER_SECONDS };
+    }
+  }
+  return { current_round: round, current_pick: pick2, complete: true, paused: false, timer_seconds: WRC_DRAFT_TIMER_SECONDS };
 }
 async function mapWithConcurrency(items, limit, mapper) {
   const results = [];
@@ -93890,7 +93912,15 @@ var appRouter = router({
         if (error52) throw new Error("Unable to reset draft state");
         return { action: "reset" };
       }
-      const patch = input.action === "start" ? { started: true, paused: false, complete: false, current_round: 1, current_pick: 0, timer_seconds: WRC_DRAFT_TIMER_SECONDS } : input.action === "togglePause" ? { paused: !state.paused } : nextDraftState(state.current_round, state.current_pick);
+      const patch = input.action === "start" ? { started: true, paused: false, complete: false, current_round: 1, current_pick: 0, timer_seconds: WRC_DRAFT_TIMER_SECONDS } : input.action === "togglePause" ? { paused: !state.paused } : await (async () => {
+        const { data: lottery } = await supabaseAdmin.from("draft_lottery").select("result_owners, reveal_status, reveal_started_at").eq("id", 1).maybeSingle();
+        const revealComplete = lottery?.reveal_status === "running" && lottery?.reveal_started_at && Date.now() - new Date(lottery.reveal_started_at).getTime() >= 6 * 45e3;
+        const resultOwners = revealComplete && isValidDraftLotteryResult(lottery?.result_owners) ? lottery.result_owners : null;
+        const order = applyDraftLottery(DRAFT_PICKS_2026, resultOwners);
+        const resolvedRound1Order = order.filter((p) => p.round === 1).map((p) => p.owner);
+        const protectedSlots = await getProtectedDraftSlots(resolvedRound1Order);
+        return nextDraftState(state.current_round, state.current_pick, protectedSlots);
+      })();
       const { error: error51 } = await supabaseAdmin.from("draft_state").update({ ...patch, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", 1);
       if (error51) throw new Error("Unable to update draft state");
       return { action: input.action };
@@ -93956,8 +93986,10 @@ var appRouter = router({
       });
       const rosterError = rosterResult.error;
       if (rosterError) throw new Error("Draft pick was saved, but the team roster could not be updated.");
+      const resolvedRound1Order = order.filter((p) => p.round === 1).map((p) => p.owner);
+      const protectedSlots = await getProtectedDraftSlots(resolvedRound1Order);
       const { error: advanceError } = await supabaseAdmin.from("draft_state").update({
-        ...nextDraftState(state.current_round, state.current_pick),
+        ...nextDraftState(state.current_round, state.current_pick, protectedSlots),
         updated_at: (/* @__PURE__ */ new Date()).toISOString()
       }).eq("id", 1).eq("current_round", state.current_round).eq("current_pick", state.current_pick);
       if (advanceError) throw new Error("Draft pick was saved, but the draft clock could not advance.");

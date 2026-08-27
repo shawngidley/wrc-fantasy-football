@@ -81,6 +81,11 @@ function configureDraftDatabase() {
         })),
       };
     }
+    if (table === "protections") {
+      return {
+        select: vi.fn().mockResolvedValue({ data: [], error: null }),
+      };
+    }
     throw new Error(`Unexpected table: ${table}`);
   });
 
