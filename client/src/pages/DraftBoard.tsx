@@ -203,6 +203,7 @@ export default function DraftBoard() {
   const [timer, setTimer] = useState(TIMER_SECONDS);
   const [search, setSearch] = useState("");
   const [posFilter, setPosFilter] = useState("ALL");
+  const [boardView, setBoardView] = useState<"grid" | "list">("grid");
   const [playerBoardSort, setPlayerBoardSort] = useState<DraftBoardSortKey>("adp");
   const [playerBoardDirection, setPlayerBoardDirection] = useState<DraftBoardSortDirection>("asc");
   const [submitting, setSubmitting] = useState(false);
@@ -217,6 +218,7 @@ export default function DraftBoard() {
   const [revealProgress, setRevealProgress] = useState(100);
   const prevPickCountRef = useRef(0);
   const chimeRef = useRef<HTMLAudioElement | null>(null);
+  const currentListRowRef = useRef<HTMLDivElement | null>(null);
   // Tracks which pick IDs have been revealed (shown in board after overlay)
   const [revealedPickIds, setRevealedPickIds] = useState<Set<number>>(new Set());
   const draftActionMutation = trpc.league.commissionerDraftAction.useMutation();
@@ -482,6 +484,14 @@ export default function DraftBoard() {
 
     return () => clearTimeout(overlayDelay);
   }, [dbPicks]);
+
+  // Auto-scroll the current-pick row into view when the Pick List tab is
+  // active and the clock advances, so no one has to hunt for it in a
+  // 216-row list.
+  useEffect(() => {
+    if (boardView !== "list") return;
+    currentListRowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [boardView, curRound, curPick]);
 
   // ── Commissioner actions ──
   async function handleStartDraft() {
@@ -926,6 +936,18 @@ export default function DraftBoard() {
                                   <button aria-label={`Move ${item.player_name} up`} onClick={() => moveItem(item.id, "up")} disabled={idx === 0} style={{ background: "none", border: "none", cursor: idx === 0 ? "default" : "pointer", color: idx === 0 ? "oklch(0.85 0.01 150)" : "oklch(0.45 0.06 150)", padding: "1px 3px", display: "flex" }}>
                                     <ChevronUp size={14} />
                                   </button>
+                                  <button
+                                    aria-label={`Select ${item.player_name} in Draft Panel`}
+                                    title="Select in Draft Panel"
+                                    onClick={() => {
+                                      setSearch(item.player_name);
+                                      setPosFilter("ALL");
+                                      document.getElementById("draft-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                                    }}
+                                    style={{ background: "none", border: "none", cursor: "pointer", color: "oklch(0.5 0.14 85)", padding: "1px 3px", display: "flex" }}
+                                  >
+                                    <Search size={13} />
+                                  </button>
                                   <button aria-label={`Move ${item.player_name} down`} onClick={() => moveItem(item.id, "down")} disabled={idx === queue.length - 1} style={{ background: "none", border: "none", cursor: idx === queue.length - 1 ? "default" : "pointer", color: idx === queue.length - 1 ? "oklch(0.85 0.01 150)" : "oklch(0.45 0.06 150)", padding: "1px 3px", display: "flex" }}>
                                     <ChevronDown size={14} />
                                   </button>
@@ -1043,7 +1065,28 @@ export default function DraftBoard() {
           </div>
         </div>
 
+        {/* Board view tabs */}
+        <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.75rem" }}>
+          {(["grid", "list"] as const).map(view => (
+            <button
+              key={view}
+              onClick={() => setBoardView(view)}
+              style={{
+                background: boardView === view ? "oklch(0.78 0.15 85)" : "rgba(255,255,255,0.08)",
+                color: boardView === view ? "oklch(0.15 0.02 150)" : "rgba(255,255,255,0.7)",
+                border: "1px solid " + (boardView === view ? "oklch(0.78 0.15 85)" : "rgba(255,255,255,0.15)"),
+                borderRadius: 7, padding: "0.4rem 0.9rem",
+                fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase",
+                cursor: "pointer",
+              }}
+            >
+              {view === "grid" ? "Board Grid" : "Pick List"}
+            </button>
+          ))}
+        </div>
+
         {/* Draft Grid */}
+        {boardView === "grid" && (
         <div style={{ overflowX: "auto", marginBottom: "1.5rem" }}>
           <div style={{ minWidth: TOTAL_TEAMS * 110 + 60 }}>
             {/* Column headers — owner names */}
@@ -1134,8 +1177,58 @@ export default function DraftBoard() {
             })}
           </div>
         </div>
+        )}
 
-
+        {/* Pick List — vertical, scrollable, overall pick order */}
+        {boardView === "list" && (
+          <div style={{ maxHeight: 640, overflowY: "auto", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, marginBottom: "1.5rem", background: "rgba(0,0,0,0.35)" }}>
+            {Array.from({ length: TOTAL_ROUNDS }, (_, r) => r + 1).flatMap(round =>
+              Array.from({ length: TOTAL_TEAMS }, (_, physicalPick) => {
+                const pickInRound = physicalPick + 1;
+                const overall = (round - 1) * TOTAL_TEAMS + pickInRound;
+                const draftOrderPick = resolvedDraftOrder.find(dp => dp.round === round && dp.pickInRound === pickInRound);
+                const owner = draftOrderPick?.owner ?? "?";
+                const cellKey = `${round}-${physicalPick}`;
+                const dbPick = picksMap[cellKey];
+                const protectedPlayer = protectedMap[cellKey];
+                const isRowCurrent = started && !complete && round === curRound && physicalPick === curPick && !protectedPlayer;
+                return (
+                  <div
+                    key={overall}
+                    ref={isRowCurrent ? currentListRowRef : undefined}
+                    style={{
+                      display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.45rem 0.9rem",
+                      borderBottom: "1px solid rgba(255,255,255,0.06)",
+                      background: isRowCurrent ? "oklch(0.78 0.15 85 / 0.18)" : overall % 2 === 0 ? "rgba(255,255,255,0.03)" : "transparent",
+                    }}
+                  >
+                    <span style={{ width: 40, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", fontWeight: 700, color: "rgba(255,255,255,0.4)" }}>#{overall}</span>
+                    <span style={{ width: 42, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", fontWeight: 700, color: "rgba(255,255,255,0.55)" }}>{round}.{String(pickInRound).padStart(2, "0")}</span>
+                    <span style={{ width: 96, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, color: OWNER_COLORS[owner] ? "white" : "rgba(255,255,255,0.6)", background: OWNER_COLORS[owner] ?? "transparent", borderRadius: 4, padding: "2px 6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{owner}</span>
+                    <span style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                      {protectedPlayer ? (
+                        <>
+                          <span style={{ fontSize: "0.7rem" }}>🔒</span>
+                          <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.82rem", color: "oklch(0.85 0.1 85)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{protectedPlayer.name}</span>
+                          <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "white", background: POS_COLORS[protectedPlayer.pos] || "#64748b", borderRadius: 3, padding: "1px 4px", flexShrink: 0 }}>{protectedPlayer.pos}</span>
+                        </>
+                      ) : dbPick ? (
+                        <>
+                          <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.82rem", color: "white", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{dbPick.player_name}</span>
+                          <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "white", background: POS_COLORS[dbPick.player_pos] || "#64748b", borderRadius: 3, padding: "1px 4px", flexShrink: 0 }}>{dbPick.player_pos}</span>
+                        </>
+                      ) : isRowCurrent ? (
+                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.78rem", color: "oklch(0.78 0.15 85)", letterSpacing: "0.05em" }}>ON THE CLOCK</span>
+                      ) : (
+                        <span style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.25)" }}>—</span>
+                      )}
+                    </span>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
 
 
         {/* Theme Song Note */}
