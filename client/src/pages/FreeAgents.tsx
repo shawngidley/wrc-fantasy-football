@@ -61,10 +61,6 @@ function PosBadge({ pos }: { pos: string }) {
   );
 }
 
-function normalizePlayerName(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
-
 export const WRC_TEAM_ABBREVIATIONS: Record<string, string> = {
   "The Super Snuffleupagus": "TSS",
   "The Boys of Fall": "TBF",

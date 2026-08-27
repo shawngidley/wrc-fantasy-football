@@ -1,3 +1,4 @@
+import { normalizePlayerName } from "./playerNameMatch";
 import {
   CURRENT_DRAFT_PLAYER_UNIVERSE_2026,
   CURRENT_DRAFT_PLAYER_UNIVERSE_2026_METADATA,
@@ -12,14 +13,10 @@ export {
   type DraftUniversePosition,
 };
 
-function canonical(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/’/g, "'")
-    .replace(/\b(jr|sr)\.?(?=\s|$)/g, "")
-    .replace(/\b(ii|iii|iv)\b/g, "")
-    .replace(/[^a-z0-9]/g, "");
-}
+// Delegates to the shared canonical normalizer (shared/playerNameMatch.ts)
+// so suffix-stripping and known aliases stay in one place instead of
+// drifting between this file's own copy and everywhere else in the app.
+const canonical = normalizePlayerName;
 
 export function findDraftUniversePlayer(input: {
   name: string;

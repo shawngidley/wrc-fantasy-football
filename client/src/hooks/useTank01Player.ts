@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import { normalizeNFLTeamCode } from "@/lib/nflTeamCodes";
 import type { Tank01Stats } from "@/lib/scoringEngine";
 import { getDraftUniversePlayerByName } from "@shared/draftPlayerUniverse";
+import { normalizePlayerName } from "@shared/playerNameMatch";
 
 const BASE_URL = "/api/tank01";
 const HEADERS = {};
@@ -104,7 +105,7 @@ export async function fetchPlayerById(playerID: string): Promise<Tank01Player | 
 
 // ── Fetch player by name ─────────────────────────────────────────────────────
 export async function fetchPlayerByName(name: string): Promise<Tank01Player | null> {
-  const canonicalName = name.trim().toLowerCase().replace(/[^a-z0-9]/g, "") === "kennethgainwell" ? "Kenny Gainwell" : name;
+  const canonicalName = normalizePlayerName(name) === normalizePlayerName("Kenny Gainwell") ? "Kenny Gainwell" : name;
   const cacheKey = `name_${canonicalName.toLowerCase().replace(/\s+/g, "_")}`;
   const cached = cacheGet<Tank01Player>(cacheKey);
   if (cached) return normalizeTankPlayer(cached);
@@ -118,8 +119,11 @@ export async function fetchPlayerByName(name: string): Promise<Tank01Player | nu
     const json = await res.json();
     // getNFLPlayerInfo by name returns an array
     const list: Tank01Player[] = Array.isArray(json.body) ? json.body : [json.body];
-    const normalizedName = canonicalName.toLowerCase().replace(/[^a-z0-9]/g, "");
-    const player = list.find(candidate => (candidate.longName || `${candidate.firstName} ${candidate.lastName}`).toLowerCase().replace(/[^a-z0-9]/g, "") === normalizedName) ?? list[0];
+    const normalizedName = normalizePlayerName(canonicalName);
+    // normalizePlayerName strips generational suffixes (Jr/Sr/II/III/IV/V), so
+    // a roster name uploaded as e.g. "James Cook" still matches Tank01
+    // returning "James Cook III" for the same person.
+    const player = list.find(candidate => normalizePlayerName(candidate.longName || `${candidate.firstName} ${candidate.lastName}`) === normalizedName) ?? list[0];
     if (!player || !player.playerID) {
       const universePlayer = getDraftUniversePlayerByName(canonicalName);
       return universePlayer?.sourcePlayerId ? fetchPlayerById(universePlayer.sourcePlayerId) : null;

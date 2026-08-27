@@ -21,8 +21,13 @@ export type RosterNewsDisplay = {
   source: "FantasyPros";
 };
 
-const normalize = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
-const suffixes = new Set(["jr", "sr", "ii", "iii", "iv"]);
+import { normalizePlayerName } from "@shared/playerNameMatch";
+
+const normalize = normalizePlayerName;
+// This local suffix set only feeds the initial+lastname fallback matcher
+// below (for abbreviated news bylines like "J. Cook"), which is a different
+// problem than the shared normalizer solves -- kept in sync with it manually.
+const suffixes = new Set(["jr", "sr", "ii", "iii", "iv", "v"]);
 
 function matchesRosterPlayer(sourceName: string, player: RosterNewsPlayer): boolean {
   if (normalize(sourceName) === normalize(player.name)) return true;

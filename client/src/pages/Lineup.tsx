@@ -24,6 +24,7 @@ import { useNFLSeasonStats } from "@/hooks/useNFLSeasonStats";
 import { formatSeasonStat, type PlayerSeasonStats } from "@/lib/playerSeasonStats";
 import { getNflTeamLogoUrl } from "@/lib/nflTeamLogo";
 import { fetchTeamSchedule } from "@/hooks/useNFLTeamSchedule";
+import { normalizePlayerName } from "@shared/playerNameMatch";
 import { NFL_PLAYERS_2026 } from "@/lib/nflPlayers2026";
 import { supabase } from "@/lib/supabase";
 import { getDraftUniversePlayerByName } from "@shared/draftPlayerUniverse";
@@ -43,7 +44,10 @@ const STARTER_SLOTS = [
 ];
 
 /** Stable selection key across Tank01, draft, and Supabase player-name variants. */
-const lineupPlayerKey = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
+// Delegates to the shared canonical normalizer so a roster player uploaded
+// as e.g. "James Cook" still matches NFL_PLAYERS_2026/live data returning
+// "James Cook III" for the same person.
+const lineupPlayerKey = normalizePlayerName;
 
 // NFL_GAMES static table removed — replaced by live useNFLMatchups hook
 

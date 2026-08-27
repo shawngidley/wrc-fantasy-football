@@ -34,6 +34,7 @@ import { getOverallEcrDisplay } from "@/lib/playerRankDisplay";
 import { calculateStatAverage } from "@/lib/playerStatMath";
 import { normalizeNFLTeamCode } from "@/lib/nflTeamCodes";
 import { getHistoricalSeasonTeam } from "@/lib/playerSeasonTeam";
+import { normalizePlayerName as sharedNormalizePlayerName } from "@shared/playerNameMatch";
 
 // ── Position badge colors ────────────────────────────────────────────────────
 const POS_COLORS: Record<string, string> = {
@@ -513,7 +514,10 @@ export default function PlayerPage() {
   );
   const fantasyProsNews = trpc.fantasyPros.news.useQuery({ limit: 100 }, { staleTime: 15 * 60_000 });
   const fantasyProsInjuries = trpc.fantasyPros.injuries.useQuery({ year: 2026, week: nflWeek }, { staleTime: 20 * 60_000 });
-  const normalizePlayerName = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
+  // Delegates to the shared canonical normalizer so FantasyPros data (which
+  // may include a generational suffix) still matches Tank01's player.longName
+  // (which may not, or vice versa) for the same person.
+  const normalizePlayerName = sharedNormalizePlayerName;
   const normalizedPlayerName = normalizePlayerName(player?.longName ?? "");
   const fantasyRank = (fantasyProsRanks.data ?? []).find(item => normalizePlayerName(item.name) === normalizedPlayerName);
   const fantasyOverallRank = (fantasyProsOverallRanks.data ?? []).find(item => normalizePlayerName(item.name) === normalizedPlayerName);

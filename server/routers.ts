@@ -16,6 +16,7 @@ import { validateProtectionSubmission } from "./protectionRules";
 import { releaseUnprotectedPlayers } from "./protectionRelease";
 import { isProtectionDeadlinePassed } from "../shared/protectionSchedule";
 import { findDraftUniversePlayer } from "../shared/draftPlayerUniverse";
+import { normalizePlayerName } from "../shared/playerNameMatch";
 import { DRAFT_LOTTERY_OWNERS, isValidDraftLotteryResult } from "../shared/draftLottery";
 import { applyDraftLottery } from "../shared/draftLottery";
 import { DRAFT_PICKS_2026 } from "../client/src/lib/draftData2026";
@@ -34,7 +35,11 @@ import {
   verifyPasskeyRegistration,
 } from "./passkeyAuth";
 
-const normalizePlayerKey = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
+// Delegates to the shared canonical normalizer (shared/playerNameMatch.ts)
+// so a name uploaded without a generational suffix (e.g. "James Cook") still
+// matches the same player coming back from a live API with one (e.g.
+// "James Cook III") -- see that file's header comment for full context.
+const normalizePlayerKey = normalizePlayerName;
 const WRC_DRAFT_TIMER_SECONDS = 90;
 const WRC_DRAFT_TOTAL_ROUNDS = 18;
 const WRC_DRAFT_TOTAL_TEAMS = 12;
