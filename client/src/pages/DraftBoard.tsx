@@ -224,7 +224,6 @@ export default function DraftBoard() {
   const makeDraftPickMutation = trpc.league.makeDraftPick.useMutation();
   const lotteryQuery = trpc.league.draftLottery.useQuery(undefined, { refetchInterval: 5000 });
   const resolvedDraftOrder = useMemo(() => applyDraftLottery(DRAFT_PICKS_2026, isValidDraftLotteryResult(lotteryQuery.data?.appliedResultOwners) ? lotteryQuery.data.appliedResultOwners : null), [lotteryQuery.data?.appliedResultOwners]);
-  const resolvedRound1Order = useMemo(() => resolvedDraftOrder.filter(pick => pick.round === 1).map(pick => pick.owner), [resolvedDraftOrder]);
 
   // Draft queue hook
   const franchiseId = franchise?.id ?? null;
@@ -321,13 +320,13 @@ export default function DraftBoard() {
       const rawPlayer = p.players as { name: string; position: string; nfl_team: string } | { name: string; position: string; nfl_team: string }[] | null;
       const player = Array.isArray(rawPlayer) ? rawPlayer[0] : rawPlayer;
       if (!owner || !player || p.forfeited_round == null) continue;
-      const colOwners = p.forfeited_round % 2 === 1 ? resolvedRound1Order : [...resolvedRound1Order].reverse();
+      const colOwners = p.forfeited_round % 2 === 1 ? ROUND1_ORDER : [...ROUND1_ORDER].reverse();
       const colIndex = colOwners.indexOf(owner);
       if (colIndex === -1) continue;
       m[`${p.forfeited_round}-${colIndex}`] = { name: player.name, pos: player.position, nflTeam: player.nfl_team };
     }
     return m;
-  }, [protectionsQuery.data, resolvedRound1Order]);
+  }, [protectionsQuery.data]);
 
   // Current owner on the clock
   const currentOwner = getOwnerForSlot(curRound, curPick, resolvedDraftOrder);
@@ -1076,7 +1075,7 @@ export default function DraftBoard() {
             {/* Column headers — owner names */}
             <div style={{ display: "grid", gridTemplateColumns: `60px repeat(${TOTAL_TEAMS}, 1fr)`, gap: 2, marginBottom: 2 }}>
               <div style={{ background: "rgba(0,0,0,0.5)", padding: "0.4rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", color: "rgba(255,255,255,0.5)", textAlign: "center" }}>RD</div>
-              {resolvedRound1Order.map((owner, i) => (
+              {ROUND1_ORDER.map((owner, i) => (
                 <div key={i} style={{ background: OWNER_COLORS[owner] ?? "oklch(0.22 0.08 150)", padding: "0.4rem 0.25rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.62rem", fontWeight: 700, color: "white", textAlign: "center", letterSpacing: "0.02em", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", borderRadius: "3px 3px 0 0" }}>
                   {owner}
                 </div>
@@ -1087,7 +1086,7 @@ export default function DraftBoard() {
             {Array.from({ length: TOTAL_ROUNDS }, (_, r) => {
               const round = r + 1;
               // For even rounds, column order reverses (snake)
-              const colOwners = round % 2 === 1 ? resolvedRound1Order : [...resolvedRound1Order].reverse();
+              const colOwners = round % 2 === 1 ? ROUND1_ORDER : [...ROUND1_ORDER].reverse();
               return (
                 <div key={r} style={{ display: "grid", gridTemplateColumns: `60px repeat(${TOTAL_TEAMS}, 1fr)`, gap: 2, marginBottom: 2 }}>
                   <div style={{ background: "rgba(0,0,0,0.4)", padding: "0.4rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, color: "rgba(255,255,255,0.7)", textAlign: "center", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1104,18 +1103,23 @@ export default function DraftBoard() {
                     const protectedPlayer = protectedMap[cellKey];
                     const isCurrent = started && !complete && round === curRound && p === curPick && !protectedPlayer;
                     const isTraded = draftOrderPick?.isTraded ?? false;
+                    // Rounds 1-2 use the actual lottery result for who's picking, while every
+                    // other round (and the column header itself) stays on the fixed placeholder
+                    // order. That means a round 1/2 cell can legitimately show a different owner
+                    // than its column header -- flag it distinctly so it doesn't read as a bug.
+                    const isLotteryPick = (round === 1 || round === 2) && !isTraded && cellOwner !== colOwner;
 
                     return (
                       <div key={p} style={{
                         background: protectedPlayer ? "oklch(0.95 0.06 85)" : isCurrent ? "oklch(0.78 0.15 85)" : dbPick ? "oklch(0.94 0.01 150)" : "rgba(255,255,255,0.06)",
-                        border: protectedPlayer ? "1.5px solid oklch(0.78 0.15 85)" : isCurrent ? "2px solid oklch(0.65 0.14 85)" : isTraded ? "1.5px solid oklch(0.78 0.15 85 / 0.6)" : "1px solid rgba(255,255,255,0.06)",
+                        border: protectedPlayer ? "1.5px solid oklch(0.78 0.15 85)" : isCurrent ? "2px solid oklch(0.65 0.14 85)" : isTraded ? "1.5px solid oklch(0.78 0.15 85 / 0.6)" : isLotteryPick ? "1.5px solid oklch(0.6 0.2 300 / 0.7)" : "1px solid rgba(255,255,255,0.06)",
                         borderRadius: 4, padding: "0.3rem 0.2rem", minHeight: 52,
                         display: "flex", flexDirection: "column", justifyContent: "center",
                         transition: "background 0.2s",
                         animation: isCurrent ? "gold-pulse 1.4s ease-in-out infinite" : dbPick ? "fadeInUp 0.25s ease both" : "none",
                         cursor: isCurrent && (isMyTurn || isCommissioner) ? "pointer" : "default",
                       }}
-                        title={protectedPlayer ? `Protected — ${cellOwner} forfeited this round to keep ${protectedPlayer.name}` : undefined}
+                        title={protectedPlayer ? `Protected — ${cellOwner} forfeited this round to keep ${protectedPlayer.name}` : isLotteryPick ? `Lottery result — ${cellOwner} holds this pick, not ${colOwner}` : undefined}
                         onClick={() => { if (isCurrent && (isMyTurn || isCommissioner)) setShowPlayerPool(true); }}
                       >
                         {protectedPlayer ? (
@@ -1128,6 +1132,7 @@ export default function DraftBoard() {
                           </>
                         ) : dbPick ? (
                           <>
+                            {isLotteryPick && <div style={{ fontSize: "0.5rem", fontWeight: 800, color: "oklch(0.5 0.2 300)", textAlign: "center", letterSpacing: "0.04em" }}>{cellOwner}</div>}
                             <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.62rem", fontWeight: 700, color: "oklch(0.22 0.08 150)", textAlign: "center", lineHeight: 1.2, padding: "0 2px" }}>{dbPick.player_name}</div>
                             <div style={{ textAlign: "center", marginTop: 2 }}>
                               <span style={{ fontSize: "0.55rem", fontWeight: 700, color: "white", background: POS_COLORS[dbPick.player_pos] || "#64748b", borderRadius: 3, padding: "1px 3px" }}>{dbPick.player_pos}</span>
@@ -1139,6 +1144,7 @@ export default function DraftBoard() {
                           <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.58rem", color: "rgba(255,255,255,0.25)", textAlign: "center" }}>
                             {round}.{pickInRound}
                             {isTraded && <div style={{ fontSize: "0.5rem", color: "oklch(0.78 0.15 85 / 0.7)" }}>T</div>}
+                            {isLotteryPick && <div style={{ fontSize: "0.48rem", fontWeight: 700, color: "oklch(0.6 0.2 300)" }}>{cellOwner}</div>}
                           </div>
                         )}
                       </div>

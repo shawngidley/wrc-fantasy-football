@@ -93280,14 +93280,14 @@ async function consumePasskeyChallenge(id) {
 var WRC_TEAM_ID_TO_OWNER = Object.fromEntries(
   Object.entries(WRC_DRAFT_OWNER_TEAM_IDS).map(([owner, teamId]) => [teamId, owner])
 );
-async function getProtectedDraftSlots(resolvedRound1Order) {
+async function getProtectedDraftSlots(staticRound1Order) {
   const { data: protections, error: error51 } = await supabaseAdmin.from("protections").select("team_id, forfeited_round");
   if (error51) throw new Error("Unable to load protections while advancing the draft.");
   const slots = /* @__PURE__ */ new Set();
   for (const p of protections ?? []) {
     const owner = WRC_TEAM_ID_TO_OWNER[p.team_id];
     if (!owner || p.forfeited_round == null) continue;
-    const colOwners = p.forfeited_round % 2 === 1 ? resolvedRound1Order : [...resolvedRound1Order].reverse();
+    const colOwners = p.forfeited_round % 2 === 1 ? staticRound1Order : [...staticRound1Order].reverse();
     const colIndex = colOwners.indexOf(owner);
     if (colIndex === -1) continue;
     slots.add(`${p.forfeited_round}-${colIndex}`);
@@ -93913,12 +93913,8 @@ var appRouter = router({
         return { action: "reset" };
       }
       const patch = input.action === "start" ? { started: true, paused: false, complete: false, current_round: 1, current_pick: 0, timer_seconds: WRC_DRAFT_TIMER_SECONDS } : input.action === "togglePause" ? { paused: !state.paused } : await (async () => {
-        const { data: lottery } = await supabaseAdmin.from("draft_lottery").select("result_owners, reveal_status, reveal_started_at").eq("id", 1).maybeSingle();
-        const revealComplete = lottery?.reveal_status === "running" && lottery?.reveal_started_at && Date.now() - new Date(lottery.reveal_started_at).getTime() >= 6 * 45e3;
-        const resultOwners = revealComplete && isValidDraftLotteryResult(lottery?.result_owners) ? lottery.result_owners : null;
-        const order = applyDraftLottery(DRAFT_PICKS_2026, resultOwners);
-        const resolvedRound1Order = order.filter((p) => p.round === 1).map((p) => p.owner);
-        const protectedSlots = await getProtectedDraftSlots(resolvedRound1Order);
+        const staticRound1Order = DRAFT_PICKS_2026.filter((p) => p.round === 1).map((p) => p.owner);
+        const protectedSlots = await getProtectedDraftSlots(staticRound1Order);
         return nextDraftState(state.current_round, state.current_pick, protectedSlots);
       })();
       const { error: error51 } = await supabaseAdmin.from("draft_state").update({ ...patch, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", 1);
@@ -93986,8 +93982,8 @@ var appRouter = router({
       });
       const rosterError = rosterResult.error;
       if (rosterError) throw new Error("Draft pick was saved, but the team roster could not be updated.");
-      const resolvedRound1Order = order.filter((p) => p.round === 1).map((p) => p.owner);
-      const protectedSlots = await getProtectedDraftSlots(resolvedRound1Order);
+      const staticRound1Order = DRAFT_PICKS_2026.filter((p) => p.round === 1).map((p) => p.owner);
+      const protectedSlots = await getProtectedDraftSlots(staticRound1Order);
       const { error: advanceError } = await supabaseAdmin.from("draft_state").update({
         ...nextDraftState(state.current_round, state.current_pick, protectedSlots),
         updated_at: (/* @__PURE__ */ new Date()).toISOString()

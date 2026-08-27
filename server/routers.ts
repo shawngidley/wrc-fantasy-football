@@ -98,17 +98,20 @@ const WRC_TEAM_ID_TO_OWNER: Record<string, string> = Object.fromEntries(
 
 // Returns a Set of "round-columnIndex" keys for every slot occupied by a
 // protected player, using the same column convention as the live draft grid:
-// columnIndex is the team's fixed home column from resolvedRound1Order,
-// reversed on even rounds for the snake. A protection consumes *that team's
-// own* pick in the forfeited round, independent of any trade ledger.
-async function getProtectedDraftSlots(resolvedRound1Order: string[]): Promise<Set<string>> {
+// columnIndex is the team's fixed home column from the STATIC (pre-lottery)
+// round 1 order, reversed on even rounds for the snake. This is deliberately
+// NOT the lottery-resolved order -- the lottery only decides who actually
+// picks in rounds 1-2; every team's column identity for the rest of the
+// draft (and thus which slot a protection occupies) stays on the fixed
+// placeholder order regardless of lottery outcome.
+async function getProtectedDraftSlots(staticRound1Order: string[]): Promise<Set<string>> {
   const { data: protections, error } = await supabaseAdmin.from("protections").select("team_id, forfeited_round");
   if (error) throw new Error("Unable to load protections while advancing the draft.");
   const slots = new Set<string>();
   for (const p of protections ?? []) {
     const owner = WRC_TEAM_ID_TO_OWNER[p.team_id];
     if (!owner || p.forfeited_round == null) continue;
-    const colOwners = p.forfeited_round % 2 === 1 ? resolvedRound1Order : [...resolvedRound1Order].reverse();
+    const colOwners = p.forfeited_round % 2 === 1 ? staticRound1Order : [...staticRound1Order].reverse();
     const colIndex = colOwners.indexOf(owner);
     if (colIndex === -1) continue;
     slots.add(`${p.forfeited_round}-${colIndex}`);
@@ -955,12 +958,8 @@ export const appRouter = router({
           : input.action === "togglePause"
             ? { paused: !state.paused }
             : await (async () => {
-                const { data: lottery } = await supabaseAdmin.from("draft_lottery").select("result_owners, reveal_status, reveal_started_at").eq("id", 1).maybeSingle();
-                const revealComplete = lottery?.reveal_status === "running" && lottery?.reveal_started_at && Date.now() - new Date(lottery.reveal_started_at).getTime() >= 6 * 45_000;
-                const resultOwners = revealComplete && isValidDraftLotteryResult(lottery?.result_owners) ? lottery.result_owners : null;
-                const order = applyDraftLottery(DRAFT_PICKS_2026, resultOwners);
-                const resolvedRound1Order = order.filter(p => p.round === 1).map(p => p.owner);
-                const protectedSlots = await getProtectedDraftSlots(resolvedRound1Order);
+                const staticRound1Order = DRAFT_PICKS_2026.filter(p => p.round === 1).map(p => p.owner);
+                const protectedSlots = await getProtectedDraftSlots(staticRound1Order);
                 return nextDraftState(state.current_round, state.current_pick, protectedSlots);
               })();
         const { error } = await supabaseAdmin.from("draft_state").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", 1);
@@ -1042,8 +1041,8 @@ export const appRouter = router({
             });
         const rosterError = rosterResult.error;
         if (rosterError) throw new Error("Draft pick was saved, but the team roster could not be updated.");
-        const resolvedRound1Order = order.filter(p => p.round === 1).map(p => p.owner);
-        const protectedSlots = await getProtectedDraftSlots(resolvedRound1Order);
+        const staticRound1Order = DRAFT_PICKS_2026.filter(p => p.round === 1).map(p => p.owner);
+        const protectedSlots = await getProtectedDraftSlots(staticRound1Order);
         const { error: advanceError } = await supabaseAdmin.from("draft_state").update({
           ...nextDraftState(state.current_round, state.current_pick, protectedSlots),
           updated_at: new Date().toISOString(),
