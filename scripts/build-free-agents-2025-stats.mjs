@@ -14,9 +14,9 @@ import { createClient } from "@supabase/supabase-js";
 const PBP_URL = "https://github.com/nflverse/nflverse-data/releases/download/pbp/play_by_play_2025.csv.gz";
 const ROSTER_URL = "https://github.com/nflverse/nflverse-data/releases/download/rosters/roster_2025.csv";
 const PLAYERS_PATH = new URL("../shared/currentDraftPlayerUniverse2026.ts", import.meta.url);
-const OUTPUT_PATH = new URL("../free_agents_2025_offense_complete_v3_9aa995df.json", import.meta.url);
+const OUTPUT_PATH = new URL("../free_agents_2025_offense_complete_v4_cb0d706f.json", import.meta.url);
 const SUPABASE_URL = "https://aquroadkdiltzsvahuff.supabase.co";
-const STORAGE_KEY = "free_agents_2025_offense_complete_v3_9aa995df.json";
+const STORAGE_KEY = "free_agents_2025_offense_complete_v4_cb0d706f.json";
 
 function number(value) {
   const n = parseFloat(value ?? "0");
@@ -180,9 +180,16 @@ async function main() {
     return;
   }
   const supabaseAdmin = createClient(SUPABASE_URL, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
+  // cacheControl kept short: tonight's incident was Supabase's CDN serving a
+  // stale response on this exact key after an upsert, even though the
+  // underlying stored object was correctly replaced -- the browser/direct
+  // download showed the new file while the public URL kept serving the old
+  // one. A short max-age limits how long any future re-upload to this same
+  // key can be stuck behind that.
   const { error } = await supabaseAdmin.storage.from("site-assets").upload(STORAGE_KEY, json, {
     contentType: "application/json",
     upsert: true,
+    cacheControl: "300",
   });
   if (error) throw new Error(`Upload to site-assets failed: ${error.message}`);
   console.log(`Uploaded to site-assets/${STORAGE_KEY}`);

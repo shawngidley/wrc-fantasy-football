@@ -2,9 +2,9 @@ import type { Request, Response } from "express";
 import { supabaseAdmin } from "./supabaseAdmin";
 import { getCompletedOffenseSnapshot } from "./seasonStatsSnapshot";
 
-const CACHE_ID = "completed-offense-2025-id-resolved-v4";
+const CACHE_ID = "completed-offense-2025-id-resolved-v5";
 const CACHE_SEASON = 2025;
-const CACHE_SOURCE = "nflverse-completed-2025-play-by-play-reconciled-v3";
+const CACHE_SOURCE = "nflverse-completed-2025-play-by-play-reconciled-v4";
 
 export async function readOrWarmSharedSeasonStats(): Promise<unknown> {
   const { data: existing, error } = await supabaseAdmin

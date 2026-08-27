@@ -27,9 +27,9 @@ describe("refreshSharedSeasonStats", () => {
     expect(snapshotMock).toHaveBeenCalledWith({ force: true });
     expect(fromMock).toHaveBeenCalledWith("wrc_season_stats_cache");
     expect(upsertMock).toHaveBeenCalledWith(expect.objectContaining({
-      id: "completed-offense-2025-id-resolved-v4",
+      id: "completed-offense-2025-id-resolved-v5",
       season: 2025,
-      source: "nflverse-completed-2025-play-by-play-reconciled-v3",
+      source: "nflverse-completed-2025-play-by-play-reconciled-v4",
     }), { onConflict: "id" });
   });
 });

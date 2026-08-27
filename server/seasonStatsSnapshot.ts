@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { storageGetSignedUrl } from "./storage";
 
-const COMPLETED_OFFENSE_SNAPSHOT_KEY = "free_agents_2025_offense_complete_v3_9aa995df.json";
+const COMPLETED_OFFENSE_SNAPSHOT_KEY = "free_agents_2025_offense_complete_v4_cb0d706f.json";
 let cachedSnapshot: { value: unknown; expiresAt: number } | null = null;
 const MEMORY_TTL_MS = 24 * 60 * 60 * 1000;
 

@@ -65111,9 +65111,9 @@ var init_seasonStatsRefresh = __esm({
     "use strict";
     init_supabaseAdmin();
     init_seasonStatsSnapshot();
-    CACHE_ID = "completed-offense-2025-id-resolved-v4";
+    CACHE_ID = "completed-offense-2025-id-resolved-v5";
     CACHE_SEASON = 2025;
-    CACHE_SOURCE = "nflverse-completed-2025-play-by-play-reconciled-v3";
+    CACHE_SOURCE = "nflverse-completed-2025-play-by-play-reconciled-v4";
   }
 });
 
@@ -65142,7 +65142,7 @@ var init_seasonStatsSnapshot = __esm({
   "server/seasonStatsSnapshot.ts"() {
     "use strict";
     init_storage();
-    COMPLETED_OFFENSE_SNAPSHOT_KEY = "free_agents_2025_offense_complete_v3_9aa995df.json";
+    COMPLETED_OFFENSE_SNAPSHOT_KEY = "free_agents_2025_offense_complete_v4_cb0d706f.json";
     cachedSnapshot = null;
     MEMORY_TTL_MS = 24 * 60 * 60 * 1e3;
   }
