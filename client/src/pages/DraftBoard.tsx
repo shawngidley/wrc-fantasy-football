@@ -15,7 +15,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Link } from "wouter";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { Play, Pause, SkipForward, Search, Music, ArrowLeftRight, RotateCcw, Wifi, WifiOff, ChevronUp, ChevronDown, ListOrdered, Plus, Check } from "lucide-react";
+import { Play, Pause, SkipForward, Search, Music, ArrowLeftRight, RotateCcw, Wifi, WifiOff, ChevronUp, ChevronDown, ListOrdered, Plus, Check, X } from "lucide-react";
 import { DRAFT_PICKS_2026, getTradedPicks } from "@/lib/draftData2026";
 import { siteAssetUrl } from "@/lib/siteAssetUrl";
 import { applyDraftLottery, isValidDraftLotteryResult } from "@shared/draftLottery";
@@ -816,9 +816,9 @@ export default function DraftBoard() {
                   </div>
                   <button
                     onClick={() => setShowQueueBrowser(v => !v)}
-                    style={{ display: "flex", alignItems: "center", gap: "0.35rem", background: "oklch(0.78 0.15 85)", color: "oklch(0.15 0.02 150)", border: "none", borderRadius: 7, padding: "0.4rem 0.85rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", cursor: "pointer" }}
+                    style={{ display: "flex", alignItems: "center", gap: "0.35rem", background: showQueueBrowser ? "rgba(255,255,255,0.12)" : "oklch(0.78 0.15 85)", color: showQueueBrowser ? "white" : "oklch(0.15 0.02 150)", border: showQueueBrowser ? "1px solid rgba(255,255,255,0.25)" : "none", borderRadius: 7, padding: "0.4rem 0.85rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", cursor: "pointer" }}
                   >
-                    <Plus size={13} /> Add Players
+                    {showQueueBrowser ? <><X size={13} /> Close</> : <><Plus size={13} /> Add Players</>}
                   </button>
                 </div>
 
@@ -972,7 +972,15 @@ export default function DraftBoard() {
           </div>
 
           {/* Draft Panel — where owners actually submit their pick */}
-          <div id="draft-panel" className="wrc-card" style={{ flex: "1 1 380px", minWidth: 320, maxWidth: 740, overflow: "hidden", scrollMarginTop: "1rem" }}>
+          <div style={{ flex: "1 1 380px", minWidth: 320, maxWidth: 740 }}>
+            {/* Invisible spacer matching the queue's title-row height on the left, so both cards start at the same y position */}
+            <div aria-hidden style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem", visibility: "hidden" }}>
+              <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.88rem" }}>SPACER</div>
+              <button style={{ display: "flex", alignItems: "center", gap: "0.35rem", borderRadius: 7, padding: "0.4rem 0.85rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700 }}>
+                <Plus size={13} /> Spacer
+              </button>
+            </div>
+            <div id="draft-panel" className="wrc-card" style={{ overflow: "hidden", scrollMarginTop: "1rem" }}>
             <div className="wrc-card-gold-stripe" />
             <div className="wrc-card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.4rem" }}>
               <span>DRAFT PANEL</span>
@@ -1062,6 +1070,7 @@ export default function DraftBoard() {
                 </div>
               </>
             )}
+          </div>
           </div>
         </div>
 
