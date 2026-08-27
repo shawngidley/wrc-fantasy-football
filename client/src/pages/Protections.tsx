@@ -222,6 +222,35 @@ export default function Protections() {
   const ALL_POOL = [6, 7, 8];
   const availablePool = ALL_POOL.filter(r => !consumedRounds.has(r));
 
+  // Reactively correct stale choice-slot round assignments. A choice player's
+  // round is picked greedily at the moment they're selected (see toggle()),
+  // based only on what was consumed *so far*. If a fixed-cost player (tier1
+  // or Rd 7) is selected afterward and consumes that same round, the earlier
+  // choice player's assignment is never revisited — leaving two protections
+  // silently pointed at the same round until the save is rejected by the
+  // server. This effect re-validates every choice slot on every change and
+  // reassigns any now-invalid or duplicated round to the next actually
+  // available one, so order of selection can never produce a collision.
+  useEffect(() => {
+    const usedByChoice = new Set<number>();
+    let needsFix = false;
+    const next = slots.map(s => {
+      const entry = roster.find(r => r.id === s.playerId);
+      if (!entry || entry.tier2Sub !== "choice") return s;
+      const invalid = s.assignedRound === null || consumedRounds.has(s.assignedRound) || usedByChoice.has(s.assignedRound);
+      if (invalid) {
+        const replacement = ALL_POOL.find(r => !consumedRounds.has(r) && !usedByChoice.has(r)) ?? null;
+        needsFix = true;
+        if (replacement !== null) usedByChoice.add(replacement);
+        return { ...s, assignedRound: replacement };
+      }
+      usedByChoice.add(s.assignedRound!);
+      return s;
+    });
+    if (needsFix) setSlots(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slots]);
+
   // Count of "choice" players currently selected
   const choiceSlots = slots.filter(s => roster.find(r => r.id === s.playerId)?.tier2Sub === "choice");
   const showSelector = choiceSlots.length >= 2; // only show selector when 2+ choice players
