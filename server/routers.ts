@@ -1226,6 +1226,11 @@ export const appRouter = router({
       if (teamsError || protectionsError) throw new Error("Unable to load protection overview.");
       return { teams: teams ?? [], protections: protections ?? [] };
     }),
+    allProtections: publicProcedure.query(async () => {
+      const { data, error } = await supabaseAdmin.from("protections").select("player_id, forfeited_round");
+      if (error) throw new Error("Unable to load protections.");
+      return data ?? [];
+    }),
     commissionerReleaseUnprotectedPlayers: commissionerProcedure.mutation(async () => {
       if (!isProtectionDeadlinePassed()) {
         throw new Error("The protection deadline hasn't passed yet — releasing now would cut protected players before selections lock.");

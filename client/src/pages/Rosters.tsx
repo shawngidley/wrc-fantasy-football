@@ -12,6 +12,7 @@ import { useSupabaseRosters, type SupabasePlayer } from "@/hooks/useSupabaseRost
 import { useDraftedRoster } from "@/hooks/useDraftedRoster";
 import { Link } from "wouter";
 import TeamLogo from "@/components/TeamLogo";
+import { trpc } from "@/lib/trpc";
 
 // ── Sort helpers ──────────────────────────────────────────────────────────────
 const POS_ORDER: Record<string, number> = { QB: 0, RB: 1, WR: 2, TE: 3, K: 4, DST: 5 };
@@ -63,6 +64,15 @@ export default function Rosters() {
 
   // Primary: Supabase players table
   const { rosters, loading: sbLoading, error: sbError } = useSupabaseRosters();
+
+  // Once protections are submitted, a protected player's displayed round should
+  // reflect the round they now cost (forfeited_round) rather than the round
+  // they were originally drafted in.
+  const protectionsQuery = trpc.league.allProtections.useQuery();
+  const protectionRoundByPlayerId: Record<string, number> = {};
+  for (const p of protectionsQuery.data ?? []) {
+    if (p.forfeited_round != null) protectionRoundByPlayerId[p.player_id] = p.forfeited_round;
+  }
 
   // Secondary: if draft has started, live draft picks override the players table
   const { rostersByTeam, hasPicks, loading: draftLoading } = useDraftedRoster();
@@ -232,7 +242,7 @@ export default function Rosters() {
                           </div>
                         ) : (
                           allPlayers.map((p, i) => (
-                            <PlayerRow key={p.id || i} player={p} alt={i % 2 !== 0} />
+                            <PlayerRow key={p.id || i} player={p} alt={i % 2 !== 0} protectedRound={protectionRoundByPlayerId[p.id]} />
                           ))
                         )}
                       </div>
@@ -248,10 +258,11 @@ export default function Rosters() {
   );
 }
 
-function PlayerRow({ player, alt }: { player: SupabasePlayer; alt: boolean }) {
+function PlayerRow({ player, alt, protectedRound }: { player: SupabasePlayer; alt: boolean; protectedRound?: number }) {
   const c = POS_COLORS[player.position] ?? { bg: "oklch(0.93 0.02 150)", text: "oklch(0.4 0.04 150)" };
-  const isFa = !player.draft_round;
-  const roundLabel = player.draft_round ? `Rd ${player.draft_round}` : "FA";
+  const displayRound = protectedRound ?? player.draft_round;
+  const isFa = !displayRound;
+  const roundLabel = displayRound ? `Rd ${displayRound}` : "FA";
   return (
     <div className="wrc-row-hover" style={{
       display: "flex",
@@ -283,13 +294,17 @@ function PlayerRow({ player, alt }: { player: SupabasePlayer; alt: boolean }) {
         fontWeight: 600, fontFamily: "Barlow Condensed, sans-serif",
         letterSpacing: "0.04em", flexShrink: 0,
       }}>{player.nfl_team}</span>
-      <span style={{
-        fontSize: "10.9px", fontFamily: "Barlow Condensed, sans-serif",
-        fontWeight: 700, letterSpacing: "0.04em",
-        padding: "1px 5px", borderRadius: 3, flexShrink: 0,
-        background: isFa ? "oklch(0.93 0.06 250)" : "oklch(0.93 0.03 150)",
-        color: isFa ? "oklch(0.32 0.14 250)" : "oklch(0.35 0.08 150)",
-      }}>{roundLabel}</span>
+      <span
+        title={protectedRound ? "Protected — round shown is the forfeited pick cost, not the original draft round" : undefined}
+        style={{
+          fontSize: "10.9px", fontFamily: "Barlow Condensed, sans-serif",
+          fontWeight: 700, letterSpacing: "0.04em",
+          padding: "1px 5px", borderRadius: 3, flexShrink: 0,
+          background: protectedRound ? "oklch(0.95 0.06 85)" : isFa ? "oklch(0.93 0.06 250)" : "oklch(0.93 0.03 150)",
+          color: protectedRound ? "oklch(0.42 0.15 85)" : isFa ? "oklch(0.32 0.14 250)" : "oklch(0.35 0.08 150)",
+          border: protectedRound ? "1px solid oklch(0.78 0.15 85)" : "none",
+        }}
+      >{roundLabel}</span>
     </div>
   );
 }
