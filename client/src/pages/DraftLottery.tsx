@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Navigation from "@/components/Navigation";
+import DraftSubNav from "@/components/DraftSubNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { trpc } from "@/lib/trpc";
 import { createLotteryRows, DRAFT_LOTTERY_OWNERS, type DraftLotteryOwner } from "@shared/draftLottery";
@@ -38,7 +39,7 @@ export default function DraftLottery() {
   };
   const stageLabel = revealedCount >= 6 ? "Lottery complete" : isRunning ? `Next reveal: ${6 - revealedCount}${6 - revealedCount === 1 ? "st" : 6 - revealedCount === 2 ? "nd" : 6 - revealedCount === 3 ? "rd" : "th"} pick` : result ? "Lottery locked · ready to reveal" : "Lottery pending";
 
-  return <div className="bg-crowd bg-overlay" style={{ minHeight: "100vh" }}><Navigation showTicker={false} teamName={franchise?.team_name} />
+  return <div className="bg-crowd bg-overlay" style={{ minHeight: "100vh" }}><Navigation showTicker={false} teamName={franchise?.team_name} /><DraftSubNav active="lottery" />
     <style>{`@keyframes lotteryFloat{0%,100%{transform:translate3d(-12px,8px,0) rotate(-7deg)}25%{transform:translate3d(20px,-22px,0) rotate(8deg)}55%{transform:translate3d(-18px,-34px,0) rotate(-4deg)}78%{transform:translate3d(25px,16px,0) rotate(6deg)}}@keyframes lotteryDraw{0%{transform:scale(.86);opacity:0}55%{transform:scale(1.08);opacity:1}100%{transform:scale(1);opacity:1}}@media(prefers-reduced-motion:reduce){.lottery-ball{animation:none!important}.lottery-reveal{animation:none!important}}`}</style>
     <main style={{ maxWidth: 920, margin: "0 auto", padding: "1rem 1rem 3rem" }}>
       <div className="wrc-page-title" style={{ padding: "0 0 1rem" }}><h1>2026 Draft Lottery</h1><p>Sunday, August 23, 2026 · 9:00 PM ET · Six equal chances · live sixth-through-first reveal</p></div>

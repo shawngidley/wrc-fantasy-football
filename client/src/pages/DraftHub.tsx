@@ -9,6 +9,7 @@
 import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import Navigation from "@/components/Navigation";
+import DraftSubNav from "@/components/DraftSubNav";
 import { useAuth } from "@/contexts/AuthContext";
 import DraftBoard from "./DraftBoard";
 import DraftPlayers from "./DraftPlayers";
@@ -42,12 +43,6 @@ export default function DraftHub() {
     }
   }, [navigate]);
 
-  const tabs: { id: DraftTab; label: string }[] = [
-    { id: "board", label: "Draft Order" },
-    { id: "players", label: "Draft Players" },
-    { id: "protections", label: "Protections" },
-  ];
-
   const setTab = (tab: DraftTab) => {
     setActiveTab(tab);
     navigate(`/draft?tab=${tab}`);
@@ -58,49 +53,7 @@ export default function DraftHub() {
     <div style={{ minHeight: "100vh", background: "oklch(0.14 0.03 150)" }}>
       {/* Sub-tab bar — sits below the main nav */}
       <Navigation showTicker={false} teamName={franchise?.team_name} />
-      <div style={{
-        background: "oklch(0.18 0.05 150)",
-        borderBottom: "2px solid oklch(0.28 0.08 150)",
-        position: "sticky",
-        top: 56,
-        zIndex: 40,
-      }}>
-        <div style={{ maxWidth: 900, margin: "0 auto", display: "flex", padding: "0 1rem" }}>
-          {tabs.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setTab(tab.id)}
-              style={{
-                padding: "0.75rem 1.25rem",
-                background: "none",
-                border: "none",
-                borderBottom: activeTab === tab.id
-                  ? "3px solid oklch(0.78 0.15 85)"
-                  : "3px solid transparent",
-                color: activeTab === tab.id
-                  ? "oklch(0.78 0.15 85)"
-                  : "rgba(255,255,255,0.55)",
-                fontFamily: "Barlow Condensed, sans-serif",
-                fontWeight: 700,
-                fontSize: "0.85rem",
-                letterSpacing: "0.08em",
-                textTransform: "uppercase",
-                cursor: "pointer",
-                transition: "color 0.15s, border-color 0.15s",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
-          <button
-            onClick={() => navigate("/draft-lottery")}
-            style={{ padding: "0.75rem 1.25rem", background: "none", border: "none", borderBottom: "3px solid transparent", color: "rgba(255,255,255,0.55)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.85rem", letterSpacing: "0.08em", textTransform: "uppercase", cursor: "pointer", whiteSpace: "nowrap" }}
-          >
-            Draft Lottery
-          </button>
-        </div>
-      </div>
+      <DraftSubNav active={activeTab} onSelectLocalTab={setTab} />
 
       {/* Tab content — render the actual page component */}
       <div style={{ paddingTop: 0 }}>
