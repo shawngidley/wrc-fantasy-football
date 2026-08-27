@@ -1087,7 +1087,7 @@ export default function DraftBoard() {
 
         {/* Draft Grid */}
         {boardView === "grid" && (
-        <div style={{ overflowX: "auto", marginBottom: "1.5rem" }}>
+        <div style={{ overflowX: "auto", marginBottom: "1.5rem", background: "rgba(8,10,16,0.72)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", padding: "0.75rem" }}>
           <div style={{ minWidth: TOTAL_TEAMS * 110 + 60 }}>
             {/* Column headers — owner names */}
             <div style={{ display: "grid", gridTemplateColumns: `60px repeat(${TOTAL_TEAMS}, 1fr)`, gap: 2, marginBottom: 2 }}>
@@ -1133,8 +1133,8 @@ export default function DraftBoard() {
                     return (
                       <div key={p} style={{
                         position: "relative",
-                        background: protectedPlayer ? "oklch(0.93 0.07 85)" : isCurrent ? "oklch(0.78 0.15 85)" : dbPick ? "oklch(0.94 0.01 150)" : "rgba(255,255,255,0.06)",
-                        border: protectedPlayer ? "1.5px solid oklch(0.7 0.16 85)" : isCurrent ? "2px solid oklch(0.65 0.14 85)" : isTraded ? "1.5px solid oklch(0.78 0.15 85 / 0.6)" : isLotteryPick ? "1.5px solid oklch(0.6 0.2 300 / 0.7)" : "1px solid rgba(255,255,255,0.06)",
+                        background: protectedPlayer ? "oklch(0.93 0.07 85)" : isCurrent ? "oklch(0.78 0.15 85)" : dbPick ? "oklch(0.94 0.01 150)" : "rgba(255,255,255,0.1)",
+                        border: protectedPlayer ? "1.5px solid oklch(0.7 0.16 85)" : isCurrent ? "2px solid oklch(0.65 0.14 85)" : isTraded ? "1.5px solid oklch(0.78 0.15 85 / 0.6)" : isLotteryPick ? "1.5px solid oklch(0.6 0.2 300 / 0.7)" : "1px solid rgba(255,255,255,0.1)",
                         borderRadius: 4, padding: "0.3rem 0.2rem", minHeight: 52,
                         display: "flex", flexDirection: "column", justifyContent: "center",
                         transition: "background 0.2s",
@@ -1181,7 +1181,7 @@ export default function DraftBoard() {
 
         {/* Pick List — vertical, scrollable, overall pick order */}
         {boardView === "list" && (
-          <div style={{ maxHeight: 640, overflowY: "auto", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, marginBottom: "1.5rem", background: "rgba(0,0,0,0.35)" }}>
+          <div style={{ maxHeight: 640, overflowY: "auto", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, marginBottom: "1.5rem", background: "rgba(8,10,16,0.88)" }}>
             {Array.from({ length: TOTAL_ROUNDS }, (_, r) => r + 1).flatMap(round =>
               Array.from({ length: TOTAL_TEAMS }, (_, physicalPick) => {
                 const pickInRound = physicalPick + 1;
@@ -1199,7 +1199,7 @@ export default function DraftBoard() {
                     style={{
                       display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.45rem 0.9rem",
                       borderBottom: "1px solid rgba(255,255,255,0.06)",
-                      background: isRowCurrent ? "oklch(0.78 0.15 85 / 0.18)" : overall % 2 === 0 ? "rgba(255,255,255,0.03)" : "transparent",
+                      background: isRowCurrent ? "oklch(0.78 0.15 85 / 0.18)" : overall % 2 === 0 ? "rgba(255,255,255,0.05)" : "transparent",
                     }}
                   >
                     <span style={{ width: 40, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", fontWeight: 700, color: "rgba(255,255,255,0.4)" }}>#{overall}</span>
