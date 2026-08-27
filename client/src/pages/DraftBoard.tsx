@@ -836,7 +836,7 @@ export default function DraftBoard() {
                           value={queueSearch}
                           onChange={e => setQueueSearch(e.target.value)}
                           placeholder="Search by name or NFL team..."
-                          style={{ width: "100%", padding: "0.45rem 0.5rem 0.45rem 1.9rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 7, fontSize: "0.85rem", outline: "none", boxSizing: "border-box" as const }}
+                          style={{ width: "100%", padding: "0.45rem 0.5rem 0.45rem 1.9rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 7, fontSize: "0.85rem", color: "oklch(0.2 0.03 150)", background: "white", outline: "none", boxSizing: "border-box" as const }}
                         />
                       </div>
                       <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" as const }}>
@@ -1017,7 +1017,7 @@ export default function DraftBoard() {
                       value={search}
                       onChange={e => setSearch(e.target.value)}
                       placeholder="Search by name or NFL team..."
-                      style={{ width: "100%", padding: "0.45rem 0.5rem 0.45rem 1.9rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 7, fontSize: "0.85rem", outline: "none", boxSizing: "border-box" as const }}
+                      style={{ width: "100%", padding: "0.45rem 0.5rem 0.45rem 1.9rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 7, fontSize: "0.85rem", color: "oklch(0.2 0.03 150)", background: "white", outline: "none", boxSizing: "border-box" as const }}
                     />
                   </div>
                   <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" as const }}>

@@ -170,7 +170,7 @@ export default function DraftPlayers() {
             <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: "0.6rem", marginTop: "0.9rem", alignItems: "center" }}>
               <div style={{ position: "relative" }}>
                 <Search size={15} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "oklch(0.55 0.04 150)" }} />
-                <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search players or NFL team..." aria-label="Search available draft players" style={{ width: "100%", padding: "0.55rem 0.6rem 0.55rem 2rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 8, fontSize: "0.85rem", outline: "none", boxSizing: "border-box" }} />
+                <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search players or NFL team..." aria-label="Search available draft players" style={{ width: "100%", padding: "0.55rem 0.6rem 0.55rem 2rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 8, fontSize: "0.85rem", color: "oklch(0.2 0.03 150)", background: "white", outline: "none", boxSizing: "border-box" }} />
               </div>
               <span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)", whiteSpace: "nowrap" }}>Sort any column</span>
             </div>

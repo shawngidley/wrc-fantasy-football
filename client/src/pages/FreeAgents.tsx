@@ -663,7 +663,7 @@ export default function FreeAgents() {
                     placeholder="Search players or teams..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    style={{ paddingLeft: "2rem", background: "white", borderColor: "oklch(0.85 0.04 150)" }}
+                    style={{ paddingLeft: "2rem", color: "oklch(0.2 0.03 150)", background: "white", borderColor: "oklch(0.85 0.04 150)" }}
                   />
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", padding: "0 0.2rem", color: "rgba(255,255,255,0.72)", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.04em" }}>
