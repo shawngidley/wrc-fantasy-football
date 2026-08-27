@@ -1117,8 +1117,9 @@ export default function DraftBoard() {
 
                     return (
                       <div key={p} style={{
-                        background: protectedPlayer ? "oklch(0.95 0.06 85)" : isCurrent ? "oklch(0.78 0.15 85)" : dbPick ? "oklch(0.94 0.01 150)" : "rgba(255,255,255,0.06)",
-                        border: protectedPlayer ? "1.5px solid oklch(0.78 0.15 85)" : isCurrent ? "2px solid oklch(0.65 0.14 85)" : isTraded ? "1.5px solid oklch(0.78 0.15 85 / 0.6)" : isLotteryPick ? "1.5px solid oklch(0.6 0.2 300 / 0.7)" : "1px solid rgba(255,255,255,0.06)",
+                        position: "relative",
+                        background: protectedPlayer ? "oklch(0.93 0.07 85)" : isCurrent ? "oklch(0.78 0.15 85)" : dbPick ? "oklch(0.94 0.01 150)" : "rgba(255,255,255,0.06)",
+                        border: protectedPlayer ? "1.5px solid oklch(0.7 0.16 85)" : isCurrent ? "2px solid oklch(0.65 0.14 85)" : isTraded ? "1.5px solid oklch(0.78 0.15 85 / 0.6)" : isLotteryPick ? "1.5px solid oklch(0.6 0.2 300 / 0.7)" : "1px solid rgba(255,255,255,0.06)",
                         borderRadius: 4, padding: "0.3rem 0.2rem", minHeight: 52,
                         display: "flex", flexDirection: "column", justifyContent: "center",
                         transition: "background 0.2s",
@@ -1130,10 +1131,10 @@ export default function DraftBoard() {
                       >
                         {protectedPlayer ? (
                           <>
-                            <div style={{ fontSize: "0.5rem", fontWeight: 800, color: "oklch(0.42 0.15 85)", textAlign: "center", letterSpacing: "0.06em", marginBottom: 1 }}>🔒 PROTECTED</div>
-                            <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.62rem", fontWeight: 700, color: "oklch(0.22 0.08 150)", textAlign: "center", lineHeight: 1.2, padding: "0 2px" }}>{protectedPlayer.name}</div>
-                            <div style={{ textAlign: "center", marginTop: 2 }}>
-                              <span style={{ fontSize: "0.55rem", fontWeight: 700, color: "white", background: POS_COLORS[protectedPlayer.pos] || "#64748b", borderRadius: 3, padding: "1px 3px" }}>{protectedPlayer.pos}</span>
+                            <span aria-hidden style={{ position: "absolute", top: 2, right: 3, fontSize: "0.6rem", lineHeight: 1, opacity: 0.75 }}>🔒</span>
+                            <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 800, color: "oklch(0.16 0.06 150)", textAlign: "center", lineHeight: 1.15, padding: "0 10px", whiteSpace: "normal", wordBreak: "break-word" }}>{protectedPlayer.name}</div>
+                            <div style={{ textAlign: "center", marginTop: 3 }}>
+                              <span style={{ fontSize: "0.58rem", fontWeight: 700, color: "white", background: POS_COLORS[protectedPlayer.pos] || "#64748b", borderRadius: 3, padding: "1px 4px" }}>{protectedPlayer.pos}</span>
                             </div>
                           </>
                         ) : dbPick ? (
