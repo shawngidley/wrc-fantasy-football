@@ -104,7 +104,7 @@ const WRC_TEAM_ID_TO_OWNER: Record<string, string> = Object.fromEntries(
 function getMediaRules(kind: "logo" | "theme") {
   return kind === "logo"
     ? { allowed: new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]), maxBytes: 5 * 1024 * 1024, column: "logo_url" as const, folder: "logos" }
-    : { allowed: new Set(["audio/mpeg", "audio/mp3", "audio/wav", "audio/ogg", "audio/m4a", "audio/aac", "audio/x-m4a"]), maxBytes: 10 * 1024 * 1024, column: "theme_song_url" as const, folder: "theme-songs" };
+    : { allowed: new Set(["audio/mpeg", "audio/mp3", "audio/wav", "audio/ogg", "audio/m4a", "audio/aac", "audio/x-m4a"]), maxBytes: 15 * 1024 * 1024, column: "theme_song_url" as const, folder: "theme-songs" };
 }
 
 // Returns a Set of "round-physicalPick" keys for every slot occupied by a
@@ -1325,7 +1325,7 @@ export const appRouter = router({
         kind: z.enum(["logo", "theme"]),
         fileName: z.string().min(1).max(160),
         contentType: z.string().min(1).max(100),
-        base64Data: z.string().min(1).max(14_000_000),
+        base64Data: z.string().min(1).max(21_000_000),
       }))
       .mutation(async ({ input, ctx }) => {
         const mediaRules = getMediaRules(input.kind);
@@ -1355,7 +1355,7 @@ export const appRouter = router({
         kind: z.enum(["logo", "theme"]),
         fileName: z.string().min(1).max(160),
         contentType: z.string().min(1).max(100),
-        base64Data: z.string().min(1).max(14_000_000),
+        base64Data: z.string().min(1).max(21_000_000),
       }))
       .mutation(async ({ input }) => {
         const mediaRules = getMediaRules(input.kind);

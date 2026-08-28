@@ -176,8 +176,8 @@ function CommissionerThemeSongsPanel() {
   const handleUpload = async (teamId: string, file: File | undefined) => {
     if (!file) return;
     setError(prev => ({ ...prev, [teamId]: "" }));
-    if (file.size > 10 * 1024 * 1024) {
-      setError(prev => ({ ...prev, [teamId]: "File must be under 10MB." }));
+    if (file.size > 15 * 1024 * 1024) {
+      setError(prev => ({ ...prev, [teamId]: "File must be under 15MB." }));
       return;
     }
     const allowed = ["audio/mpeg", "audio/mp3", "audio/wav", "audio/ogg", "audio/m4a", "audio/aac", "audio/x-m4a"];
@@ -566,7 +566,7 @@ export default function Settings() {
     const file = e.target.files?.[0];
     if (!file || !franchise) return;
     setThemeError(""); setThemeSuccess("");
-    if (file.size > 10 * 1024 * 1024) { setThemeError("File must be under 10MB."); return; }
+    if (file.size > 15 * 1024 * 1024) { setThemeError("File must be under 15MB."); return; }
     const allowed = ["audio/mpeg", "audio/mp3", "audio/wav", "audio/ogg", "audio/m4a", "audio/aac", "audio/x-m4a"];
     if (!allowed.includes(file.type) && !file.name.match(/\.(mp3|wav|ogg|m4a|aac)$/i)) {
       setThemeError("Only MP3, WAV, OGG, M4A, or AAC files are supported."); return;
@@ -935,7 +935,7 @@ export default function Settings() {
           </div>
           <div style={{ padding: "1.25rem" }}>
             <p style={{ fontSize: "0.85rem", color: "oklch(0.5 0.04 150)", margin: "0 0 1.25rem" }}>
-              Upload your theme song — it plays automatically on the Draft Board when you go on the clock. MP3, WAV, OGG, M4A, or AAC · Max 10MB.
+              Upload your theme song — it plays automatically on the Draft Board when you go on the clock. MP3, WAV, OGG, M4A, or AAC · Max 15MB.
             </p>
 
             {/* Current song */}

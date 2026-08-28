@@ -93294,7 +93294,7 @@ var WRC_TEAM_ID_TO_OWNER = Object.fromEntries(
   Object.entries(WRC_DRAFT_OWNER_TEAM_IDS).map(([owner, teamId]) => [teamId, owner])
 );
 function getMediaRules(kind) {
-  return kind === "logo" ? { allowed: /* @__PURE__ */ new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]), maxBytes: 5 * 1024 * 1024, column: "logo_url", folder: "logos" } : { allowed: /* @__PURE__ */ new Set(["audio/mpeg", "audio/mp3", "audio/wav", "audio/ogg", "audio/m4a", "audio/aac", "audio/x-m4a"]), maxBytes: 10 * 1024 * 1024, column: "theme_song_url", folder: "theme-songs" };
+  return kind === "logo" ? { allowed: /* @__PURE__ */ new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]), maxBytes: 5 * 1024 * 1024, column: "logo_url", folder: "logos" } : { allowed: /* @__PURE__ */ new Set(["audio/mpeg", "audio/mp3", "audio/wav", "audio/ogg", "audio/m4a", "audio/aac", "audio/x-m4a"]), maxBytes: 15 * 1024 * 1024, column: "theme_song_url", folder: "theme-songs" };
 }
 async function getProtectedDraftSlots(staticRound1Order) {
   const { data: protections, error: error51 } = await supabaseAdmin.from("protections").select("team_id, forfeited_round");
@@ -94246,7 +94246,7 @@ var appRouter = router({
       kind: external_exports.enum(["logo", "theme"]),
       fileName: external_exports.string().min(1).max(160),
       contentType: external_exports.string().min(1).max(100),
-      base64Data: external_exports.string().min(1).max(14e6)
+      base64Data: external_exports.string().min(1).max(21e6)
     })).mutation(async ({ input, ctx }) => {
       const mediaRules = getMediaRules(input.kind);
       if (!mediaRules.allowed.has(input.contentType)) throw new Error("This file type is not supported.");
@@ -94272,7 +94272,7 @@ var appRouter = router({
       kind: external_exports.enum(["logo", "theme"]),
       fileName: external_exports.string().min(1).max(160),
       contentType: external_exports.string().min(1).max(100),
-      base64Data: external_exports.string().min(1).max(14e6)
+      base64Data: external_exports.string().min(1).max(21e6)
     })).mutation(async ({ input }) => {
       const mediaRules = getMediaRules(input.kind);
       if (!mediaRules.allowed.has(input.contentType)) throw new Error("This file type is not supported.");
