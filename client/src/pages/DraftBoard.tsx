@@ -220,6 +220,9 @@ export default function DraftBoard() {
   const prevPickCountRef = useRef(0);
   const chimeRef = useRef<HTMLAudioElement | null>(null);
   const currentListRowRef = useRef<HTMLDivElement | null>(null);
+  const themeAudioRef = useRef<HTMLAudioElement | null>(null);
+  const themeTimersRef = useRef<{ fadeStart?: ReturnType<typeof setTimeout>; fadeInterval?: ReturnType<typeof setInterval> }>({});
+  const lastThemeOwnerRef = useRef<string | null>(null);
   // Tracks which pick IDs have been revealed (shown in board after overlay)
   const [revealedPickIds, setRevealedPickIds] = useState<Set<number>>(new Set());
   const draftActionMutation = trpc.league.commissionerDraftAction.useMutation();
@@ -337,6 +340,68 @@ export default function DraftBoard() {
   const currentOwner = getOwnerForSlot(curRound, curPick, resolvedDraftOrder);
   const currentTeamName = getTeamForOwner(currentOwner);
   const isMyTurn = franchise?.team_name === currentTeamName || franchise?.owner === currentOwner;
+
+  // Theme songs: play automatically (for everyone watching) when a new team
+  // goes on the clock, for 15 seconds, then fade out over ~1.5s and stop.
+  const themeSongsQuery = trpc.league.teamThemeSongs.useQuery();
+  const themeSongByTeamId = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const t of themeSongsQuery.data ?? []) {
+      if (t.theme_song_url) m[t.id] = t.theme_song_url;
+    }
+    return m;
+  }, [themeSongsQuery.data]);
+
+  useEffect(() => {
+    if (!started || complete) return;
+    if (currentOwner === lastThemeOwnerRef.current) return;
+    lastThemeOwnerRef.current = currentOwner;
+
+    // Stop and clean up whatever was playing for the previous team first.
+    clearTimeout(themeTimersRef.current.fadeStart);
+    clearInterval(themeTimersRef.current.fadeInterval);
+    if (themeAudioRef.current) {
+      themeAudioRef.current.pause();
+      themeAudioRef.current = null;
+    }
+
+    const teamId = OWNER_TO_TEAM_ID[currentOwner];
+    const url = teamId ? themeSongByTeamId[teamId] : undefined;
+    if (!url) return;
+
+    const audio = new Audio(url);
+    audio.volume = 1;
+    themeAudioRef.current = audio;
+    audio.play().catch(() => {});
+
+    // After 15 seconds, fade out over ~1.5s (20 steps of 75ms), then stop.
+    themeTimersRef.current.fadeStart = setTimeout(() => {
+      const FADE_STEPS = 20;
+      const FADE_INTERVAL_MS = 75;
+      let step = 0;
+      themeTimersRef.current.fadeInterval = setInterval(() => {
+        step++;
+        if (!themeAudioRef.current) { clearInterval(themeTimersRef.current.fadeInterval); return; }
+        themeAudioRef.current.volume = Math.max(0, 1 - step / FADE_STEPS);
+        if (step >= FADE_STEPS) {
+          clearInterval(themeTimersRef.current.fadeInterval);
+          themeAudioRef.current.pause();
+          themeAudioRef.current = null;
+        }
+      }, FADE_INTERVAL_MS);
+    }, 15_000);
+  }, [currentOwner, started, complete, themeSongByTeamId]);
+
+  useEffect(() => {
+    // Stop any playing theme song if the draft pauses, completes, or this
+    // component unmounts, so nothing keeps playing in the background.
+    return () => {
+      clearTimeout(themeTimersRef.current.fadeStart);
+      clearInterval(themeTimersRef.current.fadeInterval);
+      themeAudioRef.current?.pause();
+    };
+  }, []);
+
 
   // Available player pool
   const availablePlayers = useMemo(
@@ -1247,7 +1312,7 @@ export default function DraftBoard() {
           <Music size={18} color="oklch(0.78 0.15 85)" />
           <div>
             <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.8rem", fontWeight: 600, color: "white", letterSpacing: "0.04em" }}>Theme Songs</div>
-            <div style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.55)" }}>Each owner can upload their theme song in Account Settings. It plays automatically when they go on the clock.</div>
+            <div style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.55)" }}>Each owner can upload their theme song in Account Settings. It plays automatically for 15 seconds (then fades out) when they go on the clock.</div>
           </div>
         </div>
 

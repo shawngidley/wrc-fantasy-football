@@ -93344,6 +93344,11 @@ var appRouter = router({
   system: systemRouter,
   league: router({
     teams: publicProcedure.query(() => listPublicLeagueTeams()),
+    teamThemeSongs: publicProcedure.query(async () => {
+      const { data, error: error51 } = await supabaseAdmin.from("teams").select("id, theme_song_url");
+      if (error51) throw new Error("Unable to load theme songs.");
+      return data ?? [];
+    }),
     draftLottery: publicProcedure.query(async () => {
       const { data, error: error51 } = await supabaseAdmin.from("draft_lottery").select("status, eligible_owners, result_owners, drawn_at, reveal_status, reveal_started_at").eq("id", 1).single();
       if (error51 || !data) throw new Error("Unable to load the draft lottery.");

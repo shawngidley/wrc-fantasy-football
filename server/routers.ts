@@ -172,6 +172,11 @@ export const appRouter = router({
 
   league: router({
     teams: publicProcedure.query(() => listPublicLeagueTeams()),
+    teamThemeSongs: publicProcedure.query(async () => {
+      const { data, error } = await supabaseAdmin.from("teams").select("id, theme_song_url");
+      if (error) throw new Error("Unable to load theme songs.");
+      return data ?? [];
+    }),
     draftLottery: publicProcedure.query(async () => {
       const { data, error } = await supabaseAdmin.from("draft_lottery").select("status, eligible_owners, result_owners, drawn_at, reveal_status, reveal_started_at").eq("id", 1).single();
       if (error || !data) throw new Error("Unable to load the draft lottery.");
