@@ -157,6 +157,150 @@ function CommissionerPinPanel({ labelStyle }: { labelStyle: React.CSSProperties 
 }
 
 // ── Commissioner Protections Overview Panel ───────────────────────────────────
+function CommissionerThemeSongsPanel() {
+  interface TeamRow { id: string; name: string; owner: string; theme_song_url: string | null; }
+
+  const directoryQuery = trpc.league.commissionerTeamDirectory.useQuery();
+  const teams = (directoryQuery.data ?? []) as TeamRow[];
+
+  const uploadMutation = trpc.league.commissionerUploadTeamMedia.useMutation();
+  const removeMutation = trpc.league.commissionerRemoveTeamMedia.useMutation();
+  const utils = trpc.useUtils();
+
+  const [uploadingTeamId, setUploadingTeamId] = useState<string | null>(null);
+  const [error, setError] = useState<Record<string, string>>({});
+  const [playingTeamId, setPlayingTeamId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+
+  const handleUpload = async (teamId: string, file: File | undefined) => {
+    if (!file) return;
+    setError(prev => ({ ...prev, [teamId]: "" }));
+    if (file.size > 10 * 1024 * 1024) {
+      setError(prev => ({ ...prev, [teamId]: "File must be under 10MB." }));
+      return;
+    }
+    const allowed = ["audio/mpeg", "audio/mp3", "audio/wav", "audio/ogg", "audio/m4a", "audio/aac", "audio/x-m4a"];
+    if (!allowed.includes(file.type) && !file.name.match(/\.(mp3|wav|ogg|m4a|aac)$/i)) {
+      setError(prev => ({ ...prev, [teamId]: "Only MP3, WAV, OGG, M4A, or AAC files are supported." }));
+      return;
+    }
+    setUploadingTeamId(teamId);
+    try {
+      await uploadMutation.mutateAsync({
+        teamId,
+        kind: "theme",
+        fileName: file.name,
+        contentType: mediaContentType(file),
+        base64Data: await fileToBase64(file),
+      });
+      await utils.league.commissionerTeamDirectory.invalidate();
+      const input = fileInputRefs.current[teamId];
+      if (input) input.value = "";
+    } catch (err) {
+      setError(prev => ({ ...prev, [teamId]: err instanceof Error ? err.message : "Upload failed." }));
+    } finally {
+      setUploadingTeamId(null);
+    }
+  };
+
+  const handleRemove = async (teamId: string) => {
+    setError(prev => ({ ...prev, [teamId]: "" }));
+    try {
+      await removeMutation.mutateAsync({ teamId, kind: "theme" });
+      if (playingTeamId === teamId && audioRef.current) { audioRef.current.pause(); setPlayingTeamId(null); }
+      await utils.league.commissionerTeamDirectory.invalidate();
+    } catch (err) {
+      setError(prev => ({ ...prev, [teamId]: err instanceof Error ? err.message : "Unable to remove theme song." }));
+    }
+  };
+
+  const handlePlayPause = (teamId: string, url: string) => {
+    if (playingTeamId === teamId) {
+      audioRef.current?.pause();
+      setPlayingTeamId(null);
+      return;
+    }
+    audioRef.current?.pause();
+    audioRef.current = new Audio(url);
+    audioRef.current.onended = () => setPlayingTeamId(null);
+    audioRef.current.play().catch(() => {});
+    setPlayingTeamId(teamId);
+  };
+
+  return (
+    <div className="wrc-card" style={{ marginBottom: "1.25rem", border: "2px solid oklch(0.78 0.15 85)" }}>
+      <div className="wrc-card-gold-stripe" />
+      <div className="wrc-card-header" style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: "oklch(0.95 0.06 85)" }}>
+        <Music size={14} color="oklch(0.45 0.14 85)" />
+        <span style={{ color: "oklch(0.35 0.14 85)" }}>Commissioner: Team Theme Songs</span>
+      </div>
+      <div style={{ padding: "1.25rem" }}>
+        <p style={{ fontSize: "0.82rem", color: "oklch(0.5 0.04 150)", margin: "0 0 1rem" }}>
+          Upload or replace any team's draft theme song on their behalf — useful if an owner can't do it themselves before a live draft.
+        </p>
+        {directoryQuery.isLoading ? (
+          <div style={{ textAlign: "center", padding: "2rem", color: "oklch(0.55 0.04 150)", fontSize: "0.88rem" }}>Loading teams…</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+            {teams.map(team => {
+              const busy = uploadingTeamId === team.id;
+              return (
+                <div key={team.id} style={{ display: "flex", alignItems: "center", gap: "0.75rem", padding: "0.6rem 0.85rem", background: "oklch(0.98 0.005 150)", border: "1px solid oklch(0.9 0.01 150)", borderRadius: 8, flexWrap: "wrap" }}>
+                  <div style={{ minWidth: 160, flex: "1 1 160px" }}>
+                    <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.85rem", color: "oklch(0.22 0.08 150)" }}>{team.name}</div>
+                    <div style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)" }}>{team.owner}</div>
+                  </div>
+                  <div style={{ fontSize: "0.78rem", color: team.theme_song_url ? "oklch(0.35 0.15 150)" : "oklch(0.6 0.04 150)", display: "flex", alignItems: "center", gap: "0.35rem", flex: "1 1 140px" }}>
+                    <Music size={13} /> {team.theme_song_url ? "Song uploaded" : "No song yet"}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                    {team.theme_song_url && (
+                      <>
+                        <button
+                          onClick={() => handlePlayPause(team.id, team.theme_song_url!)}
+                          title={playingTeamId === team.id ? "Stop" : "Preview"}
+                          style={{ background: "oklch(0.28 0.09 150)", color: "white", border: "none", borderRadius: 6, padding: "0.35rem 0.55rem", cursor: "pointer", display: "flex", alignItems: "center" }}
+                        >
+                          {playingTeamId === team.id ? <Square size={12} /> : <Play size={12} />}
+                        </button>
+                        <button
+                          onClick={() => handleRemove(team.id)}
+                          title="Remove"
+                          style={{ background: "oklch(0.97 0.02 25)", color: "oklch(0.45 0.18 25)", border: "1px solid oklch(0.85 0.08 25)", borderRadius: 6, padding: "0.35rem 0.5rem", cursor: "pointer" }}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </>
+                    )}
+                    <input
+                      ref={el => { fileInputRefs.current[team.id] = el; }}
+                      type="file"
+                      accept="audio/mpeg,audio/mp3,audio/wav,audio/ogg,audio/m4a,audio/aac,.mp3,.wav,.ogg,.m4a,.aac"
+                      onChange={e => handleUpload(team.id, e.target.files?.[0])}
+                      style={{ display: "none" }}
+                      id={`theme-song-input-${team.id}`}
+                    />
+                    <label
+                      htmlFor={`theme-song-input-${team.id}`}
+                      style={{ display: "inline-flex", alignItems: "center", gap: "0.35rem", background: busy ? "oklch(0.88 0.01 150)" : "oklch(0.78 0.15 85)", color: busy ? "oklch(0.5 0.04 150)" : "oklch(0.15 0.02 150)", borderRadius: 6, padding: "0.4rem 0.7rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", cursor: busy ? "not-allowed" : "pointer", pointerEvents: busy ? "none" : "auto", whiteSpace: "nowrap" }}
+                    >
+                      <Upload size={12} /> {busy ? "Uploading…" : team.theme_song_url ? "Replace" : "Upload"}
+                    </label>
+                  </div>
+                  {error[team.id] && (
+                    <div style={{ width: "100%", fontSize: "0.75rem", color: "oklch(0.45 0.18 25)", fontWeight: 600 }}>{error[team.id]}</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function CommissionerProtectionsPanel() {
   const DEADLINE = WRC_PROTECTION_DEADLINE;
   const isPastDeadline = Date.now() > DEADLINE.getTime();
@@ -829,6 +973,11 @@ export default function Settings() {
         {/* Commissioner PIN Reset Panel — only visible to commissioner */}
         {franchise?.is_commissioner && (
           <CommissionerPinPanel labelStyle={labelStyle} />
+        )}
+
+        {/* Commissioner Theme Songs — only visible to commissioner */}
+        {franchise?.is_commissioner && (
+          <CommissionerThemeSongsPanel />
         )}
 
         {/* Commissioner Protections Overview — only visible to commissioner */}

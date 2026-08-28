@@ -93293,6 +93293,9 @@ async function consumePasskeyChallenge(id) {
 var WRC_TEAM_ID_TO_OWNER = Object.fromEntries(
   Object.entries(WRC_DRAFT_OWNER_TEAM_IDS).map(([owner, teamId]) => [teamId, owner])
 );
+function getMediaRules(kind) {
+  return kind === "logo" ? { allowed: /* @__PURE__ */ new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]), maxBytes: 5 * 1024 * 1024, column: "logo_url", folder: "logos" } : { allowed: /* @__PURE__ */ new Set(["audio/mpeg", "audio/mp3", "audio/wav", "audio/ogg", "audio/m4a", "audio/aac", "audio/x-m4a"]), maxBytes: 10 * 1024 * 1024, column: "theme_song_url", folder: "theme-songs" };
+}
 async function getProtectedDraftSlots(staticRound1Order) {
   const { data: protections, error: error51 } = await supabaseAdmin.from("protections").select("team_id, forfeited_round");
   if (error51) throw new Error("Unable to load protections while advancing the draft.");
@@ -94229,7 +94232,7 @@ var appRouter = router({
       return { updated: true };
     }),
     commissionerTeamDirectory: commissionerProcedure.query(async () => {
-      const { data, error: error51 } = await supabaseAdmin.from("teams").select("id, name, owner").order("name");
+      const { data, error: error51 } = await supabaseAdmin.from("teams").select("id, name, owner, theme_song_url").order("name");
       if (error51) throw new Error("Unable to load the team directory.");
       return data ?? [];
     }),
@@ -94245,7 +94248,7 @@ var appRouter = router({
       contentType: external_exports.string().min(1).max(100),
       base64Data: external_exports.string().min(1).max(14e6)
     })).mutation(async ({ input, ctx }) => {
-      const mediaRules = input.kind === "logo" ? { allowed: /* @__PURE__ */ new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]), maxBytes: 5 * 1024 * 1024, column: "logo_url", folder: "logos" } : { allowed: /* @__PURE__ */ new Set(["audio/mpeg", "audio/mp3", "audio/wav", "audio/ogg", "audio/m4a", "audio/aac", "audio/x-m4a"]), maxBytes: 10 * 1024 * 1024, column: "theme_song_url", folder: "theme-songs" };
+      const mediaRules = getMediaRules(input.kind);
       if (!mediaRules.allowed.has(input.contentType)) throw new Error("This file type is not supported.");
       const bytes = Buffer.from(input.base64Data, "base64");
       if (!bytes.length || bytes.length > mediaRules.maxBytes) throw new Error(`File must be under ${mediaRules.maxBytes / (1024 * 1024)}MB.`);
@@ -94258,6 +94261,32 @@ var appRouter = router({
     removeTeamMedia: teamProcedure.input(external_exports.object({ kind: external_exports.enum(["logo", "theme"]) })).mutation(async ({ input, ctx }) => {
       const column = input.kind === "logo" ? "logo_url" : "theme_song_url";
       const { error: error51 } = await supabaseAdmin.from("teams").update({ [column]: null }).eq("id", ctx.teamSession.teamId);
+      if (error51) throw new Error("Unable to remove team media.");
+      return { removed: true };
+    }),
+    // Commissioner variants of the above -- lets the commissioner upload or
+    // remove a theme song (or logo) on behalf of any team, e.g. helping an
+    // owner who isn't able to do it themselves before a live draft.
+    commissionerUploadTeamMedia: commissionerProcedure.input(external_exports.object({
+      teamId: external_exports.string().min(1).max(128),
+      kind: external_exports.enum(["logo", "theme"]),
+      fileName: external_exports.string().min(1).max(160),
+      contentType: external_exports.string().min(1).max(100),
+      base64Data: external_exports.string().min(1).max(14e6)
+    })).mutation(async ({ input }) => {
+      const mediaRules = getMediaRules(input.kind);
+      if (!mediaRules.allowed.has(input.contentType)) throw new Error("This file type is not supported.");
+      const bytes = Buffer.from(input.base64Data, "base64");
+      if (!bytes.length || bytes.length > mediaRules.maxBytes) throw new Error(`File must be under ${mediaRules.maxBytes / (1024 * 1024)}MB.`);
+      const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
+      const { url: url2 } = await storagePut(`teams/${input.teamId}/${mediaRules.folder}/${Date.now()}-${safeName}`, bytes, input.contentType);
+      const { error: error51 } = await supabaseAdmin.from("teams").update({ [mediaRules.column]: url2 }).eq("id", input.teamId);
+      if (error51) throw new Error("File uploaded, but team settings could not be saved.");
+      return { url: url2 };
+    }),
+    commissionerRemoveTeamMedia: commissionerProcedure.input(external_exports.object({ teamId: external_exports.string().min(1).max(128), kind: external_exports.enum(["logo", "theme"]) })).mutation(async ({ input }) => {
+      const column = input.kind === "logo" ? "logo_url" : "theme_song_url";
+      const { error: error51 } = await supabaseAdmin.from("teams").update({ [column]: null }).eq("id", input.teamId);
       if (error51) throw new Error("Unable to remove team media.");
       return { removed: true };
     }),
