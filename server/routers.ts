@@ -20,7 +20,7 @@ import { normalizePlayerName } from "../shared/playerNameMatch";
 import { DRAFT_LOTTERY_OWNERS, isValidDraftLotteryResult } from "../shared/draftLottery";
 import { applyDraftLottery } from "../shared/draftLottery";
 import { DRAFT_PICKS_2026 } from "../client/src/lib/draftData2026";
-import { storagePut } from "./storage";
+import { createTeamMediaSignedUploadUrl, TEAM_MEDIA_BUCKET_NAME } from "./storage";
 import { finalizeWeeklyResultsFromTank } from "./weeklyResultsFinalize";
 import { assertLoginAllowed, assertStrongLeaguePin, clearLoginFailures, getClientIp, recordLoginFailure } from "./leagueLoginSecurity";
 import { nanoid } from "nanoid";
@@ -1320,23 +1320,31 @@ export const appRouter = router({
         if (error || !data) throw new Error("Unable to reset the selected team PIN.");
         return { updated: true, teamName: data.name };
       }),
-    uploadTeamMedia: teamProcedure
+    createTeamMediaUploadUrl: teamProcedure
       .input(z.object({
         kind: z.enum(["logo", "theme"]),
         fileName: z.string().min(1).max(160),
         contentType: z.string().min(1).max(100),
-        base64Data: z.string().min(1).max(21_000_000),
+        fileSizeBytes: z.number().int().min(1),
       }))
       .mutation(async ({ input, ctx }) => {
         const mediaRules = getMediaRules(input.kind);
         if (!mediaRules.allowed.has(input.contentType)) throw new Error("This file type is not supported.");
-        const bytes = Buffer.from(input.base64Data, "base64");
-        if (!bytes.length || bytes.length > mediaRules.maxBytes) throw new Error(`File must be under ${mediaRules.maxBytes / (1024 * 1024)}MB.`);
+        if (input.fileSizeBytes > mediaRules.maxBytes) throw new Error(`File must be under ${mediaRules.maxBytes / (1024 * 1024)}MB.`);
         const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
-        const { url } = await storagePut(`teams/${ctx.teamSession.teamId}/${mediaRules.folder}/${Date.now()}-${safeName}`, bytes, input.contentType);
-        const { error } = await supabaseAdmin.from("teams").update({ [mediaRules.column]: url }).eq("id", ctx.teamSession.teamId);
-        if (error) throw new Error("File uploaded, but team settings could not be saved.");
-        return { url };
+        const { path, token, publicUrl } = await createTeamMediaSignedUploadUrl(`teams/${ctx.teamSession.teamId}/${mediaRules.folder}/${Date.now()}-${safeName}`);
+        return { path, token, publicUrl, bucket: TEAM_MEDIA_BUCKET_NAME };
+      }),
+    attachTeamMedia: teamProcedure
+      .input(z.object({ kind: z.enum(["logo", "theme"]), url: z.string().url().max(500) }))
+      .mutation(async ({ input, ctx }) => {
+        const mediaRules = getMediaRules(input.kind);
+        if (!input.url.includes(`/${TEAM_MEDIA_BUCKET_NAME}/teams/${ctx.teamSession.teamId}/${mediaRules.folder}/`)) {
+          throw new Error("Invalid upload reference.");
+        }
+        const { error } = await supabaseAdmin.from("teams").update({ [mediaRules.column]: input.url }).eq("id", ctx.teamSession.teamId);
+        if (error) throw new Error("Upload succeeded, but team settings could not be saved.");
+        return { url: input.url };
       }),
     removeTeamMedia: teamProcedure
       .input(z.object({ kind: z.enum(["logo", "theme"]) }))
@@ -1349,24 +1357,32 @@ export const appRouter = router({
     // Commissioner variants of the above -- lets the commissioner upload or
     // remove a theme song (or logo) on behalf of any team, e.g. helping an
     // owner who isn't able to do it themselves before a live draft.
-    commissionerUploadTeamMedia: commissionerProcedure
+    commissionerCreateTeamMediaUploadUrl: commissionerProcedure
       .input(z.object({
         teamId: z.string().min(1).max(128),
         kind: z.enum(["logo", "theme"]),
         fileName: z.string().min(1).max(160),
         contentType: z.string().min(1).max(100),
-        base64Data: z.string().min(1).max(21_000_000),
+        fileSizeBytes: z.number().int().min(1),
       }))
       .mutation(async ({ input }) => {
         const mediaRules = getMediaRules(input.kind);
         if (!mediaRules.allowed.has(input.contentType)) throw new Error("This file type is not supported.");
-        const bytes = Buffer.from(input.base64Data, "base64");
-        if (!bytes.length || bytes.length > mediaRules.maxBytes) throw new Error(`File must be under ${mediaRules.maxBytes / (1024 * 1024)}MB.`);
+        if (input.fileSizeBytes > mediaRules.maxBytes) throw new Error(`File must be under ${mediaRules.maxBytes / (1024 * 1024)}MB.`);
         const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
-        const { url } = await storagePut(`teams/${input.teamId}/${mediaRules.folder}/${Date.now()}-${safeName}`, bytes, input.contentType);
-        const { error } = await supabaseAdmin.from("teams").update({ [mediaRules.column]: url }).eq("id", input.teamId);
-        if (error) throw new Error("File uploaded, but team settings could not be saved.");
-        return { url };
+        const { path, token, publicUrl } = await createTeamMediaSignedUploadUrl(`teams/${input.teamId}/${mediaRules.folder}/${Date.now()}-${safeName}`);
+        return { path, token, publicUrl, bucket: TEAM_MEDIA_BUCKET_NAME };
+      }),
+    commissionerAttachTeamMedia: commissionerProcedure
+      .input(z.object({ teamId: z.string().min(1).max(128), kind: z.enum(["logo", "theme"]), url: z.string().url().max(500) }))
+      .mutation(async ({ input }) => {
+        const mediaRules = getMediaRules(input.kind);
+        if (!input.url.includes(`/${TEAM_MEDIA_BUCKET_NAME}/teams/${input.teamId}/${mediaRules.folder}/`)) {
+          throw new Error("Invalid upload reference.");
+        }
+        const { error } = await supabaseAdmin.from("teams").update({ [mediaRules.column]: input.url }).eq("id", input.teamId);
+        if (error) throw new Error("Upload succeeded, but team settings could not be saved.");
+        return { url: input.url };
       }),
     commissionerRemoveTeamMedia: commissionerProcedure
       .input(z.object({ teamId: z.string().min(1).max(128), kind: z.enum(["logo", "theme"]) }))

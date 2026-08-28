@@ -36,6 +36,30 @@ export async function storagePut(
   return { key, url: publicUrlData.publicUrl };
 }
 
+// Vercel's Node.js serverless functions enforce a hard ~4.5MB request body
+// limit at the platform level -- not configurable via vercel.json, and not
+// affected by Express's own body-parser limit (that limit never gets a
+// chance to apply; Vercel rejects the request first, with a plain-text
+// "Request Entity Too Large" response the client can't JSON.parse). Any
+// upload that needs to support files larger than that must not send the
+// file bytes through our own API route at all. This returns a short-lived
+// signed upload URL/token the browser can upload directly to Supabase
+// Storage with, bypassing our function entirely for the actual bytes; only
+// the (small) URL to attach gets sent back to us afterward.
+export async function createTeamMediaSignedUploadUrl(
+  relKey: string,
+): Promise<{ path: string; token: string; publicUrl: string }> {
+  const key = appendHashSuffix(normalizeKey(relKey));
+  const { data, error } = await supabaseAdmin.storage.from(TEAM_MEDIA_BUCKET).createSignedUploadUrl(key);
+  if (error || !data) throw new Error(`Unable to prepare upload: ${error?.message ?? "unknown error"}`);
+  const { data: publicUrlData } = supabaseAdmin.storage.from(TEAM_MEDIA_BUCKET).getPublicUrl(key);
+  return { path: data.path, token: data.token, publicUrl: publicUrlData.publicUrl };
+}
+
+/** The team-media bucket name, exported so callers can validate an attached
+ * URL actually points into it before trusting/persisting it. */
+export const TEAM_MEDIA_BUCKET_NAME = TEAM_MEDIA_BUCKET;
+
 export async function storageGetSignedUrl(relKey: string): Promise<string> {
   const key = normalizeKey(relKey);
   const { data } = supabaseAdmin.storage.from(SITE_ASSETS_BUCKET).getPublicUrl(key);

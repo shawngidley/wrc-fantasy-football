@@ -46872,26 +46872,26 @@ function appendHashSuffix(relKey) {
   if (lastDot === -1) return `${relKey}_${hash2}`;
   return `${relKey.slice(0, lastDot)}_${hash2}${relKey.slice(lastDot)}`;
 }
-async function storagePut(relKey, data, contentType = "application/octet-stream") {
+async function createTeamMediaSignedUploadUrl(relKey) {
   const key = appendHashSuffix(normalizeKey(relKey));
-  const body = typeof data === "string" ? Buffer.from(data) : data;
-  const { error: error51 } = await supabaseAdmin.storage.from(TEAM_MEDIA_BUCKET).upload(key, body, { contentType, upsert: true });
-  if (error51) throw new Error(`Storage upload failed: ${error51.message}`);
+  const { data, error: error51 } = await supabaseAdmin.storage.from(TEAM_MEDIA_BUCKET).createSignedUploadUrl(key);
+  if (error51 || !data) throw new Error(`Unable to prepare upload: ${error51?.message ?? "unknown error"}`);
   const { data: publicUrlData } = supabaseAdmin.storage.from(TEAM_MEDIA_BUCKET).getPublicUrl(key);
-  return { key, url: publicUrlData.publicUrl };
+  return { path: data.path, token: data.token, publicUrl: publicUrlData.publicUrl };
 }
 async function storageGetSignedUrl(relKey) {
   const key = normalizeKey(relKey);
   const { data } = supabaseAdmin.storage.from(SITE_ASSETS_BUCKET).getPublicUrl(key);
   return data.publicUrl;
 }
-var TEAM_MEDIA_BUCKET, SITE_ASSETS_BUCKET;
+var TEAM_MEDIA_BUCKET, SITE_ASSETS_BUCKET, TEAM_MEDIA_BUCKET_NAME;
 var init_storage = __esm({
   "server/storage.ts"() {
     "use strict";
     init_supabaseAdmin();
     TEAM_MEDIA_BUCKET = "team-media";
     SITE_ASSETS_BUCKET = "site-assets";
+    TEAM_MEDIA_BUCKET_NAME = TEAM_MEDIA_BUCKET;
   }
 });
 
@@ -94242,21 +94242,27 @@ var appRouter = router({
       if (error51 || !data) throw new Error("Unable to reset the selected team PIN.");
       return { updated: true, teamName: data.name };
     }),
-    uploadTeamMedia: teamProcedure.input(external_exports.object({
+    createTeamMediaUploadUrl: teamProcedure.input(external_exports.object({
       kind: external_exports.enum(["logo", "theme"]),
       fileName: external_exports.string().min(1).max(160),
       contentType: external_exports.string().min(1).max(100),
-      base64Data: external_exports.string().min(1).max(21e6)
+      fileSizeBytes: external_exports.number().int().min(1)
     })).mutation(async ({ input, ctx }) => {
       const mediaRules = getMediaRules(input.kind);
       if (!mediaRules.allowed.has(input.contentType)) throw new Error("This file type is not supported.");
-      const bytes = Buffer.from(input.base64Data, "base64");
-      if (!bytes.length || bytes.length > mediaRules.maxBytes) throw new Error(`File must be under ${mediaRules.maxBytes / (1024 * 1024)}MB.`);
+      if (input.fileSizeBytes > mediaRules.maxBytes) throw new Error(`File must be under ${mediaRules.maxBytes / (1024 * 1024)}MB.`);
       const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const { url: url2 } = await storagePut(`teams/${ctx.teamSession.teamId}/${mediaRules.folder}/${Date.now()}-${safeName}`, bytes, input.contentType);
-      const { error: error51 } = await supabaseAdmin.from("teams").update({ [mediaRules.column]: url2 }).eq("id", ctx.teamSession.teamId);
-      if (error51) throw new Error("File uploaded, but team settings could not be saved.");
-      return { url: url2 };
+      const { path, token, publicUrl } = await createTeamMediaSignedUploadUrl(`teams/${ctx.teamSession.teamId}/${mediaRules.folder}/${Date.now()}-${safeName}`);
+      return { path, token, publicUrl, bucket: TEAM_MEDIA_BUCKET_NAME };
+    }),
+    attachTeamMedia: teamProcedure.input(external_exports.object({ kind: external_exports.enum(["logo", "theme"]), url: external_exports.string().url().max(500) })).mutation(async ({ input, ctx }) => {
+      const mediaRules = getMediaRules(input.kind);
+      if (!input.url.includes(`/${TEAM_MEDIA_BUCKET_NAME}/teams/${ctx.teamSession.teamId}/${mediaRules.folder}/`)) {
+        throw new Error("Invalid upload reference.");
+      }
+      const { error: error51 } = await supabaseAdmin.from("teams").update({ [mediaRules.column]: input.url }).eq("id", ctx.teamSession.teamId);
+      if (error51) throw new Error("Upload succeeded, but team settings could not be saved.");
+      return { url: input.url };
     }),
     removeTeamMedia: teamProcedure.input(external_exports.object({ kind: external_exports.enum(["logo", "theme"]) })).mutation(async ({ input, ctx }) => {
       const column = input.kind === "logo" ? "logo_url" : "theme_song_url";
@@ -94267,22 +94273,28 @@ var appRouter = router({
     // Commissioner variants of the above -- lets the commissioner upload or
     // remove a theme song (or logo) on behalf of any team, e.g. helping an
     // owner who isn't able to do it themselves before a live draft.
-    commissionerUploadTeamMedia: commissionerProcedure.input(external_exports.object({
+    commissionerCreateTeamMediaUploadUrl: commissionerProcedure.input(external_exports.object({
       teamId: external_exports.string().min(1).max(128),
       kind: external_exports.enum(["logo", "theme"]),
       fileName: external_exports.string().min(1).max(160),
       contentType: external_exports.string().min(1).max(100),
-      base64Data: external_exports.string().min(1).max(21e6)
+      fileSizeBytes: external_exports.number().int().min(1)
     })).mutation(async ({ input }) => {
       const mediaRules = getMediaRules(input.kind);
       if (!mediaRules.allowed.has(input.contentType)) throw new Error("This file type is not supported.");
-      const bytes = Buffer.from(input.base64Data, "base64");
-      if (!bytes.length || bytes.length > mediaRules.maxBytes) throw new Error(`File must be under ${mediaRules.maxBytes / (1024 * 1024)}MB.`);
+      if (input.fileSizeBytes > mediaRules.maxBytes) throw new Error(`File must be under ${mediaRules.maxBytes / (1024 * 1024)}MB.`);
       const safeName = input.fileName.replace(/[^a-zA-Z0-9._-]/g, "_");
-      const { url: url2 } = await storagePut(`teams/${input.teamId}/${mediaRules.folder}/${Date.now()}-${safeName}`, bytes, input.contentType);
-      const { error: error51 } = await supabaseAdmin.from("teams").update({ [mediaRules.column]: url2 }).eq("id", input.teamId);
-      if (error51) throw new Error("File uploaded, but team settings could not be saved.");
-      return { url: url2 };
+      const { path, token, publicUrl } = await createTeamMediaSignedUploadUrl(`teams/${input.teamId}/${mediaRules.folder}/${Date.now()}-${safeName}`);
+      return { path, token, publicUrl, bucket: TEAM_MEDIA_BUCKET_NAME };
+    }),
+    commissionerAttachTeamMedia: commissionerProcedure.input(external_exports.object({ teamId: external_exports.string().min(1).max(128), kind: external_exports.enum(["logo", "theme"]), url: external_exports.string().url().max(500) })).mutation(async ({ input }) => {
+      const mediaRules = getMediaRules(input.kind);
+      if (!input.url.includes(`/${TEAM_MEDIA_BUCKET_NAME}/teams/${input.teamId}/${mediaRules.folder}/`)) {
+        throw new Error("Invalid upload reference.");
+      }
+      const { error: error51 } = await supabaseAdmin.from("teams").update({ [mediaRules.column]: input.url }).eq("id", input.teamId);
+      if (error51) throw new Error("Upload succeeded, but team settings could not be saved.");
+      return { url: input.url };
     }),
     commissionerRemoveTeamMedia: commissionerProcedure.input(external_exports.object({ teamId: external_exports.string().min(1).max(128), kind: external_exports.enum(["logo", "theme"]) })).mutation(async ({ input }) => {
       const column = input.kind === "logo" ? "logo_url" : "theme_song_url";

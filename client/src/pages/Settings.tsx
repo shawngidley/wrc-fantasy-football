@@ -19,15 +19,6 @@ import { WRC_PROTECTION_DEADLINE, WRC_PROTECTION_DEADLINE_DISPLAY } from "@share
 import { startRegistration } from "@simplewebauthn/browser";
 import { canUseWrcPasskeys } from "@/lib/wrcPasskey";
 
-function fileToBase64(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onerror = () => reject(new Error("Unable to read the selected file."));
-    reader.onload = () => resolve(String(reader.result).split(",", 2)[1] ?? "");
-    reader.readAsDataURL(file);
-  });
-}
-
 function mediaContentType(file: File): string {
   if (file.type) return file.type;
   const extension = file.name.split(".").pop()?.toLowerCase();
@@ -163,7 +154,8 @@ function CommissionerThemeSongsPanel() {
   const directoryQuery = trpc.league.commissionerTeamDirectory.useQuery();
   const teams = (directoryQuery.data ?? []) as TeamRow[];
 
-  const uploadMutation = trpc.league.commissionerUploadTeamMedia.useMutation();
+  const createUploadUrlMutation = trpc.league.commissionerCreateTeamMediaUploadUrl.useMutation();
+  const attachMutation = trpc.league.commissionerAttachTeamMedia.useMutation();
   const removeMutation = trpc.league.commissionerRemoveTeamMedia.useMutation();
   const utils = trpc.useUtils();
 
@@ -187,13 +179,13 @@ function CommissionerThemeSongsPanel() {
     }
     setUploadingTeamId(teamId);
     try {
-      await uploadMutation.mutateAsync({
-        teamId,
-        kind: "theme",
-        fileName: file.name,
-        contentType: mediaContentType(file),
-        base64Data: await fileToBase64(file),
+      const contentType = mediaContentType(file);
+      const { path, token, publicUrl } = await createUploadUrlMutation.mutateAsync({
+        teamId, kind: "theme", fileName: file.name, contentType, fileSizeBytes: file.size,
       });
+      const { error: uploadError } = await supabase.storage.from("team-media").uploadToSignedUrl(path, token, file, { contentType });
+      if (uploadError) throw new Error(uploadError.message);
+      await attachMutation.mutateAsync({ teamId, kind: "theme", url: publicUrl });
       await utils.league.commissionerTeamDirectory.invalidate();
       const input = fileInputRefs.current[teamId];
       if (input) input.value = "";
@@ -503,7 +495,8 @@ export default function Settings() {
   const [passkeySuccess, setPasskeySuccess] = useState("");
   const settingsQuery = trpc.league.teamSettings.useQuery(undefined, { enabled: Boolean(franchise?.id) });
   const changePinMutation = trpc.league.changeTeamPin.useMutation();
-  const uploadMediaMutation = trpc.league.uploadTeamMedia.useMutation();
+  const createUploadUrlMutation = trpc.league.createTeamMediaUploadUrl.useMutation();
+  const attachMediaMutation = trpc.league.attachTeamMedia.useMutation();
   const removeMediaMutation = trpc.league.removeTeamMedia.useMutation();
   const passkeysQuery = trpc.league.passkeys.useQuery(undefined, { enabled: Boolean(franchise?.id), retry: false });
   const startPasskeyRegistrationMutation = trpc.league.startPasskeyRegistration.useMutation();
@@ -539,7 +532,13 @@ export default function Settings() {
     if (!allowed.includes(file.type)) { setLogoError("Only JPG, PNG, WEBP, or GIF files are supported."); return; }
     setUploadingLogo(true);
     try {
-      const result = await uploadMediaMutation.mutateAsync({ kind: "logo", fileName: file.name, contentType: mediaContentType(file), base64Data: await fileToBase64(file) });
+      const contentType = mediaContentType(file);
+      const { path, token, publicUrl } = await createUploadUrlMutation.mutateAsync({
+        kind: "logo", fileName: file.name, contentType, fileSizeBytes: file.size,
+      });
+      const { error: uploadError } = await supabase.storage.from("team-media").uploadToSignedUrl(path, token, file, { contentType });
+      if (uploadError) throw new Error(uploadError.message);
+      const result = await attachMediaMutation.mutateAsync({ kind: "logo", url: publicUrl });
       setLogoUrl(result.url);
       setLogoSuccess("Team logo uploaded!");
       if (logoInputRef.current) logoInputRef.current.value = "";
@@ -573,7 +572,18 @@ export default function Settings() {
     }
     setUploadingTheme(true);
     try {
-      const result = await uploadMediaMutation.mutateAsync({ kind: "theme", fileName: file.name, contentType: mediaContentType(file), base64Data: await fileToBase64(file) });
+      const contentType = mediaContentType(file);
+      // Large audio files exceed Vercel's ~4.5MB serverless request body
+      // limit, so the file bytes never go through our API. Instead: ask the
+      // server for a short-lived signed upload URL, upload directly to
+      // Supabase Storage from the browser, then tell the server the
+      // resulting URL to save (a small request either way).
+      const { path, token, publicUrl } = await createUploadUrlMutation.mutateAsync({
+        kind: "theme", fileName: file.name, contentType, fileSizeBytes: file.size,
+      });
+      const { error: uploadError } = await supabase.storage.from("team-media").uploadToSignedUrl(path, token, file, { contentType });
+      if (uploadError) throw new Error(uploadError.message);
+      const result = await attachMediaMutation.mutateAsync({ kind: "theme", url: publicUrl });
       setThemeSongUrl(result.url);
       setThemeSongName(file.name);
       setThemeSuccess("Theme song uploaded!");

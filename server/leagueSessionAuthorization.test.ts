@@ -112,11 +112,11 @@ describe("private league procedures", () => {
 
     await expect(caller.league.changeTeamPin({ currentPin: "1234", newPin: "5678" }))
       .rejects.toMatchObject({ code: "UNAUTHORIZED" });
-    await expect(caller.league.uploadTeamMedia({
+    await expect(caller.league.createTeamMediaUploadUrl({
       kind: "logo",
       fileName: "logo.png",
       contentType: "image/png",
-      base64Data: "YWJj",
+      fileSizeBytes: 1024,
     })).rejects.toMatchObject({ code: "UNAUTHORIZED" });
     await expect(caller.league.commissionerSetTeamPin({ teamId: "team-owner", newPin: "5678" }))
       .rejects.toMatchObject({ code: "FORBIDDEN" });
