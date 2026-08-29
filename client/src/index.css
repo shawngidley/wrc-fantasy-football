@@ -517,6 +517,17 @@
   .pick-list-overall { display: none; }
   .pick-list-roundpick { width: 32px !important; }
   .pick-list-owner { width: var(--pick-owner-mobile-width, 74px) !important; padding: 3px 4px !important; }
+
+  .draft-players-table { min-width: 384px !important; }
+  .draft-players-col-num { width: 28px !important; }
+  .draft-players-col-name { width: 130px !important; }
+  .draft-players-col-queue { width: 38px !important; }
+  .draft-players-col-bye { width: 38px !important; }
+  .draft-players-col-fpts { width: 50px !important; }
+  .draft-players-col-fpg { width: 50px !important; }
+  .draft-players-col-adp { width: 50px !important; }
+  .draft-players-sticky-name { left: 28px !important; }
+  .draft-players-sticky-queue { left: 158px !important; }
 }
 
 @media (min-width: 768px) {
