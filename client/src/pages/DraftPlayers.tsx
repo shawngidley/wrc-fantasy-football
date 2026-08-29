@@ -82,6 +82,30 @@ export default function DraftPlayers() {
     () => getAvailableDraftUniversePlayers({ draftedNames, rosteredNames }),
     [draftedNames, rosteredNames],
   );
+
+  // PLAYER column width: measure the actual widest full player name (not a
+  // guess), so every row can show the complete name with no truncation, and
+  // the column is exactly as wide as the single longest name needs -- no
+  // wider. Based on the full available pool, not the filtered/sorted
+  // visiblePlayers, so the column doesn't resize as search/filters change.
+  const playerNameColumnWidth = useMemo(() => {
+    if (typeof document === "undefined") return 260;
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return 260;
+    ctx.font = "800 13.44px 'Barlow Condensed', sans-serif"; // matches 0.84rem/800 used on the name text
+    let maxNameWidth = 0;
+    for (const player of availablePlayers) {
+      const w = ctx.measureText(player.name).width;
+      if (w > maxNameWidth) maxNameWidth = w;
+    }
+    const AVATAR_WIDTH = 30;
+    const AVATAR_GAP = 4.8; // 0.3rem
+    const CELL_PADDING_X = 27.2; // 0.85rem each side per .wrc-table tbody td
+    const BUFFER = 3;
+    return Math.ceil(AVATAR_WIDTH + AVATAR_GAP + CELL_PADDING_X + maxNameWidth + BUFFER);
+  }, [availablePlayers]);
+  const queueColumnLeftOffset = 44 + playerNameColumnWidth;
   const seasonStatPlayers = useMemo(
     () => availablePlayers.map(player => ({ name: player.name, pos: player.pos, nflTeam: player.nflTeam })),
     [availablePlayers],
@@ -194,7 +218,7 @@ export default function DraftPlayers() {
             <table className="wrc-table draft-players-table" style={{ minWidth: 660, width: "100%", tableLayout: "fixed" }}>
               <colgroup>
                 <col className="draft-players-col-num" style={{ width: 44 }} />
-                <col className="draft-players-col-name" style={{ width: 260 }} />
+                <col className="draft-players-col-name" style={{ width: playerNameColumnWidth }} />
                 <col className="draft-players-col-queue" style={{ width: 52 }} />
                 <col className="draft-players-col-bye" style={{ width: 56 }} />
                 <col className="draft-players-col-fpts" style={{ width: 82 }} />
@@ -204,7 +228,14 @@ export default function DraftPlayers() {
               <thead><tr>
                 <th style={{ textAlign: "center", position: "sticky", top: 0, left: 0, zIndex: 7, background: "oklch(0.22 0.08 150)" }}>#</th>
                 <th className="draft-players-sticky-name" style={{ position: "sticky", top: 0, left: 44, zIndex: 8, background: "oklch(0.22 0.08 150)" }}><button type="button" onClick={() => toggleSort("name")} aria-label="Sort by player name" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>PLAYER {sortLabel("name")}</button></th>
-                <th className="draft-players-sticky-queue" style={{ textAlign: "center", position: "sticky", top: 0, left: 304, zIndex: 8, background: "oklch(0.22 0.08 150)", boxShadow: "8px 0 12px -12px oklch(0.05 0.05 150 / 0.9)" }}><button type="button" onClick={() => toggleSort("queue")} aria-label="Sort by queued status" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>QUE {sortLabel("queue")}</button></th>
+                <th
+                  className="draft-players-sticky-queue"
+                  style={{
+                    textAlign: "center", position: "sticky", top: 0, left: queueColumnLeftOffset, zIndex: 8,
+                    background: "oklch(0.22 0.08 150)", boxShadow: "8px 0 12px -12px oklch(0.05 0.05 150 / 0.9)",
+                    "--draft-players-queue-mobile-left": `${28 + playerNameColumnWidth}px`,
+                  } as React.CSSProperties}
+                ><button type="button" onClick={() => toggleSort("queue")} aria-label="Sort by queued status" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>QUE {sortLabel("queue")}</button></th>
                 <th style={{ textAlign: "center", position: "sticky", top: 0, zIndex: 5, background: "oklch(0.22 0.08 150)" }}><button type="button" onClick={() => toggleSort("bye")} aria-label="Sort by bye week" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>BYE {sortLabel("bye")}</button></th>
                 <th style={{ textAlign: "right", position: "sticky", top: 0, zIndex: 5, background: "oklch(0.22 0.08 150)" }}><button type="button" onClick={() => toggleSort("fpts")} aria-label="Sort by season fantasy points" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>FPTS {sortLabel("fpts")}</button></th>
                 <th style={{ textAlign: "right", position: "sticky", top: 0, zIndex: 5, background: "oklch(0.22 0.08 150)" }}><button type="button" onClick={() => toggleSort("fpg")} aria-label="Sort by season fantasy points per game" style={{ background: "none", border: "none", color: "inherit", font: "inherit", cursor: "pointer", padding: 0 }}>FP/G {sortLabel("fpg")}</button></th>
@@ -221,7 +252,7 @@ export default function DraftPlayers() {
                       <Link href={`/player/${encodeURIComponent(player.name)}`} style={{ display: "flex", alignItems: "center", gap: "0.3rem", textDecoration: "none", minWidth: 0, overflow: "hidden" }}>
                         <DraftPlayerAvatar player={player} />
                         <div style={{ minWidth: 0, flex: 1, overflow: "hidden" }}>
-                          <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.84rem", color: "oklch(0.22 0.08 150)", lineHeight: 1.12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{player.name}</div>
+                          <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.84rem", color: "oklch(0.22 0.08 150)", lineHeight: 1.12, whiteSpace: "nowrap" }}>{player.name}</div>
                           <div style={{ display: "flex", alignItems: "center", gap: "0.3rem", marginTop: 2 }}>
                             <span style={{ display: "inline-block", minWidth: 27, textAlign: "center", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.62rem", fontWeight: 700, color: "white", background: POS_COLORS[player.pos] || "#64748b", borderRadius: 3, padding: "1px 3px" }}>{player.pos}</span>
                             <span style={{ fontSize: "0.68rem", color: "oklch(0.55 0.06 150)", whiteSpace: "nowrap" }}>{player.nflTeam}</span>
@@ -229,7 +260,14 @@ export default function DraftPlayers() {
                         </div>
                       </Link>
                     </td>
-                    <td className="draft-players-sticky-queue" style={{ textAlign: "center", position: "sticky", left: 304, zIndex: 4, background: rowBackground, boxShadow: "8px 0 12px -12px oklch(0.2 0.08 150 / 0.55)" }}>
+                    <td
+                      className="draft-players-sticky-queue"
+                      style={{
+                        textAlign: "center", position: "sticky", left: queueColumnLeftOffset, zIndex: 4,
+                        background: rowBackground, boxShadow: "8px 0 12px -12px oklch(0.2 0.08 150 / 0.55)",
+                        "--draft-players-queue-mobile-left": `${28 + playerNameColumnWidth}px`,
+                      } as React.CSSProperties}
+                    >
                       <button type="button" onClick={() => void handleQueuePlayer(player)} disabled={queueActionInProgress} aria-label={queued ? `Remove ${player.name} from your draft queue` : `Add ${player.name} to your draft queue`} aria-pressed={queued} title={queued ? "Remove from My Queue" : "Add to My Queue"} style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", width: 30, height: 30, border: "none", borderRadius: 6, background: queued ? "oklch(0.95 0.08 85)" : "transparent", color: queued ? "oklch(0.58 0.14 85)" : "oklch(0.5 0.04 150)", cursor: queueActionInProgress ? "not-allowed" : "pointer", opacity: queueActionInProgress ? 0.55 : 1 }}>
                         <Star size={18} fill={queued ? "currentColor" : "none"} strokeWidth={2.3} />
                       </button>
