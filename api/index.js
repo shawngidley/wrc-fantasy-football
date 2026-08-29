@@ -94018,7 +94018,7 @@ var appRouter = router({
         is_starter: false
       });
       const rosterError = rosterResult.error;
-      if (rosterError) throw new Error("Draft pick was saved, but the team roster could not be updated.");
+      if (rosterError) throw new Error(`Draft pick was saved, but the team roster could not be updated: ${rosterError.message}`);
       const { error: queueCleanupError } = await supabaseAdmin.from("draft_queue").delete().ilike("player_name", draftPlayer.name);
       if (queueCleanupError) {
         console.error("Failed to remove drafted player from team queues:", queueCleanupError);

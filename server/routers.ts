@@ -1098,7 +1098,7 @@ export const appRouter = router({
               is_starter: false,
             });
         const rosterError = rosterResult.error;
-        if (rosterError) throw new Error("Draft pick was saved, but the team roster could not be updated.");
+        if (rosterError) throw new Error(`Draft pick was saved, but the team roster could not be updated: ${rosterError.message}`);
         // Remove this player from EVERY team's private draft queue now that
         // they're actually drafted -- previously queues only greyed the
         // player out with a strikethrough client-side and left the row in
