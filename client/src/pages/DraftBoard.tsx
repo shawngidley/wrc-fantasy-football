@@ -15,7 +15,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Link } from "wouter";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { Play, Pause, SkipForward, Search, Music, ArrowLeftRight, RotateCcw, Wifi, WifiOff, ChevronUp, ChevronDown, ListOrdered, Plus, Check, X } from "lucide-react";
+import { Play, Pause, SkipForward, Search, ArrowLeftRight, RotateCcw, Wifi, WifiOff, ChevronUp, ChevronDown, ListOrdered, Plus, Check, X } from "lucide-react";
 import { DRAFT_PICKS_2026, getTradedPicks } from "@/lib/draftData2026";
 import { siteAssetUrl } from "@/lib/siteAssetUrl";
 import { applyDraftLottery, isValidDraftLotteryResult } from "@shared/draftLottery";
@@ -1308,15 +1308,6 @@ export default function DraftBoard() {
           </div>
         )}
 
-
-        {/* Theme Song Note */}
-        <div style={{ background: "rgba(0,0,0,0.45)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "0.875rem 1.25rem", display: "flex", alignItems: "center", gap: "0.75rem" }}>
-          <Music size={18} color="oklch(0.78 0.15 85)" />
-          <div>
-            <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.8rem", fontWeight: 600, color: "white", letterSpacing: "0.04em" }}>Theme Songs</div>
-            <div style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.55)" }}>Each owner can upload their theme song in Account Settings. It plays automatically for 15 seconds (then fades out) when they go on the clock.</div>
-          </div>
-        </div>
 
       </div>
     </div>
