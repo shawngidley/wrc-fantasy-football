@@ -962,8 +962,23 @@ export const appRouter = router({
         const { data: state, error: stateError } = await supabaseAdmin.from("draft_state").select("started, paused, complete, current_round, current_pick").eq("id", 1).single();
         if (stateError || !state) throw new Error("Unable to load draft state");
         if (input.action === "reset") {
+          // Capture who was drafted BEFORE deleting the picks, so we can
+          // undo their roster assignment too. Reset previously only cleared
+          // draft_picks/draft_state -- it never touched the players table,
+          // so anyone drafted before a reset stayed permanently attached to
+          // that team even though the draft clock said nothing had happened
+          // yet. Re-drafting them afterward would find them already
+          // rostered and could behave unpredictably.
+          const { data: picksBeingCleared, error: picksFetchError } = await supabaseAdmin.from("draft_picks").select("player_name");
+          if (picksFetchError) throw new Error("Unable to read draft picks before reset.");
           const { error: deleteError } = await supabaseAdmin.from("draft_picks").delete().neq("id", 0);
           if (deleteError) throw new Error("Unable to reset draft picks");
+          for (const { player_name } of picksBeingCleared ?? []) {
+            const { error: unrosterError } = await supabaseAdmin.from("players")
+              .update({ team_id: null, draft_round: null, draft_pick: null, acquisition: null })
+              .ilike("name", player_name);
+            if (unrosterError) throw new Error(`Draft picks were cleared, but ${player_name} could not be un-rostered.`);
+          }
           const { error } = await supabaseAdmin.from("draft_state").update({
             started: false, paused: false, complete: false, current_round: 1, current_pick: 0,
             timer_seconds: WRC_DRAFT_TIMER_SECONDS, updated_at: new Date().toISOString(),

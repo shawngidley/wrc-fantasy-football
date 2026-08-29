@@ -93919,8 +93919,14 @@ var appRouter = router({
       const { data: state, error: stateError } = await supabaseAdmin.from("draft_state").select("started, paused, complete, current_round, current_pick").eq("id", 1).single();
       if (stateError || !state) throw new Error("Unable to load draft state");
       if (input.action === "reset") {
+        const { data: picksBeingCleared, error: picksFetchError } = await supabaseAdmin.from("draft_picks").select("player_name");
+        if (picksFetchError) throw new Error("Unable to read draft picks before reset.");
         const { error: deleteError } = await supabaseAdmin.from("draft_picks").delete().neq("id", 0);
         if (deleteError) throw new Error("Unable to reset draft picks");
+        for (const { player_name } of picksBeingCleared ?? []) {
+          const { error: unrosterError } = await supabaseAdmin.from("players").update({ team_id: null, draft_round: null, draft_pick: null, acquisition: null }).ilike("name", player_name);
+          if (unrosterError) throw new Error(`Draft picks were cleared, but ${player_name} could not be un-rostered.`);
+        }
         const { error: error52 } = await supabaseAdmin.from("draft_state").update({
           started: false,
           paused: false,
