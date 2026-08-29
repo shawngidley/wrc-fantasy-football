@@ -568,22 +568,28 @@ export default function DraftBoard() {
     const newPick = dbPicks[dbPicks.length - 1];
     prevPickCountRef.current = dbPicks.length;
 
-    // Step 1: Play the NFL Draft chime immediately
+    // Step 1: Play the chime immediately, and start fetching the headshot
+    // in parallel right away too -- previously the headshot fetch didn't
+    // start until the overlay appeared 500ms later, so it was racing the
+    // network for the entire time it was visible and often still loading
+    // partway through the reveal. Starting it now gives it a real head
+    // start before the image is ever actually shown.
     if (chimeRef.current) {
       chimeRef.current.currentTime = 0;
       chimeRef.current.play().catch(() => {});
     }
+    const headshotPromise = fetchPlayerByName(newPick.player_name).catch(() => null);
 
-    // Step 2: Show reveal overlay 500ms after chime starts
+    // Step 2: Show the reveal overlay shortly after the chime starts, so
+    // the chime is clearly heard first rather than overlapping the visual.
     const overlayDelay = setTimeout(() => {
       setRevealPick(newPick);
       setRevealHeadshot(null);
       setRevealProgress(100);
 
-      // Fetch headshot asynchronously
-      fetchPlayerByName(newPick.player_name).then(p => {
+      headshotPromise.then(p => {
         if (p?.espnHeadshot) setRevealHeadshot(p.espnHeadshot);
-      }).catch(() => {});
+      });
 
       // Progress bar countdown (6 seconds)
       const REVEAL_MS = 6000;
@@ -601,7 +607,7 @@ export default function DraftBoard() {
           setRevealedPickIds(prev => new Set(Array.from(prev).concat(newPick.id)));
         }
       }, INTERVAL_MS);
-    }, 500);
+    }, 700);
 
     return () => clearTimeout(overlayDelay);
   }, [dbPicks]);
