@@ -217,6 +217,12 @@ export default function DraftBoard() {
   const [revealPick, setRevealPick] = useState<DbDraftPick | null>(null);
   const [revealHeadshot, setRevealHeadshot] = useState<string | null>(null);
   const [revealProgress, setRevealProgress] = useState(100);
+  // True from the instant a new pick is detected (chime start) until the
+  // overlay fully closes -- wider than revealPick alone, which is only
+  // truthy once the overlay actually appears ~700ms later. Needed because
+  // draft_state (and therefore currentOwner/the theme song trigger) can
+  // update via Realtime before the overlay opens, not just while it's open.
+  const [revealSequenceActive, setRevealSequenceActive] = useState(false);
   const prevPickCountRef = useRef(0);
   const chimeRef = useRef<HTMLAudioElement | null>(null);
   const currentListRowRef = useRef<HTMLDivElement | null>(null);
@@ -379,14 +385,14 @@ export default function DraftBoard() {
   useEffect(() => {
     if (!started || complete) return;
     if (currentOwner === lastThemeOwnerRef.current) return;
-    // Wait for the pick-reveal overlay (chime + 6s player reveal) to finish
-    // before starting the next team's song, so the sequence feels like
-    // chime -> reveal -> overlay closes -> theme song, instead of the song
-    // starting immediately underneath the reveal while it's still showing.
-    // currentOwner is already the new team by this point (draft_state
-    // advances immediately server-side for turn-tracking accuracy); this
-    // effect just delays when we *act* on that until revealPick clears.
-    if (revealPick) return;
+    // Wait for the ENTIRE pick-reveal sequence to finish (chime -> ~700ms
+    // delay -> overlay -> 6s countdown -> overlay closes) before starting
+    // the next team's song. Gating on revealPick alone wasn't enough: it's
+    // only truthy once the overlay actually appears, but draft_state (and
+    // therefore currentOwner) can update via Realtime during that ~700ms
+    // gap before the overlay even opens -- revealSequenceActive covers that
+    // whole window, set true the instant a pick is detected (chime start).
+    if (revealSequenceActive) return;
     lastThemeOwnerRef.current = currentOwner;
 
     // Stop whatever was playing for the previous team, but remember exactly
@@ -444,7 +450,7 @@ export default function DraftBoard() {
         }
       }, FADE_INTERVAL_MS);
     }, 15_000);
-  }, [currentOwner, started, complete, themeSongByTeamId, revealPick]);
+  }, [currentOwner, started, complete, themeSongByTeamId, revealSequenceActive]);
 
   useEffect(() => {
     // Stop any playing theme song if the draft pauses, completes, or this
@@ -567,6 +573,7 @@ export default function DraftBoard() {
     // New pick detected
     const newPick = dbPicks[dbPicks.length - 1];
     prevPickCountRef.current = dbPicks.length;
+    setRevealSequenceActive(true);
 
     // Step 1: Play the chime immediately, and start fetching the headshot
     // in parallel right away too -- previously the headshot fetch didn't
@@ -603,6 +610,7 @@ export default function DraftBoard() {
           clearInterval(progressId);
           setRevealPick(null);
           setRevealHeadshot(null);
+          setRevealSequenceActive(false);
           // Step 3: Add pick to revealed set so it appears in the board
           setRevealedPickIds(prev => new Set(Array.from(prev).concat(newPick.id)));
         }
