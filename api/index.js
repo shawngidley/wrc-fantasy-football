@@ -93980,7 +93980,7 @@ var appRouter = router({
         player_pos: draftPlayer.pos,
         player_nfl_team: draftPlayer.nflTeam
       }).select("id, round, pick, overall, team_name, owner, player_name, player_pos, player_nfl_team, picked_at").single();
-      if (pickError || !savedPick) throw new Error("Unable to record draft pick");
+      if (pickError || !savedPick) throw new Error(`Unable to record draft pick${pickError ? `: ${pickError.message}` : ""}`);
       const rosterResult = rosteredPlayer ? await supabaseAdmin.from("players").update({
         team_id: expectedTeamId,
         acquisition: `Rd ${state.current_round}`,
