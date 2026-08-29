@@ -84343,7 +84343,7 @@ var RAW_ROUNDS = [
       [9, "David R."],
       [10, "Bill"],
       [11, "Shawn"],
-      [12, "Greg"]
+      [12, "David S. (Greg)"]
     ]
   },
   {
@@ -84438,11 +84438,11 @@ var RAW_ROUNDS = [
       [2, "Scott M."],
       [3, "Keith"],
       [4, "Jamie"],
-      [5, "David S. (Jason)"],
-      [6, "Scott N."],
-      [7, "David S."],
-      [8, "Jonas"],
-      [9, "David R."],
+      [5, "Jonas"],
+      [6, "David S."],
+      [7, "Scott N."],
+      [8, "David S. (Jason)"],
+      [9, "Jamie (David R.)"],
       [10, "Bill"],
       [11, "Shawn"],
       [12, "Greg"]
@@ -84493,7 +84493,7 @@ var RAW_ROUNDS = [
       [6, "Scott N."],
       [7, "David S."],
       [8, "Jonas"],
-      [9, "Jamie (David R.)"],
+      [9, "Jamie"],
       [10, "Keith"],
       [11, "Scott M."],
       [12, "Dan"]
@@ -94003,6 +94003,10 @@ var appRouter = router({
       });
       const rosterError = rosterResult.error;
       if (rosterError) throw new Error("Draft pick was saved, but the team roster could not be updated.");
+      const { error: queueCleanupError } = await supabaseAdmin.from("draft_queue").delete().ilike("player_name", draftPlayer.name);
+      if (queueCleanupError) {
+        console.error("Failed to remove drafted player from team queues:", queueCleanupError);
+      }
       const staticRound1Order = DRAFT_PICKS_2026.filter((p) => p.round === 1).map((p) => p.owner);
       const protectedSlots = await getProtectedDraftSlots(staticRound1Order);
       const { error: advanceError } = await supabaseAdmin.from("draft_state").update({

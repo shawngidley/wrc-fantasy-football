@@ -1059,6 +1059,20 @@ export const appRouter = router({
             });
         const rosterError = rosterResult.error;
         if (rosterError) throw new Error("Draft pick was saved, but the team roster could not be updated.");
+        // Remove this player from EVERY team's private draft queue now that
+        // they're actually drafted -- previously queues only greyed the
+        // player out with a strikethrough client-side and left the row in
+        // place. This clears it for all teams, not just the one who picked.
+        const { error: queueCleanupError } = await supabaseAdmin
+          .from("draft_queue")
+          .delete()
+          .ilike("player_name", draftPlayer.name);
+        if (queueCleanupError) {
+          // Non-fatal: the pick and roster are already saved successfully;
+          // a stale queue row is a cosmetic leftover, not worth failing the
+          // whole pick submission over.
+          console.error("Failed to remove drafted player from team queues:", queueCleanupError);
+        }
         const staticRound1Order = DRAFT_PICKS_2026.filter(p => p.round === 1).map(p => p.owner);
         const protectedSlots = await getProtectedDraftSlots(staticRound1Order);
         const { error: advanceError } = await supabaseAdmin.from("draft_state").update({

@@ -86,6 +86,13 @@ function configureDraftDatabase() {
         select: vi.fn().mockResolvedValue({ data: [], error: null }),
       };
     }
+    if (table === "draft_queue") {
+      return {
+        delete: vi.fn(() => ({
+          ilike: vi.fn().mockResolvedValue({ error: null }),
+        })),
+      };
+    }
     throw new Error(`Unexpected table: ${table}`);
   });
 
