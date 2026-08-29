@@ -1107,7 +1107,7 @@ export default function DraftBoard() {
                     <div className="wrc-card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                       <span>My Queue ({queue.length} players · {queue.filter(q => !draftedNamesNormalized.has(normalizePlayerName(q.player_name))).length} available)</span>
                     </div>
-                    <div style={{ overflowX: "auto" }}>
+                    <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: 322 }}>
                       <table className="wrc-table" style={{ minWidth: 600, width: "100%", tableLayout: "fixed" }}>
                         <colgroup>
                           <col style={{ width: 36 }} />
@@ -1121,14 +1121,14 @@ export default function DraftBoard() {
                         </colgroup>
                         <thead>
                           <tr>
-                            <th style={{ textAlign: "center" }}>#</th>
-                            <th>PLAYER</th>
-                            <th style={{ textAlign: "center" }}>BYE</th>
-                            <th style={{ textAlign: "right" }}>FPTS</th>
-                            <th style={{ textAlign: "right" }}>FP/G</th>
-                            <th style={{ textAlign: "right" }}>ADP</th>
-                            <th style={{ textAlign: "center" }}>ORDER</th>
-                            <th style={{ textAlign: "center", borderLeft: "1px solid rgba(255,255,255,0.22)" }}>REMOVE</th>
+                            <th style={{ textAlign: "center", position: "sticky", top: 0, zIndex: 2 }}>#</th>
+                            <th style={{ position: "sticky", top: 0, zIndex: 2 }}>PLAYER</th>
+                            <th style={{ textAlign: "center", position: "sticky", top: 0, zIndex: 2 }}>BYE</th>
+                            <th style={{ textAlign: "right", position: "sticky", top: 0, zIndex: 2 }}>FPTS</th>
+                            <th style={{ textAlign: "right", position: "sticky", top: 0, zIndex: 2 }}>FP/G</th>
+                            <th style={{ textAlign: "right", position: "sticky", top: 0, zIndex: 2 }}>ADP</th>
+                            <th style={{ textAlign: "center", position: "sticky", top: 0, zIndex: 2 }}>ORDER</th>
+                            <th style={{ textAlign: "center", borderLeft: "1px solid rgba(255,255,255,0.22)", position: "sticky", top: 0, zIndex: 2 }}>REMOVE</th>
                           </tr>
                         </thead>
                         <tbody>
