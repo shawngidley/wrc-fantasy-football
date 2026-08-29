@@ -93924,7 +93924,7 @@ var appRouter = router({
         const { error: deleteError } = await supabaseAdmin.from("draft_picks").delete().neq("id", 0);
         if (deleteError) throw new Error("Unable to reset draft picks");
         for (const { player_name } of picksBeingCleared ?? []) {
-          const { error: unrosterError } = await supabaseAdmin.from("players").update({ team_id: null, draft_round: null, draft_pick: null, acquisition: null }).ilike("name", player_name);
+          const { error: unrosterError } = await supabaseAdmin.from("players").update({ team_id: null, draft_round: null, draft_pick: null, acquisition: "FA" }).ilike("name", player_name);
           if (unrosterError) throw new Error(`Draft picks were cleared, but ${player_name} could not be un-rostered.`);
         }
         const { error: error52 } = await supabaseAdmin.from("draft_state").update({
