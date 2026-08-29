@@ -43,7 +43,9 @@ function configureDraftDatabase() {
         update: vi.fn(() => ({
           eq: vi.fn(() => ({
             eq: vi.fn(() => ({
-              eq: vi.fn().mockResolvedValue({ error: null }),
+              eq: vi.fn(() => ({
+                select: vi.fn().mockResolvedValue({ data: [{ current_round: 1, current_pick: 1 }], error: null }),
+              })),
             })),
           })),
         })),

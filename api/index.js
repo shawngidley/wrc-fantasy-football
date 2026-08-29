@@ -93976,6 +93976,16 @@ var appRouter = router({
       }
       const teamNameResponse = await supabaseAdmin.from("teams").select("name").eq("id", expectedTeamId).single();
       if (teamNameResponse.error || !teamNameResponse.data) throw new Error("Unable to identify the drafting team.");
+      const staticRound1Order = DRAFT_PICKS_2026.filter((p) => p.round === 1).map((p) => p.owner);
+      const protectedSlots = await getProtectedDraftSlots(staticRound1Order);
+      const { data: claimedState, error: claimError } = await supabaseAdmin.from("draft_state").update({
+        ...nextDraftState(state.current_round, state.current_pick, protectedSlots),
+        updated_at: (/* @__PURE__ */ new Date()).toISOString()
+      }).eq("id", 1).eq("current_round", state.current_round).eq("current_pick", state.current_pick).select("current_round, current_pick");
+      if (claimError) throw new Error("Unable to advance the draft clock.");
+      if (!claimedState || claimedState.length === 0) {
+        throw new Error("Someone else just picked for this slot and the draft has already moved on. Please refresh and try your pick again.");
+      }
       const { data: savedPick, error: pickError } = await supabaseAdmin.from("draft_picks").insert({
         round: state.current_round,
         pick: state.current_pick,
@@ -94013,13 +94023,6 @@ var appRouter = router({
       if (queueCleanupError) {
         console.error("Failed to remove drafted player from team queues:", queueCleanupError);
       }
-      const staticRound1Order = DRAFT_PICKS_2026.filter((p) => p.round === 1).map((p) => p.owner);
-      const protectedSlots = await getProtectedDraftSlots(staticRound1Order);
-      const { error: advanceError } = await supabaseAdmin.from("draft_state").update({
-        ...nextDraftState(state.current_round, state.current_pick, protectedSlots),
-        updated_at: (/* @__PURE__ */ new Date()).toISOString()
-      }).eq("id", 1).eq("current_round", state.current_round).eq("current_pick", state.current_pick);
-      if (advanceError) throw new Error("Draft pick was saved, but the draft clock could not advance.");
       return { pick: savedPick, complete: state.current_round === WRC_DRAFT_TOTAL_ROUNDS && state.current_pick === WRC_DRAFT_TOTAL_TEAMS - 1 };
     }),
     commissionerFinalizeWeeklyResult: commissionerProcedure.input(external_exports.object({ resultId: external_exports.number().int().positive(), homeScore: external_exports.number().finite().min(0).max(500), awayScore: external_exports.number().finite().min(0).max(500) })).mutation(async ({ input }) => {
