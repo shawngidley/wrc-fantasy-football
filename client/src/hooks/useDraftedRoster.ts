@@ -190,12 +190,28 @@ export function useDraftedRoster(): DraftedRosterResult {
         } as RosterPlayer & { round?: number });
       }
 
-      // For teams with no picks yet, fall back to Supabase players table
+      // Merge in the Supabase players table too -- not just for teams with
+      // zero picks. Protected players are never inserted into draft_picks
+      // at all (protections and drafting are mutually exclusive by design),
+      // so a team having *some* live picks doesn't mean draft_picks alone
+      // represents their full roster. Previously this skipped the entire
+      // players-table merge for any team with at least one pick, which
+      // silently dropped every protected player from view the moment that
+      // team made their first live pick -- not a mock-testing artifact,
+      // this would have hit the real draft too.
       if (dbPlayers && !playersError) {
         for (const p of dbPlayers as DbPlayer[]) {
           const teamName = TEAM_ID_TO_NAME[p.team_id];
-          if (!teamName || byTeam[teamName]) continue; // skip if team already has picks
+          if (!teamName) continue;
           if (!byTeam[teamName]) byTeam[teamName] = [];
+          // Drafted players get written into BOTH draft_picks and the
+          // players table (makeDraftPick updates both), so skip adding
+          // them again here if they're already present via draft_picks --
+          // only add players not already represented in this team's list.
+          const alreadyPresent = byTeam[teamName].some(
+            existing => existing.name.toLowerCase() === p.name.toLowerCase()
+          );
+          if (alreadyPresent) continue;
           byTeam[teamName].push({
             id: p.id,
             name: p.name,
@@ -206,12 +222,10 @@ export function useDraftedRoster(): DraftedRosterResult {
             round: p.draft_round ?? undefined,
           } as RosterPlayer & { round?: number });
         }
-      } else {
-        // Hard fallback
+      } else if (Object.keys(byTeam).length === 0) {
+        // Hard fallback only if we have neither picks nor reachable players data
         for (const team of TEAMS) {
-          if (!byTeam[team.teamName]) {
-            byTeam[team.teamName] = [...team.players];
-          }
+          byTeam[team.teamName] = [...team.players];
         }
       }
 
