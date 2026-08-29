@@ -357,6 +357,14 @@ export default function DraftBoard() {
   useEffect(() => {
     if (!started || complete) return;
     if (currentOwner === lastThemeOwnerRef.current) return;
+    // Wait for the pick-reveal overlay (chime + 6s player reveal) to finish
+    // before starting the next team's song, so the sequence feels like
+    // chime -> reveal -> overlay closes -> theme song, instead of the song
+    // starting immediately underneath the reveal while it's still showing.
+    // currentOwner is already the new team by this point (draft_state
+    // advances immediately server-side for turn-tracking accuracy); this
+    // effect just delays when we *act* on that until revealPick clears.
+    if (revealPick) return;
     lastThemeOwnerRef.current = currentOwner;
 
     // Stop whatever was playing for the previous team, but remember exactly
@@ -414,7 +422,7 @@ export default function DraftBoard() {
         }
       }, FADE_INTERVAL_MS);
     }, 15_000);
-  }, [currentOwner, started, complete, themeSongByTeamId]);
+  }, [currentOwner, started, complete, themeSongByTeamId, revealPick]);
 
   useEffect(() => {
     // Stop any playing theme song if the draft pauses, completes, or this
