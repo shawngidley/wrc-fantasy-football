@@ -513,6 +513,8 @@
 
   .lineup-player-name-full { display: none; }
   .lineup-player-name-compact { display: inline; }
+
+  .pick-list-overall { display: none; }
 }
 
 @media (min-width: 768px) {

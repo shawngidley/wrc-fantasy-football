@@ -1327,7 +1327,7 @@ export default function DraftBoard() {
                       background: isRowCurrent ? "oklch(0.78 0.15 85 / 0.18)" : overall % 2 === 0 ? "rgba(255,255,255,0.05)" : "transparent",
                     }}
                   >
-                    <span style={{ width: 46, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", fontWeight: 700, color: "rgba(255,255,255,0.4)" }}>#{overall}</span>
+                    <span className="pick-list-overall" style={{ width: 46, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", fontWeight: 700, color: "rgba(255,255,255,0.4)" }}>#{overall}</span>
                     <span style={{ width: 50, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", fontWeight: 700, color: "rgba(255,255,255,0.55)" }}>{round}.{String(pickInRound).padStart(2, "0")}</span>
                     <span title={draftOrderPick?.isTraded ? `Originally ${draftOrderPick.originalOwner}'s pick` : undefined} style={{ width: 170, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.86rem", fontWeight: 700, color: OWNER_COLORS[owner] ? "white" : "rgba(255,255,255,0.6)", background: OWNER_COLORS[owner] ?? "transparent", borderRadius: 4, padding: "3px 7px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {owner}{draftOrderPick?.isTraded ? ` (${draftOrderPick.originalOwner})` : ""}
