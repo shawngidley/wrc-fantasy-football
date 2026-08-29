@@ -93293,6 +93293,11 @@ async function consumePasskeyChallenge(id) {
 var WRC_TEAM_ID_TO_OWNER = Object.fromEntries(
   Object.entries(WRC_DRAFT_OWNER_TEAM_IDS).map(([owner, teamId]) => [teamId, owner])
 );
+function makePlayerId(teamId, playerName) {
+  const teamSlug = teamId.replace(/^team-/, "");
+  const nameSlug = playerName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return `${teamSlug}-${nameSlug}`;
+}
 function getMediaRules(kind) {
   return kind === "logo" ? { allowed: /* @__PURE__ */ new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]), maxBytes: 5 * 1024 * 1024, column: "logo_url", folder: "logos" } : { allowed: /* @__PURE__ */ new Set(["audio/mpeg", "audio/mp3", "audio/wav", "audio/ogg", "audio/m4a", "audio/aac", "audio/x-m4a"]), maxBytes: 15 * 1024 * 1024, column: "theme_song_url", folder: "theme-songs" };
 }
@@ -94003,6 +94008,7 @@ var appRouter = router({
         draft_round: state.current_round,
         draft_pick: overall
       }).eq("id", rosteredPlayer.id) : await supabaseAdmin.from("players").insert({
+        id: makePlayerId(expectedTeamId, draftPlayer.name),
         team_id: expectedTeamId,
         name: draftPlayer.name,
         position: draftPlayer.pos,
@@ -94165,6 +94171,7 @@ var appRouter = router({
         draft_round: null,
         draft_pick: null
       }).eq("id", addPlayer.id) : await supabaseAdmin.from("players").insert({
+        id: makePlayerId(targetTeam.id, transactionPlayer.name),
         team_id: targetTeam.id,
         name: transactionPlayer.name,
         position: transactionPlayer.pos,

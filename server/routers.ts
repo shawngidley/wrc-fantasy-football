@@ -101,6 +101,19 @@ const WRC_TEAM_ID_TO_OWNER: Record<string, string> = Object.fromEntries(
   Object.entries(WRC_DRAFT_OWNER_TEAM_IDS).map(([owner, teamId]) => [teamId, owner]),
 );
 
+// players.id has no auto-generated default in this schema -- existing rows
+// use a custom convention (team slug + player-name slug, e.g.
+// "davids-ja-marr-chase", "bill-malik-nabers"). Inserting a brand-new
+// player row (one not already pre-seeded) without an explicit id violates
+// the NOT NULL constraint on that column. This generates an id matching
+// the same convention for any newly-drafted player who isn't already in
+// the table.
+function makePlayerId(teamId: string, playerName: string): string {
+  const teamSlug = teamId.replace(/^team-/, "");
+  const nameSlug = playerName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return `${teamSlug}-${nameSlug}`;
+}
+
 function getMediaRules(kind: "logo" | "theme") {
   return kind === "logo"
     ? { allowed: new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]), maxBytes: 5 * 1024 * 1024, column: "logo_url" as const, folder: "logos" }
@@ -1083,6 +1096,7 @@ export const appRouter = router({
               draft_pick: overall,
             }).eq("id", rosteredPlayer.id)
           : await supabaseAdmin.from("players").insert({
+              id: makePlayerId(expectedTeamId, draftPlayer.name),
               team_id: expectedTeamId,
               name: draftPlayer.name,
               position: draftPlayer.pos,
@@ -1253,6 +1267,7 @@ export const appRouter = router({
               draft_pick: null,
             }).eq("id", addPlayer.id)
           : await supabaseAdmin.from("players").insert({
+              id: makePlayerId(targetTeam.id, transactionPlayer.name),
               team_id: targetTeam.id,
               name: transactionPlayer.name,
               position: transactionPlayer.pos,
