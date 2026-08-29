@@ -1280,7 +1280,9 @@ export default function DraftBoard() {
                   >
                     <span style={{ width: 40, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", fontWeight: 700, color: "rgba(255,255,255,0.4)" }}>#{overall}</span>
                     <span style={{ width: 42, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", fontWeight: 700, color: "rgba(255,255,255,0.55)" }}>{round}.{String(pickInRound).padStart(2, "0")}</span>
-                    <span style={{ width: 96, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, color: OWNER_COLORS[owner] ? "white" : "rgba(255,255,255,0.6)", background: OWNER_COLORS[owner] ?? "transparent", borderRadius: 4, padding: "2px 6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{owner}</span>
+                    <span title={draftOrderPick?.isTraded ? `Originally ${draftOrderPick.originalOwner}'s pick` : undefined} style={{ width: 148, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, color: OWNER_COLORS[owner] ? "white" : "rgba(255,255,255,0.6)", background: OWNER_COLORS[owner] ?? "transparent", borderRadius: 4, padding: "2px 6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {owner}{draftOrderPick?.isTraded ? ` (${draftOrderPick.originalOwner})` : ""}
+                    </span>
                     <span style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "0.4rem" }}>
                       {protectedPlayer ? (
                         <>
