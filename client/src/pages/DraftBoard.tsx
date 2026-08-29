@@ -223,6 +223,8 @@ export default function DraftBoard() {
   const themeAudioRef = useRef<HTMLAudioElement | null>(null);
   const themeTimersRef = useRef<{ fadeStart?: ReturnType<typeof setTimeout>; fadeInterval?: ReturnType<typeof setInterval> }>({});
   const lastThemeOwnerRef = useRef<string | null>(null);
+  const themeProgressRef = useRef<Record<string, number>>({});
+  const themePlayingTeamIdRef = useRef<string | null>(null);
   // Tracks which pick IDs have been revealed (shown in board after overlay)
   const [revealedPickIds, setRevealedPickIds] = useState<Set<number>>(new Set());
   const draftActionMutation = trpc.league.commissionerDraftAction.useMutation();
@@ -357,21 +359,39 @@ export default function DraftBoard() {
     if (currentOwner === lastThemeOwnerRef.current) return;
     lastThemeOwnerRef.current = currentOwner;
 
-    // Stop and clean up whatever was playing for the previous team first.
+    // Stop whatever was playing for the previous team, but remember exactly
+    // where it was so the same team's song resumes from there next time
+    // they come on the clock, instead of always restarting at 0:00.
     clearTimeout(themeTimersRef.current.fadeStart);
     clearInterval(themeTimersRef.current.fadeInterval);
-    if (themeAudioRef.current) {
+    if (themeAudioRef.current && themePlayingTeamIdRef.current) {
+      themeProgressRef.current[themePlayingTeamIdRef.current] = themeAudioRef.current.currentTime;
       themeAudioRef.current.pause();
       themeAudioRef.current = null;
     }
+    themePlayingTeamIdRef.current = null;
 
     const teamId = OWNER_TO_TEAM_ID[currentOwner];
     const url = teamId ? themeSongByTeamId[teamId] : undefined;
-    if (!url) return;
+    if (!url || !teamId) return;
 
     const audio = new Audio(url);
     audio.volume = 1;
     themeAudioRef.current = audio;
+    themePlayingTeamIdRef.current = teamId;
+
+    // Resume from where this team's song left off last time, wrapping back
+    // to the start if that position is at or past the song's actual length
+    // (e.g. a short song already played through in earlier turns).
+    const resumeFrom = themeProgressRef.current[teamId] ?? 0;
+    if (resumeFrom > 0) {
+      audio.addEventListener("loadedmetadata", () => {
+        if (themeAudioRef.current !== audio) return; // superseded by a newer turn already
+        audio.currentTime = Number.isFinite(audio.duration) && audio.duration > 0
+          ? resumeFrom % audio.duration
+          : 0;
+      }, { once: true });
+    }
     audio.play().catch(() => {});
 
     // After 15 seconds, fade out over ~1.5s (20 steps of 75ms), then stop.
@@ -385,8 +405,12 @@ export default function DraftBoard() {
         themeAudioRef.current.volume = Math.max(0, 1 - step / FADE_STEPS);
         if (step >= FADE_STEPS) {
           clearInterval(themeTimersRef.current.fadeInterval);
+          if (themeAudioRef.current && themePlayingTeamIdRef.current) {
+            themeProgressRef.current[themePlayingTeamIdRef.current] = themeAudioRef.current.currentTime;
+          }
           themeAudioRef.current.pause();
           themeAudioRef.current = null;
+          themePlayingTeamIdRef.current = null;
         }
       }, FADE_INTERVAL_MS);
     }, 15_000);
