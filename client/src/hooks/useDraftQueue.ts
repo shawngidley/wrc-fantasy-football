@@ -3,6 +3,7 @@
  */
 import { useState, useEffect, useCallback } from "react";
 import { trpc } from "@/lib/trpc";
+import { supabase } from "@/lib/supabase";
 
 export interface DraftQueueItem {
   id: number;
@@ -47,6 +48,26 @@ export function useDraftQueue(teamId: string | null | undefined, season = 2026) 
     setLoading(queueQuery.isLoading || queueQuery.isFetching);
     if (queueQuery.data) setQueue(queueQuery.data as DraftQueueItem[]);
   }, [queueQuery.data, queueQuery.isFetching, queueQuery.isLoading]);
+
+  // Live sync: refetch this team's queue whenever draft_queue changes at
+  // all, not just when this team's own add/remove/reorder actions run.
+  // Needed specifically because a drafted player gets removed from EVERY
+  // team's queue as part of makeDraftPick, regardless of which team made
+  // the pick -- without this, only the drafting owner's own browser saw
+  // the change (via the explicit reload() call after their own pick), and
+  // every other owner's queue stayed stale until they manually refreshed.
+  useEffect(() => {
+    if (!teamId) return;
+    const channel = supabase
+      .channel("draft-queue-sync")
+      .on("postgres_changes", { event: "*", schema: "public", table: "draft_queue" }, () => {
+        queueQuery.refetch();
+      })
+      .subscribe();
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [teamId, queueQuery]);
 
   // Add player to queue (at the end)
   const addToQueue = useCallback(async (player: { name: string; pos: string; nflTeam?: string }) => {
