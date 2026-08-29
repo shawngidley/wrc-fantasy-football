@@ -921,6 +921,109 @@ export default function DraftBoard() {
 
         {/* My Queue + Draft Panel — side by side above the board */}
         <div style={{ display: "flex", gap: "1.25rem", flexWrap: "wrap", alignItems: "flex-start", marginBottom: "1.5rem" }}>
+
+          {/* Draft Panel — where owners actually submit their pick */}
+          <div style={{ flex: "1 1 380px", minWidth: 320, maxWidth: 740 }}>
+            {/* Invisible spacer matching the queue's title-row height on the left, so both cards start at the same y position */}
+            <div aria-hidden style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem", visibility: "hidden" }}>
+              <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.88rem" }}>SPACER</div>
+              <button style={{ display: "flex", alignItems: "center", gap: "0.35rem", borderRadius: 7, padding: "0.4rem 0.85rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700 }}>
+                <Plus size={13} /> Spacer
+              </button>
+            </div>
+            <div id="draft-panel" className="wrc-card" style={{ overflow: "hidden", scrollMarginTop: "1rem" }}>
+            <div className="wrc-card-gold-stripe" />
+            <div className="wrc-card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.4rem" }}>
+              <span>DRAFT PANEL</span>
+              {started && !complete && (
+                <span style={{ fontSize: "0.68rem", fontWeight: 700, color: isMyTurn ? "oklch(0.42 0.15 150)" : "oklch(0.5 0.04 150)" }}>
+                  Rd {curRound}, Pick {curPick + 1} — {currentTeamName}{isMyTurn ? " (YOU)" : ""}
+                </span>
+              )}
+            </div>
+
+            {!franchise ? (
+              <div style={{ padding: "2rem 1.25rem", textAlign: "center" }}>
+                <Search size={26} style={{ margin: "0 auto 0.5rem", display: "block", opacity: 0.3 }} />
+                <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.4 0.04 150)" }}>Sign in to draft</div>
+              </div>
+            ) : !started ? (
+              <div style={{ padding: "2rem 1.25rem", textAlign: "center" }}>
+                <ListOrdered size={26} style={{ margin: "0 auto 0.5rem", display: "block", opacity: 0.3, color: "oklch(0.45 0.06 150)" }} />
+                <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.45 0.06 150)" }}>The draft hasn't started yet</div>
+                <div style={{ fontSize: "0.75rem", color: "oklch(0.6 0.04 150)", marginTop: "0.25rem" }}>Build your queue on the left while you wait.</div>
+              </div>
+            ) : complete ? (
+              <div style={{ padding: "2rem 1.25rem", textAlign: "center" }}>
+                <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.42 0.15 150)" }}>🏆 Draft complete</div>
+              </div>
+            ) : (
+              <>
+                <div style={{ padding: "0.75rem 1rem", borderBottom: "1px solid oklch(0.9 0.005 150)" }}>
+                  <div style={{ position: "relative", marginBottom: "0.5rem" }}>
+                    <Search size={14} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "oklch(0.55 0.04 150)" }} />
+                    <input
+                      value={search}
+                      onChange={e => setSearch(e.target.value)}
+                      placeholder="Search by name or NFL team..."
+                      style={{ width: "100%", padding: "0.45rem 0.5rem 0.45rem 1.9rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 7, fontSize: "0.85rem", color: "oklch(0.2 0.03 150)", background: "white", outline: "none", boxSizing: "border-box" as const }}
+                    />
+                  </div>
+                  <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" as const }}>
+                    {["ALL","QB","RB","WR","TE","K","DST"].map(pos => (
+                      <button key={pos} onClick={() => setPosFilter(pos)} style={{ padding: "0.22rem 0.55rem", borderRadius: 5, border: "1.5px solid", borderColor: posFilter === pos ? "oklch(0.28 0.09 150)" : "oklch(0.88 0.01 150)", background: posFilter === pos ? "oklch(0.28 0.09 150)" : "white", color: posFilter === pos ? "white" : "oklch(0.4 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", fontWeight: 600, cursor: "pointer" }}>
+                        {pos}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {!(isMyTurn || isCommissioner) && (
+                  <div style={{ padding: "0.6rem 1rem", background: "oklch(0.97 0.02 85)", borderBottom: "1px solid oklch(0.9 0.005 150)", fontSize: "0.75rem", color: "oklch(0.5 0.1 85)", textAlign: "center" }}>
+                    Waiting on {currentTeamName} — you'll be able to draft when it's your turn.
+                  </div>
+                )}
+
+                <div style={{ maxHeight: 480, overflowY: "auto" }}>
+                  {playerBoardPlayers.length === 0 ? (
+                    <div style={{ padding: "2.5rem 1.25rem", textAlign: "center", color: "oklch(0.6 0.04 150)" }}>
+                      <Search size={26} style={{ margin: "0 auto 0.5rem", opacity: 0.3, display: "block" }} />
+                      <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.9rem" }}>No players found</div>
+                      <div style={{ fontSize: "0.75rem", marginTop: "0.25rem", opacity: 0.7 }}>Try a different position or search term.</div>
+                    </div>
+                  ) : (
+                    playerBoardPlayers.map(player => {
+                      const canDraft = (isMyTurn || isCommissioner) && started && !paused && !complete;
+                      return (
+                        <div key={player.id} className="wrc-row-hover" style={{ display: "flex", alignItems: "center", gap: "0.65rem", padding: "0.6rem 1rem", borderBottom: "1px solid oklch(0.95 0.003 150)" }}>
+                          <span style={{ width: 32, textAlign: "center", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.66rem", fontWeight: 700, color: "white", background: POS_COLORS[player.pos] || "#64748b", borderRadius: 4, padding: "2px 0", flexShrink: 0 }}>{player.pos}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "oklch(0.18 0.05 150)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{player.name}</div>
+                            <div style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)" }}>
+                              {player.nflTeam}{player.bye ? ` · Bye ${player.bye}` : ""} · ADP {formatADP(player)}
+                            </div>
+                          </div>
+                          {canDraft ? (
+                            <button
+                              onClick={() => handlePickPlayer(player)}
+                              disabled={submitting}
+                              style={{ background: "oklch(0.78 0.15 85)", color: "oklch(0.15 0.02 150)", border: "none", borderRadius: 6, padding: "0.32rem 0.65rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 800, letterSpacing: "0.04em", cursor: submitting ? "not-allowed" : "pointer", opacity: submitting ? 0.6 : 1, flexShrink: 0 }}
+                            >
+                              DRAFT
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, flexShrink: 0 }}>AVAILABLE</span>
+                          )}
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+          </div>
+
         <div style={{ flex: "1 1 380px", minWidth: 320, maxWidth: 740 }}>
             {!franchise ? (
               <div className="wrc-card" style={{ padding: "2rem", textAlign: "center", background: "rgba(0,0,0,0.48)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.72)" }}>
@@ -1090,108 +1193,6 @@ export default function DraftBoard() {
                 )}
               </>
             )}
-          </div>
-
-          {/* Draft Panel — where owners actually submit their pick */}
-          <div style={{ flex: "1 1 380px", minWidth: 320, maxWidth: 740 }}>
-            {/* Invisible spacer matching the queue's title-row height on the left, so both cards start at the same y position */}
-            <div aria-hidden style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem", visibility: "hidden" }}>
-              <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.88rem" }}>SPACER</div>
-              <button style={{ display: "flex", alignItems: "center", gap: "0.35rem", borderRadius: 7, padding: "0.4rem 0.85rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700 }}>
-                <Plus size={13} /> Spacer
-              </button>
-            </div>
-            <div id="draft-panel" className="wrc-card" style={{ overflow: "hidden", scrollMarginTop: "1rem" }}>
-            <div className="wrc-card-gold-stripe" />
-            <div className="wrc-card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "0.4rem" }}>
-              <span>DRAFT PANEL</span>
-              {started && !complete && (
-                <span style={{ fontSize: "0.68rem", fontWeight: 700, color: isMyTurn ? "oklch(0.42 0.15 150)" : "oklch(0.5 0.04 150)" }}>
-                  Rd {curRound}, Pick {curPick + 1} — {currentTeamName}{isMyTurn ? " (YOU)" : ""}
-                </span>
-              )}
-            </div>
-
-            {!franchise ? (
-              <div style={{ padding: "2rem 1.25rem", textAlign: "center" }}>
-                <Search size={26} style={{ margin: "0 auto 0.5rem", display: "block", opacity: 0.3 }} />
-                <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.4 0.04 150)" }}>Sign in to draft</div>
-              </div>
-            ) : !started ? (
-              <div style={{ padding: "2rem 1.25rem", textAlign: "center" }}>
-                <ListOrdered size={26} style={{ margin: "0 auto 0.5rem", display: "block", opacity: 0.3, color: "oklch(0.45 0.06 150)" }} />
-                <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.45 0.06 150)" }}>The draft hasn't started yet</div>
-                <div style={{ fontSize: "0.75rem", color: "oklch(0.6 0.04 150)", marginTop: "0.25rem" }}>Build your queue on the left while you wait.</div>
-              </div>
-            ) : complete ? (
-              <div style={{ padding: "2rem 1.25rem", textAlign: "center" }}>
-                <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.42 0.15 150)" }}>🏆 Draft complete</div>
-              </div>
-            ) : (
-              <>
-                <div style={{ padding: "0.75rem 1rem", borderBottom: "1px solid oklch(0.9 0.005 150)" }}>
-                  <div style={{ position: "relative", marginBottom: "0.5rem" }}>
-                    <Search size={14} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "oklch(0.55 0.04 150)" }} />
-                    <input
-                      value={search}
-                      onChange={e => setSearch(e.target.value)}
-                      placeholder="Search by name or NFL team..."
-                      style={{ width: "100%", padding: "0.45rem 0.5rem 0.45rem 1.9rem", border: "1.5px solid oklch(0.88 0.01 150)", borderRadius: 7, fontSize: "0.85rem", color: "oklch(0.2 0.03 150)", background: "white", outline: "none", boxSizing: "border-box" as const }}
-                    />
-                  </div>
-                  <div style={{ display: "flex", gap: "0.35rem", flexWrap: "wrap" as const }}>
-                    {["ALL","QB","RB","WR","TE","K","DST"].map(pos => (
-                      <button key={pos} onClick={() => setPosFilter(pos)} style={{ padding: "0.22rem 0.55rem", borderRadius: 5, border: "1.5px solid", borderColor: posFilter === pos ? "oklch(0.28 0.09 150)" : "oklch(0.88 0.01 150)", background: posFilter === pos ? "oklch(0.28 0.09 150)" : "white", color: posFilter === pos ? "white" : "oklch(0.4 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", fontWeight: 600, cursor: "pointer" }}>
-                        {pos}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {!(isMyTurn || isCommissioner) && (
-                  <div style={{ padding: "0.6rem 1rem", background: "oklch(0.97 0.02 85)", borderBottom: "1px solid oklch(0.9 0.005 150)", fontSize: "0.75rem", color: "oklch(0.5 0.1 85)", textAlign: "center" }}>
-                    Waiting on {currentTeamName} — you'll be able to draft when it's your turn.
-                  </div>
-                )}
-
-                <div style={{ maxHeight: 480, overflowY: "auto" }}>
-                  {playerBoardPlayers.length === 0 ? (
-                    <div style={{ padding: "2.5rem 1.25rem", textAlign: "center", color: "oklch(0.6 0.04 150)" }}>
-                      <Search size={26} style={{ margin: "0 auto 0.5rem", opacity: 0.3, display: "block" }} />
-                      <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.9rem" }}>No players found</div>
-                      <div style={{ fontSize: "0.75rem", marginTop: "0.25rem", opacity: 0.7 }}>Try a different position or search term.</div>
-                    </div>
-                  ) : (
-                    playerBoardPlayers.map(player => {
-                      const canDraft = (isMyTurn || isCommissioner) && started && !paused && !complete;
-                      return (
-                        <div key={player.id} className="wrc-row-hover" style={{ display: "flex", alignItems: "center", gap: "0.65rem", padding: "0.6rem 1rem", borderBottom: "1px solid oklch(0.95 0.003 150)" }}>
-                          <span style={{ width: 32, textAlign: "center", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.66rem", fontWeight: 700, color: "white", background: POS_COLORS[player.pos] || "#64748b", borderRadius: 4, padding: "2px 0", flexShrink: 0 }}>{player.pos}</span>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontWeight: 700, fontSize: "0.85rem", color: "oklch(0.18 0.05 150)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{player.name}</div>
-                            <div style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)" }}>
-                              {player.nflTeam}{player.bye ? ` · Bye ${player.bye}` : ""} · ADP {formatADP(player)}
-                            </div>
-                          </div>
-                          {canDraft ? (
-                            <button
-                              onClick={() => handlePickPlayer(player)}
-                              disabled={submitting}
-                              style={{ background: "oklch(0.78 0.15 85)", color: "oklch(0.15 0.02 150)", border: "none", borderRadius: 6, padding: "0.32rem 0.65rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 800, letterSpacing: "0.04em", cursor: submitting ? "not-allowed" : "pointer", opacity: submitting ? 0.6 : 1, flexShrink: 0 }}
-                            >
-                              DRAFT
-                            </button>
-                          ) : (
-                            <span style={{ fontSize: "0.68rem", color: "oklch(0.55 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, flexShrink: 0 }}>AVAILABLE</span>
-                          )}
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </>
-            )}
-          </div>
           </div>
         </div>
 
