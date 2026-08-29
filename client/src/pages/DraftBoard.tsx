@@ -902,27 +902,6 @@ export default function DraftBoard() {
             {/* Make Pick button */}
             {(isMyTurn || isCommissioner) && !paused && (
               <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem", alignItems: "flex-start" }}>
-                {/* Queue suggestion — top available player */}
-                {(() => {
-                  const topQueued = queue.find(q => !draftedNamesNormalized.has(normalizePlayerName(q.player_name)));
-                  if (!topQueued) return null;
-                  const qPlayer = CURRENT_DRAFT_PLAYER_UNIVERSE_2026.find(p => p.name.toLowerCase() === topQueued.player_name.toLowerCase());
-                  if (!qPlayer) return null;
-                  return (
-                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: "rgba(0,0,0,0.4)", border: "1px solid oklch(0.78 0.15 85 / 0.4)", borderRadius: 8, padding: "0.4rem 0.75rem" }}>
-                      <span style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.5)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.05em" }}>QUEUE #1</span>
-                      <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem", color: "white", background: POS_COLORS[topQueued.player_pos] ?? "#64748b", borderRadius: 3, padding: "1px 5px" }}>{topQueued.player_pos}</span>
-                      <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: "white" }}>{topQueued.player_name}</span>
-                      <button
-                        onClick={() => handlePickPlayer(qPlayer)}
-                        disabled={submitting}
-                        style={{ background: "oklch(0.78 0.15 85)", color: "oklch(0.15 0.02 150)", border: "none", borderRadius: 6, padding: "0.3rem 0.75rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", cursor: submitting ? "not-allowed" : "pointer", opacity: submitting ? 0.6 : 1 }}
-                      >
-                        Draft →
-                      </button>
-                    </div>
-                  );
-                })()}
                 <a
                   href="#draft-panel"
                   onClick={e => { e.preventDefault(); document.getElementById("draft-panel")?.scrollIntoView({ behavior: "smooth", block: "start" }); }}
@@ -1128,8 +1107,28 @@ export default function DraftBoard() {
                 ) : (
                   <div className="wrc-card" style={{ overflow: "hidden" }}>
                     <div className="wrc-card-gold-stripe" />
-                    <div className="wrc-card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div className="wrc-card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
                       <span>My Queue ({queue.length} players · {queue.filter(q => !draftedNamesNormalized.has(normalizePlayerName(q.player_name))).length} available)</span>
+                      {(isMyTurn || isCommissioner) && !paused && (() => {
+                        const topQueued = queue.find(q => !draftedNamesNormalized.has(normalizePlayerName(q.player_name)));
+                        if (!topQueued) return null;
+                        const qPlayer = CURRENT_DRAFT_PLAYER_UNIVERSE_2026.find(p => p.name.toLowerCase() === topQueued.player_name.toLowerCase());
+                        if (!qPlayer) return null;
+                        return (
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: "rgba(0,0,0,0.4)", border: "1px solid oklch(0.78 0.15 85 / 0.4)", borderRadius: 8, padding: "0.3rem 0.6rem" }}>
+                            <span style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.5)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.05em" }}>QUEUE #1</span>
+                            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.68rem", color: "white", background: POS_COLORS[topQueued.player_pos] ?? "#64748b", borderRadius: 3, padding: "1px 5px" }}>{topQueued.player_pos}</span>
+                            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.82rem", color: "white" }}>{topQueued.player_name}</span>
+                            <button
+                              onClick={() => handlePickPlayer(qPlayer)}
+                              disabled={submitting}
+                              style={{ background: "oklch(0.78 0.15 85)", color: "oklch(0.15 0.02 150)", border: "none", borderRadius: 6, padding: "0.28rem 0.65rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", cursor: submitting ? "not-allowed" : "pointer", opacity: submitting ? 0.6 : 1 }}
+                            >
+                              Draft →
+                            </button>
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: 322 }}>
                       <table className="wrc-table" style={{ minWidth: 600, width: "100%", tableLayout: "fixed" }}>
