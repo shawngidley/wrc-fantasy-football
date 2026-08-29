@@ -240,7 +240,7 @@ export default function DraftBoard() {
 
   // Draft queue hook
   const franchiseId = franchise?.id ?? null;
-  const { queue, addToQueue, removeFromQueue, moveItem, isQueued } = useDraftQueue(franchiseId);
+  const { queue, addToQueue, removeFromQueue, moveItem, isQueued, reload: reloadQueue } = useDraftQueue(franchiseId);
 
   // Live ADP from Tank01
   const { adpMap, loading: adpLoading } = useNFLADP();
@@ -684,6 +684,12 @@ export default function DraftBoard() {
         playerNflTeam: player.nflTeam,
       });
       setDbPicks(prev => prev.some(pick => pick.id === result.pick.id) ? prev : [...prev, result.pick as DbDraftPick]);
+      // The server removes this player from every team's draft queue as
+      // part of the same pick mutation, but that's a separate tRPC query
+      // on the client with its own cache -- nothing tells it to refetch on
+      // its own, so without this the queue only ever reflected the change
+      // after a manual page reload.
+      reloadQueue();
       toast.success(`${player.name} drafted by ${currentTeamName}!`);
       if (result.complete) toast.success("Draft complete! 🏆");
     } catch (error) {
@@ -691,7 +697,7 @@ export default function DraftBoard() {
     } finally {
       setSubmitting(false);
     }
-  }, [started, complete, submitting, isMyTurn, isCommissioner, currentTeamName, makeDraftPickMutation]);
+  }, [started, complete, submitting, isMyTurn, isCommissioner, currentTeamName, makeDraftPickMutation, reloadQueue]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   if (loading) {
