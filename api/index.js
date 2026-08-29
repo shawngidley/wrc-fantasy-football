@@ -93921,7 +93921,7 @@ var appRouter = router({
       return { status: "accepted", fromTeamName: fromTeam.name, toTeamName: toTeam.name };
     }),
     commissionerDraftAction: commissionerProcedure.input(external_exports.object({ action: external_exports.enum(["start", "togglePause", "skip", "reset"]) })).mutation(async ({ input }) => {
-      const { data: state, error: stateError } = await supabaseAdmin.from("draft_state").select("started, paused, complete, current_round, current_pick").eq("id", 1).single();
+      const { data: state, error: stateError } = await supabaseAdmin.from("draft_state").select("started, paused, complete, current_round, current_pick, pick_deadline_at, paused_at").eq("id", 1).single();
       if (stateError || !state) throw new Error("Unable to load draft state");
       if (input.action === "reset") {
         const { data: picksBeingCleared, error: picksFetchError } = await supabaseAdmin.from("draft_picks").select("player_name");
@@ -93939,15 +93939,17 @@ var appRouter = router({
           current_round: 1,
           current_pick: 0,
           timer_seconds: WRC_DRAFT_TIMER_SECONDS,
+          pick_deadline_at: null,
+          paused_at: null,
           updated_at: (/* @__PURE__ */ new Date()).toISOString()
         }).eq("id", 1);
         if (error52) throw new Error("Unable to reset draft state");
         return { action: "reset" };
       }
-      const patch = input.action === "start" ? { started: true, paused: false, complete: false, current_round: 1, current_pick: 0, timer_seconds: WRC_DRAFT_TIMER_SECONDS } : input.action === "togglePause" ? { paused: !state.paused } : await (async () => {
+      const patch = input.action === "start" ? { started: true, paused: false, complete: false, current_round: 1, current_pick: 0, timer_seconds: WRC_DRAFT_TIMER_SECONDS, pick_deadline_at: new Date(Date.now() + WRC_DRAFT_TIMER_SECONDS * 1e3).toISOString(), paused_at: null } : input.action === "togglePause" ? state.paused ? { paused: false, pick_deadline_at: state.pick_deadline_at && state.paused_at ? new Date(new Date(state.pick_deadline_at).getTime() + (Date.now() - new Date(state.paused_at).getTime())).toISOString() : state.pick_deadline_at, paused_at: null } : { paused: true, paused_at: (/* @__PURE__ */ new Date()).toISOString() } : await (async () => {
         const staticRound1Order = DRAFT_PICKS_2026.filter((p) => p.round === 1).map((p) => p.owner);
         const protectedSlots = await getProtectedDraftSlots(staticRound1Order);
-        return nextDraftState(state.current_round, state.current_pick, protectedSlots);
+        return { ...nextDraftState(state.current_round, state.current_pick, protectedSlots), pick_deadline_at: new Date(Date.now() + WRC_DRAFT_TIMER_SECONDS * 1e3).toISOString(), paused_at: null };
       })();
       const { error: error51 } = await supabaseAdmin.from("draft_state").update({ ...patch, updated_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", 1);
       if (error51) throw new Error("Unable to update draft state");
@@ -93985,6 +93987,8 @@ var appRouter = router({
       const protectedSlots = await getProtectedDraftSlots(staticRound1Order);
       const { data: claimedState, error: claimError } = await supabaseAdmin.from("draft_state").update({
         ...nextDraftState(state.current_round, state.current_pick, protectedSlots),
+        pick_deadline_at: new Date(Date.now() + WRC_DRAFT_TIMER_SECONDS * 1e3).toISOString(),
+        paused_at: null,
         updated_at: (/* @__PURE__ */ new Date()).toISOString()
       }).eq("id", 1).eq("current_round", state.current_round).eq("current_pick", state.current_pick).select("current_round, current_pick");
       if (claimError) throw new Error("Unable to advance the draft clock.");

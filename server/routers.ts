@@ -972,7 +972,7 @@ export const appRouter = router({
     commissionerDraftAction: commissionerProcedure
       .input(z.object({ action: z.enum(["start", "togglePause", "skip", "reset"]) }))
       .mutation(async ({ input }) => {
-        const { data: state, error: stateError } = await supabaseAdmin.from("draft_state").select("started, paused, complete, current_round, current_pick").eq("id", 1).single();
+        const { data: state, error: stateError } = await supabaseAdmin.from("draft_state").select("started, paused, complete, current_round, current_pick, pick_deadline_at, paused_at").eq("id", 1).single();
         if (stateError || !state) throw new Error("Unable to load draft state");
         if (input.action === "reset") {
           // Capture who was drafted BEFORE deleting the picks, so we can
@@ -994,19 +994,29 @@ export const appRouter = router({
           }
           const { error } = await supabaseAdmin.from("draft_state").update({
             started: false, paused: false, complete: false, current_round: 1, current_pick: 0,
-            timer_seconds: WRC_DRAFT_TIMER_SECONDS, updated_at: new Date().toISOString(),
+            timer_seconds: WRC_DRAFT_TIMER_SECONDS, pick_deadline_at: null, paused_at: null, updated_at: new Date().toISOString(),
           }).eq("id", 1);
           if (error) throw new Error("Unable to reset draft state");
           return { action: "reset" as const };
         }
+        // pick_deadline_at is an absolute timestamp, not a countdown number.
+        // Every browser/device computes remaining time as
+        // (pick_deadline_at - now), so a page refresh or a second device
+        // always shows the exact same true remaining time -- nothing
+        // resets, nothing drifts. Pausing preserves the remaining time
+        // exactly: on pause we just remember when it happened (paused_at);
+        // on resume we push pick_deadline_at forward by exactly how long
+        // the pause lasted, rather than restarting the clock.
         const patch = input.action === "start"
-          ? { started: true, paused: false, complete: false, current_round: 1, current_pick: 0, timer_seconds: WRC_DRAFT_TIMER_SECONDS }
+          ? { started: true, paused: false, complete: false, current_round: 1, current_pick: 0, timer_seconds: WRC_DRAFT_TIMER_SECONDS, pick_deadline_at: new Date(Date.now() + WRC_DRAFT_TIMER_SECONDS * 1000).toISOString(), paused_at: null }
           : input.action === "togglePause"
-            ? { paused: !state.paused }
+            ? (state.paused
+                ? { paused: false, pick_deadline_at: state.pick_deadline_at && state.paused_at ? new Date(new Date(state.pick_deadline_at).getTime() + (Date.now() - new Date(state.paused_at).getTime())).toISOString() : state.pick_deadline_at, paused_at: null }
+                : { paused: true, paused_at: new Date().toISOString() })
             : await (async () => {
                 const staticRound1Order = DRAFT_PICKS_2026.filter(p => p.round === 1).map(p => p.owner);
                 const protectedSlots = await getProtectedDraftSlots(staticRound1Order);
-                return nextDraftState(state.current_round, state.current_pick, protectedSlots);
+                return { ...nextDraftState(state.current_round, state.current_pick, protectedSlots), pick_deadline_at: new Date(Date.now() + WRC_DRAFT_TIMER_SECONDS * 1000).toISOString(), paused_at: null };
               })();
         const { error } = await supabaseAdmin.from("draft_state").update({ ...patch, updated_at: new Date().toISOString() }).eq("id", 1);
         if (error) throw new Error("Unable to update draft state");
@@ -1069,6 +1079,8 @@ export const appRouter = router({
         const protectedSlots = await getProtectedDraftSlots(staticRound1Order);
         const { data: claimedState, error: claimError } = await supabaseAdmin.from("draft_state").update({
           ...nextDraftState(state.current_round, state.current_pick, protectedSlots),
+          pick_deadline_at: new Date(Date.now() + WRC_DRAFT_TIMER_SECONDS * 1000).toISOString(),
+          paused_at: null,
           updated_at: new Date().toISOString(),
         }).eq("id", 1).eq("current_round", state.current_round).eq("current_pick", state.current_pick)
           .select("current_round, current_pick");

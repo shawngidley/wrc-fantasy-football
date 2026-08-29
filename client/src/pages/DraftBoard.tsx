@@ -114,6 +114,8 @@ interface DbDraftState {
   current_round: number;
   current_pick: number;
   timer_seconds: number;
+  pick_deadline_at: string | null;
+  paused_at: string | null;
   updated_at: string;
 }
 
@@ -201,7 +203,13 @@ export default function DraftBoard() {
   const [connected, setConnected] = useState(false);
 
   // ── Local UI state ──
-  const [timer, setTimer] = useState(TIMER_SECONDS);
+  // The timer is DERIVED from draftState.pick_deadline_at (an absolute
+  // timestamp), not stored/decremented locally -- every browser/device
+  // computes the same true remaining time from the same deadline, so nothing
+  // resets on refresh and nothing drifts between devices. `tick` exists
+  // purely to force a re-render once a second so the derived value actually
+  // updates on screen; it holds no meaningful data itself.
+  const [tick, setTick] = useState(0);
   const [search, setSearch] = useState("");
   const [posFilter, setPosFilter] = useState("ALL");
   const [boardView, setBoardView] = useState<"grid" | "list">("grid");
@@ -487,7 +495,13 @@ export default function DraftBoard() {
     setPlayerBoardDirection("asc");
   };
 
-  // Timer display
+  // Timer display -- derived fresh from pick_deadline_at every render;
+  // `tick` (updated once a second below) exists only to force this
+  // recomputation, not to hold the value itself.
+  void tick;
+  const timer = draftState?.pick_deadline_at
+    ? Math.max(0, Math.ceil((new Date(draftState.pick_deadline_at).getTime() - Date.now()) / 1000))
+    : TIMER_SECONDS;
   const timerColor = timer > 45 ? "oklch(0.42 0.15 150)" : timer > 20 ? "oklch(0.65 0.14 85)" : "#ef4444";
   const timerStr = `${Math.floor(timer / 60)}:${String(timer % 60).padStart(2, "0")}`;
   const timerPct = (timer / TIMER_SECONDS) * 100;
@@ -504,7 +518,6 @@ export default function DraftBoard() {
       if (!mounted) return;
       if (stateData) {
         setDraftState(stateData as DbDraftState);
-        setTimer(stateData.timer_seconds ?? TIMER_SECONDS);
       }
       if (picksData) {
         const picks = picksData as DbDraftPick[];
@@ -524,7 +537,6 @@ export default function DraftBoard() {
         if (!mounted) return;
         const newState = payload.new as DbDraftState;
         setDraftState(newState);
-        setTimer(newState.timer_seconds ?? TIMER_SECONDS);
       })
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "draft_picks" }, payload => {
         if (!mounted) return;
@@ -545,18 +557,13 @@ export default function DraftBoard() {
     };
   }, []);
 
-  // ── Local timer countdown (client-side only, resets on state change) ──
+  // ── Force a re-render once a second so the derived `timer` value above
+  // actually updates on screen. This no longer stores or decrements
+  // anything itself -- the true remaining time always comes from
+  // draftState.pick_deadline_at, computed fresh on every render.
   useEffect(() => {
     if (!started || paused || complete) return;
-    const id = setInterval(() => {
-      setTimer(t => {
-        if (t <= 1) {
-          // Auto-pause when timer hits 0 — commissioner decides next step
-          return 0;
-        }
-        return t - 1;
-      });
-    }, 1000);
+    const id = setInterval(() => setTick(t => t + 1), 1000);
     return () => clearInterval(id);
   }, [started, paused, complete, curRound, curPick]);
 
@@ -632,7 +639,6 @@ export default function DraftBoard() {
   async function handleStartDraft() {
     try {
       await draftActionMutation.mutateAsync({ action: "start" });
-      setTimer(TIMER_SECONDS);
       toast.success("Draft started! 🏈");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to start draft.");
@@ -651,7 +657,6 @@ export default function DraftBoard() {
     if (!isCommissioner) return;
     try {
       await draftActionMutation.mutateAsync({ action: "skip" });
-      setTimer(TIMER_SECONDS);
       toast.success("Draft clock advanced.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to skip draft pick.");
@@ -664,7 +669,6 @@ export default function DraftBoard() {
     try {
       await draftActionMutation.mutateAsync({ action: "reset" });
       setDbPicks([]);
-      setTimer(TIMER_SECONDS);
       toast.success("Draft reset.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to reset draft.");
