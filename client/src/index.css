@@ -516,7 +516,7 @@
 
   .pick-list-overall { display: none; }
   .pick-list-roundpick { width: 32px !important; }
-  .pick-list-owner { width: 74px !important; padding: 3px 4px !important; }
+  .pick-list-owner { width: var(--pick-owner-mobile-width, 74px) !important; padding: 3px 4px !important; }
 }
 
 @media (min-width: 768px) {

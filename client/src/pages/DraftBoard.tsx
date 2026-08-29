@@ -340,6 +340,28 @@ export default function DraftBoard() {
 
   // Current owner on the clock
   const currentOwner = getOwnerForSlot(curRound, curPick, resolvedDraftOrder);
+
+  // Pick List owner badge width: measure the actual widest owner/trade label
+  // across all 18 rounds (e.g. "Jamie (David R.)") so the badge is exactly
+  // wide enough to fit it without truncating -- and no wider than that, so
+  // every badge (including short ones like "Dan") shares one uniform width
+  // sized to the single longest one, not an arbitrary guessed pixel value.
+  const pickListOwnerTextWidth = useMemo(() => {
+    if (typeof document === "undefined") return 0;
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return 0;
+    ctx.font = "700 13.76px 'Barlow Condensed', sans-serif"; // matches 0.86rem bold used below
+    let max = 0;
+    for (const dp of resolvedDraftOrder) {
+      const label = dp.isTraded ? `${dp.owner} (${dp.originalOwner})` : dp.owner;
+      const w = ctx.measureText(label).width;
+      if (w > max) max = w;
+    }
+    return Math.ceil(max);
+  }, [resolvedDraftOrder]);
+  const pickListOwnerWidthDesktop = pickListOwnerTextWidth ? pickListOwnerTextWidth + 14 + 2 : 170; // +14 = 7px padding each side, +2 rounding buffer
+  const pickListOwnerWidthMobile = pickListOwnerTextWidth ? pickListOwnerTextWidth + 8 + 2 : 74; // +8 = 4px padding each side on mobile
   const currentTeamName = getTeamForOwner(currentOwner);
   const isMyTurn = franchise?.team_name === currentTeamName || franchise?.owner === currentOwner;
 
@@ -1329,7 +1351,18 @@ export default function DraftBoard() {
                   >
                     <span className="pick-list-overall" style={{ width: 46, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", fontWeight: 700, color: "rgba(255,255,255,0.4)" }}>#{overall}</span>
                     <span className="pick-list-roundpick" style={{ width: 50, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", fontWeight: 700, color: "rgba(255,255,255,0.55)" }}>{round}.{String(pickInRound).padStart(2, "0")}</span>
-                    <span className="pick-list-owner" title={draftOrderPick?.isTraded ? `Originally ${draftOrderPick.originalOwner}'s pick` : undefined} style={{ width: 170, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.86rem", fontWeight: 700, color: OWNER_COLORS[owner] ? "white" : "rgba(255,255,255,0.6)", background: OWNER_COLORS[owner] ?? "transparent", borderRadius: 4, padding: "3px 7px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <span
+                      className="pick-list-owner"
+                      title={draftOrderPick?.isTraded ? `Originally ${draftOrderPick.originalOwner}'s pick` : undefined}
+                      style={{
+                        width: pickListOwnerWidthDesktop,
+                        "--pick-owner-mobile-width": `${pickListOwnerWidthMobile}px`,
+                        flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.86rem", fontWeight: 700,
+                        color: OWNER_COLORS[owner] ? "white" : "rgba(255,255,255,0.6)",
+                        background: OWNER_COLORS[owner] ?? "transparent", borderRadius: 4, padding: "3px 7px",
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      } as React.CSSProperties}
+                    >
                       {owner}{draftOrderPick?.isTraded ? ` (${draftOrderPick.originalOwner})` : ""}
                     </span>
                     <span style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
