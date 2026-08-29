@@ -644,7 +644,7 @@ export default function DraftBoard() {
     <div className="bg-crowd bg-overlay" style={{ minHeight: "100vh" }}>
       <Navigation showTicker={false} teamName={franchise?.team_name} />
 
-      <div style={{ maxWidth: 1400, margin: "0 auto", padding: "1rem 1rem 3rem" }}>
+      <div style={{ maxWidth: 1600, margin: "0 auto", padding: "1rem 1rem 3rem" }}>
 
         {/* Countdown (pre-draft) */}
         {!started && <DraftCountdownBanner />}
@@ -1164,7 +1164,7 @@ export default function DraftBoard() {
         {/* Draft Grid */}
         {boardView === "grid" && (
         <div style={{ overflowX: "auto", marginBottom: "1.5rem", background: "rgba(8,10,16,0.72)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.1)", padding: "0.75rem" }}>
-          <div style={{ minWidth: TOTAL_TEAMS * 110 + 60 }}>
+          <div style={{ minWidth: TOTAL_TEAMS * 100 + 60 }}>
             {/* Column headers — owner names */}
             <div style={{ display: "grid", gridTemplateColumns: `60px repeat(${TOTAL_TEAMS}, 1fr)`, gap: 2, marginBottom: 2 }}>
               <div style={{ background: "rgba(0,0,0,0.5)", padding: "0.4rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", color: "rgba(255,255,255,0.5)", textAlign: "center" }}>RD</div>
@@ -1257,9 +1257,26 @@ export default function DraftBoard() {
 
         {/* Pick List — vertical, scrollable, overall pick order */}
         {boardView === "list" && (
-          <div style={{ maxHeight: 640, overflowY: "auto", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, marginBottom: "1.5rem", background: "rgba(8,10,16,0.88)" }}>
-            {Array.from({ length: TOTAL_ROUNDS }, (_, r) => r + 1).flatMap(round =>
-              Array.from({ length: TOTAL_TEAMS }, (_, physicalPick) => {
+          <div style={{ maxHeight: 720, overflowY: "auto", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, marginBottom: "1.5rem", background: "rgba(8,10,16,0.88)" }}>
+            {Array.from({ length: TOTAL_ROUNDS }, (_, r) => r + 1).flatMap(round => [
+              <div
+                key={`round-header-${round}`}
+                style={{
+                  padding: "0.5rem 0.9rem",
+                  background: "oklch(0.18 0.06 150)",
+                  borderBottom: "2px solid oklch(0.78 0.15 85 / 0.45)",
+                  borderTop: round > 1 ? "1px solid rgba(255,255,255,0.1)" : "none",
+                  fontFamily: "Barlow Condensed, sans-serif",
+                  fontWeight: 800,
+                  fontSize: "0.92rem",
+                  letterSpacing: "0.08em",
+                  textTransform: "uppercase" as const,
+                  color: "oklch(0.78 0.15 85)",
+                }}
+              >
+                Round {round}
+              </div>,
+              ...Array.from({ length: TOTAL_TEAMS }, (_, physicalPick) => {
                 const pickInRound = physicalPick + 1;
                 const overall = (round - 1) * TOTAL_TEAMS + pickInRound;
                 const draftOrderPick = resolvedDraftOrder.find(dp => dp.round === round && dp.pickInRound === pickInRound);
@@ -1273,38 +1290,38 @@ export default function DraftBoard() {
                     key={overall}
                     ref={isRowCurrent ? currentListRowRef : undefined}
                     style={{
-                      display: "flex", alignItems: "center", gap: "0.6rem", padding: "0.45rem 0.9rem",
+                      display: "flex", alignItems: "center", gap: "0.7rem", padding: "0.6rem 0.9rem",
                       borderBottom: "1px solid rgba(255,255,255,0.06)",
                       background: isRowCurrent ? "oklch(0.78 0.15 85 / 0.18)" : overall % 2 === 0 ? "rgba(255,255,255,0.05)" : "transparent",
                     }}
                   >
-                    <span style={{ width: 40, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", fontWeight: 700, color: "rgba(255,255,255,0.4)" }}>#{overall}</span>
-                    <span style={{ width: 42, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", fontWeight: 700, color: "rgba(255,255,255,0.55)" }}>{round}.{String(pickInRound).padStart(2, "0")}</span>
-                    <span title={draftOrderPick?.isTraded ? `Originally ${draftOrderPick.originalOwner}'s pick` : undefined} style={{ width: 148, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, color: OWNER_COLORS[owner] ? "white" : "rgba(255,255,255,0.6)", background: OWNER_COLORS[owner] ?? "transparent", borderRadius: 4, padding: "2px 6px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <span style={{ width: 46, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", fontWeight: 700, color: "rgba(255,255,255,0.4)" }}>#{overall}</span>
+                    <span style={{ width: 50, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", fontWeight: 700, color: "rgba(255,255,255,0.55)" }}>{round}.{String(pickInRound).padStart(2, "0")}</span>
+                    <span title={draftOrderPick?.isTraded ? `Originally ${draftOrderPick.originalOwner}'s pick` : undefined} style={{ width: 170, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.86rem", fontWeight: 700, color: OWNER_COLORS[owner] ? "white" : "rgba(255,255,255,0.6)", background: OWNER_COLORS[owner] ?? "transparent", borderRadius: 4, padding: "3px 7px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {owner}{draftOrderPick?.isTraded ? ` (${draftOrderPick.originalOwner})` : ""}
                     </span>
-                    <span style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                    <span style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: "0.5rem" }}>
                       {protectedPlayer ? (
                         <>
-                          <span style={{ fontSize: "0.7rem" }}>🔒</span>
-                          <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.82rem", color: "oklch(0.85 0.1 85)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{protectedPlayer.name}</span>
-                          <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "white", background: POS_COLORS[protectedPlayer.pos] || "#64748b", borderRadius: 3, padding: "1px 4px", flexShrink: 0 }}>{protectedPlayer.pos}</span>
+                          <span style={{ fontSize: "0.85rem" }}>🔒</span>
+                          <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.98rem", color: "oklch(0.85 0.1 85)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{protectedPlayer.name}</span>
+                          <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "white", background: POS_COLORS[protectedPlayer.pos] || "#64748b", borderRadius: 3, padding: "2px 5px", flexShrink: 0 }}>{protectedPlayer.pos}</span>
                         </>
                       ) : dbPick ? (
                         <>
-                          <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.82rem", color: "white", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{dbPick.player_name}</span>
-                          <span style={{ fontSize: "0.6rem", fontWeight: 700, color: "white", background: POS_COLORS[dbPick.player_pos] || "#64748b", borderRadius: 3, padding: "1px 4px", flexShrink: 0 }}>{dbPick.player_pos}</span>
+                          <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.98rem", color: "white", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{dbPick.player_name}</span>
+                          <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "white", background: POS_COLORS[dbPick.player_pos] || "#64748b", borderRadius: 3, padding: "2px 5px", flexShrink: 0 }}>{dbPick.player_pos}</span>
                         </>
                       ) : isRowCurrent ? (
-                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.78rem", color: "oklch(0.78 0.15 85)", letterSpacing: "0.05em" }}>ON THE CLOCK</span>
+                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.92rem", color: "oklch(0.78 0.15 85)", letterSpacing: "0.05em" }}>ON THE CLOCK</span>
                       ) : (
-                        <span style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.25)" }}>—</span>
+                        <span style={{ fontSize: "0.92rem", color: "rgba(255,255,255,0.25)" }}>—</span>
                       )}
                     </span>
                   </div>
                 );
-              })
-            )}
+              }),
+            ])}
           </div>
         )}
 
