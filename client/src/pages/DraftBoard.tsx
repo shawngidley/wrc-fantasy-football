@@ -12,7 +12,7 @@
  *   - Player pool: complete current NFL universe, filtered by position/search
  */
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Play, Pause, SkipForward, Search, ArrowLeftRight, RotateCcw, Wifi, WifiOff, ChevronUp, ChevronDown, ListOrdered, Plus, Check, X } from "lucide-react";
@@ -195,12 +195,21 @@ function DraftCountdownBanner() {
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function DraftBoard({ presentationMode = false }: { presentationMode?: boolean } = {}) {
   const { franchise, isCommissioner } = useAuth();
+  const [, navigate] = useLocation();
 
   // ── Supabase state ──
   const [draftState, setDraftState] = useState<DbDraftState | null>(null);
   const [dbPicks, setDbPicks] = useState<DbDraftPick[]>([]);
   const [loading, setLoading] = useState(true);
   const [connected, setConnected] = useState(false);
+
+  // ── Draft-complete transition ──
+  // Shared, realtime-synced draft_state.complete drives this for every
+  // viewer at once (not just whoever made the final pick), so everyone
+  // watching -- the presentation/projector tab included -- gets the same
+  // celebratory moment and lands on Draft Recap together.
+  const [showCompleteOverlay, setShowCompleteOverlay] = useState(false);
+  const completeHandledRef = useRef(false);
 
   // ── Local UI state ──
   // The timer is DERIVED from draftState.pick_deadline_at (an absolute
@@ -321,6 +330,16 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
   const complete  = draftState?.complete ?? false;
   const curRound  = draftState?.current_round ?? 1;
   const curPick   = draftState?.current_pick  ?? 0;
+
+  useEffect(() => {
+    if (!complete || completeHandledRef.current) return;
+    completeHandledRef.current = true;
+    setShowCompleteOverlay(true);
+    const timeout = setTimeout(() => {
+      navigate("/draft-recap");
+    }, 5000);
+    return () => clearTimeout(timeout);
+  }, [complete, navigate]);
 
   // Build picks map: "round-pick" → DbDraftPick
   const picksMap = useMemo(() => {
@@ -770,6 +789,33 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
 
         {/* Countdown (pre-draft) */}
         {!started && <DraftCountdownBanner />}
+
+        {/* ── Draft Complete Overlay ── */}
+        {showCompleteOverlay && (
+          <div
+            style={{
+              position: "fixed", inset: 0, zIndex: 9999,
+              background: "rgba(0,0,0,0.9)",
+              display: "flex", flexDirection: "column",
+              alignItems: "center", justifyContent: "center",
+              textAlign: "center", padding: "2rem",
+            }}
+          >
+            <div style={{ fontSize: "3.5rem", marginBottom: "1rem" }}>🏆</div>
+            <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "2.2rem", color: "white", letterSpacing: "0.04em", marginBottom: "0.5rem" }}>
+              DRAFT COMPLETE!
+            </div>
+            <div style={{ fontSize: "1rem", color: "rgba(255,255,255,0.75)", marginBottom: "2rem" }}>
+              Taking everyone to the Draft Recap...
+            </div>
+            <button
+              onClick={() => navigate("/draft-recap")}
+              style={{ background: "oklch(0.78 0.15 85)", color: "oklch(0.15 0.02 150)", border: "none", borderRadius: 8, padding: "0.7rem 1.75rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.9rem", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", cursor: "pointer" }}
+            >
+              View Draft Recap Now
+            </button>
+          </div>
+        )}
 
         {/* ── Player Reveal Overlay ── */}
         {revealPick && (
