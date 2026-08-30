@@ -297,6 +297,15 @@ function formatFreeAgentStat(stats: PlayerSeasonStats | undefined, column: FreeA
     const value = freeAgentStatValue(stats, column.key);
     return value > 0 ? `${Math.round(value)}%` : "—";
   }
+  if (column.key === "turnovers") {
+    // turnovers is a computed value (passInt + fumblesLost), not a real
+    // field on PlayerSeasonStats. formatSeasonStatColumn's row[column.key]
+    // lookup returned undefined for it every time, showing "-" for every
+    // single player regardless of their actual data. Compute it directly
+    // here instead -- stats already confirmed to exist above, so a
+    // genuine 0 turnovers now correctly shows as "0", not "-".
+    return String(freeAgentStatValue(stats, "turnovers"));
+  }
   return formatSeasonStatColumn(stats, column as SeasonStatColumn);
 }
 
