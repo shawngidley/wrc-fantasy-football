@@ -535,7 +535,22 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
         .on("postgres_changes", { event: "UPDATE", schema: "public", table: "draft_state" }, payload => {
           if (!mounted) return;
           const newState = payload.new as DbDraftState;
-          setDraftState(newState);
+          // Guard against an out-of-order delivery: if a realtime event for
+          // an OLDER transition arrives after fresher data was already
+          // applied (e.g. a delayed/replayed event racing the initial
+          // fetch, or arriving out of order after a reconnect), silently
+          // overwriting the correct current state with stale data would be
+          // invisible -- no error, just a wrong clock. Only apply an
+          // incoming update if it's actually newer than what's already
+          // held. Uses the functional form so this always compares against
+          // the true latest state, not a stale closure over an earlier
+          // render's draftState.
+          setDraftState(prev => {
+            if (prev && new Date(newState.updated_at).getTime() <= new Date(prev.updated_at).getTime()) {
+              return prev;
+            }
+            return newState;
+          });
         })
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "draft_picks" }, payload => {
           if (!mounted) return;
