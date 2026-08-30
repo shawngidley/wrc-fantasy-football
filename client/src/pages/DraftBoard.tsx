@@ -941,14 +941,6 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
                   <div style={{ height: "100%", width: `${timerPct}%`, background: timerColor, transition: "width 1s linear, background 0.5s" }} />
                 </div>
               )}
-              {/* TEMPORARY DEBUG -- remove once the clock discrepancy is resolved */}
-              <div style={{ marginTop: 6, fontSize: "0.6rem", fontFamily: "monospace", color: "#0f0", background: "black", padding: "3px 5px", borderRadius: 4, textAlign: "left", lineHeight: 1.4 }}>
-                <div>deadline: {draftState?.pick_deadline_at ?? "null"}</div>
-                <div>updated_at: {draftState?.updated_at ?? "null"}</div>
-                <div>now: {new Date().toISOString()}</div>
-                <div>raw ms diff: {draftState?.pick_deadline_at ? new Date(draftState.pick_deadline_at).getTime() - Date.now() : "n/a"}</div>
-                <div>timer: {timer}</div>
-              </div>
             </div>
 
             {/* Make Pick button */}
