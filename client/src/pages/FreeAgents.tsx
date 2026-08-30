@@ -312,7 +312,7 @@ export default function FreeAgents() {
   const { franchise } = useAuth();
   const [posFilter, setPosFilter] = useState<string>("SFLEX");
   const [search, setSearch] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("proj");
+  const [sortKey, setSortKey] = useState<SortKey>("wrcPts");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [bidPlayer, setBidPlayer] = useState<NFLPlayer | null>(null);
   const [activeTab, setActiveTab] = useState<"pool" | "bids">("pool");
