@@ -7,7 +7,7 @@
  * Draft Recap lives at /draft-recap as its own page.
  */
 import { useEffect, useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import Navigation from "@/components/Navigation";
 import DraftSubNav from "@/components/DraftSubNav";
 import { useAuth } from "@/contexts/AuthContext";
@@ -57,12 +57,12 @@ export default function DraftHub() {
       <DraftSubNav active={activeTab} onSelectLocalTab={setTab} />
       {franchise?.is_commissioner && (
         <div style={{ maxWidth: 900, margin: "0 auto", padding: "0.85rem 1rem 0" }}>
-          <a
+          <Link
             href="/draft-reveal"
             style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem", background: "rgba(255,255,255,0.06)", border: "1px solid oklch(0.78 0.15 85 / 0.4)", color: "oklch(0.78 0.15 85)", borderRadius: 8, padding: "0.5rem 0.9rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.78rem", letterSpacing: "0.05em", textTransform: "uppercase", textDecoration: "none" }}
           >
             <Sparkles size={14} /> Commissioner: Draft Reveal
-          </a>
+          </Link>
         </div>
       )}
 
