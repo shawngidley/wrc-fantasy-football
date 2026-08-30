@@ -189,7 +189,7 @@ export default function DraftReveal() {
             </div>
             {draftAlreadyStarted ? (
               <button
-                onClick={() => navigate("/draft?tab=board")}
+                onClick={() => navigate("/draft-presentation")}
                 style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem", background: "oklch(0.78 0.15 85)", color: "oklch(0.15 0.02 150)", border: "none", borderRadius: 10, padding: "0.9rem 2.2rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "1.05rem", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", boxShadow: "0 8px 24px rgba(0,0,0,0.35)" }}
               >
                 Enter Draft <ArrowRight size={20} />
