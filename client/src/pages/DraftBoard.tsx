@@ -511,6 +511,24 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
     let mounted = true;
     let channel: ReturnType<typeof supabase.channel> | null = null;
 
+    // Shared by both the initial fetch AND the realtime handler below, so
+    // BOTH paths that can set draftState respect the same "never apply
+    // data older than what's already held" rule. Needed because the
+    // bfcache fix means loadInitialData can now run more than once during
+    // a single page visit (once on mount, again on pageshow-restore) --
+    // without this, two overlapping fetches resolving out of order (the
+    // older one finishing after the newer one) could silently overwrite
+    // correct data with stale data, the same way an out-of-order realtime
+    // event could.
+    function applyDraftStateIfNewer(newState: DbDraftState) {
+      setDraftState(prev => {
+        if (prev && new Date(newState.updated_at).getTime() <= new Date(prev.updated_at).getTime()) {
+          return prev;
+        }
+        return newState;
+      });
+    }
+
     async function loadInitialData() {
       const [{ data: stateData }, { data: picksData }] = await Promise.all([
         supabase.from("draft_state").select("*").eq("id", 1).single(),
@@ -518,7 +536,7 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
       ]);
       if (!mounted) return;
       if (stateData) {
-        setDraftState(stateData as DbDraftState);
+        applyDraftStateIfNewer(stateData as DbDraftState);
       }
       if (picksData) {
         const picks = picksData as DbDraftPick[];
@@ -534,23 +552,9 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
         .channel("draft-room")
         .on("postgres_changes", { event: "UPDATE", schema: "public", table: "draft_state" }, payload => {
           if (!mounted) return;
-          const newState = payload.new as DbDraftState;
-          // Guard against an out-of-order delivery: if a realtime event for
-          // an OLDER transition arrives after fresher data was already
-          // applied (e.g. a delayed/replayed event racing the initial
-          // fetch, or arriving out of order after a reconnect), silently
-          // overwriting the correct current state with stale data would be
-          // invisible -- no error, just a wrong clock. Only apply an
-          // incoming update if it's actually newer than what's already
-          // held. Uses the functional form so this always compares against
-          // the true latest state, not a stale closure over an earlier
-          // render's draftState.
-          setDraftState(prev => {
-            if (prev && new Date(newState.updated_at).getTime() <= new Date(prev.updated_at).getTime()) {
-              return prev;
-            }
-            return newState;
-          });
+          // Same staleness guard as loadInitialData above -- see
+          // applyDraftStateIfNewer for why this matters.
+          applyDraftStateIfNewer(payload.new as DbDraftState);
         })
         .on("postgres_changes", { event: "INSERT", schema: "public", table: "draft_picks" }, payload => {
           if (!mounted) return;
