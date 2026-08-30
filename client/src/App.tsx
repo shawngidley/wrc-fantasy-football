@@ -14,6 +14,7 @@ import Standings from "./pages/Standings";
 import LiveScoring from "./pages/LiveScoring";
 import Lineup from "./pages/Lineup";
 import DraftHub from "./pages/DraftHub";
+import DraftReveal from "./pages/DraftReveal";
 import DraftLottery from "./pages/DraftLottery";
 import DraftRecap from "./pages/DraftRecap";
 import Rundown from "./pages/Rundown";
@@ -58,6 +59,7 @@ function Router() {
       <Route path="/lineup">{() => <ProtectedRoute component={Lineup} />}</Route>
       <Route path="/lineup/:teamId" component={Lineup} />
       <Route path="/draft" component={DraftHub} />
+      <Route path="/draft-reveal">{() => <ProtectedRoute component={DraftReveal} />}</Route>
       <Route path="/draft-lottery" component={DraftLottery} />
       <Route path="/draft-recap" component={DraftRecap} />
       <Route path="/protections">{() => { window.location.replace("/draft?tab=protections"); return null; }}</Route>
