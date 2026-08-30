@@ -6,11 +6,12 @@
  * once the song ends (or after a fixed delay if that team has no song).
  */
 import { useEffect, useRef, useState } from "react";
+import { useLocation } from "wouter";
 import Navigation from "@/components/Navigation";
 import TeamLogo from "@/components/TeamLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import { trpc } from "@/lib/trpc";
-import { Play, SkipForward, RotateCcw, Lock } from "lucide-react";
+import { Play, SkipForward, RotateCcw, Lock, ArrowRight } from "lucide-react";
 
 const TEAM_META: Record<string, { team_name: string; owner: string }> = {
   "team-jonas":   { team_name: "The Super Snuffleupagus",  owner: "Jonas" },
@@ -40,8 +41,11 @@ function shuffle<T>(arr: T[]): T[] {
 
 export default function DraftReveal() {
   const { franchise } = useAuth();
+  const [, navigate] = useLocation();
   const themeSongsQuery = trpc.league.teamThemeSongs.useQuery();
   const protectionsQuery = trpc.league.allProtections.useQuery();
+  const draftActionMutation = trpc.league.commissionerDraftAction.useMutation();
+  const [startingDraft, setStartingDraft] = useState(false);
 
   const [order, setOrder] = useState<string[]>([]);
   const [index, setIndex] = useState(0);
@@ -124,6 +128,16 @@ export default function DraftReveal() {
     setStarted(true);
   };
 
+  const handleStartDraft = async () => {
+    setStartingDraft(true);
+    try {
+      await draftActionMutation.mutateAsync({ action: "start" });
+      navigate("/draft-presentation");
+    } catch {
+      setStartingDraft(false);
+    }
+  };
+
   const handleSkip = () => {
     if (audioRef.current) audioRef.current.pause();
     if (noSongTimerRef.current) clearTimeout(noSongTimerRef.current);
@@ -172,12 +186,24 @@ export default function DraftReveal() {
             <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "1.8rem", color: "white", marginBottom: "1.5rem", textShadow: "0 2px 12px rgba(0,0,0,0.6)" }}>
               All 12 teams revealed! 🏆
             </div>
-            <button
-              onClick={handleStart}
-              style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem", background: "oklch(0.78 0.15 85)", color: "oklch(0.15 0.02 150)", border: "none", borderRadius: 10, padding: "0.75rem 1.75rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.92rem", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}
-            >
-              <RotateCcw size={17} /> Replay Reveal
-            </button>
+            <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", flexWrap: "wrap" }}>
+              <button
+                onClick={handleStart}
+                style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem", background: "rgba(255,255,255,0.12)", color: "white", border: "1px solid rgba(255,255,255,0.3)", borderRadius: 10, padding: "0.75rem 1.5rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.92rem", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}
+              >
+                <RotateCcw size={17} /> Replay Reveal
+              </button>
+              <button
+                onClick={handleStartDraft}
+                disabled={startingDraft}
+                style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem", background: "oklch(0.78 0.15 85)", color: "oklch(0.15 0.02 150)", border: "none", borderRadius: 10, padding: "0.75rem 1.75rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.92rem", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", cursor: startingDraft ? "not-allowed" : "pointer", opacity: startingDraft ? 0.6 : 1, boxShadow: "0 8px 24px rgba(0,0,0,0.35)" }}
+              >
+                {startingDraft ? "Starting…" : <>Start Draft <ArrowRight size={17} /></>}
+              </button>
+            </div>
+            <div style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.55)", marginTop: "0.85rem" }}>
+              Starts the live draft clock and opens the projector view — draft your own picks from a separate tab on your regular Draft Board.
+            </div>
           </div>
         )}
 

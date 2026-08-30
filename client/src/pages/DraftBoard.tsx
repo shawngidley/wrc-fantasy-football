@@ -193,7 +193,7 @@ function DraftCountdownBanner() {
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
-export default function DraftBoard() {
+export default function DraftBoard({ presentationMode = false }: { presentationMode?: boolean } = {}) {
   const { franchise, isCommissioner } = useAuth();
 
   // ── Supabase state ──
@@ -922,7 +922,14 @@ export default function DraftBoard() {
           </div>
         )}
 
-        {/* My Queue + Draft Panel — side by side above the board */}
+        {/* My Queue + Draft Panel — side by side above the board.
+            Hidden entirely in presentation mode: this is the private,
+            per-owner section (search, queue, submit-a-pick controls) that
+            the commissioner does NOT want visible when projecting this
+            screen for the room -- he drafts from his own separate,
+            normal Draft Board tab instead, keeping this one purely a
+            spectator/results view. */}
+        {!presentationMode && (
         <div style={{ display: "flex", gap: "1.25rem", flexWrap: "wrap", alignItems: "flex-start", marginBottom: "1.5rem" }}>
 
           {/* Draft Panel — where owners actually submit their pick */}
@@ -1218,6 +1225,7 @@ export default function DraftBoard() {
             )}
           </div>
         </div>
+        )}
 
         {/* Board view tabs */}
         <div style={{ display: "flex", gap: "0.4rem", marginBottom: "0.75rem" }}>
