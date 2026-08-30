@@ -172,12 +172,24 @@ export default function DraftReveal() {
             <div style={{ fontSize: "0.95rem", color: "rgba(255,255,255,0.8)", marginBottom: "2rem", textShadow: "0 1px 6px rgba(0,0,0,0.6)" }}>
               12 teams · random order · full theme songs · protections revealed
             </div>
-            <button
-              onClick={handleStart}
-              style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem", background: "oklch(0.78 0.15 85)", color: "oklch(0.15 0.02 150)", border: "none", borderRadius: 10, padding: "0.9rem 2.2rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "1.05rem", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", boxShadow: "0 8px 24px rgba(0,0,0,0.35)" }}
-            >
-              <Play size={20} fill="currentColor" /> Start Reveal
-            </button>
+            <div style={{ display: "flex", gap: "0.75rem", justifyContent: "center", flexWrap: "wrap" }}>
+              <button
+                onClick={handleStart}
+                style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem", background: "oklch(0.78 0.15 85)", color: "oklch(0.15 0.02 150)", border: "none", borderRadius: 10, padding: "0.9rem 2.2rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "1.05rem", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", boxShadow: "0 8px 24px rgba(0,0,0,0.35)" }}
+              >
+                <Play size={20} fill="currentColor" /> Start Reveal
+              </button>
+              <button
+                onClick={handleStartDraft}
+                disabled={startingDraft}
+                style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem", background: "rgba(255,255,255,0.12)", color: "white", border: "1px solid rgba(255,255,255,0.35)", borderRadius: 10, padding: "0.9rem 2rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "1.05rem", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", cursor: startingDraft ? "not-allowed" : "pointer", opacity: startingDraft ? 0.6 : 1 }}
+              >
+                {startingDraft ? "Starting…" : <>Start Draft <ArrowRight size={20} /></>}
+              </button>
+            </div>
+            <div style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.55)", marginTop: "0.85rem" }}>
+              Skip straight to the draft board without running the reveal ceremony.
+            </div>
           </div>
         )}
 
