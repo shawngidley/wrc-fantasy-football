@@ -11,6 +11,7 @@ import Navigation from "@/components/Navigation";
 import TeamLogo from "@/components/TeamLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import { trpc } from "@/lib/trpc";
+import { supabase } from "@/lib/supabase";
 import { Play, SkipForward, RotateCcw, Lock, ArrowRight } from "lucide-react";
 
 const TEAM_META: Record<string, { team_name: string; owner: string }> = {
@@ -51,8 +52,22 @@ export default function DraftReveal() {
   const [index, setIndex] = useState(0);
   const [started, setStarted] = useState(false);
   const [done, setDone] = useState(false);
+  const [draftAlreadyStarted, setDraftAlreadyStarted] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const noSongTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Check whether the live draft has already been started (e.g. the
+  // commissioner already clicked Start Draft earlier and is just
+  // revisiting this page) -- if so, the initial screen should offer to
+  // jump straight into the draft board instead of implying the reveal
+  // hasn't happened yet.
+  useEffect(() => {
+    let mounted = true;
+    supabase.from("draft_state").select("started").eq("id", 1).single().then(({ data }) => {
+      if (mounted && data) setDraftAlreadyStarted(data.started === true);
+    });
+    return () => { mounted = false; };
+  }, []);
 
   const songByTeamId: Record<string, string> = {};
   for (const t of themeSongsQuery.data ?? []) {
@@ -172,12 +187,21 @@ export default function DraftReveal() {
             <div style={{ fontSize: "0.95rem", color: "rgba(255,255,255,0.8)", marginBottom: "2rem", textShadow: "0 1px 6px rgba(0,0,0,0.6)" }}>
               12 teams · random order · full theme songs · protections revealed
             </div>
-            <button
-              onClick={handleStart}
-              style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem", background: "oklch(0.78 0.15 85)", color: "oklch(0.15 0.02 150)", border: "none", borderRadius: 10, padding: "0.9rem 2.2rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "1.05rem", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", boxShadow: "0 8px 24px rgba(0,0,0,0.35)" }}
-            >
-              <Play size={20} fill="currentColor" /> Start Reveal
-            </button>
+            {draftAlreadyStarted ? (
+              <button
+                onClick={() => navigate("/draft?tab=board")}
+                style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem", background: "oklch(0.78 0.15 85)", color: "oklch(0.15 0.02 150)", border: "none", borderRadius: 10, padding: "0.9rem 2.2rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "1.05rem", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", boxShadow: "0 8px 24px rgba(0,0,0,0.35)" }}
+              >
+                Enter Draft <ArrowRight size={20} />
+              </button>
+            ) : (
+              <button
+                onClick={handleStart}
+                style={{ display: "inline-flex", alignItems: "center", gap: "0.6rem", background: "oklch(0.78 0.15 85)", color: "oklch(0.15 0.02 150)", border: "none", borderRadius: 10, padding: "0.9rem 2.2rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "1.05rem", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer", boxShadow: "0 8px 24px rgba(0,0,0,0.35)" }}
+              >
+                <Play size={20} fill="currentColor" /> Start Reveal
+              </button>
+            )}
           </div>
         )}
 
