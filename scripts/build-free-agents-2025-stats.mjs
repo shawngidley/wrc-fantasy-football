@@ -73,7 +73,7 @@ function emptyStat() {
   return {
     passYds: 0, passTd: 0, passInt: 0,
     rushAtt: 0, rushYds: 0, rushTd: 0,
-    rec: 0, recYds: 0, recTd: 0,
+    rec: 0, tgt: 0, recYds: 0, recTd: 0,
     fumblesLost: 0, returnTd: 0, games: new Set(),
   };
 }
@@ -123,6 +123,7 @@ async function aggregatePbp(ids) {
     if (receiver) {
       const stat = getStat(receiver);
       stat.rec += number(row.complete_pass);
+      stat.tgt += number(row.pass_attempt);
       stat.recYds += number(row.receiving_yards);
       stat.recTd += number(row.pass_touchdown);
       stat.games.add(gameId);
@@ -162,7 +163,7 @@ async function main() {
       pos: metadata.pos,
       passYds: stat.passYds, passTd: stat.passTd, passInt: stat.passInt,
       rushAtt: stat.rushAtt, rushYds: stat.rushYds, rushTd: stat.rushTd,
-      rec: stat.rec, recYds: stat.recYds, recTd: stat.recTd,
+      rec: stat.rec, tgt: stat.tgt, recYds: stat.recYds, recTd: stat.recTd,
       fumblesLost: stat.fumblesLost, returnTd: stat.returnTd,
       games: stat.games.size,
     };

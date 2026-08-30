@@ -9,6 +9,7 @@ export interface CompletedOffenseSeasonStatLine {
   rushYds: number;
   rushTd: number;
   rec: number;
+  tgt: number;
   recYds: number;
   recTd: number;
   fumblesLost: number;
@@ -48,7 +49,7 @@ export function normalizeCompletedOffenseSeasonStats(line: CompletedOffenseSeaso
     rushYds: line.rushYds,
     rushTD: line.rushTd,
     receptions: line.rec,
-    targets: 0,
+    targets: line.tgt,
     recYds: line.recYds,
     recTD: line.recTd,
     fumblesLost: line.fumblesLost,

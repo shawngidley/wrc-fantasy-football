@@ -68,7 +68,7 @@ def main() -> None:
     by_name: dict[str, dict[str, int | set[str]]] = defaultdict(lambda: {
         "passYds": 0, "passTd": 0, "passInt": 0,
         "rushAtt": 0, "rushYds": 0, "rushTd": 0,
-        "rec": 0, "recYds": 0, "recTd": 0,
+        "rec": 0, "tgt": 0, "recYds": 0, "recTd": 0,
         "fumblesLost": 0, "returnTd": 0, "games": set(),
     })
 
@@ -98,6 +98,7 @@ def main() -> None:
             if receiver:
                 stat = by_name[receiver]
                 stat["rec"] += number(row.get("complete_pass"))
+                stat["tgt"] += number(row.get("pass_attempt"))
                 stat["recYds"] += number(row.get("receiving_yards"))
                 stat["recTd"] += number(row.get("pass_touchdown"))
                 stat["games"].add(game_id)
@@ -119,14 +120,14 @@ def main() -> None:
         stat = by_name.get(name, {
             "passYds": 0, "passTd": 0, "passInt": 0,
             "rushAtt": 0, "rushYds": 0, "rushTd": 0,
-            "rec": 0, "recYds": 0, "recTd": 0,
+            "rec": 0, "tgt": 0, "recYds": 0, "recTd": 0,
             "fumblesLost": 0, "returnTd": 0, "games": set(),
         })
         output[name] = {
             "pos": metadata["pos"],
             "passYds": stat["passYds"], "passTd": stat["passTd"], "passInt": stat["passInt"],
             "rushAtt": stat["rushAtt"], "rushYds": stat["rushYds"], "rushTd": stat["rushTd"],
-            "rec": stat["rec"], "recYds": stat["recYds"], "recTd": stat["recTd"],
+            "rec": stat["rec"], "tgt": stat["tgt"], "recYds": stat["recYds"], "recTd": stat["recTd"],
             "fumblesLost": stat["fumblesLost"], "returnTd": stat["returnTd"],
             "games": len(stat["games"]),
         }
