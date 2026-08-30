@@ -509,6 +509,7 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
   // ── Load initial state + subscribe to realtime ──
   useEffect(() => {
     let mounted = true;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
     async function loadInitialData() {
       const [{ data: stateData }, { data: picksData }] = await Promise.all([
@@ -528,32 +529,56 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
       setLoading(false);
     }
 
-    loadInitialData();
-
-    // Subscribe to realtime changes
-    const channel = supabase
-      .channel("draft-room")
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "draft_state" }, payload => {
-        if (!mounted) return;
-        const newState = payload.new as DbDraftState;
-        setDraftState(newState);
-      })
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "draft_picks" }, payload => {
-        if (!mounted) return;
-        setDbPicks(prev => {
-          const exists = prev.some(p => p.id === (payload.new as DbDraftPick).id);
-          if (exists) return prev;
-          return [...prev, payload.new as DbDraftPick].sort((a, b) => a.overall - b.overall);
+    function subscribeRealtime() {
+      channel = supabase
+        .channel("draft-room")
+        .on("postgres_changes", { event: "UPDATE", schema: "public", table: "draft_state" }, payload => {
+          if (!mounted) return;
+          const newState = payload.new as DbDraftState;
+          setDraftState(newState);
+        })
+        .on("postgres_changes", { event: "INSERT", schema: "public", table: "draft_picks" }, payload => {
+          if (!mounted) return;
+          setDbPicks(prev => {
+            const exists = prev.some(p => p.id === (payload.new as DbDraftPick).id);
+            if (exists) return prev;
+            return [...prev, payload.new as DbDraftPick].sort((a, b) => a.overall - b.overall);
+          });
+        })
+        .subscribe(status => {
+          if (!mounted) return;
+          setConnected(status === "SUBSCRIBED");
         });
-      })
-      .subscribe(status => {
-        if (!mounted) return;
-        setConnected(status === "SUBSCRIBED");
-      });
+    }
+
+    function connect() {
+      loadInitialData();
+      subscribeRealtime();
+    }
+
+    connect();
+
+    // Browsers forcibly close any open WebSocket the instant a page enters
+    // the back-forward cache (bfcache) -- the fast-navigation optimization
+    // that freezes a page in memory instead of destroying it when you
+    // navigate away, so back/forward can restore it instantly. Restoring
+    // from bfcache does NOT automatically reconnect a closed WebSocket.
+    // Without this, a tab that was ever bfcached would silently keep
+    // showing whatever draft_state/picks it had at the exact moment it was
+    // frozen -- forever, with no visible error -- since the realtime
+    // subscription is simply dead, until an actual full page reload
+    // happened to re-run this effect from scratch.
+    function handlePageShow(event: PageTransitionEvent) {
+      if (!event.persisted) return;
+      if (channel) supabase.removeChannel(channel);
+      connect();
+    }
+    window.addEventListener("pageshow", handlePageShow);
 
     return () => {
       mounted = false;
-      supabase.removeChannel(channel);
+      window.removeEventListener("pageshow", handlePageShow);
+      if (channel) supabase.removeChannel(channel);
     };
   }, []);
 
