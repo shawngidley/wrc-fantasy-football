@@ -644,6 +644,7 @@ export default function Lineup() {
   const { statMap: lineupStatMap, playerMetaMap: lineupMetaMap } = useNFLSeasonStats(
     lineupSeasonPlayers,
     Boolean(viewTeamName) && !draftLoading,
+    false,
   );
 
   // Refs to always have latest starters/bench in effects without stale closures
