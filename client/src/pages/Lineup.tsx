@@ -43,6 +43,12 @@ const STARTER_SLOTS = [
   { slot: "DST",   label: "Defense / ST",  eligible: ["DST"] },
 ];
 
+/** Bench display order: QB, RB, WR, TE first (as requested), then K/DST. */
+const BENCH_POSITION_ORDER: Record<string, number> = { QB: 0, RB: 1, WR: 2, TE: 3, K: 4, DST: 5 };
+function sortBenchByPosition<T extends { pos: string }>(players: T[]): T[] {
+  return [...players].sort((a, b) => (BENCH_POSITION_ORDER[a.pos] ?? 99) - (BENCH_POSITION_ORDER[b.pos] ?? 99));
+}
+
 /** Stable selection key across Tank01, draft, and Supabase player-name variants. */
 // Delegates to the shared canonical normalizer so a roster player uploaded
 // as e.g. "James Cook" still matches NFL_PLAYERS_2026/live data returning
@@ -828,7 +834,7 @@ export default function Lineup() {
 
   const selectedStarter = starters.find(player => lineupPlayerKey(player.name) === selectedId);
   const selectedBench = bench.find(player => lineupPlayerKey(player.name) === selectedId);
-  const sflexPlayers = [...starters, ...bench].filter(player => ["QB", "RB", "WR", "TE"].includes(player.pos));
+  const sflexPlayers = [...starters, ...sortBenchByPosition(bench)].filter(player => ["QB", "RB", "WR", "TE"].includes(player.pos));
   const kickerPlayers = [...starters, ...bench].filter(player => player.pos === "K");
   const defensePlayers = [...starters, ...bench].filter(player => player.pos === "DST");
   const getInlineSwapChoices = (player: Player) => player.isBench
