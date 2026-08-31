@@ -8,9 +8,10 @@ import { useState, useEffect, useMemo } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import { trpc } from "@/lib/trpc";
 import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026 } from "@shared/draftPlayerUniverse";
 import { TEAMS } from "@/lib/wrcData";
-import { Trophy, TrendingUp, TrendingDown, Star, ChevronDown, ChevronUp, Award } from "lucide-react";
+import { Trophy, TrendingUp, TrendingDown, Star, ChevronDown, ChevronUp, Award, Lock } from "lucide-react";
 
 interface DbDraftPick {
   id: number;
@@ -29,6 +30,7 @@ interface PickWithGrade extends DbDraftPick {
   adp: number | null;
   adpDiff: number | null; // positive = steal (picked later than ADP), negative = reach
   grade: "steal" | "value" | "slight-reach" | "reach" | "unknown";
+  isProtection?: boolean;
 }
 
 const POS_COLORS: Record<string, { bg: string; text: string }> = {
@@ -155,7 +157,7 @@ function TeamDraftCard({ teamName, owner, picks }: { teamName: string; owner: st
           <table className="wrc-table" style={{ minWidth: 500 }}>
             <thead>
               <tr>
-                <th style={{ width: 60 }}>Pick</th>
+                <th style={{ width: 60 }}>Pick / Protected</th>
                 <th>Player</th>
                 <th style={{ width: 60 }}>Pos</th>
                 <th style={{ width: 60 }}>NFL</th>
@@ -169,9 +171,15 @@ function TeamDraftCard({ teamName, owner, picks }: { teamName: string; owner: st
                 const gc = GRADE_CONFIG[p.grade];
                 const pc = POS_COLORS[p.player_pos] ?? { bg: "oklch(0.93 0.02 150)", text: "oklch(0.45 0.04 150)" };
                 return (
-                  <tr key={p.id} className="wrc-row-hover">
+                  <tr key={p.id} className="wrc-row-hover" style={p.isProtection ? { background: "oklch(0.97 0.02 85 / 0.5)" } : undefined}>
                     <td style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: "oklch(0.45 0.06 150)", fontSize: "0.85rem" }}>
-                      R{p.round}.{p.pick}
+                      {p.isProtection ? (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: "0.25rem", color: "oklch(0.55 0.14 85)" }}>
+                          <Lock size={11} /> Rd {p.round}
+                        </span>
+                      ) : (
+                        `R${p.round}.${p.pick}`
+                      )}
                     </td>
                     <td style={{ fontWeight: 600 }}>{p.player_name}</td>
                     <td>
@@ -206,6 +214,7 @@ export default function DraftRecap() {
   const [rawPicks, setRawPicks] = useState<DbDraftPick[]>([]);
   const [loading, setLoading] = useState(true);
   const [sortBy, setSortBy] = useState<"grade" | "team">("grade");
+  const protectionsQuery = trpc.league.allProtections.useQuery();
 
   useEffect(() => {
     supabase
@@ -231,21 +240,62 @@ export default function DraftRecap() {
     [rawPicks]
   );
 
-  // Group by team
+  // Enrich protections the same way as picks, so keeping a great player for
+  // a late-round cost grades as a "steal" exactly like drafting one would --
+  // a protection's forfeited_round is its "cost", the round the team gave
+  // up to keep that player instead of drafting fresh there. Since ADP is
+  // expressed as an overall pick number, the round gets converted to its
+  // midpoint overall-pick equivalent (12-team league) for a fair comparison.
+  const enrichedProtections: PickWithGrade[] = useMemo(() => {
+    const rows = protectionsQuery.data ?? [];
+    return rows.map((row, i) => {
+      const playerInfo = Array.isArray(row.players) ? row.players[0] : row.players;
+      const team = TEAMS.find(t => t.id === row.team_id);
+      const overallEquivalent = (row.forfeited_round - 1) * 12 + 6.5;
+      const poolPlayer = playerInfo
+        ? CURRENT_DRAFT_PLAYER_UNIVERSE_2026.find(pl => pl.name.toLowerCase() === playerInfo.name.toLowerCase())
+        : undefined;
+      const adp = poolPlayer && poolPlayer.adp < 9999 ? poolPlayer.adp : null;
+      const adpDiff = adp !== null ? overallEquivalent - adp : null;
+      return {
+        id: -1000 - i, // synthetic id, guaranteed not to collide with real draft_picks ids
+        round: row.forfeited_round,
+        pick: 0,
+        overall: overallEquivalent,
+        team_name: team?.teamName ?? row.team_id,
+        owner: team?.owner ?? "",
+        player_name: playerInfo?.name ?? "Unknown",
+        player_pos: playerInfo?.position ?? "",
+        player_nfl_team: playerInfo?.nfl_team ?? "",
+        picked_at: "",
+        adp,
+        adpDiff,
+        grade: gradePickValue(overallEquivalent, adp),
+        isProtection: true,
+      };
+    });
+  }, [protectionsQuery.data]);
+
+  // Group by team -- protections and picks merged together so each team's
+  // grade reflects their true full roster, not just their live draft picks
   const byTeam = useMemo(() => {
     const map: Record<string, PickWithGrade[]> = {};
-    for (const pick of enrichedPicks) {
-      if (!map[pick.team_name]) map[pick.team_name] = [];
-      map[pick.team_name].push(pick);
+    for (const entry of [...enrichedProtections, ...enrichedPicks]) {
+      if (!map[entry.team_name]) map[entry.team_name] = [];
+      map[entry.team_name].push(entry);
+    }
+    for (const teamName of Object.keys(map)) {
+      map[teamName].sort((a, b) => a.round - b.round || (a.isProtection ? -1 : 1) - (b.isProtection ? -1 : 1) || a.pick - b.pick);
     }
     return map;
-  }, [enrichedPicks]);
+  }, [enrichedPicks, enrichedProtections]);
 
-  // League-wide stats
-  const totalPicks = enrichedPicks.length;
-  const steals = enrichedPicks.filter(p => p.grade === "steal").length;
-  const reaches = enrichedPicks.filter(p => p.grade === "reach").length;
-  const avgAdpDiff = enrichedPicks.filter(p => p.adpDiff !== null).reduce((s, p) => s + (p.adpDiff ?? 0), 0) / (enrichedPicks.filter(p => p.adpDiff !== null).length || 1);
+  // League-wide stats (picks + protections combined)
+  const allEntries = useMemo(() => [...enrichedProtections, ...enrichedPicks], [enrichedProtections, enrichedPicks]);
+  const totalPicks = allEntries.length;
+  const steals = allEntries.filter(p => p.grade === "steal").length;
+  const reaches = allEntries.filter(p => p.grade === "reach").length;
+  const avgAdpDiff = allEntries.filter(p => p.adpDiff !== null).reduce((s, p) => s + (p.adpDiff ?? 0), 0) / (allEntries.filter(p => p.adpDiff !== null).length || 1);
 
   // Sort teams
   const sortedTeams = useMemo(() => {
