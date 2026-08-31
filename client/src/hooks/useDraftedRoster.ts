@@ -12,7 +12,8 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { TEAMS, type RosterPlayer } from "@/lib/wrcData";
-import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026 } from "@shared/draftPlayerUniverse";
+import { useDraftPlayerUniverse } from "@/hooks/useDraftPlayerUniverse";
+import type { DraftUniversePlayer } from "@shared/draftPlayerUniverse";
 
 interface DbRosterMove {
   id: number;
@@ -80,7 +81,7 @@ function makeId() { return `dp${++_pid}`; }
  *   ADD  → appends player to the team's roster
  *   DROP → removes player by name from the team's roster
  */
-function applyMoves(byTeam: Record<string, RosterPlayer[]>, moves: DbRosterMove[]) {
+function applyMoves(byTeam: Record<string, RosterPlayer[]>, moves: DbRosterMove[], pool: DraftUniversePlayer[]) {
   for (const move of moves) {
     if (!byTeam[move.team_name]) byTeam[move.team_name] = [];
     if (move.move_type === "ADD") {
@@ -88,7 +89,7 @@ function applyMoves(byTeam: Record<string, RosterPlayer[]>, moves: DbRosterMove[
         p => p.name.toLowerCase() === move.player_name.toLowerCase()
       );
       if (!alreadyOn) {
-        const poolPlayer = CURRENT_DRAFT_PLAYER_UNIVERSE_2026.find(
+        const poolPlayer = pool.find(
           p => p.name.toLowerCase() === move.player_name.toLowerCase()
         );
         byTeam[move.team_name].push({
@@ -109,6 +110,7 @@ function applyMoves(byTeam: Record<string, RosterPlayer[]>, moves: DbRosterMove[
 }
 
 export function useDraftedRoster(): DraftedRosterResult {
+  const draftPlayerPool = useDraftPlayerUniverse();
   const [rostersByTeam, setRostersByTeam] = useState<Record<string, RosterPlayer[]>>({});
   const [loading, setLoading] = useState(true);
   const [hasPicks, setHasPicks] = useState(false);
@@ -161,7 +163,7 @@ export function useDraftedRoster(): DraftedRosterResult {
 
         // Apply any waiver moves on top
         if (moves && moves.length > 0) {
-          applyMoves(baseMap, moves as DbRosterMove[]);
+          applyMoves(baseMap, moves as DbRosterMove[], draftPlayerPool as DraftUniversePlayer[]);
         }
 
         setRostersByTeam(baseMap);
@@ -176,7 +178,7 @@ export function useDraftedRoster(): DraftedRosterResult {
 
       for (const pick of picks as DbDraftPick[]) {
         if (!byTeam[pick.team_name]) byTeam[pick.team_name] = [];
-        const poolPlayer = CURRENT_DRAFT_PLAYER_UNIVERSE_2026.find(
+        const poolPlayer = draftPlayerPool.find(
           p => p.name.toLowerCase() === pick.player_name.toLowerCase()
         );
         byTeam[pick.team_name].push({
@@ -231,7 +233,7 @@ export function useDraftedRoster(): DraftedRosterResult {
 
       // Apply waiver adds/drops on top
       if (moves && moves.length > 0) {
-        applyMoves(byTeam, moves as DbRosterMove[]);
+        applyMoves(byTeam, moves as DbRosterMove[], draftPlayerPool as DraftUniversePlayer[]);
       }
 
       setRostersByTeam(byTeam);
@@ -263,7 +265,7 @@ export function useDraftedRoster(): DraftedRosterResult {
       mounted = false;
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [draftPlayerPool]);
 
   return { rostersByTeam, loading, hasPicks, draftComplete };
 }

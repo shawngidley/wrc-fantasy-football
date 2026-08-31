@@ -21,6 +21,7 @@ import { siteAssetUrl } from "@/lib/siteAssetUrl";
 import { applyDraftLottery, isValidDraftLotteryResult } from "@shared/draftLottery";
 import { OWNER_TO_TEAM } from "@/lib/scheduleData2026";
 import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026, getAvailableDraftUniversePlayers, getDraftUniversePlayerByName, type DraftUniversePlayer } from "@shared/draftPlayerUniverse";
+import { useDraftPlayerUniverse } from "@/hooks/useDraftPlayerUniverse";
 import { normalizePlayerName } from "@shared/playerNameMatch";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -196,6 +197,7 @@ function DraftCountdownBanner() {
 export default function DraftBoard({ presentationMode = false }: { presentationMode?: boolean } = {}) {
   const { franchise, isCommissioner } = useAuth();
   const [, navigate] = useLocation();
+  const draftPlayerPool = useDraftPlayerUniverse();
 
   // ── Supabase state ──
   const [draftState, setDraftState] = useState<DbDraftState | null>(null);
@@ -272,8 +274,8 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
   };
 
   const queuePlayerDetails = useMemo(
-    () => queue.map(item => ({ item, player: getDraftUniversePlayerByName(item.player_name) })),
-    [queue],
+    () => queue.map(item => ({ item, player: getDraftUniversePlayerByName(item.player_name, draftPlayerPool) })),
+    [queue, draftPlayerPool],
   );
   const queueSeasonStatPlayers = useMemo(
     () => queuePlayerDetails
@@ -303,7 +305,7 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
 
   // Queue browser filtered players
   const queueFilteredPlayers = useMemo(() => {
-    return CURRENT_DRAFT_PLAYER_UNIVERSE_2026.filter(p => {
+    return draftPlayerPool.filter(p => {
       const normalizedName = normalizePlayerName(p.name);
       // Only show undrafted players not already in the queue
       if (draftedNamesNormalized.has(normalizedName)) return false;
@@ -317,7 +319,7 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
       }
       return true;
     }).sort((a, b) => (resolve2026Adp(a, adpMap) ?? Number.POSITIVE_INFINITY) - (resolve2026Adp(b, adpMap) ?? Number.POSITIVE_INFINITY));
-  }, [queueSearch, queuePosFilter, draftedNamesNormalized, queue, rosteredNames, adpMap]);
+  }, [draftPlayerPool, queueSearch, queuePosFilter, draftedNamesNormalized, queue, rosteredNames, adpMap]);
 
   // Pre-load the chime audio on mount
   useEffect(() => {
@@ -527,8 +529,8 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
 
   // Available player pool
   const availablePlayers = useMemo(
-    () => getAvailableDraftUniversePlayers({ draftedNames, rosteredNames }),
-    [draftedNames, rosteredNames],
+    () => getAvailableDraftUniversePlayers({ draftedNames, rosteredNames, pool: draftPlayerPool }),
+    [draftedNames, rosteredNames, draftPlayerPool],
   );
   const playerBoardPlayers = useMemo(() => {
     const matchingPlayers = availablePlayers.filter(p => {
@@ -1276,7 +1278,7 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
                       {(isMyTurn || isCommissioner) && !paused && (() => {
                         const topQueued = queue.find(q => !draftedNamesNormalized.has(normalizePlayerName(q.player_name)));
                         if (!topQueued) return null;
-                        const qPlayer = CURRENT_DRAFT_PLAYER_UNIVERSE_2026.find(p => p.name.toLowerCase() === topQueued.player_name.toLowerCase());
+                        const qPlayer = draftPlayerPool.find(p => p.name.toLowerCase() === topQueued.player_name.toLowerCase());
                         if (!qPlayer) return null;
                         return (
                           <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: "rgba(0,0,0,0.4)", border: "1px solid oklch(0.78 0.15 85 / 0.4)", borderRadius: 8, padding: "0.3rem 0.6rem" }}>
@@ -1583,7 +1585,7 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
                     </span>
                   </div>
                   {isCommissioner && dbPick && editingPickId === dbPick.id && (() => {
-                    const editMatches = editSearch.trim().length < 2 ? [] : CURRENT_DRAFT_PLAYER_UNIVERSE_2026
+                    const editMatches = editSearch.trim().length < 2 ? [] : draftPlayerPool
                       .filter(p =>
                         !draftedNamesNormalized.has(normalizePlayerName(p.name)) &&
                         p.name.toLowerCase().includes(editSearch.toLowerCase())

@@ -9,7 +9,8 @@ import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { ArrowUpCircle, ArrowDownCircle, ArrowLeftRight, Plus, X, RefreshCw, Search } from "lucide-react";
-import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026, type DraftUniversePlayer } from "@shared/draftPlayerUniverse";
+import { type DraftUniversePlayer } from "@shared/draftPlayerUniverse";
+import { useDraftPlayerUniverse } from "@/hooks/useDraftPlayerUniverse";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 
@@ -54,6 +55,7 @@ function AddDropModal({ onClose, onSubmit, franchise, isCommissioner }: {
   franchise: { id: string; team_name: string; owner: string; faab?: number } | null;
   isCommissioner: boolean;
 }) {
+  const draftPlayerPool = useDraftPlayerUniverse();
   const [addSearch, setAddSearch] = useState("");
   const [dropSearch, setDropSearch] = useState("");
   const [selectedAdd, setSelectedAdd] = useState<DraftUniversePlayer | null>(null);
@@ -69,7 +71,7 @@ function AddDropModal({ onClose, onSubmit, franchise, isCommissioner }: {
   }, [publicTeamsQuery.data]);
 
   const addResults = addSearch.length >= 2
-    ? CURRENT_DRAFT_PLAYER_UNIVERSE_2026.filter(p =>
+    ? draftPlayerPool.filter(p =>
         p.name.toLowerCase().includes(addSearch.toLowerCase()) ||
         p.nflTeam.toLowerCase().includes(addSearch.toLowerCase())
       ).slice(0, 8)

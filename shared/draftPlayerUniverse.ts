@@ -33,18 +33,22 @@ export function findDraftUniversePlayer(input: {
   ) ?? null;
 }
 
-export function getDraftUniversePlayerByName(name: string): DraftUniversePlayer | null {
+export function getDraftUniversePlayerByName(
+  name: string,
+  pool: readonly DraftUniversePlayer[] = CURRENT_DRAFT_PLAYER_UNIVERSE_2026,
+): DraftUniversePlayer | null {
   const candidateName = canonical(name);
-  return CURRENT_DRAFT_PLAYER_UNIVERSE_2026.find(player => canonical(player.name) === candidateName) ?? null;
+  return pool.find(player => canonical(player.name) === candidateName) ?? null;
 }
 
 export function getAvailableDraftUniversePlayers(input: {
   draftedNames: Iterable<string>;
   rosteredNames: Iterable<string>;
+  pool?: readonly DraftUniversePlayer[];
 }): DraftUniversePlayer[] {
   const drafted = new Set(Array.from(input.draftedNames, canonical));
   const rostered = new Set(Array.from(input.rosteredNames, canonical));
-  return CURRENT_DRAFT_PLAYER_UNIVERSE_2026.filter(
+  return (input.pool ?? CURRENT_DRAFT_PLAYER_UNIVERSE_2026).filter(
     player => !drafted.has(canonical(player.name)) && !rostered.has(canonical(player.name)),
   );
 }

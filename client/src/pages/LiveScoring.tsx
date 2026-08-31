@@ -19,7 +19,7 @@ import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } 
 import { fetchPlayerByName } from "@/hooks/useTank01Player";
 import { getEspnHeadshotUrl } from "@/lib/playerHeadshot";
 import { normalizePlayerName } from "@shared/playerNameMatch";
-import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026 } from "@shared/currentDraftPlayerUniverse2026";
+import { useDraftPlayerUniverse } from "@/hooks/useDraftPlayerUniverse";
 import { formatKickerEvent, getKickerEventsForPlayer, type KickerPlayEvent } from "@/lib/espnKickerEvents";
 
 const REFRESH_SECONDS = 300;
@@ -864,6 +864,7 @@ async function buildMatchupsFromLineups(
   kickerEvents: KickerPlayEvent[],
   projections: import("@/hooks/useNFLProjections").ProjectionMap,
   matchupMap: import("@/hooks/useNFLMatchups").NFLMatchupMap,
+  nflTeamPool: readonly { name: string; adp: number }[],
 ): Promise<Matchup[]> {
   const scheduleWeek = SCHEDULE_2026.find(w => w.week === week);
   if (!scheduleWeek) return [];
@@ -933,7 +934,7 @@ async function buildMatchupsFromLineups(
         // position gets picked, matching what a sensible default lineup
         // should actually look like.
         const adpByNormalizedName = new Map<string, number>();
-        for (const p of CURRENT_DRAFT_PLAYER_UNIVERSE_2026) {
+        for (const p of nflTeamPool) {
           adpByNormalizedName.set(normalizePlayerName(p.name), p.adp);
         }
         const sortedByAdp = [...teamPlayers].sort((a, b) => {
@@ -1048,6 +1049,7 @@ async function buildMatchupsFromLineups(
 // ── Main page ─────────────────────────────────────────────────────────────────
 export default function LiveScoring() {
   const { franchise } = useAuth();
+  const draftPlayerPool = useDraftPlayerUniverse();
   const [location] = useLocation();
   const [countdown, setCountdown] = useState(REFRESH_SECONDS);
   const [lastRefresh, setLastRefresh] = useState(new Date());
@@ -1081,7 +1083,7 @@ export default function LiveScoring() {
   const loadMatchups = useCallback(async () => {
     setLoading(true);
     try {
-      const matchups = await buildMatchupsFromLineups(currentWeek, liveScores, kickerEvents, projections, nflMatchupMap);
+      const matchups = await buildMatchupsFromLineups(currentWeek, liveScores, kickerEvents, projections, nflMatchupMap, draftPlayerPool);
       if (matchups.length > 0) {
         setLiveMatchups(matchups);
       } else {
@@ -1092,7 +1094,7 @@ export default function LiveScoring() {
     }
     setLastRefresh(new Date());
     setLoading(false);
-  }, [currentWeek, liveScores, kickerEvents, projections, nflMatchupMap]);
+  }, [currentWeek, liveScores, kickerEvents, projections, nflMatchupMap, draftPlayerPool]);
 
   // Reload matchups whenever live scores or projections update
   useEffect(() => {

@@ -7,6 +7,7 @@ import { releasePostDeadlinePlayers } from "../scheduledProtectionRelease";
 import { proxyTank01Request } from "../tank01Proxy";
 import { serveCompletedOffenseSnapshot } from "../seasonStatsSnapshot";
 import { refreshSharedSeasonStatsSchedule } from "../seasonStatsRefresh";
+import { refreshNflTeamAssignmentsSchedule } from "../nflTeamRefresh";
 import { finalizeWeeklyResultsSchedule } from "../scheduledWeeklyResultsFinalize";
 
 function requireCronSecret(req: Request, res: Response, next: NextFunction) {
@@ -48,6 +49,7 @@ export function createApp(): Express {
   // Vercel Cron only sends GET; these are gated by CRON_SECRET, not by the
   // caller's identity.
   app.get("/api/scheduled/season-stats-refresh", requireCronSecret, refreshSharedSeasonStatsSchedule);
+  app.get("/api/scheduled/nfl-team-refresh", requireCronSecret, refreshNflTeamAssignmentsSchedule);
   app.get("/api/scheduled/fantasypros-archive", requireCronSecret, collectFantasyProsArchive);
   app.get("/api/scheduled/release-unprotected-players", requireCronSecret, releasePostDeadlinePlayers);
   app.get("/api/scheduled/weekly-results-finalize", requireCronSecret, finalizeWeeklyResultsSchedule);

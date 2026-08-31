@@ -1451,6 +1451,21 @@ export const appRouter = router({
       if (error) throw new Error("Unable to load rostered player data.");
       return (data ?? []).map(row => ({ name: row.name, teamId: row.team_id, teamName: (row.teams as { name?: string | null } | null)?.name ?? null }));
     }),
+    nflTeamAssignments: publicProcedure.query(async () => {
+      // Live override on top of currentDraftPlayerUniverse2026.ts's static
+      // nflTeam field, refreshed daily by /api/scheduled/nfl-team-refresh.
+      // Keyed by sourcePlayerId so the client can merge it into the static
+      // pool without needing a full pool regeneration or redeploy whenever
+      // a trade, signing, or release happens mid-season.
+      const { data, error } = await supabaseAdmin.from("nfl_team_assignments")
+        .select("source_player_id, nfl_team, bye_week");
+      if (error) throw new Error("Unable to load NFL team assignments.");
+      return (data ?? []).map(row => ({
+        sourcePlayerId: row.source_player_id,
+        nflTeam: row.nfl_team,
+        byeWeek: row.bye_week,
+      }));
+    }),
     playerOwnership: publicProcedure
       .input(z.object({ playerName: z.string().min(1).max(128) }))
       .query(async ({ input }) => {

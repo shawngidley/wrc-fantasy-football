@@ -35,6 +35,7 @@ import { formatSeasonStatColumn, type PlayerSeasonStats, type SeasonStatColumn, 
 import { normalizeNFLTeamCode } from "@/lib/nflTeamCodes";
 import { getCompletedKickerSeasonStats } from "@/lib/kickerSeasonStats2025";
 import { trpc } from "@/lib/trpc";
+import { useDraftPlayerUniverse } from "@/hooks/useDraftPlayerUniverse";
 import {
   FREE_AGENT_CONFIGURABLE_COLUMNS,
   normalizeFreeAgentVisibleColumns,
@@ -275,7 +276,7 @@ const FREE_AGENT_COLUMN_LABELS: Record<FreeAgentConfigurableColumn, string> = {
   sacks: "Sacks", safeties: "Safeties", takeaways: "Takeaways", dstTD: "D/ST TD",
 };
 
-export function getFreeAgentPlayerPool(): NFLPlayer[] {
+export function getFreeAgentPlayerPool(pool: readonly NFLPlayer[] = CURRENT_DRAFT_PLAYER_UNIVERSE_2026 as unknown as readonly NFLPlayer[]): NFLPlayer[] {
   // CURRENT_DRAFT_PLAYER_UNIVERSE_2026 is the actual, current, comprehensive
   // player list the rest of the app uses (draft board, queue, protections,
   // Rosters, Lineup, Live Scoring). This page was still reading from the
@@ -289,8 +290,14 @@ export function getFreeAgentPlayerPool(): NFLPlayer[] {
   // page's own copy of a given player could diverge from how they're
   // represented everywhere else in the app, including name-matching
   // ambiguities like a rostered player still appearing available here.
+  //
+  // The pool parameter defaults to the static import for any caller that
+  // doesn't have live team-assignment data on hand, but callers inside
+  // this component should pass the useDraftPlayerUniverse() result so
+  // nflTeam reflects the daily-refreshed live override, not just whatever
+  // the static pool file last had at generation time.
   return [
-    ...CURRENT_DRAFT_PLAYER_UNIVERSE_2026.filter((player) => player.pos !== "K"),
+    ...pool.filter((player) => player.pos !== "K"),
     ...CURRENT_TANK01_KICKERS_2026,
   ];
 }
@@ -334,6 +341,7 @@ function formatKickerFantasyStat(player: NFLPlayer, stats: PlayerSeasonStats | u
 // ── Main FreeAgents page ─────────────────────────────────────────────────────
 export default function FreeAgents() {
   const { franchise } = useAuth();
+  const draftPlayerPool = useDraftPlayerUniverse();
   const [posFilter, setPosFilter] = useState<string>("SFLEX");
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("wrcPts");
@@ -383,7 +391,7 @@ export default function FreeAgents() {
   const { injuries } = useNFLInjuries();
   const { depthMap } = useNFLDepthCharts();
 
-  const allPlayers = useMemo(() => getFreeAgentPlayerPool(), []);
+  const allPlayers = useMemo(() => getFreeAgentPlayerPool(draftPlayerPool as unknown as readonly NFLPlayer[]), [draftPlayerPool]);
 
   // Free agents = players in the full player inventory not owned
   const freeAgents = useMemo(() => {
@@ -627,7 +635,7 @@ export default function FreeAgents() {
                     ))}
                   </div>
                   {watchlist.map((wp) => {
-                    const player = getFreeAgentPlayerPool().find(p => p.name.toLowerCase() === wp.player_name.toLowerCase()) ?? {
+                    const player = getFreeAgentPlayerPool(draftPlayerPool as unknown as readonly NFLPlayer[]).find(p => p.name.toLowerCase() === wp.player_name.toLowerCase()) ?? {
                       id: wp.player_name, name: wp.player_name, pos: wp.pos, nflTeam: wp.nfl_team, adp: 999, bye: undefined,
                     } as unknown as NFLPlayer;
                     const proj = getProjectedPoints(projections, player.name, player.pos, player.nflTeam);
