@@ -18,6 +18,7 @@ import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections
 import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } from "@/hooks/useNFLInjuries";
 import { fetchPlayerByName } from "@/hooks/useTank01Player";
 import { getEspnHeadshotUrl } from "@/lib/playerHeadshot";
+import { normalizePlayerName } from "@shared/playerNameMatch";
 import { formatKickerEvent, getKickerEventsForPlayer, type KickerPlayEvent } from "@/lib/espnKickerEvents";
 
 const REFRESH_SECONDS = 300;
@@ -899,7 +900,7 @@ async function buildMatchupsFromLineups(
       const teamPlayers = playersByTeam[teamId] ?? [];
       const savedLineup = lineupsByTeam[teamId] ?? [];
       const playerByName: Record<string, DbPlayer> = {};
-      for (const p of teamPlayers) playerByName[p.name.toLowerCase()] = p;
+      for (const p of teamPlayers) playerByName[normalizePlayerName(p.name)] = p;
 
       let starters: Array<{ slot: string; player: DbPlayer }> = [];
       let benchPlayers: DbPlayer[] = [];
@@ -907,7 +908,7 @@ async function buildMatchupsFromLineups(
       if (savedLineup.length > 0) {
         // Use saved lineup
         for (const row of savedLineup) {
-          const p = playerByName[row.player_name.toLowerCase()];
+          const p = playerByName[normalizePlayerName(row.player_name)];
           if (!p) continue;
           if (row.is_bench) benchPlayers.push(p);
           else {
