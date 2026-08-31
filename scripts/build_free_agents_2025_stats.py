@@ -51,15 +51,26 @@ def canonical_name(name: str) -> str:
     return re.sub(r"\s+(Jr\.|Sr\.|II|III|IV)$", "", name.strip(), flags=re.IGNORECASE).lower()
 
 
+# See the .mjs version for full rationale -- this is the one confirmed,
+# unambiguous nickname mismatch between the roster data source's full legal
+# name and our pool's common name, found by checking every unmatched pool
+# player against every roster row sharing the same last name.
+ROSTER_NAME_ALIASES = {
+    "kenneth gainwell": "kenny gainwell",
+}
+
+
 def roster_ids(pool: dict[str, dict[str, str]]) -> dict[str, str]:
     pool_by_canonical = {canonical_name(name): name for name in pool}
     with ROSTER.open("r", encoding="utf-8", newline="") as handle:
         rows = csv.DictReader(handle)
-        return {
-            row["gsis_id"]: pool_by_canonical[canonical_name(row["full_name"])]
-            for row in rows
-            if row.get("gsis_id") and canonical_name(row.get("full_name", "")) in pool_by_canonical
-        }
+        result: dict[str, str] = {}
+        for row in rows:
+            canonical = canonical_name(row.get("full_name", ""))
+            canonical = ROSTER_NAME_ALIASES.get(canonical, canonical)
+            if row.get("gsis_id") and canonical in pool_by_canonical:
+                result[row["gsis_id"]] = pool_by_canonical[canonical]
+        return result
 
 
 def main() -> None:

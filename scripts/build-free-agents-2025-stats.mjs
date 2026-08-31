@@ -27,6 +27,21 @@ function canonicalName(name) {
   return name.trim().replace(/\s+(Jr\.|Sr\.|II|III|IV)$/i, "").toLowerCase();
 }
 
+// The 2025 roster data source (nflverse) lists players by their full legal
+// name, which occasionally differs from the common/nickname form used in
+// our own player pool -- canonicalName only strips suffixes, it has no way
+// to bridge a genuine first-name variant like this. Checked every pool
+// player missing a gsis_id match against every roster row sharing the same
+// last name; this is the only case that was a real, unambiguous nickname
+// mismatch rather than a coincidental same-surname false positive (e.g.
+// dozens of unrelated "Smith"/"Williams"/"Brown" players share a last name
+// with a missing pool entry but are clearly different people). Without
+// this, Kenny Gainwell's gsis_id never resolved and none of his 2025 plays
+// were ever attributed to him, leaving his season stats entirely zero.
+const ROSTER_NAME_ALIASES = {
+  "kenneth gainwell": "kenny gainwell",
+};
+
 function playerPool() {
   // currentDraftPlayerUniverse2026.ts is the actual, current, comprehensive
   // player list the rest of the app uses (queue, draft board, protections).
@@ -61,7 +76,8 @@ async function rosterIds(pool) {
   const records = parse(csvText, { columns: true, skip_empty_lines: true, relax_column_count: true });
   const ids = new Map();
   for await (const row of records) {
-    const canonical = canonicalName(row.full_name ?? "");
+    let canonical = canonicalName(row.full_name ?? "");
+    canonical = ROSTER_NAME_ALIASES[canonical] ?? canonical;
     if (row.gsis_id && poolByCanonical.has(canonical)) {
       ids.set(row.gsis_id, poolByCanonical.get(canonical));
     }
