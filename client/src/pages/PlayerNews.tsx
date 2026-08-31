@@ -13,7 +13,8 @@ import { supabase } from "@/lib/supabase";
 import { RefreshCw, Newspaper } from "lucide-react";
 import { fetchTank01News } from "@/hooks/useNFLNews";
 import { trpc } from "@/lib/trpc";
-import { NFL_PLAYERS_2026 } from "@/lib/nflPlayers2026";
+import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026 } from "@shared/draftPlayerUniverse";
+import { useDraftPlayerUniverse } from "@/hooks/useDraftPlayerUniverse";
 import { filterFantasyPositionNews, filterNewsBySource, inferFantasyProsPlayerName, isEligibleFantasyNewsPosition, type NewsSourceFilter } from "@/lib/newsSourceFilter";
 import { getFantasyProsFeedState, retainLastSuccessfulItems } from "@/lib/fantasyProsFeedState";
 import { filterNewsToRecentWindow } from "@/lib/newsCoverage";
@@ -35,14 +36,26 @@ function normalizeNewsPlayerName(name: string): string {
   return name.toLowerCase().replace(/\./g, "").replace(/\b(jr|sr|ii|iii|iv)\b/g, "").replace(/\s+/g, " ").trim();
 }
 
-function findFantasyPlayer(name: string) {
+function findFantasyPlayer(name: string, pool: readonly { name: string; pos: string; nflTeam: string }[]) {
   const normalized = normalizeNewsPlayerName(name);
-  return NFL_PLAYERS_2026.find(player => normalizeNewsPlayerName(player.name) === normalized);
+  return pool.find(player => normalizeNewsPlayerName(player.name) === normalized);
+}
+
+/** Match a Tank01 news item's player directly by the ESPN id it already
+ * provides, rather than trying to parse a name out of its headline text --
+ * Tank01 headlines are formatted "Lastname (injury) verb...", which only
+ * ever yields a bare surname when run through name-extraction logic built
+ * for FantasyPros' different headline format, and a bare surname can never
+ * exactly match a full player name anyway. */
+function findFantasyPlayerByEspnId(espnId: string | undefined, pool: readonly { name: string; pos: string; nflTeam: string; sourcePlayerId?: string | null }[]) {
+  if (!espnId) return undefined;
+  return pool.find(player => player.sourcePlayerId === espnId);
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
 export default function PlayerNews() {
   const { franchise } = useAuth();
+  const draftPlayerPool = useDraftPlayerUniverse();
 
   const [nonFantasyProsItems, setNonFantasyProsItems] = useState<PlayerNewsItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,7 +139,7 @@ export default function PlayerNews() {
           (p.name.split(" ").slice(-1)[0].length >= 5 &&
            playerName.toLowerCase() === `${p.name[0].toLowerCase()}. ${p.name.split(" ").slice(-1)[0].toLowerCase()}`)
         );
-        const fantasyPlayer = myP ?? findFantasyPlayer(playerName);
+        const fantasyPlayer = myP ?? findFantasyPlayer(playerName, draftPlayerPool);
         if (!fantasyPlayer || !isEligibleFantasyNewsPosition(fantasyPlayer.pos)) continue;
 
         const injuryKeywords = ["injured","injury","questionable","doubtful","out","ir","placed on","ruled out","limited","missed","surgery","knee","hamstring","ankle","shoulder","concussion","rib","back","wrist","hip","illness"];
@@ -151,8 +164,8 @@ export default function PlayerNews() {
       const injuryKeywords = ["injured","injury","questionable","doubtful","out","ir","placed on","ruled out","limited","missed","surgery","knee","hamstring","ankle","shoulder","concussion","rib","back","wrist","hip","illness"];
       for (const t of tank01News) {
         if (!t.title || seen.has(t.title)) continue;
-        const playerName = inferFantasyProsPlayerName(t.title);
-        const fantasyPlayer = findFantasyPlayer(playerName);
+        const fantasyPlayer = findFantasyPlayerByEspnId(t.playerIDs?.[0], draftPlayerPool)
+          ?? findFantasyPlayer(inferFantasyProsPlayerName(t.title), draftPlayerPool);
         if (!fantasyPlayer || !isEligibleFantasyNewsPosition(fantasyPlayer.pos)) continue;
         seen.add(t.title);
         const isInjury = injuryKeywords.some(kw => t.title.toLowerCase().includes(kw));
@@ -178,7 +191,7 @@ export default function PlayerNews() {
     } finally {
       if (newsRequestId.current === requestId) setLoading(false);
     }
-  }, [myPlayers]);
+  }, [myPlayers, draftPlayerPool]);
 
   useEffect(() => { fetchNews(); }, [fetchNews]);
 
@@ -190,7 +203,7 @@ export default function PlayerNews() {
     return sourceItems.filter(fp => fp.title).map<PlayerNewsItem | null>(fp => {
       const sourcePlayerName = fp.playerName || inferFantasyProsPlayerName(fp.title);
       const myP = myPlayers.find(p => p.name.toLowerCase() === sourcePlayerName.toLowerCase());
-      const fantasyPlayer = myP ?? findFantasyPlayer(sourcePlayerName);
+      const fantasyPlayer = myP ?? findFantasyPlayer(sourcePlayerName, draftPlayerPool);
       const pos = fp.position || fantasyPlayer?.pos || "";
       if (!isEligibleFantasyNewsPosition(pos)) return null;
       const text = `${fp.title} ${fp.description} ${fp.impact}`.toLowerCase();
@@ -207,7 +220,7 @@ export default function PlayerNews() {
         source: "FantasyPros" as const,
       };
     }).filter((item): item is PlayerNewsItem => item !== null);
-  }, [fantasyProsNews.data, fantasyProsRosterNews.data, myPlayers, myTeamOnly]);
+  }, [fantasyProsNews.data, fantasyProsRosterNews.data, myPlayers, myTeamOnly, draftPlayerPool]);
 
   const fantasyProsItems = useMemo(
     () => filterNewsToRecentWindow(allFantasyProsItems),
