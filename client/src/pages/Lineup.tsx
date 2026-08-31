@@ -519,7 +519,7 @@ function buildRealRoster(teamName: string | undefined): { starters: Player[]; be
 }
 
 // team_id → team_name lookup (matches Supabase teams table & OWNER_TO_TEAM)
-const TEAM_ID_TO_NAME: Record<string, string> = {
+export const TEAM_ID_TO_NAME: Record<string, string> = {
   "team-jonas":   "The Super Snuffleupagus",
   "team-davidr":  "The Boys of Fall",
   "team-jason":   "Heiden's Hardtimes",

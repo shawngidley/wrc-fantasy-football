@@ -11,6 +11,7 @@ import { supabase } from "@/lib/supabase";
 import { trpc } from "@/lib/trpc";
 import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026 } from "@shared/draftPlayerUniverse";
 import { TEAMS } from "@/lib/wrcData";
+import { TEAM_ID_TO_NAME } from "@/pages/Lineup";
 import { Trophy, TrendingUp, TrendingDown, Star, ChevronDown, ChevronUp, Award, Lock } from "lucide-react";
 
 interface DbDraftPick {
@@ -250,7 +251,8 @@ export default function DraftRecap() {
     const rows = protectionsQuery.data ?? [];
     return rows.map((row, i) => {
       const playerInfo = Array.isArray(row.players) ? row.players[0] : row.players;
-      const team = TEAMS.find(t => t.id === row.team_id);
+      const teamName = TEAM_ID_TO_NAME[row.team_id] ?? row.team_id;
+      const team = TEAMS.find(t => t.teamName === teamName);
       const overallEquivalent = (row.forfeited_round - 1) * 12 + 6.5;
       const poolPlayer = playerInfo
         ? CURRENT_DRAFT_PLAYER_UNIVERSE_2026.find(pl => pl.name.toLowerCase() === playerInfo.name.toLowerCase())
@@ -262,7 +264,7 @@ export default function DraftRecap() {
         round: row.forfeited_round,
         pick: 0,
         overall: overallEquivalent,
-        team_name: team?.teamName ?? row.team_id,
+        team_name: teamName,
         owner: team?.owner ?? "",
         player_name: playerInfo?.name ?? "Unknown",
         player_pos: playerInfo?.position ?? "",
