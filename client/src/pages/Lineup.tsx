@@ -695,13 +695,21 @@ export default function Lineup() {
       const pool = [...allPlayers];
       const reorderedStarters: typeof newStarters = [];
       for (const slotDef of STARTER_SLOTS) {
+        // Match the saved player by normalized name, not an exact string
+        // comparison -- a saved lineup entry could easily mismatch on
+        // suffix/spacing differences (e.g. "James Cook" vs "James Cook III")
+        // between when it was saved and how the roster's current player
+        // list spells the same name, silently falling through to the
+        // greedy default below and making it look like the saved slot
+        // was never actually held.
         const savedName = savedLineup[slotDef.slot];
-        const idx = savedName
-          ? pool.findIndex(p => p.name === savedName)
-          : pool.findIndex(p => slotDef.eligible.includes(p.pos));
+        let idx = savedName ? pool.findIndex(p => lineupPlayerKey(p.name) === lineupPlayerKey(savedName)) : -1;
+        if (idx === -1) idx = pool.findIndex(p => slotDef.eligible.includes(p.pos));
         if (idx !== -1) {
           const [player] = pool.splice(idx, 1);
           reorderedStarters.push({ ...player, slot: slotDef.slot, isBench: false });
+        } else {
+          reorderedStarters.push({ id: `empty-${slotDef.slot}`, name: "", pos: "", nflTeam: "", pts: 0, proj: 0, status: "Empty", slot: slotDef.slot, isBench: false });
         }
       }
       setStarters(reorderedStarters);
