@@ -10,6 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { trpc } from "@/lib/trpc";
 import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026 } from "@shared/draftPlayerUniverse";
+import { normalizePlayerName } from "@shared/playerNameMatch";
 import { TEAMS } from "@/lib/wrcData";
 import { TEAM_ID_TO_NAME } from "@/pages/Lineup";
 import { Trophy, TrendingUp, TrendingDown, Star, ChevronDown, ChevronUp, Award, Lock } from "lucide-react";
@@ -232,7 +233,7 @@ export default function DraftRecap() {
   const enrichedPicks: PickWithGrade[] = useMemo(() =>
     rawPicks.map(p => {
       const poolPlayer = CURRENT_DRAFT_PLAYER_UNIVERSE_2026.find(
-        pl => pl.name.toLowerCase() === p.player_name.toLowerCase()
+        pl => normalizePlayerName(pl.name) === normalizePlayerName(p.player_name)
       );
       const adp = poolPlayer && poolPlayer.adp < 9999 ? poolPlayer.adp : null;
       const adpDiff = adp !== null ? p.overall - adp : null;
@@ -255,7 +256,7 @@ export default function DraftRecap() {
       const team = TEAMS.find(t => t.teamName === teamName);
       const overallEquivalent = (row.forfeited_round - 1) * 12 + 6.5;
       const poolPlayer = playerInfo
-        ? CURRENT_DRAFT_PLAYER_UNIVERSE_2026.find(pl => pl.name.toLowerCase() === playerInfo.name.toLowerCase())
+        ? CURRENT_DRAFT_PLAYER_UNIVERSE_2026.find(pl => normalizePlayerName(pl.name) === normalizePlayerName(playerInfo.name))
         : undefined;
       const adp = poolPlayer && poolPlayer.adp < 9999 ? poolPlayer.adp : null;
       const adpDiff = adp !== null ? overallEquivalent - adp : null;

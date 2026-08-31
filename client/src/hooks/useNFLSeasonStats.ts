@@ -12,6 +12,7 @@ import { getCompletedOffenseSeasonStats2025, normalizeCompletedOffenseSeasonStat
 import { normalizeCompletedDstSeasonStats, normalizeCompletedKickerSeasonStats, normalizeTankSeasonStats, type PlayerSeasonStats } from "@/lib/playerSeasonStats";
 import { readSeasonStatsCache, writeSeasonStatsCache, type SeasonStatsCacheEntry } from "@/lib/seasonStatsCache";
 import { getDraftUniversePlayerByName } from "@shared/draftPlayerUniverse";
+import { normalizePlayerName } from "@shared/playerNameMatch";
 import { getEspnHeadshotUrl } from "@/lib/playerHeadshot";
 
 export interface SeasonStatsPlayerInput {
@@ -21,13 +22,6 @@ export interface SeasonStatsPlayerInput {
 }
 
 const CONCURRENCY = 4;
-const COMPLETED_SEASON_ALIASES: Record<string, string> = {
-  "Kenneth Gainwell": "Kenny Gainwell",
-  "Harold Fannin": "Harold Fannin Jr.",
-  "James Cook": "James Cook III",
-  "Kyle Pitts": "Kyle Pitts Sr.",
-};
-
 function getAgeFromBirthDate(birthDate: string): string | undefined {
   const birth = new Date(birthDate);
   if (Number.isNaN(birth.getTime())) return undefined;
@@ -147,9 +141,21 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
 
     async function loadCompletedOffenseStats() {
       const completed = await getCompletedOffenseSeasonStats2025();
+      // Build a normalized-key index once rather than re-scanning on every
+      // lookup. Using the shared normalizePlayerName() here (instead of the
+      // old local COMPLETED_SEASON_ALIASES table) means any name-variant
+      // fix added to that shared module -- suffixes, apostrophes, known
+      // nickname aliases -- automatically applies here too, rather than
+      // needing a duplicate one-off alias added in this file every time a
+      // new mismatch is discovered.
+      const completedByNormalizedName: Record<string, string> = {};
+      for (const key of Object.keys(completed)) {
+        completedByNormalizedName[normalizePlayerName(key)] = key;
+      }
       const completedNames = new Set<string>();
       for (const player of offensePlayers) {
-        const line = completed[player.name] ?? completed[COMPLETED_SEASON_ALIASES[player.name] ?? player.name];
+        const matchedKey = completedByNormalizedName[normalizePlayerName(player.name)];
+        const line = matchedKey ? completed[matchedKey] : undefined;
         if (!line || !["QB", "RB", "WR", "TE"].includes(player.pos)) continue;
         const stats = normalizeCompletedOffenseSeasonStats(line);
         cacheSet(player.name, { stats });
