@@ -94599,6 +94599,108 @@ async function proxyEspnAthlete(req, res) {
     clearTimeout(timeout);
   }
 }
+var ALLOWED_ATHLETE_SUBRESOURCES = /* @__PURE__ */ new Set(["gamelog", "stats"]);
+async function proxyEspnAthleteSubresource(req, res) {
+  const athleteId = req.params.athleteId;
+  const subresource = req.params.subresource;
+  if (!/^\d{1,12}$/.test(athleteId ?? "")) {
+    res.status(400).json({ error: "Invalid athlete id" });
+    return;
+  }
+  if (!ALLOWED_ATHLETE_SUBRESOURCES.has(subresource ?? "")) {
+    res.status(404).json({ error: "Unknown ESPN subresource" });
+    return;
+  }
+  const season = /^\d{4}$/.test(String(req.query.season ?? "")) ? String(req.query.season) : void 0;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ESPN_TIMEOUT_MS);
+  try {
+    const url2 = new URL(`https://site.api.espn.com/apis/common/v3/sports/football/nfl/athletes/${athleteId}/${subresource}`);
+    if (season) url2.searchParams.set("season", season);
+    const response = await fetch(url2, { signal: controller.signal });
+    if (!response.ok) {
+      res.status(response.status).json({ error: `ESPN request failed with status ${response.status}` });
+      return;
+    }
+    const data = await response.json();
+    res.json(data);
+  } catch (error51) {
+    res.status(502).json({ error: error51 instanceof Error ? error51.message : "ESPN request failed" });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+async function proxyEspnNews(req, res) {
+  const limit = /^\d{1,4}$/.test(String(req.query.limit ?? "")) ? String(req.query.limit) : "200";
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ESPN_TIMEOUT_MS);
+  try {
+    const response = await fetch(
+      `https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=${limit}`,
+      { signal: controller.signal }
+    );
+    if (!response.ok) {
+      res.status(response.status).json({ error: `ESPN request failed with status ${response.status}` });
+      return;
+    }
+    const data = await response.json();
+    res.json(data);
+  } catch (error51) {
+    res.status(502).json({ error: error51 instanceof Error ? error51.message : "ESPN request failed" });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+async function proxyEspnScoreboard(req, res) {
+  const dates = /^\d{8}$/.test(String(req.query.dates ?? "")) ? String(req.query.dates) : void 0;
+  if (!dates) {
+    res.status(400).json({ error: "Invalid or missing dates (expected YYYYMMDD)" });
+    return;
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ESPN_TIMEOUT_MS);
+  try {
+    const response = await fetch(
+      `https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${dates}`,
+      { signal: controller.signal }
+    );
+    if (!response.ok) {
+      res.status(response.status).json({ error: `ESPN request failed with status ${response.status}` });
+      return;
+    }
+    const data = await response.json();
+    res.json(data);
+  } catch (error51) {
+    res.status(502).json({ error: error51 instanceof Error ? error51.message : "ESPN request failed" });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+async function proxyEspnSummary(req, res) {
+  const event = /^\d{1,20}$/.test(String(req.query.event ?? "")) ? String(req.query.event) : void 0;
+  if (!event) {
+    res.status(400).json({ error: "Invalid or missing event id" });
+    return;
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ESPN_TIMEOUT_MS);
+  try {
+    const response = await fetch(
+      `https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${event}`,
+      { signal: controller.signal }
+    );
+    if (!response.ok) {
+      res.status(response.status).json({ error: `ESPN request failed with status ${response.status}` });
+      return;
+    }
+    const data = await response.json();
+    res.json(data);
+  } catch (error51) {
+    res.status(502).json({ error: error51 instanceof Error ? error51.message : "ESPN request failed" });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 // server/_core/app.ts
 init_seasonStatsSnapshot();
@@ -96430,6 +96532,10 @@ function createApp() {
   app.use(import_express.default.urlencoded({ limit: "50mb", extended: true }));
   app.get("/api/tank01/:endpoint", proxyTank01Request);
   app.get("/api/espn/athlete/:athleteId", proxyEspnAthlete);
+  app.get("/api/espn/athlete/:athleteId/:subresource", proxyEspnAthleteSubresource);
+  app.get("/api/espn/news", proxyEspnNews);
+  app.get("/api/espn/scoreboard", proxyEspnScoreboard);
+  app.get("/api/espn/summary", proxyEspnSummary);
   app.get("/api/season-stats-2025", serveCompletedOffenseSnapshot);
   app.get("/api/scheduled/season-stats-refresh", requireCronSecret, refreshSharedSeasonStatsSchedule);
   app.get("/api/scheduled/nfl-team-refresh", requireCronSecret, refreshNflTeamAssignmentsSchedule);

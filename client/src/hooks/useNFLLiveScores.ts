@@ -116,7 +116,7 @@ export function useNFLLiveScores(
     const dates = Array.from(new Set(activeGames.map(game => game.gameDate)));
     for (const date of dates) {
       try {
-        const scoreboard = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${date}`);
+        const scoreboard = await fetch(`/api/espn/scoreboard?dates=${date}`);
         if (!scoreboard.ok) continue;
         const payload = await scoreboard.json() as { events?: Array<{ id?: string; competitions?: Array<{ competitors?: Array<{ homeAway?: string; team?: { abbreviation?: string } }> }> }> };
         for (const game of activeGames.filter(candidate => candidate.gameDate === date)) {
@@ -127,7 +127,7 @@ export function useNFLLiveScores(
             return normalizeAbv(home ?? "") === game.home && normalizeAbv(away ?? "") === game.away;
           });
           if (!event?.id) continue;
-          const summary = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${event.id}`);
+          const summary = await fetch(`/api/espn/summary?event=${event.id}`);
           if (!summary.ok) continue;
           for (const play of parseEspnKickerEvents(await summary.json())) {
             const key = `${play.playerName}|${play.type}|${play.outcome}|${play.yards}|${play.text}`;

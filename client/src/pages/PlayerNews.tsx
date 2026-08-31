@@ -102,7 +102,7 @@ export default function PlayerNews() {
     try {
       // Fetch non-FantasyPros sources in parallel. FantasyPros renders directly from its query below.
       const [espnResult, tank01Result] = await Promise.allSettled([
-        fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=200").then(r => r.json()),
+        fetch("/api/espn/news?limit=200").then(r => r.json()),
         fetchTank01News(),
       ]);
       const allArticles: ESPNArticle[] = espnResult.status === "fulfilled" ? (espnResult.value.articles ?? []) : [];

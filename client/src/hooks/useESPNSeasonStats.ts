@@ -11,7 +11,6 @@
 import { useState, useEffect } from "react";
 import { calcFantasyPoints } from "@/lib/scoringEngine";
 
-const ESPN_GAMELOG = "https://site.api.espn.com/apis/common/v3/sports/football/nfl/athletes";
 const CACHE_PREFIX = "wrc_espn_gl_v8_";
 const CACHE_NAMESPACE = "wrc_espn_gl_";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -284,13 +283,13 @@ async function fetchSeasonStats(
   } catch {}
 
   try {
-    const res = await fetch(`${ESPN_GAMELOG}/${espnId}/gamelog?season=${year}`);
+    const res = await fetch(`/api/espn/athlete/${espnId}/gamelog?season=${year}`);
     if (!res.ok) return null;
     const d = await res.json();
 
     const labels: string[] = d.labels ?? [];
     if (!labels.length) {
-      const fallbackResponse = await fetch(`${ESPN_GAMELOG}/${espnId}/stats?season=${year}`);
+      const fallbackResponse = await fetch(`/api/espn/athlete/${espnId}/stats?season=${year}`);
       if (!fallbackResponse.ok) return null;
       const fallbackData = await fallbackResponse.json();
       const fallback = extractFromSeasonTotals(fallbackData.categories ?? [], fallbackData.teams ?? {}, year);
