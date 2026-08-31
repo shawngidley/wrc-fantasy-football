@@ -84172,6 +84172,11 @@ async function releaseUnprotectedPlayers(now = Date.now()) {
   if (!isProtectionDeadlinePassed(now)) {
     return { released: 0, skipped: "before-deadline" };
   }
+  const { data: draftState, error: draftStateError } = await supabaseAdmin.from("draft_state").select("started").eq("id", 1).single();
+  if (draftStateError) throw new Error("Unable to check draft status before releasing unprotected players.");
+  if (draftState?.started) {
+    return { released: 0, skipped: "draft-already-started" };
+  }
   const [{ data: protectedRows, error: protectedError }, { data: rosteredPlayers, error: rosteredError }] = await Promise.all([
     supabaseAdmin.from("protections").select("player_id"),
     supabaseAdmin.from("players").select("id").not("team_id", "is", null)
@@ -84303,8 +84308,8 @@ var RAW_ROUNDS = [
       [3, "Keith"],
       [4, "Jamie"],
       [5, "Jonas"],
-      [6, "Scott N."],
-      [7, "David S."],
+      [6, "David S."],
+      [7, "Scott N."],
       [8, "Jason"],
       [9, "David R."],
       [10, "Bill"],
@@ -84337,8 +84342,8 @@ var RAW_ROUNDS = [
       [3, "Keith"],
       [4, "Jamie"],
       [5, "Jonas"],
-      [6, "Scott N."],
-      [7, "David S."],
+      [6, "David S."],
+      [7, "Scott N."],
       [8, "Jason"],
       [9, "David R."],
       [10, "Bill"],
@@ -84400,18 +84405,18 @@ var RAW_ROUNDS = [
   {
     round: 10,
     picks: [
-      [1, "Greg"],
-      [2, "Shawn"],
-      [3, "Bill"],
-      [4, "David R."],
-      [5, "Jason"],
+      [1, "Dan"],
+      [2, "Scott M."],
+      [3, "Keith"],
+      [4, "Jamie"],
+      [5, "Jonas"],
       [6, "Greg (David S.)"],
       [7, "Scott N."],
-      [8, "Jonas"],
-      [9, "Jamie"],
-      [10, "Keith"],
-      [11, "Scott M."],
-      [12, "Dan"]
+      [8, "Jason"],
+      [9, "David R."],
+      [10, "Bill"],
+      [11, "Shawn"],
+      [12, "Greg"]
     ]
   },
   {
@@ -84473,8 +84478,8 @@ var RAW_ROUNDS = [
       [3, "Keith"],
       [4, "Jamie"],
       [5, "Jonas"],
-      [6, "Scott N."],
-      [7, "David S."],
+      [6, "David S."],
+      [7, "Scott N."],
       [8, "Jason"],
       [9, "David R."],
       [10, "Bill"],
@@ -84507,8 +84512,8 @@ var RAW_ROUNDS = [
       [3, "Keith"],
       [4, "Jamie"],
       [5, "Jonas"],
-      [6, "Scott N."],
-      [7, "David S."],
+      [6, "David S."],
+      [7, "Scott N."],
       [8, "Jason"],
       [9, "David R."],
       [10, "Bill"],
@@ -84541,8 +84546,8 @@ var RAW_ROUNDS = [
       [3, "Keith"],
       [4, "Jamie"],
       [5, "Jonas"],
-      [6, "Scott N."],
-      [7, "David S."],
+      [6, "David S."],
+      [7, "Scott N."],
       [8, "Jason"],
       [9, "David R."],
       [10, "Bill"],
@@ -93536,6 +93541,25 @@ var appRouter = router({
       );
       if (insertError) throw new Error("Unable to save lineup");
       return { teamId, saved: input.rows.length };
+    }),
+    commissionerSaveLineup: commissionerProcedure.input(external_exports.object({
+      teamId: external_exports.string().min(1).max(128),
+      week: external_exports.number().int().min(1).max(22),
+      season: external_exports.number().int().min(2020).max(2100),
+      rows: external_exports.array(external_exports.object({
+        slot: external_exports.string().min(1).max(32),
+        player_id: external_exports.string().min(1).max(128),
+        player_name: external_exports.string().min(1).max(128),
+        is_bench: external_exports.boolean()
+      })).min(1).max(30)
+    })).mutation(async ({ input }) => {
+      const { error: deleteError } = await supabaseAdmin.from("lineups").delete().eq("team_id", input.teamId).eq("week", input.week).eq("season", input.season);
+      if (deleteError) throw new Error("Unable to replace lineup");
+      const { error: insertError } = await supabaseAdmin.from("lineups").insert(
+        input.rows.map((row) => ({ ...row, team_id: input.teamId, week: input.week, season: input.season }))
+      );
+      if (insertError) throw new Error("Unable to save lineup");
+      return { teamId: input.teamId, saved: input.rows.length };
     }),
     draftQueue: teamProcedure.input(external_exports.object({ season: external_exports.number().int().min(2020).max(2100) })).query(async ({ input, ctx }) => {
       const { data, error: error51 } = await supabaseAdmin.from("draft_queue").select("id, team_id, player_name, player_pos, player_nfl_team, rank, season").eq("team_id", ctx.teamSession.teamId).eq("season", input.season).order("rank", { ascending: true });
