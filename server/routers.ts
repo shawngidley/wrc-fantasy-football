@@ -1635,7 +1635,18 @@ export const appRouter = router({
         ]);
         const playerIds = new Map(rankGroups.flat().map(rank => [normalizePlayerKey(rank.name), rank.playerId]));
         const recentLeagueMatches = leagueNews.filter(item => rosterKeys.has(normalizePlayerKey(item.playerName)));
-        const rosterPlayersWithIds = input.players.filter(player => playerIds.has(normalizePlayerKey(player.name)));
+        // Only make a separate, expensive per-player API call for a roster
+        // player who has NO news yet from the single league-wide fetch
+        // above. Previously this called out individually for every roster
+        // player unconditionally (up to ~18 extra live requests per single
+        // page load, on top of the position-rank calls), which is what
+        // pushed the app over FantasyPros' rate limit -- most of those
+        // calls were pure duplicates of news already sitting in
+        // recentLeagueMatches.
+        const playersAlreadyCovered = new Set(recentLeagueMatches.map(item => normalizePlayerKey(item.playerName)));
+        const rosterPlayersWithIds = input.players.filter(player =>
+          playerIds.has(normalizePlayerKey(player.name)) && !playersAlreadyCovered.has(normalizePlayerKey(player.name))
+        );
         const playerSpecificGroups = await mapWithConcurrency(rosterPlayersWithIds, 4, async player => {
           const news = await getFantasyProsNews(6, playerIds.get(normalizePlayerKey(player.name)));
           return news.map(item => ({ ...item, playerName: item.playerName || player.name }));

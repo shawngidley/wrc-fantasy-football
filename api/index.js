@@ -94453,7 +94453,10 @@ var appRouter = router({
       ]);
       const playerIds = new Map(rankGroups.flat().map((rank) => [normalizePlayerKey(rank.name), rank.playerId]));
       const recentLeagueMatches = leagueNews.filter((item) => rosterKeys.has(normalizePlayerKey(item.playerName)));
-      const rosterPlayersWithIds = input.players.filter((player) => playerIds.has(normalizePlayerKey(player.name)));
+      const playersAlreadyCovered = new Set(recentLeagueMatches.map((item) => normalizePlayerKey(item.playerName)));
+      const rosterPlayersWithIds = input.players.filter(
+        (player) => playerIds.has(normalizePlayerKey(player.name)) && !playersAlreadyCovered.has(normalizePlayerKey(player.name))
+      );
       const playerSpecificGroups = await mapWithConcurrency(rosterPlayersWithIds, 4, async (player) => {
         const news = await getFantasyProsNews(6, playerIds.get(normalizePlayerKey(player.name)));
         return news.map((item) => ({ ...item, playerName: item.playerName || player.name }));
