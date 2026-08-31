@@ -9,6 +9,7 @@ import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { trpc } from "@/lib/trpc";
+import { Wallet } from "lucide-react";
 
 // ─── Static data (fallback until Supabase is connected) ─────────────────────
 
@@ -356,6 +357,54 @@ export default function Money() {
           </table>
           <div style={{ padding: "0.5rem 1rem 0.85rem" }}>
             <span style={{ fontSize: "0.7rem", color: "oklch(0.55 0.04 150)", fontStyle: "italic" }}>*includes website</span>
+          </div>
+        </div>
+
+        {/* ── Pay via Venmo — same pattern as 36football.com's payment page ── */}
+        <div className="wrc-card" style={{ marginBottom: "1.75rem", overflow: "hidden" }}>
+          <div className="wrc-card-gold-stripe" />
+          <div style={{ padding: "1rem", display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
+            <div style={{
+              width: 48, height: 48, borderRadius: 10, background: "oklch(0.32 0.1 150)",
+              display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+            }}>
+              <Wallet size={22} color="white" />
+            </div>
+            <div style={{ flex: 1, minWidth: 200 }}>
+              <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem", letterSpacing: "0.08em", textTransform: "uppercase", color: "oklch(0.5 0.06 150)" }}>
+                Pay entry fees via Venmo
+              </div>
+              <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1.1rem", color: "oklch(0.18 0.07 150)" }}>
+                Shawn Gidley
+              </div>
+              <div style={{ fontSize: "0.85rem", color: "oklch(0.45 0.1 150)", fontWeight: 600 }}>
+                @shawn-gidley
+              </div>
+            </div>
+            <a
+              href="https://venmo.com/u/shawn-gidley"
+              target="_blank"
+              rel="noreferrer"
+              style={{
+                background: "oklch(0.32 0.1 150)",
+                color: "white",
+                border: "none",
+                borderRadius: 6,
+                padding: "0.6rem 1.25rem",
+                fontFamily: "Barlow Condensed, sans-serif",
+                fontWeight: 700,
+                fontSize: "0.82rem",
+                letterSpacing: "0.05em",
+                textTransform: "uppercase",
+                textDecoration: "none",
+                flexShrink: 0,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "0.4rem",
+              }}
+            >
+              Open Venmo
+            </a>
           </div>
         </div>
 
