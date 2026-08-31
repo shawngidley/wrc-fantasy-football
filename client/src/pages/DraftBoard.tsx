@@ -336,7 +336,16 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
   const curPick   = draftState?.current_pick  ?? 0;
 
   useEffect(() => {
-    if (!complete || completeHandledRef.current) return;
+    if (!complete) {
+      // If the draft was ever (correctly or incorrectly) marked complete
+      // during this session and later corrected back to false, this resets
+      // things so the overlay/redirect can properly react again instead of
+      // staying permanently stuck from whenever it first fired.
+      completeHandledRef.current = false;
+      setShowCompleteOverlay(false);
+      return;
+    }
+    if (completeHandledRef.current) return;
     completeHandledRef.current = true;
     setShowCompleteOverlay(true);
     const timeout = setTimeout(() => {
