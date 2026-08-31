@@ -22,23 +22,20 @@ export interface SeasonStatsPlayerInput {
 }
 
 const CONCURRENCY = 4;
-function getAgeFromBirthDate(birthDate: string): string | undefined {
-  const birth = new Date(birthDate);
-  if (Number.isNaN(birth.getTime())) return undefined;
-  const now = new Date();
-  let age = now.getUTCFullYear() - birth.getUTCFullYear();
-  const birthdayPassed = now.getUTCMonth() > birth.getUTCMonth() || (now.getUTCMonth() === birth.getUTCMonth() && now.getUTCDate() >= birth.getUTCDate());
-  if (!birthdayPassed) age -= 1;
-  return String(age);
-}
 
 async function fetchEspnAge(athleteId?: string): Promise<string | undefined> {
   if (!athleteId) return undefined;
   try {
     const response = await fetch(`/api/espn/athlete/${encodeURIComponent(athleteId)}`);
     if (!response.ok) return undefined;
-    const data = await response.json() as { athlete?: { birthDate?: string } };
-    return data.athlete?.birthDate ? getAgeFromBirthDate(data.athlete.birthDate) : undefined;
+    const data = await response.json() as { athlete?: { age?: number | string } };
+    // ESPN's actual response shape has age directly (confirmed via direct
+    // inspection: fields include 'age' and 'displayDOB', not 'birthDate'
+    // as originally assumed) -- no need to compute it from a birth date at
+    // all, and getAgeFromBirthDate was always operating on a field that
+    // simply doesn't exist in this response, which is the real reason
+    // ages never appeared regardless of whether the fetch itself succeeded.
+    return data.athlete?.age != null ? String(data.athlete.age) : undefined;
   } catch { return undefined; }
 }
 
