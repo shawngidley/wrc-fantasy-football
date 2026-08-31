@@ -15,7 +15,7 @@ import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from "rea
 import { Link, useLocation } from "wouter";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { Play, Pause, SkipForward, Search, ArrowLeftRight, RotateCcw, Wifi, WifiOff, ChevronUp, ChevronDown, ListOrdered, Plus, Check, X, Pencil } from "lucide-react";
+import { Play, Pause, SkipForward, Search, ArrowLeftRight, RotateCcw, Wifi, WifiOff, ChevronUp, ChevronDown, ListOrdered, Plus, Check, X, Pencil, Volume2, VolumeX } from "lucide-react";
 import { DRAFT_PICKS_2026, getTradedPicks } from "@/lib/draftData2026";
 import { siteAssetUrl } from "@/lib/siteAssetUrl";
 import { applyDraftLottery, isValidDraftLotteryResult } from "@shared/draftLottery";
@@ -326,6 +326,36 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
     chimeRef.current = audio;
   }, []);
 
+  // Per-user audio mute toggle for draft songs/chimes. This is a personal
+  // playback preference tied to this browser, not something that needs to
+  // sync across devices or other users, so localStorage is the right store
+  // -- no server round-trip needed.
+  const AUDIO_MUTED_KEY = "wrc-draft-audio-muted";
+  const [audioMuted, setAudioMuted] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem(AUDIO_MUTED_KEY) === "true";
+    } catch {
+      return false;
+    }
+  });
+  const toggleAudioMuted = () => {
+    setAudioMuted(prev => {
+      const next = !prev;
+      try {
+        localStorage.setItem(AUDIO_MUTED_KEY, String(next));
+      } catch {
+        // localStorage unavailable (e.g. private browsing) -- state still
+        // updates for this session, just won't persist across reloads.
+      }
+      // Muting should immediately silence whatever's playing right now,
+      // not just prevent future plays.
+      if (next && themeAudioRef.current) {
+        themeAudioRef.current.pause();
+      }
+      return next;
+    });
+  };
+
   const tradedPicks = getTradedPicks();
 
   // ── Derived state ──
@@ -460,7 +490,7 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
           : 0;
       }, { once: true });
     }
-    audio.play().catch(() => {});
+    if (!audioMuted) audio.play().catch(() => {});
 
     // After 15 seconds, fade out over ~1.5s (20 steps of 75ms), then stop.
     themeTimersRef.current.fadeStart = setTimeout(() => {
@@ -656,7 +686,7 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
     // network for the entire time it was visible and often still loading
     // partway through the reveal. Starting it now gives it a real head
     // start before the image is ever actually shown.
-    if (chimeRef.current) {
+    if (chimeRef.current && !audioMuted) {
       chimeRef.current.currentTime = 0;
       chimeRef.current.play().catch(() => {});
     }
@@ -958,6 +988,15 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
               {connected ? <Wifi size={12} /> : <WifiOff size={12} />}
               {connected ? "Live" : "Connecting..."}
             </div>
+
+            {/* Audio mute toggle -- personal preference, available to everyone */}
+            <button
+              onClick={toggleAudioMuted}
+              title={audioMuted ? "Unmute draft songs & chime" : "Mute draft songs & chime"}
+              style={{ background: "rgba(255,255,255,0.12)", color: "white", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 8, padding: "0.5rem 0.6rem", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.3rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem" }}
+            >
+              {audioMuted ? <VolumeX size={14} /> : <Volume2 size={14} />}
+            </button>
 
             {/* Commissioner controls */}
             {isCommissioner && !started && (
