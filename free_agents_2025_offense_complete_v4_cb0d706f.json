@@ -13652,16 +13652,16 @@
     "passYds": 0,
     "passTd": 0,
     "passInt": 0,
-    "rushAtt": 0,
-    "rushYds": 0,
+    "rushAtt": 2,
+    "rushYds": 10,
     "rushTd": 0,
-    "rec": 0,
-    "tgt": 0,
-    "recYds": 0,
-    "recTd": 0,
+    "rec": 30,
+    "tgt": 43,
+    "recYds": 324,
+    "recTd": 1,
     "fumblesLost": 0,
     "returnTd": 0,
-    "games": 0
+    "games": 16
   },
   "TreVeyon Henderson": {
     "pos": "RB",

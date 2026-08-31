@@ -40,6 +40,7 @@ function canonicalName(name) {
 // were ever attributed to him, leaving his season stats entirely zero.
 const ROSTER_NAME_ALIASES = {
   "kenneth gainwell": "kenny gainwell",
+  "tre harris": "tre' harris",
 };
 
 function playerPool() {

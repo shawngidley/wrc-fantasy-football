@@ -57,6 +57,7 @@ def canonical_name(name: str) -> str:
 # player against every roster row sharing the same last name.
 ROSTER_NAME_ALIASES = {
     "kenneth gainwell": "kenny gainwell",
+    "tre harris": "tre' harris",
 }
 
 
