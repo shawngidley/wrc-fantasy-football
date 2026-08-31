@@ -19,6 +19,7 @@ import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } 
 import { fetchPlayerByName } from "@/hooks/useTank01Player";
 import { getEspnHeadshotUrl } from "@/lib/playerHeadshot";
 import { normalizePlayerName } from "@shared/playerNameMatch";
+import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026 } from "@shared/currentDraftPlayerUniverse2026";
 import { formatKickerEvent, getKickerEventsForPlayer, type KickerPlayEvent } from "@/lib/espnKickerEvents";
 
 const REFRESH_SECONDS = 300;
@@ -918,7 +919,28 @@ async function buildMatchupsFromLineups(
           }
         }
       } else {
-        // Default: use is_starter flag or first by position
+        // Default: no saved lineup exists for this team/week yet. Previously
+        // this picked whichever player at each position happened to be
+        // first in teamPlayers -- an unordered array from the players
+        // table with no inherent meaning. Since protected players are
+        // written to that table earlier (pre-draft, during protection
+        // locking) than drafted players (added later during the live
+        // draft), they'd cluster earlier in that array purely by accident
+        // of insertion timing, making this fallback systematically prefer
+        // protected players over drafted ones regardless of who was
+        // actually better -- not a real selection, just array-order luck.
+        // Sorting by ADP first means the best available player at each
+        // position gets picked, matching what a sensible default lineup
+        // should actually look like.
+        const adpByNormalizedName = new Map<string, number>();
+        for (const p of CURRENT_DRAFT_PLAYER_UNIVERSE_2026) {
+          adpByNormalizedName.set(normalizePlayerName(p.name), p.adp);
+        }
+        const sortedByAdp = [...teamPlayers].sort((a, b) => {
+          const adpA = adpByNormalizedName.get(normalizePlayerName(a.name)) ?? 9999;
+          const adpB = adpByNormalizedName.get(normalizePlayerName(b.name)) ?? 9999;
+          return adpA - adpB;
+        });
         const posCount: Record<string, number> = {};
         const slotDef: Array<{ slot: string; pos: string }> = [
           { slot: "QB", pos: "QB" },
@@ -934,7 +956,7 @@ async function buildMatchupsFromLineups(
         ];
         const used = new Set<string>();
         for (const { slot, pos } of slotDef) {
-          const candidate = teamPlayers.find(p => p.position === pos && !used.has(p.id));
+          const candidate = sortedByAdp.find(p => p.position === pos && !used.has(p.id));
           if (candidate) {
             starters.push({ slot, player: candidate });
             used.add(candidate.id);
