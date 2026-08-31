@@ -94572,6 +94572,34 @@ async function proxyTank01Request(req, res) {
   }
 }
 
+// server/espnProxy.ts
+var ESPN_TIMEOUT_MS = 8e3;
+async function proxyEspnAthlete(req, res) {
+  const athleteId = req.params.athleteId;
+  if (!/^\d{1,12}$/.test(athleteId ?? "")) {
+    res.status(400).json({ error: "Invalid athlete id" });
+    return;
+  }
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ESPN_TIMEOUT_MS);
+  try {
+    const response = await fetch(
+      `https://site.api.espn.com/apis/common/v3/sports/football/nfl/athletes/${athleteId}`,
+      { signal: controller.signal }
+    );
+    if (!response.ok) {
+      res.status(response.status).json({ error: `ESPN request failed with status ${response.status}` });
+      return;
+    }
+    const data = await response.json();
+    res.json(data);
+  } catch (error51) {
+    res.status(502).json({ error: error51 instanceof Error ? error51.message : "ESPN request failed" });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 // server/_core/app.ts
 init_seasonStatsSnapshot();
 init_seasonStatsRefresh();
@@ -96401,6 +96429,7 @@ function createApp() {
   app.use(import_express.default.json({ limit: "50mb" }));
   app.use(import_express.default.urlencoded({ limit: "50mb", extended: true }));
   app.get("/api/tank01/:endpoint", proxyTank01Request);
+  app.get("/api/espn/athlete/:athleteId", proxyEspnAthlete);
   app.get("/api/season-stats-2025", serveCompletedOffenseSnapshot);
   app.get("/api/scheduled/season-stats-refresh", requireCronSecret, refreshSharedSeasonStatsSchedule);
   app.get("/api/scheduled/nfl-team-refresh", requireCronSecret, refreshNflTeamAssignmentsSchedule);

@@ -35,7 +35,7 @@ function getAgeFromBirthDate(birthDate: string): string | undefined {
 async function fetchEspnAge(athleteId?: string): Promise<string | undefined> {
   if (!athleteId) return undefined;
   try {
-    const response = await fetch(`https://site.api.espn.com/apis/common/v3/sports/football/nfl/athletes/${athleteId}`);
+    const response = await fetch(`/api/espn/athlete/${encodeURIComponent(athleteId)}`);
     if (!response.ok) return undefined;
     const data = await response.json() as { athlete?: { birthDate?: string } };
     return data.athlete?.birthDate ? getAgeFromBirthDate(data.athlete.birthDate) : undefined;

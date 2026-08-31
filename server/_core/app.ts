@@ -5,6 +5,7 @@ import { createContext } from "./context";
 import { collectFantasyProsArchive } from "../scheduledFantasyProsArchive";
 import { releasePostDeadlinePlayers } from "../scheduledProtectionRelease";
 import { proxyTank01Request } from "../tank01Proxy";
+import { proxyEspnAthlete } from "../espnProxy";
 import { serveCompletedOffenseSnapshot } from "../seasonStatsSnapshot";
 import { refreshSharedSeasonStatsSchedule } from "../seasonStatsRefresh";
 import { refreshNflTeamAssignmentsSchedule } from "../nflTeamRefresh";
@@ -45,6 +46,7 @@ export function createApp(): Express {
   app.use(express.json({ limit: "50mb" }));
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   app.get("/api/tank01/:endpoint", proxyTank01Request);
+  app.get("/api/espn/athlete/:athleteId", proxyEspnAthlete);
   app.get("/api/season-stats-2025", serveCompletedOffenseSnapshot);
   // Vercel Cron only sends GET; these are gated by CRON_SECRET, not by the
   // caller's identity.
