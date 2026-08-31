@@ -29,7 +29,7 @@ interface UseNFLProjectionsResult {
   error: string | null;
 }
 
-const CACHE_PREFIX = "wrc_nfl_proj_v3_";
+const CACHE_PREFIX = "wrc_nfl_proj_v4_";
 const PROJECTION_NAME_ALIASES: Record<string, string> = {
   "kenneth gainwell": "kenny gainwell",
 };
@@ -171,7 +171,17 @@ export function useNFLProjections(week: number, season = 2026): UseNFLProjection
 
         if (!cancelled) {
           setProjections(map);
-          try { sessionStorage.setItem(cacheKey, JSON.stringify(map)); } catch { /* ignore */ }
+          // Only cache a non-empty result -- an empty map almost always
+          // means the fetch failed or returned incomplete data rather than
+          // genuinely "no projections exist yet". Caching an empty result
+          // would otherwise lock every player's PROJ column at 0.0 for the
+          // rest of this browser session (sessionStorage persists until the
+          // tab closes), even once a fresh fetch would succeed -- exactly
+          // the device-specific symptom this was causing (one browser's
+          // first-ever fetch happened to come back empty and got stuck).
+          if (Object.keys(map).length > 0) {
+            try { sessionStorage.setItem(cacheKey, JSON.stringify(map)); } catch { /* ignore */ }
+          }
         }
       } catch (err) {
         if (!cancelled) setError(err instanceof Error ? err.message : "Failed to load projections");
