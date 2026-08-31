@@ -94035,6 +94035,68 @@ var appRouter = router({
       }
       return { pick: savedPick, complete: state.current_round === WRC_DRAFT_TOTAL_ROUNDS && state.current_pick === WRC_DRAFT_TOTAL_TEAMS - 1 };
     }),
+    // Lets the commissioner correct an already-recorded pick (e.g. the
+    // wrong player got selected by mistake) without needing a full Reset,
+    // which would wipe every pick in the draft. Un-rosters whoever was
+    // previously assigned to this pick and rosters the corrected player in
+    // their place, updating the draft_picks row itself to match.
+    commissionerEditDraftPick: commissionerProcedure.input(external_exports.object({
+      pickId: external_exports.number().int(),
+      newPlayerName: external_exports.string().min(1).max(128),
+      newPlayerPos: external_exports.string().min(1).max(8),
+      newPlayerNflTeam: external_exports.string().min(1).max(8)
+    })).mutation(async ({ input }) => {
+      const { data: existingPick, error: pickFetchError } = await supabaseAdmin.from("draft_picks").select("*").eq("id", input.pickId).single();
+      if (pickFetchError || !existingPick) throw new Error("Unable to find that draft pick.");
+      const draftPlayer = findDraftUniversePlayer({ name: input.newPlayerName, pos: input.newPlayerPos, nflTeam: input.newPlayerNflTeam });
+      if (!draftPlayer) throw new Error("This player is not in the validated 2026 WRC draft pool.");
+      if (draftPlayer.name.toLowerCase() === existingPick.player_name.toLowerCase()) {
+        return { pick: existingPick, unchanged: true };
+      }
+      const { data: conflictingPick, error: conflictError } = await supabaseAdmin.from("draft_picks").select("id").ilike("player_name", draftPlayer.name).neq("id", input.pickId).maybeSingle();
+      if (conflictError) throw new Error("Unable to verify player availability.");
+      if (conflictingPick) throw new Error("This player has already been drafted for a different pick.");
+      const { data: newRosteredPlayer, error: newRosteredError } = await supabaseAdmin.from("players").select("id, team_id").ilike("name", draftPlayer.name).maybeSingle();
+      if (newRosteredError) throw new Error("Unable to verify player availability.");
+      if (newRosteredPlayer?.team_id) {
+        const { data: protection, error: protectionError } = await supabaseAdmin.from("protections").select("player_id").eq("player_id", newRosteredPlayer.id).maybeSingle();
+        if (protectionError) throw new Error("Unable to verify protected player availability.");
+        if (protection) throw new Error("This player is protected and cannot be assigned to a pick.");
+      }
+      const teamId = WRC_DRAFT_OWNER_TEAM_IDS[existingPick.owner];
+      if (!teamId) throw new Error("Unable to identify the team for this pick.");
+      const { error: unrosterError } = await supabaseAdmin.from("players").update({ team_id: null, draft_round: null, draft_pick: null, acquisition: "FA" }).ilike("name", existingPick.player_name);
+      if (unrosterError) throw new Error(`Unable to un-roster ${existingPick.player_name}.`);
+      const rosterResult = newRosteredPlayer ? await supabaseAdmin.from("players").update({
+        team_id: teamId,
+        acquisition: `Rd ${existingPick.round}`,
+        draft_round: existingPick.round,
+        draft_pick: existingPick.overall
+      }).eq("id", newRosteredPlayer.id) : await supabaseAdmin.from("players").insert({
+        id: makePlayerId(teamId, draftPlayer.name),
+        team_id: teamId,
+        name: draftPlayer.name,
+        position: draftPlayer.pos,
+        nfl_team: draftPlayer.nflTeam,
+        acquisition: `Rd ${existingPick.round}`,
+        draft_round: existingPick.round,
+        draft_pick: existingPick.overall,
+        status: "active",
+        season_fpts: 0,
+        fpg: 0,
+        bye_week: draftPlayer.bye ?? 0,
+        stats: {},
+        is_starter: false
+      });
+      if (rosterResult.error) throw new Error(`Unable to roster ${draftPlayer.name}: ${rosterResult.error.message}`);
+      const { data: updatedPick, error: updateError } = await supabaseAdmin.from("draft_picks").update({ player_name: draftPlayer.name, player_pos: draftPlayer.pos, player_nfl_team: draftPlayer.nflTeam }).eq("id", input.pickId).select("id, round, pick, overall, team_name, owner, player_name, player_pos, player_nfl_team, picked_at").single();
+      if (updateError || !updatedPick) throw new Error("Unable to update the draft pick.");
+      const { error: queueCleanupError } = await supabaseAdmin.from("draft_queue").delete().ilike("player_name", draftPlayer.name);
+      if (queueCleanupError) {
+        console.error("Failed to remove newly-assigned player from team queues:", queueCleanupError);
+      }
+      return { pick: updatedPick, unchanged: false };
+    }),
     commissionerFinalizeWeeklyResult: commissionerProcedure.input(external_exports.object({ resultId: external_exports.number().int().positive(), homeScore: external_exports.number().finite().min(0).max(500), awayScore: external_exports.number().finite().min(0).max(500) })).mutation(async ({ input }) => {
       const { data: target, error: targetError } = await supabaseAdmin.from("weekly_results").select("id, week, season").eq("id", input.resultId).single();
       if (targetError || !target) throw new Error("The selected weekly result was not found.");

@@ -11,11 +11,11 @@
  *   - Any owner whose turn it is can open the player pool and make their pick
  *   - Player pool: complete current NFL universe, filtered by position/search
  */
-import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo, Fragment } from "react";
 import { Link, useLocation } from "wouter";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
-import { Play, Pause, SkipForward, Search, ArrowLeftRight, RotateCcw, Wifi, WifiOff, ChevronUp, ChevronDown, ListOrdered, Plus, Check, X } from "lucide-react";
+import { Play, Pause, SkipForward, Search, ArrowLeftRight, RotateCcw, Wifi, WifiOff, ChevronUp, ChevronDown, ListOrdered, Plus, Check, X, Pencil } from "lucide-react";
 import { DRAFT_PICKS_2026, getTradedPicks } from "@/lib/draftData2026";
 import { siteAssetUrl } from "@/lib/siteAssetUrl";
 import { applyDraftLottery, isValidDraftLotteryResult } from "@shared/draftLottery";
@@ -252,6 +252,10 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
   const [revealedPickIds, setRevealedPickIds] = useState<Set<number>>(new Set());
   const draftActionMutation = trpc.league.commissionerDraftAction.useMutation();
   const makeDraftPickMutation = trpc.league.makeDraftPick.useMutation();
+  const editDraftPickMutation = trpc.league.commissionerEditDraftPick.useMutation();
+  const [editingPickId, setEditingPickId] = useState<number | null>(null);
+  const [editSearch, setEditSearch] = useState("");
+  const [editSubmitting, setEditSubmitting] = useState(false);
   const lotteryQuery = trpc.league.draftLottery.useQuery(undefined, { refetchInterval: 5000 });
   const resolvedDraftOrder = useMemo(() => applyDraftLottery(DRAFT_PICKS_2026, isValidDraftLotteryResult(lotteryQuery.data?.appliedResultOwners) ? lotteryQuery.data.appliedResultOwners : null), [lotteryQuery.data?.appliedResultOwners]);
 
@@ -765,6 +769,29 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
       setSubmitting(false);
     }
   }, [started, complete, submitting, isMyTurn, isCommissioner, currentTeamName, makeDraftPickMutation, reloadQueue]);
+
+  const handleEditPick = useCallback(async (pickId: number, player: DraftUniversePlayer) => {
+    if (editSubmitting) return;
+    setEditSubmitting(true);
+    try {
+      const result = await editDraftPickMutation.mutateAsync({
+        pickId,
+        newPlayerName: player.name,
+        newPlayerPos: player.pos,
+        newPlayerNflTeam: player.nflTeam,
+      });
+      if (!result.unchanged) {
+        setDbPicks(prev => prev.map(p => p.id === pickId ? (result.pick as DbDraftPick) : p));
+        toast.success(`Pick corrected to ${player.name}.`);
+      }
+      setEditingPickId(null);
+      setEditSearch("");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to edit that pick.");
+    } finally {
+      setEditSubmitting(false);
+    }
+  }, [editSubmitting, editDraftPickMutation]);
 
   // ── Render ────────────────────────────────────────────────────────────────
   if (loading) {
@@ -1462,8 +1489,8 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
                 const protectedPlayer = protectedMap[cellKey];
                 const isRowCurrent = started && !complete && round === curRound && physicalPick === curPick && !protectedPlayer;
                 return (
+                  <Fragment key={overall}>
                   <div
-                    key={overall}
                     ref={isRowCurrent ? currentListRowRef : undefined}
                     style={{
                       display: "flex", alignItems: "center", gap: "0.7rem", padding: "0.6rem 0.9rem",
@@ -1498,6 +1525,15 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
                         <>
                           <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.98rem", color: "white", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{dbPick.player_name}</span>
                           <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "white", background: POS_COLORS[dbPick.player_pos] || "#64748b", borderRadius: 3, padding: "2px 5px", flexShrink: 0 }}>{dbPick.player_pos}</span>
+                          {isCommissioner && (
+                            <button
+                              onClick={() => { setEditingPickId(editingPickId === dbPick.id ? null : dbPick.id); setEditSearch(""); }}
+                              title="Correct this pick"
+                              style={{ marginLeft: "auto", background: "none", border: "1px solid rgba(255,255,255,0.2)", borderRadius: 5, padding: "3px 6px", cursor: "pointer", color: "rgba(255,255,255,0.5)", flexShrink: 0 }}
+                            >
+                              <Pencil size={11} />
+                            </button>
+                          )}
                         </>
                       ) : isRowCurrent ? (
                         <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.92rem", color: "oklch(0.78 0.15 85)", letterSpacing: "0.05em" }}>ON THE CLOCK</span>
@@ -1506,6 +1542,38 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
                       )}
                     </span>
                   </div>
+                  {isCommissioner && dbPick && editingPickId === dbPick.id && (() => {
+                    const editMatches = editSearch.trim().length < 2 ? [] : CURRENT_DRAFT_PLAYER_UNIVERSE_2026
+                      .filter(p =>
+                        !draftedNamesNormalized.has(normalizePlayerName(p.name)) &&
+                        p.name.toLowerCase().includes(editSearch.toLowerCase())
+                      )
+                      .slice(0, 6);
+                    return (
+                      <div style={{ padding: "0.6rem 0.9rem 0.8rem", background: "rgba(0,0,0,0.3)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                        <input
+                          autoFocus
+                          value={editSearch}
+                          onChange={e => setEditSearch(e.target.value)}
+                          placeholder={`Search a replacement for ${dbPick.player_name}...`}
+                          disabled={editSubmitting}
+                          style={{ width: "100%", padding: "0.45rem 0.6rem", borderRadius: 6, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "white", fontSize: "0.85rem", marginBottom: editMatches.length > 0 ? "0.5rem" : 0 }}
+                        />
+                        {editMatches.map(p => (
+                          <button
+                            key={p.id}
+                            onClick={() => handleEditPick(dbPick.id, p)}
+                            disabled={editSubmitting}
+                            style={{ display: "flex", alignItems: "center", gap: "0.5rem", width: "100%", textAlign: "left", background: "rgba(255,255,255,0.06)", border: "none", borderRadius: 5, padding: "0.4rem 0.6rem", marginBottom: "0.3rem", cursor: editSubmitting ? "not-allowed" : "pointer", color: "white", fontSize: "0.85rem" }}
+                          >
+                            <span style={{ fontSize: "0.65rem", fontWeight: 700, background: POS_COLORS[p.pos] || "#64748b", borderRadius: 3, padding: "1px 5px" }}>{p.pos}</span>
+                            {p.name} <span style={{ color: "rgba(255,255,255,0.4)" }}>· {p.nflTeam}</span>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                  </Fragment>
                 );
               }),
             ])}
