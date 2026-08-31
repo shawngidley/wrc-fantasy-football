@@ -840,9 +840,14 @@ export default function Lineup() {
   };
 
   const handleSave = async () => {
-    // Build rows for all starters and bench players
+    // Build rows for all starters and bench players. Empty placeholder
+    // slots (unfilled positions -- name: "", id: "empty-<slot>") get
+    // excluded entirely rather than saved as a row: the server validates
+    // player_name as non-empty, so trying to save one of these would fail
+    // that validation and surface as a generic "Failed to save" with no
+    // indication of why -- exactly this class of silent failure.
     const rows = [
-      ...starters.map((p, i) => ({
+      ...starters.filter(p => p.name !== "").map((p, i) => ({
         slot: p.slot ?? `STARTER_${i}`,
         player_id: p.id,
         player_name: p.name,
@@ -862,7 +867,7 @@ export default function Lineup() {
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } else {
-      toast.error("Failed to save lineup — please try again");
+      toast.error(saveError ? `Failed to save lineup — ${saveError}` : "Failed to save lineup — please try again");
     }
   };
 
