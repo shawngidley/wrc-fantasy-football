@@ -98,7 +98,7 @@ function TeamDraftCard({ teamName, owner, picks }: { teamName: string; owner: st
       {/* Card Header */}
       <div
         onClick={() => setExpanded(e => !e)}
-        style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "1rem 1.25rem", cursor: "pointer", userSelect: "none" }}
+        style={{ display: "flex", alignItems: "center", gap: "1rem", padding: "1rem 1.25rem", cursor: "pointer", userSelect: "none", flexWrap: "wrap" }}
       >
         {/* Grade badge */}
         <div style={{
@@ -109,7 +109,7 @@ function TeamDraftCard({ teamName, owner, picks }: { teamName: string; owner: st
         </div>
 
         {/* Team info */}
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: 1, minWidth: 170 }}>
           <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1rem", letterSpacing: "0.04em", color: "oklch(0.18 0.06 150)", lineHeight: 1.2 }}>{teamName}</div>
           <div style={{ fontSize: "0.8rem", color: "oklch(0.5 0.04 150)" }}>{owner} · {picks.length} picks</div>
           {/* Position breakdown */}
@@ -125,10 +125,14 @@ function TeamDraftCard({ teamName, owner, picks }: { teamName: string; owner: st
           </div>
         </div>
 
-        {/* Best/Worst */}
-        <div style={{ display: "flex", gap: "1.5rem", flexShrink: 0 }}>
+        {/* Best/Worst -- wraps to its own full-width row on narrow screens
+            rather than squeezing team info (and its position pills) into
+            a cramped column, which previously made this whole row balloon
+            in height with the grade badge and team name floating oddly
+            in the vertical middle of it. */}
+        <div style={{ display: "flex", gap: "1.5rem", flexShrink: 0, flexBasis: 260, justifyContent: "flex-start" }}>
           {bestPick && (
-            <div style={{ textAlign: "center" }}>
+            <div>
               <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", color: "oklch(0.38 0.18 150)", fontSize: "0.7rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.06em", marginBottom: "0.2rem" }}>
                 <TrendingUp size={12} /> BEST VALUE
               </div>
@@ -137,7 +141,7 @@ function TeamDraftCard({ teamName, owner, picks }: { teamName: string; owner: st
             </div>
           )}
           {worstPick && worstPick !== bestPick && (
-            <div style={{ textAlign: "center" }}>
+            <div>
               <div style={{ display: "flex", alignItems: "center", gap: "0.25rem", color: "oklch(0.5 0.2 25)", fontSize: "0.7rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.06em", marginBottom: "0.2rem" }}>
                 <TrendingDown size={12} /> BIGGEST REACH
               </div>
@@ -148,7 +152,7 @@ function TeamDraftCard({ teamName, owner, picks }: { teamName: string; owner: st
         </div>
 
         {/* Expand toggle */}
-        <div style={{ color: "oklch(0.55 0.04 150)", flexShrink: 0 }}>
+        <div style={{ color: "oklch(0.55 0.04 150)", flexShrink: 0, marginLeft: "auto" }}>
           {expanded ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
         </div>
       </div>
