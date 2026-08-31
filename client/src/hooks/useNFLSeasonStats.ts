@@ -23,6 +23,7 @@ export interface SeasonStatsPlayerInput {
 const CONCURRENCY = 4;
 const COMPLETED_SEASON_ALIASES: Record<string, string> = {
   "Kenneth Gainwell": "Kenny Gainwell",
+  "Harold Fannin": "Harold Fannin Jr.",
 };
 
 function getAgeFromBirthDate(birthDate: string): string | undefined {
