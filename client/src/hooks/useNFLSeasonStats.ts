@@ -174,20 +174,30 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
         if (cancelled) return;
         const exactKickerSeason = player.pos === "K" ? getCompletedKickerSeasonStats(player.name) : undefined;
         const key = player.name.toLowerCase();
-        const stats = next[key]
-          ?? (exactKickerSeason
+        // Only fall back to a live Tank01 stats line when the caller
+        // actually allows it -- Lineup.tsx passes allowProviderFallback:
+        // false specifically so a player missing from the completed-season
+        // snapshot doesn't get a live/incomplete value substituted in. That
+        // restriction is about which stats source is authoritative; it has
+        // no bearing on age/headshot below, which should always be fetched.
+        const liveStats = allowProviderFallback
+          ? (exactKickerSeason
             ? normalizeCompletedKickerSeasonStats(exactKickerSeason)
-            : normalizeTankSeasonStats(tankPlayer?.stats, player.pos));
+            : normalizeTankSeasonStats(tankPlayer?.stats, player.pos))
+          : undefined;
+        const stats = next[key] ?? liveStats;
         const universePlayer = getDraftUniversePlayerByName(player.name);
         const espnAge = tankPlayer?.age || await fetchEspnAge(universePlayer?.sourcePlayerId ?? undefined);
         const meta = {
           age: espnAge,
           headshot: tankPlayer?.espnHeadshot ?? getEspnHeadshotUrl(universePlayer?.sourcePlayerId) ?? undefined,
         };
-        cacheSet(player.name, { stats, ...meta });
-        next[key] = stats;
+        if (stats) {
+          cacheSet(player.name, { stats, ...meta });
+          next[key] = stats;
+          setStatMap({ ...next });
+        }
         nextMeta[key] = meta;
-        setStatMap({ ...next });
         setPlayerMetaMap({ ...nextMeta });
         setLoadedCount(Object.keys(next).length);
       }
@@ -195,11 +205,18 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
 
     void (async () => {
       await Promise.all([loadDstStats(), loadExactKickerStats()]);
-      const completedNames = await loadCompletedOffenseStats();
-      const unresolved = allowProviderFallback
-        ? individualPlayers
-        : [];
-      individualPlayers.splice(0, individualPlayers.length, ...unresolved);
+      await loadCompletedOffenseStats();
+      // Previously individualPlayers was spliced down to empty whenever
+      // allowProviderFallback was false (as Lineup.tsx always passes),
+      // which meant worker() -- the only code path that fetches age and
+      // headshot for non-kicker players -- never ran at all on that page.
+      // That flag was only ever meant to stop the completed-season stats
+      // value itself from being overwritten by a live provider fetch;
+      // worker() already respects that correctly on its own via
+      // `next[key] ?? (...)`, reusing whatever authoritative stats value
+      // already exists rather than recomputing it. Age/headshot have
+      // nothing to do with stats-source authority, so they shouldn't have
+      // been gated behind the same flag.
       await Promise.all(Array.from({ length: Math.min(CONCURRENCY, individualPlayers.length) }, () => worker()));
     })()
       .finally(() => {
