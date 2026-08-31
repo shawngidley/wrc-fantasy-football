@@ -336,23 +336,15 @@ export default function DraftBoard({ presentationMode = false }: { presentationM
   const curPick   = draftState?.current_pick  ?? 0;
 
   useEffect(() => {
-    if (!complete) {
-      // If the draft was ever (correctly or incorrectly) marked complete
-      // during this session and later corrected back to false, this resets
-      // things so the overlay/redirect can properly react again instead of
-      // staying permanently stuck from whenever it first fired.
-      completeHandledRef.current = false;
-      setShowCompleteOverlay(false);
-      return;
-    }
-    if (completeHandledRef.current) return;
-    completeHandledRef.current = true;
-    setShowCompleteOverlay(true);
-    const timeout = setTimeout(() => {
-      navigate("/draft-recap");
-    }, 5000);
-    return () => clearTimeout(timeout);
-  }, [complete, navigate]);
+    // The automatic "DRAFT COMPLETE!" overlay + auto-redirect-to-Recap
+    // behavior has been disabled per explicit request -- marking the draft
+    // complete should happen quietly now, with Draft Recap remaining fully
+    // accessible manually (via its own page/nav) whenever someone chooses
+    // to visit it, rather than forcing an overlay and redirect on everyone
+    // watching the moment the flag flips.
+    completeHandledRef.current = false;
+    setShowCompleteOverlay(false);
+  }, [complete]);
 
   // Build picks map: "round-pick" → DbDraftPick
   const picksMap = useMemo(() => {
