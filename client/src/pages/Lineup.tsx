@@ -8,7 +8,7 @@ import React, { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Navigation from "@/components/Navigation";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
-import { Lock, CheckCircle2, ChevronDown, ArrowLeftRight, X, Zap, Eye, ArrowLeft, Wifi, WifiOff } from "lucide-react";
+import { Lock, CheckCircle2, ChevronDown, ArrowLeftRight, X, Zap, Eye, ArrowLeft, Wifi, WifiOff, Shield } from "lucide-react";
 import { TEAMS } from "@/lib/wrcData";
 import { getCurrentWeek } from "@/lib/scheduleData2026";
 import { useDraftedRoster } from "@/hooks/useDraftedRoster";
@@ -540,7 +540,7 @@ export const TEAM_NAME_TO_ID: Record<string, string> = Object.fromEntries(
 );
 
 export default function Lineup() {
-  const { franchise } = useAuth();
+  const { franchise, isCommissioner } = useAuth();
   const [, navigate] = useLocation();
   const { teamId } = useParams<{ teamId?: string }>();
   const { rostersByTeam, hasPicks, loading: draftLoading } = useDraftedRoster();
@@ -557,24 +557,30 @@ export default function Lineup() {
     });
   }, []);
 
-  // Determine which team to show and whether we are in read-only mode
+  // Determine which team to show and whether we are in read-only mode.
+  // The commissioner can edit any team's lineup, not just their own, so
+  // read-only only applies to non-commissioners viewing someone else's team.
   const viewTeamName = teamId ? (TEAM_ID_TO_NAME[teamId] ?? null) : franchise?.team_name;
-  const isReadOnly = !!(teamId && franchise?.team_name !== viewTeamName);
+  const isReadOnly = !!(teamId && franchise?.team_name !== viewTeamName) && !isCommissioner;
   const isOwnerView = !teamId; // true when on /lineup (owner's own page)
+  const isCommissionerEditingOtherTeam = isCommissioner && !!teamId && franchise?.team_name !== viewTeamName;
 
   // Live NFL matchup + projection data from Tank01
   const currentWeek = getCurrentWeek() || 1;
   const { matchups: matchupMap } = useNFLMatchups(currentWeek);
   const { projections } = useNFLProjections(currentWeek);
 
-  // Lineup persistence (Supabase) — only for owner's own lineup
-  // Load saved lineup if: (a) on /lineup (owner's own page), or (b) on /lineup/team-X where team-X matches the logged-in owner
-  const ownerTeamId = franchise?.id
-    ? (!teamId || teamId === franchise.id ? franchise.id : null)
-    : null;
+  // Lineup persistence (Supabase). Normally only loads/saves for the
+  // owner's own team; the commissioner also gets access when viewing
+  // another team's page (via the commissioner-only save endpoint).
+  const ownerTeamId = isCommissioner && teamId
+    ? teamId
+    : franchise?.id
+      ? (!teamId || teamId === franchise.id ? franchise.id : null)
+      : null;
   const { savedLineup, saveLineup, saving, saveError } = useLineupPersistence(
-  ownerTeamId, currentWeek
-);
+    ownerTeamId, currentWeek, 2026, isCommissionerEditingOtherTeam
+  );
 
   // Live in-game score polling (Tank01 box scores)
   const { liveScores, isPolling, lastUpdated, kickerEvents } = useNFLLiveScores(
@@ -911,6 +917,11 @@ export default function Lineup() {
               READ ONLY
             </span>
           )}
+          {isCommissionerEditingOtherTeam && (
+            <span style={{ marginLeft: "0.75rem", fontSize: "0.72rem", color: "oklch(0.7 0.15 85)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.04em", display: "inline-flex", alignItems: "center", gap: "0.3rem" }}>
+              <Shield size={12} /> EDITING AS COMMISSIONER
+            </span>
+          )}
         </div>
 
         {/* ── Header ── */}
@@ -918,14 +929,15 @@ export default function Lineup() {
           <div className="wrc-page-title" style={{ padding: 0 }}>
             <h1 style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
               {isReadOnly && <Eye size={18} style={{ opacity: 0.6 }} />}
-              {(isReadOnly ? viewTeamName : franchise?.team_name) && (
-                <TeamLogo teamName={(isReadOnly ? viewTeamName : franchise?.team_name) ?? ""} size={36} style={{ borderRadius: 6 }} />
+              {isCommissionerEditingOtherTeam && <Shield size={18} style={{ opacity: 0.7, color: "oklch(0.7 0.15 85)" }} />}
+              {((isReadOnly || isCommissionerEditingOtherTeam) ? viewTeamName : franchise?.team_name) && (
+                <TeamLogo teamName={((isReadOnly || isCommissionerEditingOtherTeam) ? viewTeamName : franchise?.team_name) ?? ""} size={36} style={{ borderRadius: 6 }} />
               )}
-              {isReadOnly ? viewTeamName : "My Lineup"}
+              {(isReadOnly || isCommissionerEditingOtherTeam) ? viewTeamName : "My Lineup"}
             </h1>
-            <p>{isReadOnly ? "Read-only view" : (franchise?.team_name || "Select a team")} — Week {currentWeek} · Lock: players lock at kickoff</p>
+            <p>{isCommissionerEditingOtherTeam ? "Editing on behalf of this owner" : isReadOnly ? "Read-only view" : (franchise?.team_name || "Select a team")} — Week {currentWeek} · Lock: players lock at kickoff</p>
           </div>
-          {/* Controls — only shown to the owner of this lineup */}
+          {/* Controls — shown to the owner of this lineup, or the commissioner editing on their behalf */}
           {!isReadOnly && (
             <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" as const }}>
               {/* Best Lineup button */}

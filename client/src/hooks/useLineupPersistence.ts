@@ -33,7 +33,8 @@ interface UseLineupPersistenceResult {
 export function useLineupPersistence(
   teamId: string | null | undefined,
   week: number,
-  season = 2026
+  season = 2026,
+  asCommissioner = false,
 ): UseLineupPersistenceResult {
   const [savedLineup, setSavedLineup] = useState<SavedLineupMap | null>(null);
   const [loadingLineup, setLoadingLineup] = useState(false);
@@ -44,6 +45,7 @@ export function useLineupPersistence(
     { enabled: Boolean(teamId), staleTime: 30_000 },
   );
   const saveLineupMutation = trpc.league.saveLineup.useMutation();
+  const commissionerSaveLineupMutation = trpc.league.commissionerSaveLineup.useMutation();
 
   // Load saved lineup on mount / when teamId/week changes
   useEffect(() => {
@@ -67,7 +69,16 @@ export function useLineupPersistence(
       setSaving(true);
       setSaveError(null);
       try {
-        await saveLineupMutation.mutateAsync({ week, season, rows });
+        // saveLineup (teamProcedure) always writes to the caller's own
+        // authenticated team, ignoring any teamId passed in -- it can't be
+        // used to edit someone else's lineup even client-side. The
+        // commissioner-only endpoint takes an explicit teamId instead, so
+        // the commissioner can set any team's lineup on their behalf.
+        if (asCommissioner) {
+          await commissionerSaveLineupMutation.mutateAsync({ teamId, week, season, rows });
+        } else {
+          await saveLineupMutation.mutateAsync({ week, season, rows });
+        }
 
         // Update local state so UI reflects saved state (keyed by player_name)
         const map: SavedLineupMap = {};
@@ -87,7 +98,7 @@ export function useLineupPersistence(
         setSaving(false);
       }
     },
-    [teamId, week, season, saveLineupMutation, savedLineupQuery]
+    [teamId, week, season, asCommissioner, saveLineupMutation, commissionerSaveLineupMutation, savedLineupQuery]
   );
 
   return { savedLineup, loadingLineup, saveLineup, saveError, saving };

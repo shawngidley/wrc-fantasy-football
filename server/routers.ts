@@ -423,6 +423,37 @@ export const appRouter = router({
         if (insertError) throw new Error("Unable to save lineup");
         return { teamId, saved: input.rows.length };
       }),
+    commissionerSaveLineup: commissionerProcedure
+      .input(z.object({
+        teamId: z.string().min(1).max(128),
+        week: z.number().int().min(1).max(22),
+        season: z.number().int().min(2020).max(2100),
+        rows: z.array(z.object({
+          slot: z.string().min(1).max(32),
+          player_id: z.string().min(1).max(128),
+          player_name: z.string().min(1).max(128),
+          is_bench: z.boolean(),
+        })).min(1).max(30),
+      }))
+      .mutation(async ({ input }) => {
+        // Same as saveLineup above, but for any team the commissioner
+        // specifies -- lets the commissioner set lineups on behalf of an
+        // owner who's unavailable, rather than being limited to their own
+        // team like every other teamProcedure caller.
+        const { error: deleteError } = await supabaseAdmin
+          .from("lineups")
+          .delete()
+          .eq("team_id", input.teamId)
+          .eq("week", input.week)
+          .eq("season", input.season);
+        if (deleteError) throw new Error("Unable to replace lineup");
+
+        const { error: insertError } = await supabaseAdmin.from("lineups").insert(
+          input.rows.map(row => ({ ...row, team_id: input.teamId, week: input.week, season: input.season })),
+        );
+        if (insertError) throw new Error("Unable to save lineup");
+        return { teamId: input.teamId, saved: input.rows.length };
+      }),
     draftQueue: teamProcedure
       .input(z.object({ season: z.number().int().min(2020).max(2100) }))
       .query(async ({ input, ctx }) => {
