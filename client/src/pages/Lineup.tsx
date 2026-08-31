@@ -338,9 +338,20 @@ export function mobileLineupName(player: Pick<Player, "name" | "pos">): string {
 
 function LineupIdentity({ player, meta }: { player: Player; meta?: { age?: string; headshot?: string } }) {
   const [imageFailed, setImageFailed] = useState(false);
+  const isEmpty = player.name === "";
   const initials = player.name.split(" ").map(part => part[0]).slice(0, 2).join("");
   const canonicalHeadshot = getEspnHeadshotUrl(getDraftUniversePlayerByName(player.name)?.sourcePlayerId);
   const identityImage = player.pos === "DST" ? getNflTeamLogoUrl(player.nflTeam) : meta?.headshot ?? canonicalHeadshot;
+  if (isEmpty) {
+    return (
+      <div style={{ display: "flex", alignItems: "center", gap: "var(--lineup-identity-gap)", minWidth: 0 }}>
+        <span style={{ display: "grid", placeItems: "center", width: "var(--lineup-avatar-size)", height: "var(--lineup-avatar-size)", borderRadius: "50%", border: "1.5px dashed oklch(0.7 0.02 150)", color: "oklch(0.6 0.02 150)", fontSize: "0.6rem", fontWeight: 800, flexShrink: 0 }}>+</span>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ color: "oklch(0.55 0.03 150)", fontWeight: 700, fontSize: "var(--lineup-player-name-size)", fontStyle: "italic" }}>Empty — click to add</div>
+        </div>
+      </div>
+    );
+  }
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "var(--lineup-identity-gap)", minWidth: 0 }}>
       {identityImage && !imageFailed ? (
@@ -494,6 +505,13 @@ function buildRealRoster(teamName: string | undefined): { starters: Player[]; be
     if (idx !== -1) {
       const [player] = pool.splice(idx, 1);
       starters.push({ ...player, slot: slotDef.slot, isBench: false });
+    } else {
+      // No eligible player available for this slot -- push a placeholder
+      // so the row still renders and is clickable. Previously an unfilled
+      // slot was skipped entirely, meaning it never appeared as a row at
+      // all, leaving no way to assign a bench player into it even when one
+      // was eligible and available.
+      starters.push({ id: `empty-${slotDef.slot}`, name: "", pos: "", nflTeam: "", pts: 0, proj: 0, status: "Empty", slot: slotDef.slot, isBench: false });
     }
   }
   const bench = pool.map(p => ({ ...p, isBench: true }));
