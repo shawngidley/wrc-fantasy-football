@@ -6,7 +6,27 @@ import superjson from "superjson";
 import App from "./App";
 import "./index.css";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error) => {
+        // Never retry a rate limit -- retrying it is what's likely to keep
+        // it perpetually tripped instead of ever letting it reset, since
+        // the default (3 retries with exponential backoff) turns every
+        // single failed request into up to 4 actual HTTP calls to
+        // whatever third-party API is rate-limiting us (confirmed
+        // happening repeatedly with FantasyPros over several hours).
+        const message = error instanceof Error ? error.message : String(error);
+        if (message.includes("429") || /rate limit/i.test(message)) return false;
+        // Otherwise, a couple of retries for genuinely transient failures
+        // is reasonable, but the default of 3 is more aggressive than this
+        // app's data (fantasy sports info, not anything time-critical)
+        // actually needs.
+        return failureCount < 2;
+      },
+    },
+  },
+});
 
 queryClient.getQueryCache().subscribe(event => {
   if (event.type === "updated" && event.action.type === "error") {

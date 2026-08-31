@@ -55,11 +55,12 @@ export default function PlayerNews() {
   const fantasyProsNews = trpc.fantasyPros.news.useQuery(
     { limit: 100, feedVersion: 4 },
     {
-      staleTime: 0,
-      refetchOnMount: "always",
-      refetchOnWindowFocus: true,
-      retry: 3,
-      retryDelay: attempt => Math.min(1_000 * 2 ** attempt, 8_000),
+      staleTime: 15 * 60_000,
+      retry: (failureCount, error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message.includes("429") || /rate limit/i.test(message)) return false;
+        return failureCount < 2;
+      },
     },
   );
   const rosterNewsPlayers = useMemo(
@@ -71,7 +72,11 @@ export default function PlayerNews() {
     {
       enabled: myTeamOnly && rosterNewsPlayers.length > 0,
       staleTime: 5 * 60_000,
-      retry: 2,
+      retry: (failureCount, error) => {
+        const message = error instanceof Error ? error.message : String(error);
+        if (message.includes("429") || /rate limit/i.test(message)) return false;
+        return failureCount < 2;
+      },
     },
   );
 
