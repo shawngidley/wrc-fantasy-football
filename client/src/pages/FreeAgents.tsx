@@ -12,7 +12,8 @@
  */
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Link } from "wouter";
-import { NFL_PLAYERS_2026, type NFLPlayer } from "@/lib/nflPlayers2026";
+import { type NFLPlayer } from "@/lib/nflPlayers2026";
+import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026 } from "@shared/currentDraftPlayerUniverse2026";
 import { CURRENT_TANK01_KICKERS_2026 } from "@/lib/currentKickers2026";
 import { getTeamLogoUrl } from "@/hooks/useTank01Player";
 import { useAuth } from "@/contexts/AuthContext";
@@ -275,8 +276,21 @@ const FREE_AGENT_COLUMN_LABELS: Record<FreeAgentConfigurableColumn, string> = {
 };
 
 export function getFreeAgentPlayerPool(): NFLPlayer[] {
+  // CURRENT_DRAFT_PLAYER_UNIVERSE_2026 is the actual, current, comprehensive
+  // player list the rest of the app uses (draft board, queue, protections,
+  // Rosters, Lineup, Live Scoring). This page was still reading from the
+  // old NFL_PLAYERS_2026 file -- a much smaller, ~250-player list that
+  // predates that switch -- which meant the free agent pool started from
+  // a fraction of the real player universe. Since that shorter list skews
+  // toward well-known, higher-ADP players who are disproportionately
+  // likely to already be rostered, subtracting rostered players from it
+  // left only a small residual (63, rather than the many hundreds
+  // available across the real ~1000-player pool). It also meant this
+  // page's own copy of a given player could diverge from how they're
+  // represented everywhere else in the app, including name-matching
+  // ambiguities like a rostered player still appearing available here.
   return [
-    ...NFL_PLAYERS_2026.filter((player) => player.pos !== "K"),
+    ...CURRENT_DRAFT_PLAYER_UNIVERSE_2026.filter((player) => player.pos !== "K"),
     ...CURRENT_TANK01_KICKERS_2026,
   ];
 }
@@ -613,7 +627,7 @@ export default function FreeAgents() {
                     ))}
                   </div>
                   {watchlist.map((wp) => {
-                    const player = [...(NFL_PLAYERS_2026 as NFLPlayer[])].find(p => p.name.toLowerCase() === wp.player_name.toLowerCase()) ?? {
+                    const player = getFreeAgentPlayerPool().find(p => p.name.toLowerCase() === wp.player_name.toLowerCase()) ?? {
                       id: wp.player_name, name: wp.player_name, pos: wp.pos, nflTeam: wp.nfl_team, adp: 999, bye: undefined,
                     } as unknown as NFLPlayer;
                     const proj = getProjectedPoints(projections, player.name, player.pos, player.nflTeam);
