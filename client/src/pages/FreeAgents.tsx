@@ -20,6 +20,7 @@ import { getCurrentWeek } from "@/lib/scheduleData2026";
 import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections";
 import { useNFLMatchups, formatGameTime } from "@/hooks/useNFLMatchups";
 import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } from "@/hooks/useNFLInjuries";
+import { normalizePlayerName } from "@shared/playerNameMatch";
 import FAABBidModal from "@/components/FAABBidModal";
 import { supabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
@@ -355,7 +356,7 @@ export default function FreeAgents() {
   useEffect(() => {
     const rosteredPlayers = rosteredPlayersQuery.data;
     if (!rosteredPlayers) return;
-    setOwnedNames(new Set(rosteredPlayers.map(player => player.name.toLowerCase())));
+    setOwnedNames(new Set(rosteredPlayers.map(player => normalizePlayerName(player.name))));
     setOwnershipMap(Object.fromEntries(rosteredPlayers.map(player => [player.name.toLowerCase(), player.teamName ?? player.teamId])));
     setLoadingOwned(false);
   }, [rosteredPlayersQuery.data]);
@@ -373,7 +374,7 @@ export default function FreeAgents() {
   // Free agents = players in the full player inventory not owned
   const freeAgents = useMemo(() => {
     if (loadingOwned) return [];
-    return allPlayers.filter((p) => !ownedNames.has(p.name.toLowerCase()));
+    return allPlayers.filter((p) => !ownedNames.has(normalizePlayerName(p.name)));
   }, [allPlayers, ownedNames, loadingOwned]);
 
   // Filter + search. Sorting is applied after Tank01 season stats load so every
