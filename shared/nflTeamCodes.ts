@@ -6,6 +6,7 @@ const TEAM_CODE_ALIASES: Record<string, string> = {
   WAS: "WSH",
   WSN: "WSH",
   OAK: "LV",
+  LA: "LAR",
 };
 
 export function normalizeNFLTeamCode(team: string | null | undefined): string {

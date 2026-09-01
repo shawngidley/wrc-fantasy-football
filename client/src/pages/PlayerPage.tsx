@@ -32,7 +32,7 @@ import { trpc } from "@/lib/trpc";
 import { getVisiblePlayerNews } from "@/lib/playerNewsDisplay";
 import { getOverallEcrDisplay } from "@/lib/playerRankDisplay";
 import { calculateStatAverage } from "@/lib/playerStatMath";
-import { normalizeNFLTeamCode } from "@/lib/nflTeamCodes";
+import { normalizeNFLTeamCode } from "@shared/nflTeamCodes";
 import { getHistoricalSeasonTeam } from "@/lib/playerSeasonTeam";
 import { normalizePlayerName as sharedNormalizePlayerName } from "@shared/playerNameMatch";
 

@@ -4,7 +4,7 @@
  * Caches results in sessionStorage to avoid redundant API calls.
  */
 import { useState, useEffect } from "react";
-import { normalizeNFLTeamCode } from "@/lib/nflTeamCodes";
+import { normalizeNFLTeamCode } from "@shared/nflTeamCodes";
 import type { Tank01Stats } from "@/lib/scoringEngine";
 import { getDraftUniversePlayerByName } from "@shared/draftPlayerUniverse";
 import { normalizePlayerName } from "@shared/playerNameMatch";

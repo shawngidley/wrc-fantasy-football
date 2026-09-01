@@ -5,7 +5,7 @@
  */
 import { useEffect, useMemo, useState } from "react";
 import { fetchPlayerByName } from "@/hooks/useTank01Player";
-import { normalizeNFLTeamCode } from "@/lib/nflTeamCodes";
+import { normalizeNFLTeamCode } from "@shared/nflTeamCodes";
 import { DST_SEASON_STATS_2025 } from "@/lib/dstSeasonStats2025";
 import { getCompletedKickerSeasonStats } from "@/lib/kickerSeasonStats2025";
 import { getCompletedOffenseSeasonStats2025, normalizeCompletedOffenseSeasonStats } from "@/lib/completedOffenseSeasonStats2025";

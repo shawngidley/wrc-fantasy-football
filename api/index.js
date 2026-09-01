@@ -96419,6 +96419,24 @@ var parse6 = function(data, opts = {}) {
 
 // server/nflTeamRefresh.ts
 init_supabaseAdmin();
+
+// shared/nflTeamCodes.ts
+var TEAM_CODE_ALIASES = {
+  JAX: "JAC",
+  KAN: "KC",
+  TAM: "TB",
+  ARZ: "ARI",
+  WAS: "WSH",
+  WSN: "WSH",
+  OAK: "LV",
+  LA: "LAR"
+};
+function normalizeNFLTeamCode(team) {
+  const code = (team ?? "").trim().toUpperCase();
+  return TEAM_CODE_ALIASES[code] ?? code;
+}
+
+// server/nflTeamRefresh.ts
 var ROSTER_URL = "https://github.com/nflverse/nflverse-data/releases/download/rosters/roster_2026.csv";
 async function fetchRosterCsv() {
   const response = await fetch(ROSTER_URL, { redirect: "follow" });
@@ -96435,10 +96453,11 @@ async function refreshNflTeamAssignments() {
   const assignments = [];
   for (const row of rows) {
     if (!row.espn_id || !row.team) continue;
+    const team = normalizeNFLTeamCode(row.team);
     assignments.push({
       sourcePlayerId: row.espn_id,
-      nflTeam: row.team,
-      byeWeek: byeByTeam.get(row.team) ?? null
+      nflTeam: team,
+      byeWeek: byeByTeam.get(team) ?? null
     });
   }
   if (!assignments.length) throw new Error("Roster CSV parsed but produced no usable rows");

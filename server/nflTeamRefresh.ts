@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { parse } from "csv-parse/sync";
 import { supabaseAdmin } from "./supabaseAdmin";
 import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026 } from "../shared/currentDraftPlayerUniverse2026";
+import { normalizeNFLTeamCode } from "../shared/nflTeamCodes";
 
 // nflverse republishes this file continuously through the season as trades,
 // signings, and releases happen -- unlike currentDraftPlayerUniverse2026.ts,
@@ -44,10 +45,20 @@ export async function refreshNflTeamAssignments(): Promise<{ updated: number }> 
   const assignments: NflTeamAssignment[] = [];
   for (const row of rows) {
     if (!row.espn_id || !row.team) continue;
+    // nflverse's roster CSV uses different team abbreviation conventions
+    // than this app's established ones in places -- confirmed for the Rams
+    // specifically (nflverse: "LA", this app's pool and everywhere else:
+    // "LAR"), which broke both the team display and the bye-week lookup
+    // below (byeByTeam is keyed by the pool's "LAR", so looking it up with
+    // unnormalized "LA" always missed). Route through the same shared
+    // normalizer used everywhere else in the app for this class of
+    // upstream-vs-established naming mismatch, rather than special-casing
+    // just this one team.
+    const team = normalizeNFLTeamCode(row.team);
     assignments.push({
       sourcePlayerId: row.espn_id,
-      nflTeam: row.team,
-      byeWeek: byeByTeam.get(row.team) ?? null,
+      nflTeam: team,
+      byeWeek: byeByTeam.get(team) ?? null,
     });
   }
 

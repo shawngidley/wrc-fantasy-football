@@ -32,7 +32,7 @@ import Navigation from "@/components/Navigation";
 import { useNFLDepthCharts } from "@/hooks/useNFLDepthCharts";
 import { useNFLSeasonStats } from "@/hooks/useNFLSeasonStats";
 import { formatSeasonStatColumn, type PlayerSeasonStats, type SeasonStatColumn, type SeasonStatKey } from "@/lib/playerSeasonStats";
-import { normalizeNFLTeamCode } from "@/lib/nflTeamCodes";
+import { normalizeNFLTeamCode } from "@shared/nflTeamCodes";
 import { getCompletedKickerSeasonStats } from "@/lib/kickerSeasonStats2025";
 import { trpc } from "@/lib/trpc";
 import { useDraftPlayerUniverse } from "@/hooks/useDraftPlayerUniverse";

@@ -1,4 +1,4 @@
-import { normalizeNFLTeamCode } from "./nflTeamCodes";
+import { normalizeNFLTeamCode } from "@shared/nflTeamCodes";
 
 /** Returns ESPN's official NFL team-mark asset for a canonical or upstream team code. */
 export function getNflTeamLogoUrl(teamCode: string): string {
