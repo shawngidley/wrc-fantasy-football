@@ -211,14 +211,6 @@ export default function Rosters() {
                             {team.owner} · {allPlayers.length} players
                           </div>
                         </div>
-                        {isMyTeam && (
-                          <span style={{
-                            fontSize: "0.6rem", fontFamily: "Barlow Condensed, sans-serif",
-                            fontWeight: 700, letterSpacing: "0.06em",
-                            background: "oklch(0.78 0.15 85)", color: "oklch(0.18 0.05 85)",
-                            borderRadius: 4, padding: "2px 6px",
-                          }}>MY TEAM</span>
-                        )}
                         <Link
                           href={`/lineup/${team.team_id}`}
                           style={{
