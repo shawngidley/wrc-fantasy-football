@@ -96,7 +96,7 @@ function applyMoves(byTeam: Record<string, RosterPlayer[]>, moves: DbRosterMove[
           id: makeId(),
           name: move.player_name,
           pos: move.player_pos as RosterPlayer["pos"],
-          nflTeam: move.player_nfl_team,
+          nflTeam: poolPlayer?.nflTeam ?? move.player_nfl_team,
           byeWeek: poolPlayer?.bye ?? null,
           acquisition: "FA",
         });
@@ -144,11 +144,14 @@ export function useDraftedRoster(): DraftedRosterResult {
             const teamName = TEAM_ID_TO_NAME[p.team_id];
             if (!teamName) continue;
             if (!baseMap[teamName]) baseMap[teamName] = [];
+            const poolPlayer = draftPlayerPool.find(
+              candidate => candidate.name.toLowerCase() === p.name.toLowerCase()
+            );
             baseMap[teamName].push({
               id: p.id,
               name: p.name,
               pos: p.position as RosterPlayer["pos"],
-              nflTeam: p.nfl_team,
+              nflTeam: poolPlayer?.nflTeam ?? p.nfl_team,
               byeWeek: p.bye_week || null,
               acquisition: p.draft_round ? "Draft" : "FA",
               round: p.draft_round ?? undefined,
@@ -185,7 +188,7 @@ export function useDraftedRoster(): DraftedRosterResult {
           id: makeId(),
           name: pick.player_name,
           pos: pick.player_pos as RosterPlayer["pos"],
-          nflTeam: pick.player_nfl_team,
+          nflTeam: poolPlayer?.nflTeam ?? pick.player_nfl_team,
           byeWeek: poolPlayer?.bye ?? null,
           acquisition: "Draft",
           round: pick.round,
@@ -214,11 +217,14 @@ export function useDraftedRoster(): DraftedRosterResult {
             existing => existing.name.toLowerCase() === p.name.toLowerCase()
           );
           if (alreadyPresent) continue;
+          const poolPlayer = draftPlayerPool.find(
+            candidate => candidate.name.toLowerCase() === p.name.toLowerCase()
+          );
           byTeam[teamName].push({
             id: p.id,
             name: p.name,
             pos: p.position as RosterPlayer["pos"],
-            nflTeam: p.nfl_team,
+            nflTeam: poolPlayer?.nflTeam ?? p.nfl_team,
             byeWeek: p.bye_week || null,
             acquisition: p.draft_round ? "Draft" : "FA",
             round: p.draft_round ?? undefined,
