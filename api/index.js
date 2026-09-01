@@ -94309,9 +94309,16 @@ var appRouter = router({
       return (data ?? []).map((row) => ({ name: row.name, teamId: row.team_id, teamName: row.teams?.name ?? null }));
     }),
     nflTeamAssignments: publicProcedure.query(async () => {
-      const { data, error: error51 } = await supabaseAdmin.from("nfl_team_assignments").select("source_player_id, nfl_team, bye_week");
-      if (error51) throw new Error("Unable to load NFL team assignments.");
-      return (data ?? []).map((row) => ({
+      const PAGE_SIZE = 1e3;
+      const allRows = [];
+      for (let from = 0; ; from += PAGE_SIZE) {
+        const { data, error: error51 } = await supabaseAdmin.from("nfl_team_assignments").select("source_player_id, nfl_team, bye_week").range(from, from + PAGE_SIZE - 1);
+        if (error51) throw new Error("Unable to load NFL team assignments.");
+        if (!data || data.length === 0) break;
+        allRows.push(...data);
+        if (data.length < PAGE_SIZE) break;
+      }
+      return allRows.map((row) => ({
         sourcePlayerId: row.source_player_id,
         nflTeam: row.nfl_team,
         byeWeek: row.bye_week

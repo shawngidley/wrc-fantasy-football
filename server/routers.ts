@@ -1457,10 +1457,27 @@ export const appRouter = router({
       // Keyed by sourcePlayerId so the client can merge it into the static
       // pool without needing a full pool regeneration or redeploy whenever
       // a trade, signing, or release happens mid-season.
-      const { data, error } = await supabaseAdmin.from("nfl_team_assignments")
-        .select("source_player_id, nfl_team, bye_week");
-      if (error) throw new Error("Unable to load NFL team assignments.");
-      return (data ?? []).map(row => ({
+      //
+      // Paginated explicitly: Supabase/PostgREST caps a single select at
+      // 1000 rows by default, and this table has ~1900+ rows (every NFL
+      // roster spot, not just fantasy-relevant positions). Without this,
+      // only the first 1000 rows (in whatever order Postgres happens to
+      // return them) ever came back -- confirmed directly, Kayshon Boutte's
+      // row simply wasn't in that first batch, so his trade to Houston
+      // never actually reached the client despite the refresh itself
+      // having correctly written all 1869 rows to the table.
+      const PAGE_SIZE = 1000;
+      const allRows: { source_player_id: string; nfl_team: string; bye_week: number | null }[] = [];
+      for (let from = 0; ; from += PAGE_SIZE) {
+        const { data, error } = await supabaseAdmin.from("nfl_team_assignments")
+          .select("source_player_id, nfl_team, bye_week")
+          .range(from, from + PAGE_SIZE - 1);
+        if (error) throw new Error("Unable to load NFL team assignments.");
+        if (!data || data.length === 0) break;
+        allRows.push(...data);
+        if (data.length < PAGE_SIZE) break;
+      }
+      return allRows.map(row => ({
         sourcePlayerId: row.source_player_id,
         nflTeam: row.nfl_team,
         byeWeek: row.bye_week,
