@@ -29,7 +29,13 @@ interface UseNFLProjectionsResult {
   error: string | null;
 }
 
-const CACHE_PREFIX = "wrc_nfl_proj_v4_";
+const CACHE_PREFIX = "wrc_nfl_proj_v5_";
+// Projections change throughout the day as injury/practice news comes in --
+// previously this cache had no expiry at all within a session (just the raw
+// map, no timestamp), so once cached it stayed stuck for as long as the tab
+// stayed open, however many hours that was. 20 minutes matches the TTL
+// already used for similarly dynamic data elsewhere in the app (injuries).
+const CACHE_TTL_MS = 20 * 60_000;
 const PROJECTION_NAME_ALIASES: Record<string, string> = {
   "kenneth gainwell": "kenny gainwell",
 };
@@ -118,9 +124,12 @@ export function useNFLProjections(week: number, season = 2026): UseNFLProjection
     try {
       const cached = sessionStorage.getItem(cacheKey);
       if (cached) {
-        setProjections(JSON.parse(cached));
-        setLoading(false);
-        return;
+        const { ts, data } = JSON.parse(cached) as { ts: number; data: ProjectionMap };
+        if (Date.now() - ts < CACHE_TTL_MS) {
+          setProjections(data);
+          setLoading(false);
+          return;
+        }
       }
     } catch { /* ignore */ }
 
@@ -180,7 +189,7 @@ export function useNFLProjections(week: number, season = 2026): UseNFLProjection
           // the device-specific symptom this was causing (one browser's
           // first-ever fetch happened to come back empty and got stuck).
           if (Object.keys(map).length > 0) {
-            try { sessionStorage.setItem(cacheKey, JSON.stringify(map)); } catch { /* ignore */ }
+            try { sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data: map })); } catch { /* ignore */ }
           }
         }
       } catch (err) {
