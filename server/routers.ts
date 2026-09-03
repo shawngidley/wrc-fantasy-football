@@ -964,6 +964,15 @@ export const appRouter = router({
         if (input.action === "declined") {
           const { error } = await supabaseAdmin.from("trade_proposals").update({ status: "declined" }).eq("id", proposal.id).eq("to_team_id", recipientTeamId);
           if (error) throw new Error("Unable to decline trade proposal");
+          const { data: fromTeamPhone } = await supabaseAdmin.from("teams")
+            .select("name, phone_number, sms_trade_notifications").eq("id", proposal.from_team_id).single();
+          const { data: decliningTeam } = await supabaseAdmin.from("teams").select("name").eq("id", recipientTeamId).single();
+          if (fromTeamPhone?.sms_trade_notifications && fromTeamPhone.phone_number) {
+            await sendSms(
+              fromTeamPhone.phone_number,
+              `🏈 WRC Fantasy: ${decliningTeam?.name ?? "The other owner"} declined your trade proposal.`,
+            ).catch(error => console.error("[respondToTradeProposal] SMS notification failed:", error));
+          }
           return { status: "declined" as const };
         }
 
@@ -972,7 +981,7 @@ export const appRouter = router({
         const givePicks = (proposal.give_picks ?? []) as Array<{ year: number; round: number; originalTeamId?: string }>;
         const receivePicks = (proposal.receive_picks ?? []) as Array<{ year: number; round: number; originalTeamId?: string }>;
         const [fromTeamResponse, toTeamResponse, fromPlayersResponse, toPlayersResponse, fromPicksResponse, toPicksResponse] = await Promise.all([
-          supabaseAdmin.from("teams").select("id, name, faab").eq("id", proposal.from_team_id).single(),
+          supabaseAdmin.from("teams").select("id, name, faab, phone_number, sms_trade_notifications").eq("id", proposal.from_team_id).single(),
           supabaseAdmin.from("teams").select("id, name, faab").eq("id", proposal.to_team_id).single(),
           givePlayers.length ? supabaseAdmin.from("players").select("name, position, nfl_team").eq("team_id", proposal.from_team_id).in("name", givePlayers) : Promise.resolve({ data: [], error: null }),
           receivePlayers.length ? supabaseAdmin.from("players").select("name, position, nfl_team").eq("team_id", proposal.to_team_id).in("name", receivePlayers) : Promise.resolve({ data: [], error: null }),
@@ -1026,6 +1035,12 @@ export const appRouter = router({
         if (transactionRows.length) {
           const { error } = await supabaseAdmin.from("roster_moves").insert(transactionRows);
           if (error) throw new Error("Trade completed, but transaction history could not be written.");
+        }
+        if (fromTeamResponse.data.sms_trade_notifications && fromTeamResponse.data.phone_number) {
+          await sendSms(
+            fromTeamResponse.data.phone_number,
+            `🏈 WRC Fantasy: ${toTeam.name} accepted your trade proposal! It's now final.`,
+          ).catch(error => console.error("[respondToTradeProposal] SMS notification failed:", error));
         }
         return { status: "accepted" as const, fromTeamName: fromTeam.name, toTeamName: toTeam.name };
       }),
