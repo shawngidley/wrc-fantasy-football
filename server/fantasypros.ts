@@ -1,3 +1,5 @@
+import { TRPCError } from "@trpc/server";
+
 const API_BASE = "https://api.fantasypros.com/public/v2/json";
 
 type CacheEntry<T> = { expiresAt: number; value: T };
@@ -101,6 +103,13 @@ async function request<T>(path: string, cacheTtlMs: number): Promise<T> {
         Array.from(response.headers.entries()).filter(([key]) => /rate.?limit|retry.?after/i.test(key)),
       );
       console.error(`[fantasypros] 429 on ${path}`, Object.keys(rateLimitHeaders).length ? rateLimitHeaders : "(no rate-limit headers present in response)");
+      // Surface this as an actual 429 rather than a generic 500 -- a plain
+      // Error() thrown from a tRPC procedure defaults to a 500 Internal
+      // Server Error, which is misleading here (nothing is actually broken
+      // server-side) and was tripping Vercel's own 5xx anomaly monitoring,
+      // flagging this as a suspected server-side issue rather than what it
+      // actually is: an upstream rate limit being correctly reported.
+      throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "FantasyPros request failed with status 429" });
     }
     throw new Error(`FantasyPros request failed with status ${response.status}`);
   }

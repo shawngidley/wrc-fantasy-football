@@ -83879,6 +83879,7 @@ async function request(path, cacheTtlMs) {
         Array.from(response.headers.entries()).filter(([key]) => /rate.?limit|retry.?after/i.test(key))
       );
       console.error(`[fantasypros] 429 on ${path}`, Object.keys(rateLimitHeaders).length ? rateLimitHeaders : "(no rate-limit headers present in response)");
+      throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "FantasyPros request failed with status 429" });
     }
     throw new Error(`FantasyPros request failed with status ${response.status}`);
   }
