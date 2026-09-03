@@ -93815,6 +93815,11 @@ var appRouter = router({
       if (error51) throw new Error("Unable to load trade proposals");
       return data ?? [];
     }),
+    tradeSent: teamProcedure.query(async ({ ctx }) => {
+      const { data, error: error51 } = await supabaseAdmin.from("trade_proposals").select("id, from_team_id, to_team_id, give_player_ids, receive_player_ids, faab_amount, receive_faab_amount, give_picks, receive_picks, note, status, created_at").eq("from_team_id", ctx.teamSession.teamId).order("created_at", { ascending: false });
+      if (error51) throw new Error("Unable to load sent trade proposals");
+      return data ?? [];
+    }),
     createTradeProposal: teamProcedure.input(external_exports.object({
       toTeamId: external_exports.string().min(1).max(128),
       givePlayerNames: external_exports.array(external_exports.string().min(1).max(128)).max(30),
