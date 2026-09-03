@@ -12,6 +12,7 @@ import { archiveFantasyProsNews, getArchivedFantasyProsNews, mergeFantasyProsNew
 import { getPublicLeagueTeam, listPublicLeagueTeams, verifyLeagueTeamPin } from "./leagueAuth";
 import { clearWrcTeamSession, readWrcTeamSession, writeWrcTeamSession } from "./wrcTeamSession";
 import { supabaseAdmin } from "./supabaseAdmin";
+import { sendSms } from "./twilioSms";
 import { validateProtectionSubmission } from "./protectionRules";
 import { releaseUnprotectedPlayers } from "./protectionRelease";
 import { isProtectionDeadlinePassed } from "../shared/protectionSchedule";
@@ -889,7 +890,7 @@ export const appRouter = router({
         }
         const [fromTeamResponse, toTeamResponse, givePlayersResponse, receivePlayersResponse, givePicksResponse, receivePicksResponse] = await Promise.all([
           supabaseAdmin.from("teams").select("id, name, faab").eq("id", fromTeamId).single(),
-          supabaseAdmin.from("teams").select("id, name, faab").eq("id", input.toTeamId).single(),
+          supabaseAdmin.from("teams").select("id, name, faab, phone_number, sms_trade_notifications").eq("id", input.toTeamId).single(),
           input.givePlayerNames.length ? supabaseAdmin.from("players").select("name").eq("team_id", fromTeamId).in("name", input.givePlayerNames) : Promise.resolve({ data: [], error: null }),
           input.receivePlayerNames.length ? supabaseAdmin.from("players").select("name").eq("team_id", input.toTeamId).in("name", input.receivePlayerNames) : Promise.resolve({ data: [], error: null }),
           input.givePicks.length ? supabaseAdmin.from("traded_picks").select("year, round, original_team_id").eq("current_owner_team_id", fromTeamId).in("year", input.givePicks.map(pick => pick.year)) : Promise.resolve({ data: [], error: null }),
@@ -934,6 +935,21 @@ export const appRouter = router({
         if (input.counterToId) {
           const { error } = await supabaseAdmin.from("trade_proposals").update({ status: "countered" }).eq("id", input.counterToId);
           if (error) throw new Error("Counter-offer was created, but the original proposal could not be closed.");
+        }
+        // Text the recipient if they've opted in. Awaited (not
+        // fire-and-forget) since an un-awaited promise risks never actually
+        // completing in a serverless environment, where the function can
+        // terminate right after the response is sent, before a background
+        // task finishes. sendSms already returns a result object rather
+        // than throwing, so a Twilio failure here still can't break the
+        // proposal itself, which has already been successfully created by
+        // this point.
+        if (toTeamResponse.data.sms_trade_notifications && toTeamResponse.data.phone_number) {
+          const kind = input.counterToId ? "counter-offer" : "trade proposal";
+          await sendSms(
+            toTeamResponse.data.phone_number,
+            `WRC Fantasy: ${fromTeamResponse.data.name} sent you a ${kind}. Check the Trades page to respond.`,
+          ).catch(error => console.error("[createTradeProposal] SMS notification failed:", error));
         }
         return { id: proposal.id, recipientName: toTeamResponse.data.name, isCounter: Boolean(input.counterToId) };
       }),
@@ -1434,12 +1450,34 @@ export const appRouter = router({
       }),
     teamSettings: teamProcedure.query(async ({ ctx }) => {
       const { data, error } = await supabaseAdmin.from("teams")
-        .select("logo_url, theme_song_url")
+        .select("logo_url, theme_song_url, phone_number, sms_trade_notifications")
         .eq("id", ctx.teamSession.teamId)
         .single();
       if (error || !data) throw new Error("Unable to load team settings.");
-      return { logoUrl: data.logo_url ?? null, themeSongUrl: data.theme_song_url ?? null };
+      return {
+        logoUrl: data.logo_url ?? null,
+        themeSongUrl: data.theme_song_url ?? null,
+        phoneNumber: data.phone_number ?? null,
+        smsTradeNotifications: data.sms_trade_notifications ?? false,
+      };
     }),
+    updatePhoneSettings: teamProcedure
+      .input(z.object({
+        phoneNumber: z.string().max(20).nullable(),
+        smsTradeNotifications: z.boolean(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        // A phone number is required to enable notifications -- can't opt
+        // in with nothing to text.
+        if (input.smsTradeNotifications && !input.phoneNumber) {
+          throw new Error("Add a phone number before turning on text notifications.");
+        }
+        const { error } = await supabaseAdmin.from("teams")
+          .update({ phone_number: input.phoneNumber, sms_trade_notifications: input.smsTradeNotifications })
+          .eq("id", ctx.teamSession.teamId);
+        if (error) throw new Error("Unable to save phone settings.");
+        return { ok: true };
+      }),
     publicTeams: publicProcedure.query(async () => {
       const teams = await listPublicLeagueTeams();
       const { data: logos } = await supabaseAdmin.from("teams").select("id, logo_url");

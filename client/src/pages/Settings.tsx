@@ -10,7 +10,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { Lock, LogOut, User, Shield, CheckCircle2, Eye, EyeOff,
   RefreshCw, ClipboardList, AlertTriangle, Music, Upload, Trash2, Play, Square,
-  Fingerprint,
+  Fingerprint, MessageSquare,
 } from "lucide-react";
 import { Image } from "lucide-react";
 import { useRef } from "react";
@@ -489,6 +489,13 @@ export default function Settings() {
   const [logoError, setLogoError] = useState("");
   const [logoSuccess, setLogoSuccess] = useState("");
   const logoInputRef = useRef<HTMLInputElement | null>(null);
+
+  // ── SMS trade notification state ──
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [smsEnabled, setSmsEnabled] = useState(false);
+  const [phoneError, setPhoneError] = useState("");
+  const [phoneSuccess, setPhoneSuccess] = useState("");
+  const [savingPhone, setSavingPhone] = useState(false);
   const [passkeyAvailable, setPasskeyAvailable] = useState(false);
   const [passkeyBusy, setPasskeyBusy] = useState(false);
   const [passkeyError, setPasskeyError] = useState("");
@@ -498,6 +505,7 @@ export default function Settings() {
   const createUploadUrlMutation = trpc.league.createTeamMediaUploadUrl.useMutation();
   const attachMediaMutation = trpc.league.attachTeamMedia.useMutation();
   const removeMediaMutation = trpc.league.removeTeamMedia.useMutation();
+  const updatePhoneSettingsMutation = trpc.league.updatePhoneSettings.useMutation();
   const passkeysQuery = trpc.league.passkeys.useQuery(undefined, { enabled: Boolean(franchise?.id), retry: false });
   const startPasskeyRegistrationMutation = trpc.league.startPasskeyRegistration.useMutation();
   const finishPasskeyRegistrationMutation = trpc.league.finishPasskeyRegistration.useMutation();
@@ -507,6 +515,8 @@ export default function Settings() {
     if (!settingsQuery.data) return;
     setLogoUrl(settingsQuery.data.logoUrl);
     setThemeSongUrl(settingsQuery.data.themeSongUrl);
+    setPhoneNumber(settingsQuery.data.phoneNumber ?? "");
+    setSmsEnabled(settingsQuery.data.smsTradeNotifications);
     if (settingsQuery.data.themeSongUrl) {
       const parts = settingsQuery.data.themeSongUrl.split("/");
       setThemeSongName(decodeURIComponent(parts[parts.length - 1]));
@@ -522,6 +532,29 @@ export default function Settings() {
     });
     return () => { cancelled = true; };
   }, []);
+
+  const handleSavePhoneSettings = async (nextSmsEnabled: boolean) => {
+    setPhoneError(""); setPhoneSuccess("");
+    const trimmed = phoneNumber.trim();
+    const digitsOnly = trimmed.replace(/[^\d]/g, "");
+    if (nextSmsEnabled && digitsOnly.length !== 10 && !(digitsOnly.length === 11 && digitsOnly.startsWith("1"))) {
+      setPhoneError("Enter a valid 10-digit US phone number before turning on text notifications.");
+      return;
+    }
+    setSavingPhone(true);
+    try {
+      await updatePhoneSettingsMutation.mutateAsync({
+        phoneNumber: trimmed || null,
+        smsTradeNotifications: nextSmsEnabled,
+      });
+      setSmsEnabled(nextSmsEnabled);
+      setPhoneSuccess(nextSmsEnabled ? "Text notifications turned on." : "Saved.");
+    } catch (error) {
+      setPhoneError(error instanceof Error ? error.message : "Unable to save.");
+    } finally {
+      setSavingPhone(false);
+    }
+  };
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -894,6 +927,62 @@ export default function Settings() {
                 {savingPin ? "Saving…" : "Update PIN"}
               </button>
             </form>
+          </div>
+        </div>
+
+        {/* SMS Trade Notifications Card */}
+        <div className="wrc-card" style={{ marginBottom: "1.25rem" }}>
+          <div className="wrc-card-gold-stripe" />
+          <div className="wrc-card-header" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <MessageSquare size={14} /> Trade Text Alerts
+          </div>
+          <div style={{ padding: "1.25rem" }}>
+            <p style={{ fontSize: "0.85rem", color: "oklch(0.5 0.04 150)", margin: "0 0 1.25rem" }}>
+              Get a text the moment another owner sends you a trade proposal, so you don't have to keep checking the app.
+            </p>
+
+            <div style={{ marginBottom: "1rem" }}>
+              <label style={labelStyle}>Phone Number</label>
+              <input
+                type="tel"
+                value={phoneNumber}
+                onChange={e => setPhoneNumber(e.target.value)}
+                placeholder="(555) 123-4567"
+                style={{ width: "100%", padding: "0.7rem 0.875rem", border: "1.5px solid oklch(0.85 0.01 150)", borderRadius: 8, fontSize: "0.95rem", color: "oklch(0.2 0.03 150)", background: "white", outline: "none", fontFamily: "DM Sans, sans-serif", boxSizing: "border-box" }}
+              />
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", marginBottom: "1rem" }}>
+              <div>
+                <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.22 0.08 150)" }}>Text me on new trade proposals</div>
+                <div style={{ fontSize: "0.76rem", color: "oklch(0.55 0.04 150)" }}>Off by default — you choose to turn this on.</div>
+              </div>
+              <button
+                type="button"
+                onClick={() => handleSavePhoneSettings(!smsEnabled)}
+                disabled={savingPhone}
+                role="switch"
+                aria-checked={smsEnabled}
+                style={{
+                  flexShrink: 0, width: 44, height: 26, borderRadius: 13, border: "none", cursor: savingPhone ? "not-allowed" : "pointer",
+                  background: smsEnabled ? "oklch(0.42 0.15 150)" : "oklch(0.85 0.01 150)", position: "relative", transition: "background 0.15s", opacity: savingPhone ? 0.6 : 1,
+                }}
+              >
+                <span style={{ position: "absolute", top: 3, left: smsEnabled ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "white", transition: "left 0.15s", boxShadow: "0 1px 2px rgba(0,0,0,0.25)" }} />
+              </button>
+            </div>
+
+            {phoneError && <div style={{ color: "oklch(0.45 0.18 25)", fontSize: "0.82rem", fontWeight: 600, marginBottom: "0.75rem" }}>{phoneError}</div>}
+            {phoneSuccess && <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", color: "oklch(0.35 0.15 150)", fontSize: "0.82rem", fontWeight: 600, marginBottom: "0.75rem" }}><CheckCircle2 size={15} /> {phoneSuccess}</div>}
+
+            <button
+              type="button"
+              onClick={() => handleSavePhoneSettings(smsEnabled)}
+              disabled={savingPhone}
+              style={{ background: "oklch(0.28 0.09 150)", color: "white", border: "none", borderRadius: 8, padding: "0.6rem 1.5rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: savingPhone ? "not-allowed" : "pointer", opacity: savingPhone ? 0.7 : 1 }}
+            >
+              {savingPhone ? "Saving…" : "Save Phone Number"}
+            </button>
           </div>
         </div>
 

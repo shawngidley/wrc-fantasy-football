@@ -84108,6 +84108,46 @@ async function verifyLeagueTeamPin(teamId, pin) {
 // server/routers.ts
 init_supabaseAdmin();
 
+// server/twilioSms.ts
+async function sendSms(toPhoneNumber, body) {
+  const accountSid = process.env.TWILIO_ACCOUNT_SID;
+  const authToken = process.env.TWILIO_AUTH_TOKEN;
+  const fromNumber = process.env.TWILIO_FROM_NUMBER;
+  if (!accountSid || !authToken || !fromNumber) {
+    console.warn("[twilioSms] Skipped -- TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN/TWILIO_FROM_NUMBER not fully configured");
+    return { sent: false, reason: "not-configured" };
+  }
+  const to = normalizeToE164(toPhoneNumber);
+  if (!to) {
+    return { sent: false, reason: "invalid-phone-number" };
+  }
+  try {
+    const response = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Authorization: `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString("base64")}`
+      },
+      body: new URLSearchParams({ To: to, From: fromNumber, Body: body }).toString()
+    });
+    if (!response.ok) {
+      const errorBody = await response.text().catch(() => "");
+      console.error(`[twilioSms] Twilio request failed with status ${response.status}: ${errorBody}`);
+      return { sent: false, reason: `twilio-error-${response.status}` };
+    }
+    return { sent: true };
+  } catch (error51) {
+    console.error("[twilioSms] Request failed:", error51);
+    return { sent: false, reason: "request-failed" };
+  }
+}
+function normalizeToE164(raw) {
+  const digits = raw.replace(/[^\d]/g, "");
+  if (digits.length === 10) return `+1${digits}`;
+  if (digits.length === 11 && digits.startsWith("1")) return `+${digits}`;
+  return null;
+}
+
 // server/protectionRules.ts
 function protectionTier(draftRound) {
   if (draftRound === null) return "tier2";
@@ -93839,7 +93879,7 @@ var appRouter = router({
       }
       const [fromTeamResponse, toTeamResponse, givePlayersResponse, receivePlayersResponse, givePicksResponse, receivePicksResponse] = await Promise.all([
         supabaseAdmin.from("teams").select("id, name, faab").eq("id", fromTeamId).single(),
-        supabaseAdmin.from("teams").select("id, name, faab").eq("id", input.toTeamId).single(),
+        supabaseAdmin.from("teams").select("id, name, faab, phone_number, sms_trade_notifications").eq("id", input.toTeamId).single(),
         input.givePlayerNames.length ? supabaseAdmin.from("players").select("name").eq("team_id", fromTeamId).in("name", input.givePlayerNames) : Promise.resolve({ data: [], error: null }),
         input.receivePlayerNames.length ? supabaseAdmin.from("players").select("name").eq("team_id", input.toTeamId).in("name", input.receivePlayerNames) : Promise.resolve({ data: [], error: null }),
         input.givePicks.length ? supabaseAdmin.from("traded_picks").select("year, round, original_team_id").eq("current_owner_team_id", fromTeamId).in("year", input.givePicks.map((pick2) => pick2.year)) : Promise.resolve({ data: [], error: null }),
@@ -93881,6 +93921,13 @@ var appRouter = router({
       if (input.counterToId) {
         const { error: error51 } = await supabaseAdmin.from("trade_proposals").update({ status: "countered" }).eq("id", input.counterToId);
         if (error51) throw new Error("Counter-offer was created, but the original proposal could not be closed.");
+      }
+      if (toTeamResponse.data.sms_trade_notifications && toTeamResponse.data.phone_number) {
+        const kind = input.counterToId ? "counter-offer" : "trade proposal";
+        await sendSms(
+          toTeamResponse.data.phone_number,
+          `WRC Fantasy: ${fromTeamResponse.data.name} sent you a ${kind}. Check the Trades page to respond.`
+        ).catch((error51) => console.error("[createTradeProposal] SMS notification failed:", error51));
       }
       return { id: proposal.id, recipientName: toTeamResponse.data.name, isCounter: Boolean(input.counterToId) };
     }),
@@ -94287,9 +94334,25 @@ var appRouter = router({
       return { submitted: true, teamName: targetTeam.team_name, remainingFaab: balance - input.faab };
     }),
     teamSettings: teamProcedure.query(async ({ ctx }) => {
-      const { data, error: error51 } = await supabaseAdmin.from("teams").select("logo_url, theme_song_url").eq("id", ctx.teamSession.teamId).single();
+      const { data, error: error51 } = await supabaseAdmin.from("teams").select("logo_url, theme_song_url, phone_number, sms_trade_notifications").eq("id", ctx.teamSession.teamId).single();
       if (error51 || !data) throw new Error("Unable to load team settings.");
-      return { logoUrl: data.logo_url ?? null, themeSongUrl: data.theme_song_url ?? null };
+      return {
+        logoUrl: data.logo_url ?? null,
+        themeSongUrl: data.theme_song_url ?? null,
+        phoneNumber: data.phone_number ?? null,
+        smsTradeNotifications: data.sms_trade_notifications ?? false
+      };
+    }),
+    updatePhoneSettings: teamProcedure.input(external_exports.object({
+      phoneNumber: external_exports.string().max(20).nullable(),
+      smsTradeNotifications: external_exports.boolean()
+    })).mutation(async ({ input, ctx }) => {
+      if (input.smsTradeNotifications && !input.phoneNumber) {
+        throw new Error("Add a phone number before turning on text notifications.");
+      }
+      const { error: error51 } = await supabaseAdmin.from("teams").update({ phone_number: input.phoneNumber, sms_trade_notifications: input.smsTradeNotifications }).eq("id", ctx.teamSession.teamId);
+      if (error51) throw new Error("Unable to save phone settings.");
+      return { ok: true };
     }),
     publicTeams: publicProcedure.query(async () => {
       const teams = await listPublicLeagueTeams();
