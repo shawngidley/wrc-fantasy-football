@@ -948,7 +948,7 @@ export const appRouter = router({
           const kind = input.counterToId ? "counter-offer" : "trade proposal";
           await sendSms(
             toTeamResponse.data.phone_number,
-            `WRC Fantasy: ${fromTeamResponse.data.name} sent you a ${kind}. Check the Trades page to respond.`,
+            `WRC Fantasy: ${fromTeamResponse.data.name} sent you a ${kind}. Respond here: https://wrcfantasyfootball.com/trades`,
           ).catch(error => console.error("[createTradeProposal] SMS notification failed:", error));
         }
         return { id: proposal.id, recipientName: toTeamResponse.data.name, isCounter: Boolean(input.counterToId) };
