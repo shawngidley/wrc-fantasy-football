@@ -94439,7 +94439,7 @@ var appRouter = router({
       return { updated: true };
     }),
     commissionerTeamDirectory: commissionerProcedure.query(async () => {
-      const { data, error: error51 } = await supabaseAdmin.from("teams").select("id, name, owner, theme_song_url").order("name");
+      const { data, error: error51 } = await supabaseAdmin.from("teams").select("id, name, owner, theme_song_url, phone_number, sms_trade_notifications").order("name");
       if (error51) throw new Error("Unable to load the team directory.");
       return data ?? [];
     }),
@@ -94447,6 +94447,18 @@ var appRouter = router({
       assertStrongLeaguePin(input.newPin);
       const { data, error: error51 } = await supabaseAdmin.from("teams").update({ pin: input.newPin, pin_hash: input.newPin }).eq("id", input.teamId).select("name").single();
       if (error51 || !data) throw new Error("Unable to reset the selected team PIN.");
+      return { updated: true, teamName: data.name };
+    }),
+    commissionerSetTeamPhone: commissionerProcedure.input(external_exports.object({
+      teamId: external_exports.string().min(1).max(128),
+      phoneNumber: external_exports.string().max(20).nullable(),
+      smsTradeNotifications: external_exports.boolean()
+    })).mutation(async ({ input }) => {
+      if (input.smsTradeNotifications && !input.phoneNumber) {
+        throw new Error("A phone number is required before turning on text notifications.");
+      }
+      const { data, error: error51 } = await supabaseAdmin.from("teams").update({ phone_number: input.phoneNumber, sms_trade_notifications: input.smsTradeNotifications }).eq("id", input.teamId).select("name").single();
+      if (error51 || !data) throw new Error("Unable to update the selected team's phone settings.");
       return { updated: true, teamName: data.name };
     }),
     createTeamMediaUploadUrl: teamProcedure.input(external_exports.object({

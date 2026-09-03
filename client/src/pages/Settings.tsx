@@ -293,6 +293,104 @@ function CommissionerThemeSongsPanel() {
   );
 }
 
+// ── Commissioner Phone Numbers Panel ──────────────────────────────────────────
+function CommissionerPhoneNumbersPanel() {
+  interface TeamRow { id: string; name: string; owner: string; phone_number: string | null; sms_trade_notifications: boolean; }
+
+  const directoryQuery = trpc.league.commissionerTeamDirectory.useQuery();
+  const teams = (directoryQuery.data ?? []) as TeamRow[];
+  const setPhoneMutation = trpc.league.commissionerSetTeamPhone.useMutation();
+  const utils = trpc.useUtils();
+
+  // Local edit buffer keyed by team id, so typing in one row doesn't need
+  // a round trip per keystroke -- only commits on blur/toggle.
+  const [drafts, setDrafts] = useState<Record<string, string>>({});
+  const [savingTeamId, setSavingTeamId] = useState<string | null>(null);
+  const [error, setError] = useState<Record<string, string>>({});
+  const [success, setSuccess] = useState<Record<string, string>>({});
+
+  const getValue = (team: TeamRow) => drafts[team.id] ?? team.phone_number ?? "";
+
+  const savePhone = async (team: TeamRow, nextSmsEnabled: boolean) => {
+    setError(prev => ({ ...prev, [team.id]: "" }));
+    setSuccess(prev => ({ ...prev, [team.id]: "" }));
+    const trimmed = getValue(team).trim();
+    setSavingTeamId(team.id);
+    try {
+      const result = await setPhoneMutation.mutateAsync({
+        teamId: team.id,
+        phoneNumber: trimmed || null,
+        smsTradeNotifications: nextSmsEnabled,
+      });
+      setSuccess(prev => ({ ...prev, [team.id]: `Saved for ${result.teamName}.` }));
+      await utils.league.commissionerTeamDirectory.invalidate();
+    } catch (err) {
+      setError(prev => ({ ...prev, [team.id]: err instanceof Error ? err.message : "Unable to save." }));
+    } finally {
+      setSavingTeamId(null);
+    }
+  };
+
+  return (
+    <div className="wrc-card" style={{ marginBottom: "1.25rem", border: "2px solid oklch(0.78 0.15 85)" }}>
+      <div className="wrc-card-gold-stripe" />
+      <div className="wrc-card-header" style={{ display: "flex", alignItems: "center", gap: "0.5rem", background: "oklch(0.95 0.06 85)" }}>
+        <MessageSquare size={14} color="oklch(0.45 0.14 85)" />
+        <span style={{ color: "oklch(0.35 0.14 85)" }}>Commissioner: Owner Phone Numbers</span>
+      </div>
+      <div style={{ padding: "1.25rem" }}>
+        <p style={{ fontSize: "0.82rem", color: "oklch(0.5 0.04 150)", margin: "0 0 1.25rem" }}>
+          Add or update any owner's phone number and trade text alerts on their behalf — useful for owners who haven't set it up themselves yet.
+        </p>
+        {directoryQuery.isLoading ? (
+          <div style={{ textAlign: "center", padding: "2rem", color: "oklch(0.55 0.04 150)", fontSize: "0.88rem" }}>Loading teams…</div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.6rem" }}>
+            {teams.map(team => {
+              const busy = savingTeamId === team.id;
+              return (
+                <div key={team.id} style={{ padding: "0.7rem 0.85rem", background: "oklch(0.98 0.005 150)", border: "1px solid oklch(0.9 0.01 150)", borderRadius: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+                    <div style={{ minWidth: 150, flex: "1 1 150px" }}>
+                      <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.85rem", color: "oklch(0.22 0.08 150)" }}>{team.name}</div>
+                      <div style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)" }}>{team.owner}</div>
+                    </div>
+                    <input
+                      type="tel"
+                      value={getValue(team)}
+                      onChange={e => setDrafts(prev => ({ ...prev, [team.id]: e.target.value }))}
+                      placeholder="(555) 123-4567"
+                      style={{ flex: "1 1 160px", padding: "0.45rem 0.7rem", border: "1.5px solid oklch(0.85 0.01 150)", borderRadius: 6, fontSize: "0.85rem", color: "oklch(0.2 0.03 150)", background: "white", outline: "none", boxSizing: "border-box" }}
+                    />
+                    <label style={{ display: "flex", alignItems: "center", gap: "0.4rem", fontSize: "0.76rem", color: "oklch(0.4 0.04 150)", cursor: "pointer", whiteSpace: "nowrap" }}>
+                      <input
+                        type="checkbox"
+                        checked={team.sms_trade_notifications}
+                        onChange={e => savePhone(team, e.target.checked)}
+                        disabled={busy}
+                      />
+                      Texts on
+                    </label>
+                    <button
+                      onClick={() => savePhone(team, team.sms_trade_notifications)}
+                      disabled={busy}
+                      style={{ background: "oklch(0.28 0.09 150)", color: "white", border: "none", borderRadius: 6, padding: "0.4rem 0.85rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase", cursor: busy ? "not-allowed" : "pointer", opacity: busy ? 0.6 : 1, whiteSpace: "nowrap" }}
+                    >
+                      {busy ? "Saving…" : "Save"}
+                    </button>
+                  </div>
+                  {error[team.id] && <div style={{ marginTop: "0.4rem", fontSize: "0.75rem", color: "oklch(0.45 0.18 25)", fontWeight: 600 }}>{error[team.id]}</div>}
+                  {success[team.id] && <div style={{ marginTop: "0.4rem", fontSize: "0.75rem", color: "oklch(0.35 0.15 150)", fontWeight: 600 }}>{success[team.id]}</div>}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function CommissionerProtectionsPanel() {
   const DEADLINE = WRC_PROTECTION_DEADLINE;
   const isPastDeadline = Date.now() > DEADLINE.getTime();
@@ -1099,6 +1197,11 @@ export default function Settings() {
         {/* Commissioner Theme Songs — only visible to commissioner */}
         {franchise?.is_commissioner && (
           <CommissionerThemeSongsPanel />
+        )}
+
+        {/* Commissioner Phone Numbers — only visible to commissioner */}
+        {franchise?.is_commissioner && (
+          <CommissionerPhoneNumbersPanel />
         )}
 
         {/* Commissioner Protections Overview — only visible to commissioner */}
