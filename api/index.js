@@ -93926,7 +93926,7 @@ var appRouter = router({
         const kind = input.counterToId ? "counter-offer" : "trade proposal";
         await sendSms(
           toTeamResponse.data.phone_number,
-          `WRC Fantasy: ${fromTeamResponse.data.name} sent you a ${kind}. Respond here: https://wrcfantasyfootball.com/trades`
+          `\u{1F3C8} WRC Fantasy: ${fromTeamResponse.data.name} sent you a ${kind}. Respond here: https://wrcfantasyfootball.com/trades`
         ).catch((error51) => console.error("[createTradeProposal] SMS notification failed:", error51));
       }
       return { id: proposal.id, recipientName: toTeamResponse.data.name, isCounter: Boolean(input.counterToId) };
@@ -94358,7 +94358,7 @@ var appRouter = router({
       const { data, error: error51 } = await supabaseAdmin.from("teams").select("phone_number").eq("id", ctx.teamSession.teamId).single();
       if (error51 || !data) throw new Error("Unable to load your phone number.");
       if (!data.phone_number) throw new Error("Save a phone number first.");
-      const result = await sendSms(data.phone_number, "WRC Fantasy: this is a test text. If you got this, trade notifications are working!");
+      const result = await sendSms(data.phone_number, "\u{1F3C8} WRC Fantasy: this is a test text. If you got this, trade notifications are working!");
       if (!result.sent) throw new Error(`Text didn't send (${result.reason ?? "unknown reason"}). Double check TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN/TWILIO_FROM_NUMBER in Vercel.`);
       return { ok: true };
     }),
