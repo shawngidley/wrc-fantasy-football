@@ -854,6 +854,19 @@ export const appRouter = router({
       if (error) throw new Error("Unable to load trade proposals");
       return data ?? [];
     }),
+    tradeSent: teamProcedure.query(async ({ ctx }) => {
+      // Mirror of tradeInbox, but for proposals this team has sent rather
+      // than received -- previously there was no way to see your own
+      // outgoing proposals at all once sent, they'd just silently vanish
+      // from view until the other owner acted on them.
+      const { data, error } = await supabaseAdmin
+        .from("trade_proposals")
+        .select("id, from_team_id, to_team_id, give_player_ids, receive_player_ids, faab_amount, receive_faab_amount, give_picks, receive_picks, note, status, created_at")
+        .eq("from_team_id", ctx.teamSession.teamId)
+        .order("created_at", { ascending: false });
+      if (error) throw new Error("Unable to load sent trade proposals");
+      return data ?? [];
+    }),
     createTradeProposal: teamProcedure
       .input(z.object({
         toTeamId: z.string().min(1).max(128),

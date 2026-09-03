@@ -7,8 +7,9 @@ import { useMemo, useRef, useState } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { trpc } from "@/lib/trpc";
-import { ArrowLeftRight, Plus, X, DollarSign, CalendarDays, Inbox, Check, XCircle, RefreshCw, CornerUpLeft } from "lucide-react";
+import { ArrowLeftRight, Plus, X, DollarSign, CalendarDays, Inbox, Send, Check, XCircle, RefreshCw, CornerUpLeft } from "lucide-react";
 import { TEAMS as WRC_TEAMS } from "@/lib/wrcData";
+import { TEAM_ID_TO_NAME } from "@/pages/Lineup";
 import { getTradePickKey, serializeTradePick } from "@/lib/tradePickPayload";
 import { toast } from "sonner";
 
@@ -343,12 +344,14 @@ export default function Trades() {
   const formRef = useRef<HTMLDivElement>(null);
   const recipientTradeData = useTeamData(theirSide.team);
   const inboxQuery = trpc.league.tradeInbox.useQuery(undefined, { enabled: Boolean(franchise?.id), staleTime: 15_000 });
+  const sentQuery = trpc.league.tradeSent.useQuery(undefined, { enabled: Boolean(franchise?.id), staleTime: 15_000 });
   const createProposalMutation = trpc.league.createTradeProposal.useMutation();
   const respondProposalMutation = trpc.league.respondToTradeProposal.useMutation();
   const inboxLoading = inboxQuery.isLoading || inboxQuery.isFetching;
+  const sentLoading = sentQuery.isLoading || sentQuery.isFetching;
   const inbox = useMemo(() => ((inboxQuery.data ?? []) as Array<{ id: string; from_team_id: string; to_team_id: string; give_player_ids: string[]; receive_player_ids: string[]; faab_amount: number; receive_faab_amount: number; give_picks: {year:number;round:number}[]; receive_picks: {year:number;round:number}[]; note: string; status: string; created_at: string }>).map(r => ({
       id: r.id,
-      from: r.from_team_id,
+      from: TEAM_ID_TO_NAME[r.from_team_id] ?? r.from_team_id,
       fromTeamId: r.from_team_id,
       toTeamId: r.to_team_id,
       date: new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
@@ -371,6 +374,28 @@ export default function Trades() {
       note: r.note || undefined,
       status: r.status as "pending" | "accepted" | "declined" | "countered",
     })), [inboxQuery.data]);
+
+  // Sent (outgoing) proposals -- from/to are flipped relative to inbox
+  // since the current team is the proposer here, not the recipient. There
+  // was previously no way to see these at all once sent; they'd just
+  // silently disappear from view until the other owner acted on them.
+  const sent = useMemo(() => ((sentQuery.data ?? []) as Array<{ id: string; from_team_id: string; to_team_id: string; give_player_ids: string[]; receive_player_ids: string[]; faab_amount: number; receive_faab_amount: number; give_picks: {year:number;round:number}[]; receive_picks: {year:number;round:number}[]; note: string; status: string; created_at: string }>).map(r => ({
+      id: r.id,
+      to: TEAM_ID_TO_NAME[r.to_team_id] ?? r.to_team_id,
+      date: new Date(r.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
+      youSend: [
+        ...(r.give_player_ids ?? []),
+        ...(r.faab_amount > 0 ? [`FAAB $${r.faab_amount}`] : []),
+        ...((r.give_picks ?? []).map((p: {year:number;round:number}) => `${p.year} Rd ${p.round} Pick`)),
+      ],
+      theySend: [
+        ...(r.receive_player_ids ?? []),
+        ...(r.receive_faab_amount > 0 ? [`FAAB $${r.receive_faab_amount}`] : []),
+        ...((r.receive_picks ?? []).map((p: {year:number;round:number}) => `${p.year} Rd ${p.round} Pick`)),
+      ],
+      note: r.note || undefined,
+      status: r.status as "pending" | "accepted" | "declined" | "countered",
+    })), [sentQuery.data]);
 
   const resetForm = () => {
     setMySide({ team: franchise?.team_name ?? "", assets: [] });
@@ -608,6 +633,88 @@ export default function Trades() {
                       <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "oklch(0.5 0.04 150)", marginBottom: "0.3rem", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.06em", textTransform: "uppercase" }}>You send</div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
                         {proposal.youSend.map((s, j) => {
+                          const isFaab = s.startsWith("FAAB");
+                          const isPick = s.includes("Pick") || s.includes("Rd");
+                          return <span key={j} style={{ fontSize: "0.75rem", fontWeight: 600, borderRadius: 4, padding: "2px 8px", background: isFaab ? "oklch(0.93 0.06 250)" : isPick ? "oklch(0.93 0.06 85)" : "oklch(0.93 0.03 150)", color: isFaab ? "oklch(0.32 0.14 250)" : isPick ? "oklch(0.35 0.14 85)" : "oklch(0.28 0.08 150)" }}>{s}</span>;
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {proposal.note && (
+                    <div style={{ marginTop: "0.6rem", padding: "0.5rem 0.75rem", background: "oklch(0.96 0.01 150)", borderRadius: 6, fontSize: "0.8rem", color: "oklch(0.4 0.04 150)", fontStyle: "italic" }}>
+                      "{proposal.note}"
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Sent Proposals */}
+        <div className="wrc-card" style={{ marginBottom: "1.25rem" }}>
+          <div className="wrc-card-gold-stripe" />
+          <div className="wrc-card-header" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <Send size={14} />
+            Sent Proposals
+            {sent.length > 0 && (
+              <span style={{ fontSize: "0.7rem", fontWeight: 700, background: "oklch(0.78 0.15 85)", color: "oklch(0.15 0.02 150)", borderRadius: 10, padding: "1px 8px" }}>
+                {sent.filter(p => p.status === "pending").length} pending
+              </span>
+            )}
+            <button
+              onClick={() => sentQuery.refetch()}
+              title="Refresh sent proposals"
+              style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", color: "oklch(0.55 0.04 150)", display: "flex", alignItems: "center", padding: "2px" }}
+            >
+              <RefreshCw size={13} style={{ animation: sentLoading ? "spin 1s linear infinite" : "none" }} />
+            </button>
+          </div>
+          {sent.length === 0 ? (
+            <div style={{ padding: "2rem 1.25rem", textAlign: "center", color: "oklch(0.6 0.03 150)", fontSize: "0.85rem" }}>
+              <Send size={28} style={{ margin: "0 auto 0.5rem", opacity: 0.35 }} />
+              <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600, letterSpacing: "0.04em" }}>No sent proposals</div>
+              <div style={{ fontSize: "0.78rem", marginTop: "0.25rem", opacity: 0.7 }}>Trades you propose to other owners will appear here while they're pending.</div>
+            </div>
+          ) : (
+            <div>
+              {sent.map(proposal => (
+                <div key={proposal.id} style={{
+                  padding: "1rem 1.25rem",
+                  borderBottom: "1px solid oklch(0.92 0.005 150)",
+                  background: proposal.status !== "pending" ? "oklch(0.97 0.005 150)" : "white",
+                  opacity: proposal.status !== "pending" ? 0.65 : 1,
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem", flexWrap: "wrap", gap: "0.5rem" }}>
+                    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                      <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.22 0.08 150)" }}>To: {proposal.to}</span>
+                      <span style={{ fontSize: "0.7rem", color: "oklch(0.55 0.03 150)" }}>{proposal.date}</span>
+                    </div>
+                    <span style={{ fontSize: "0.72rem", fontWeight: 700, borderRadius: 4, padding: "2px 8px",
+                      background: proposal.status === "accepted" ? "oklch(0.93 0.06 150)" : proposal.status === "pending" ? "oklch(0.94 0.06 85)" : "oklch(0.94 0.04 25)",
+                      color: proposal.status === "accepted" ? "oklch(0.35 0.15 150)" : proposal.status === "pending" ? "oklch(0.45 0.16 85)" : "oklch(0.45 0.18 25)"
+                    }}>
+                      {proposal.status === "accepted" ? "✓ Accepted" : proposal.status === "pending" ? "⏳ Waiting for response" : proposal.status === "countered" ? "↩ Countered" : "✕ Declined"}
+                    </span>
+                  </div>
+
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: "0.75rem", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "oklch(0.5 0.04 150)", marginBottom: "0.3rem", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.06em", textTransform: "uppercase" }}>You send</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
+                        {proposal.youSend.map((s, j) => {
+                          const isFaab = s.startsWith("FAAB");
+                          const isPick = s.includes("Pick") || s.includes("Rd");
+                          return <span key={j} style={{ fontSize: "0.75rem", fontWeight: 600, borderRadius: 4, padding: "2px 8px", background: isFaab ? "oklch(0.93 0.06 250)" : isPick ? "oklch(0.93 0.06 85)" : "oklch(0.93 0.03 150)", color: isFaab ? "oklch(0.32 0.14 250)" : isPick ? "oklch(0.35 0.14 85)" : "oklch(0.28 0.08 150)" }}>{s}</span>;
+                        })}
+                      </div>
+                    </div>
+                    <ArrowLeftRight size={16} color="oklch(0.6 0.04 150)" style={{ flexShrink: 0 }} />
+                    <div>
+                      <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "oklch(0.5 0.04 150)", marginBottom: "0.3rem", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.06em", textTransform: "uppercase" }}>They send</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
+                        {proposal.theySend.map((s, j) => {
                           const isFaab = s.startsWith("FAAB");
                           const isPick = s.includes("Pick") || s.includes("Rd");
                           return <span key={j} style={{ fontSize: "0.75rem", fontWeight: 600, borderRadius: 4, padding: "2px 8px", background: isFaab ? "oklch(0.93 0.06 250)" : isPick ? "oklch(0.93 0.06 85)" : "oklch(0.93 0.03 150)", color: isFaab ? "oklch(0.32 0.14 250)" : isPick ? "oklch(0.35 0.14 85)" : "oklch(0.28 0.08 150)" }}>{s}</span>;
