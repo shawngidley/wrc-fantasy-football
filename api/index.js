@@ -83874,6 +83874,12 @@ async function request(path, cacheTtlMs) {
     signal: AbortSignal.timeout(15e3)
   });
   if (!response.ok) {
+    if (response.status === 429) {
+      const rateLimitHeaders = Object.fromEntries(
+        Array.from(response.headers.entries()).filter(([key]) => /rate.?limit|retry.?after/i.test(key))
+      );
+      console.error(`[fantasypros] 429 on ${path}`, Object.keys(rateLimitHeaders).length ? rateLimitHeaders : "(no rate-limit headers present in response)");
+    }
     throw new Error(`FantasyPros request failed with status ${response.status}`);
   }
   const value = await response.json();

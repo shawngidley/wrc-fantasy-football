@@ -89,6 +89,19 @@ async function request<T>(path: string, cacheTtlMs: number): Promise<T> {
   });
 
   if (!response.ok) {
+    // On a paid tier, a bare 429 with no further detail isn't enough to
+    // diagnose whether this is a total-volume quota, a burst/per-second
+    // rate cap, or something else entirely -- capture whatever headers
+    // FantasyPros actually sends back (common ones: Retry-After,
+    // X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset) so
+    // Vercel's function logs show the real limit being hit next time,
+    // rather than needing to guess from the status code alone.
+    if (response.status === 429) {
+      const rateLimitHeaders = Object.fromEntries(
+        Array.from(response.headers.entries()).filter(([key]) => /rate.?limit|retry.?after/i.test(key)),
+      );
+      console.error(`[fantasypros] 429 on ${path}`, Object.keys(rateLimitHeaders).length ? rateLimitHeaders : "(no rate-limit headers present in response)");
+    }
     throw new Error(`FantasyPros request failed with status ${response.status}`);
   }
 
