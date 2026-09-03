@@ -4,6 +4,7 @@ import {
   getFantasyProsNews,
   getFantasyProsProjections,
   getFantasyProsRanks,
+  isLikelyNflGameWindow,
 } from "./fantasypros";
 
 describe("FantasyPros server adapters", () => {
@@ -47,4 +48,37 @@ describe("FantasyPros server adapters", () => {
     expect(ranks[0]).toMatchObject({ name: "Example Quarterback", ecr: 8, positionRank: "QB8" });
     expect(projections[0]).toMatchObject({ name: "Example Quarterback", points: 20.4, passYards: 260 });
   }, 30_000);
+});
+
+describe("isLikelyNflGameWindow", () => {
+  // September 6, 2026 is a Sunday; September 7 is a Monday; September 3 is
+  // a Thursday. EDT is UTC-4 during the NFL season (through early
+  // November), so e.g. 1pm ET = 17:00 UTC.
+  it("is true during the Sunday early-game window", () => {
+    expect(isLikelyNflGameWindow(new Date("2026-09-06T17:00:00Z"))).toBe(true); // 1pm ET
+  });
+
+  it("is true late Sunday night (SNF)", () => {
+    expect(isLikelyNflGameWindow(new Date("2026-09-06T23:30:00Z"))).toBe(true); // 7:30pm ET
+  });
+
+  it("is false early Sunday morning, before the inactives window", () => {
+    expect(isLikelyNflGameWindow(new Date("2026-09-06T13:00:00Z"))).toBe(false); // 9am ET
+  });
+
+  it("is true during Thursday Night Football", () => {
+    expect(isLikelyNflGameWindow(new Date("2026-09-03T23:15:00Z"))).toBe(true); // 7:15pm ET, Thursday
+  });
+
+  it("is false on Thursday before the TNF window", () => {
+    expect(isLikelyNflGameWindow(new Date("2026-09-03T15:00:00Z"))).toBe(false); // 11am ET, Thursday
+  });
+
+  it("is true during Monday Night Football", () => {
+    expect(isLikelyNflGameWindow(new Date("2026-09-08T00:00:00Z"))).toBe(true); // 8pm ET, Monday
+  });
+
+  it("is false on a non-game day (Wednesday) regardless of time", () => {
+    expect(isLikelyNflGameWindow(new Date("2026-09-09T20:00:00Z"))).toBe(false); // 4pm ET, Wednesday
+  });
 });

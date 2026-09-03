@@ -83886,17 +83886,32 @@ async function request(path, cacheTtlMs) {
   cache2.set(cacheKey, { value, expiresAt: Date.now() + cacheTtlMs });
   return value;
 }
-var NEWS_CACHE_TTL_MS = 2 * 60 * 6e4;
-var INJURIES_CACHE_TTL_MS = 2 * 60 * 6e4;
 var RANKINGS_CACHE_TTL_MS = 4 * 60 * 6e4;
 var PROJECTIONS_CACHE_TTL_MS = 3 * 60 * 6e4;
+function isLikelyNflGameWindow(now = /* @__PURE__ */ new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    hour: "numeric",
+    hour12: false
+  }).formatToParts(now);
+  const weekday = parts.find((p) => p.type === "weekday")?.value;
+  const hour2 = Number(parts.find((p) => p.type === "hour")?.value ?? -1);
+  if (weekday === "Sun") return hour2 >= 11 && hour2 <= 23;
+  if (weekday === "Thu") return hour2 >= 18 && hour2 <= 23;
+  if (weekday === "Mon") return hour2 >= 18 && hour2 <= 23;
+  return false;
+}
+function newsAndInjuriesCacheTtlMs() {
+  return isLikelyNflGameWindow() ? 15 * 6e4 : 2 * 60 * 6e4;
+}
 async function getFantasyProsNews(limit = 50, fpid) {
   const query = new URLSearchParams({
     limit: String(Math.min(Math.max(limit, 1), 100)),
     order_by: "updated"
   });
   if (fpid != null) query.set("fpid", String(fpid));
-  const data = asRecord(await request(`/nfl/news?${query.toString()}`, NEWS_CACHE_TTL_MS));
+  const data = asRecord(await request(`/nfl/news?${query.toString()}`, newsAndInjuriesCacheTtlMs()));
   return asArray(data.items).map((item) => {
     const row = asRecord(item);
     return {
@@ -83917,7 +83932,7 @@ async function getFantasyProsNews(limit = 50, fpid) {
 async function getFantasyProsInjuries(year2, week2) {
   const data = asRecord(await request(
     `/nfl/injuries?year=${year2}&week=${week2}&include_probabilities=true`,
-    INJURIES_CACHE_TTL_MS
+    newsAndInjuriesCacheTtlMs()
   ));
   return asArray(data.injuries).map((item) => {
     const row = asRecord(item);

@@ -120,10 +120,42 @@ async function request<T>(path: string, cacheTtlMs: number): Promise<T> {
 // data reasonably fresh for a fantasy app (none of this needs to update on
 // a sub-hour cadence except possibly right at kickoff, which live scoring
 // -- a completely separate, Tank01-based data path -- already handles).
-const NEWS_CACHE_TTL_MS = 2 * 60 * 60_000; // 2 hours -- also covers the per-player fallback calls inside rosterNews, since they share this same function/TTL
-const INJURIES_CACHE_TTL_MS = 2 * 60 * 60_000; // 2 hours
-const RANKINGS_CACHE_TTL_MS = 4 * 60 * 60_000; // 4 hours -- changes even less often than news/injuries
-const PROJECTIONS_CACHE_TTL_MS = 3 * 60 * 60_000; // 3 hours
+const RANKINGS_CACHE_TTL_MS = 4 * 60 * 60_000; // 4 hours -- changes even less often than news/injuries, and isn't time-sensitive during a game the way inactive/injury news is
+const PROJECTIONS_CACHE_TTL_MS = 3 * 60 * 60_000; // 3 hours -- same reasoning as rankings
+
+/**
+ * News and injuries are the two endpoints that actually matter on a
+ * sub-hour cadence -- a late-breaking inactive or an in-game injury update
+ * is exactly the kind of thing a 2-4 hour TTL misses for way too long right
+ * when it matters most. The 500/day budget has real room for this: NFL
+ * games run Thu/Sun/Mon, so a short TTL only applies during a fraction of
+ * the week. Checked in US Eastern time, since that's what NFL kickoff times
+ * are set against regardless of the server's own (UTC) clock.
+ *
+ * Window is intentionally generous (covers the full slate from early
+ * afternoon games through Monday/Sunday/Thursday night games, plus an early
+ * buffer for inactives, which are typically announced ~90 min before
+ * kickoff) rather than trying to pin down exact per-game windows.
+ */
+export function isLikelyNflGameWindow(now = new Date()): boolean {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    hour: "numeric",
+    hour12: false,
+  }).formatToParts(now);
+  const weekday = parts.find(p => p.type === "weekday")?.value;
+  const hour = Number(parts.find(p => p.type === "hour")?.value ?? -1);
+
+  if (weekday === "Sun") return hour >= 11 && hour <= 23; // early inactives through SNF
+  if (weekday === "Thu") return hour >= 18 && hour <= 23; // TNF window
+  if (weekday === "Mon") return hour >= 18 && hour <= 23; // MNF window
+  return false;
+}
+
+function newsAndInjuriesCacheTtlMs(): number {
+  return isLikelyNflGameWindow() ? 15 * 60_000 : 2 * 60 * 60_000; // 15 min during games, 2 hours otherwise
+}
 
 export async function getFantasyProsNews(limit = 50, fpid?: number): Promise<FantasyProsNewsItem[]> {
   const query = new URLSearchParams({
@@ -131,7 +163,7 @@ export async function getFantasyProsNews(limit = 50, fpid?: number): Promise<Fan
     order_by: "updated",
   });
   if (fpid != null) query.set("fpid", String(fpid));
-  const data = asRecord(await request<unknown>(`/nfl/news?${query.toString()}`, NEWS_CACHE_TTL_MS));
+  const data = asRecord(await request<unknown>(`/nfl/news?${query.toString()}`, newsAndInjuriesCacheTtlMs()));
   return asArray(data.items).map(item => {
     const row = asRecord(item);
     return {
@@ -153,7 +185,7 @@ export async function getFantasyProsNews(limit = 50, fpid?: number): Promise<Fan
 export async function getFantasyProsInjuries(year: number, week: number): Promise<FantasyProsInjury[]> {
   const data = asRecord(await request<unknown>(
     `/nfl/injuries?year=${year}&week=${week}&include_probabilities=true`,
-    INJURIES_CACHE_TTL_MS,
+    newsAndInjuriesCacheTtlMs(),
   ));
   return asArray(data.injuries).map(item => {
     const row = asRecord(item);
