@@ -506,6 +506,7 @@ export default function Settings() {
   const attachMediaMutation = trpc.league.attachTeamMedia.useMutation();
   const removeMediaMutation = trpc.league.removeTeamMedia.useMutation();
   const updatePhoneSettingsMutation = trpc.league.updatePhoneSettings.useMutation();
+  const sendTestSmsMutation = trpc.league.sendTestSms.useMutation();
   const passkeysQuery = trpc.league.passkeys.useQuery(undefined, { enabled: Boolean(franchise?.id), retry: false });
   const startPasskeyRegistrationMutation = trpc.league.startPasskeyRegistration.useMutation();
   const finishPasskeyRegistrationMutation = trpc.league.finishPasskeyRegistration.useMutation();
@@ -553,6 +554,16 @@ export default function Settings() {
       setPhoneError(error instanceof Error ? error.message : "Unable to save.");
     } finally {
       setSavingPhone(false);
+    }
+  };
+
+  const handleSendTestSms = async () => {
+    setPhoneError(""); setPhoneSuccess("");
+    try {
+      await sendTestSmsMutation.mutateAsync();
+      setPhoneSuccess("Test text sent — check your phone!");
+    } catch (error) {
+      setPhoneError(error instanceof Error ? error.message : "Unable to send test text.");
     }
   };
 
@@ -975,14 +986,25 @@ export default function Settings() {
             {phoneError && <div style={{ color: "oklch(0.45 0.18 25)", fontSize: "0.82rem", fontWeight: 600, marginBottom: "0.75rem" }}>{phoneError}</div>}
             {phoneSuccess && <div style={{ display: "flex", alignItems: "center", gap: "0.45rem", color: "oklch(0.35 0.15 150)", fontSize: "0.82rem", fontWeight: 600, marginBottom: "0.75rem" }}><CheckCircle2 size={15} /> {phoneSuccess}</div>}
 
-            <button
-              type="button"
-              onClick={() => handleSavePhoneSettings(smsEnabled)}
-              disabled={savingPhone}
-              style={{ background: "oklch(0.28 0.09 150)", color: "white", border: "none", borderRadius: 8, padding: "0.6rem 1.5rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: savingPhone ? "not-allowed" : "pointer", opacity: savingPhone ? 0.7 : 1 }}
-            >
-              {savingPhone ? "Saving…" : "Save Phone Number"}
-            </button>
+            <div style={{ display: "flex", gap: "0.6rem", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                onClick={() => handleSavePhoneSettings(smsEnabled)}
+                disabled={savingPhone}
+                style={{ background: "oklch(0.28 0.09 150)", color: "white", border: "none", borderRadius: 8, padding: "0.6rem 1.5rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: savingPhone ? "not-allowed" : "pointer", opacity: savingPhone ? 0.7 : 1 }}
+              >
+                {savingPhone ? "Saving…" : "Save Phone Number"}
+              </button>
+              <button
+                type="button"
+                onClick={handleSendTestSms}
+                disabled={sendTestSmsMutation.isPending || !phoneNumber.trim()}
+                title={!phoneNumber.trim() ? "Enter and save a phone number first" : "Send a test text to yourself"}
+                style={{ background: "white", color: "oklch(0.28 0.09 150)", border: "1.5px solid oklch(0.28 0.09 150)", borderRadius: 8, padding: "0.6rem 1.5rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", cursor: (sendTestSmsMutation.isPending || !phoneNumber.trim()) ? "not-allowed" : "pointer", opacity: (sendTestSmsMutation.isPending || !phoneNumber.trim()) ? 0.5 : 1 }}
+              >
+                {sendTestSmsMutation.isPending ? "Sending…" : "Send Test Text"}
+              </button>
+            </div>
           </div>
         </div>
 

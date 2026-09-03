@@ -1478,6 +1478,17 @@ export const appRouter = router({
         if (error) throw new Error("Unable to save phone settings.");
         return { ok: true };
       }),
+    sendTestSms: teamProcedure.mutation(async ({ ctx }) => {
+      const { data, error } = await supabaseAdmin.from("teams")
+        .select("phone_number")
+        .eq("id", ctx.teamSession.teamId)
+        .single();
+      if (error || !data) throw new Error("Unable to load your phone number.");
+      if (!data.phone_number) throw new Error("Save a phone number first.");
+      const result = await sendSms(data.phone_number, "WRC Fantasy: this is a test text. If you got this, trade notifications are working!");
+      if (!result.sent) throw new Error(`Text didn't send (${result.reason ?? "unknown reason"}). Double check TWILIO_ACCOUNT_SID/TWILIO_AUTH_TOKEN/TWILIO_FROM_NUMBER in Vercel.`);
+      return { ok: true };
+    }),
     publicTeams: publicProcedure.query(async () => {
       const teams = await listPublicLeagueTeams();
       const { data: logos } = await supabaseAdmin.from("teams").select("id, logo_url");
