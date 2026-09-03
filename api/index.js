@@ -83886,13 +83886,17 @@ async function request(path, cacheTtlMs) {
   cache2.set(cacheKey, { value, expiresAt: Date.now() + cacheTtlMs });
   return value;
 }
+var NEWS_CACHE_TTL_MS = 2 * 60 * 6e4;
+var INJURIES_CACHE_TTL_MS = 2 * 60 * 6e4;
+var RANKINGS_CACHE_TTL_MS = 4 * 60 * 6e4;
+var PROJECTIONS_CACHE_TTL_MS = 3 * 60 * 6e4;
 async function getFantasyProsNews(limit = 50, fpid) {
   const query = new URLSearchParams({
     limit: String(Math.min(Math.max(limit, 1), 100)),
     order_by: "updated"
   });
   if (fpid != null) query.set("fpid", String(fpid));
-  const data = asRecord(await request(`/nfl/news?${query.toString()}`, 15 * 6e4));
+  const data = asRecord(await request(`/nfl/news?${query.toString()}`, NEWS_CACHE_TTL_MS));
   return asArray(data.items).map((item) => {
     const row = asRecord(item);
     return {
@@ -83913,7 +83917,7 @@ async function getFantasyProsNews(limit = 50, fpid) {
 async function getFantasyProsInjuries(year2, week2) {
   const data = asRecord(await request(
     `/nfl/injuries?year=${year2}&week=${week2}&include_probabilities=true`,
-    20 * 6e4
+    INJURIES_CACHE_TTL_MS
   ));
   return asArray(data.injuries).map((item) => {
     const row = asRecord(item);
@@ -83935,7 +83939,7 @@ async function getFantasyProsInjuries(year2, week2) {
 }
 async function getFantasyProsRanks(position, week2) {
   const query = new URLSearchParams({ position, scoring: "PPR", type: week2 > 0 ? "WEEKLY" : "DRAFT", week: String(week2) });
-  const data = asRecord(await request(`/nfl/2026/consensus-rankings?${query.toString()}`, 60 * 6e4));
+  const data = asRecord(await request(`/nfl/2026/consensus-rankings?${query.toString()}`, RANKINGS_CACHE_TTL_MS));
   return asArray(data.players).map((item) => {
     const row = asRecord(item);
     return {
@@ -83952,7 +83956,7 @@ async function getFantasyProsRanks(position, week2) {
 }
 async function getFantasyProsProjections(position, week2) {
   const query = new URLSearchParams({ position, week: String(week2) });
-  const data = asRecord(await request(`/nfl/2026/projections?${query.toString()}`, 60 * 6e4));
+  const data = asRecord(await request(`/nfl/2026/projections?${query.toString()}`, PROJECTIONS_CACHE_TTL_MS));
   return asArray(data.players).map((item) => {
     const row = asRecord(item);
     const stats = asRecord(asArray(row.stats)[0]);

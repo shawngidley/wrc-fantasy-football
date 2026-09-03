@@ -110,13 +110,28 @@ async function request<T>(path: string, cacheTtlMs: number): Promise<T> {
   return value;
 }
 
+// Confirmed directly with FantasyPros support (Sept 2026): this key is on
+// the Premium plan -- 1 request/sec, burst of 4, 500 requests/day (5x the
+// 100/day figure in the published Terms of Use, which is the free tier).
+// The previous TTLs (15-60 min) were sized as if this were a much higher
+// or unlimited budget and burned through the real 500/day allowance during
+// active league usage. These are sized to comfortably stay well under that
+// budget even on a busy day with all 12 owners active, while still keeping
+// data reasonably fresh for a fantasy app (none of this needs to update on
+// a sub-hour cadence except possibly right at kickoff, which live scoring
+// -- a completely separate, Tank01-based data path -- already handles).
+const NEWS_CACHE_TTL_MS = 2 * 60 * 60_000; // 2 hours -- also covers the per-player fallback calls inside rosterNews, since they share this same function/TTL
+const INJURIES_CACHE_TTL_MS = 2 * 60 * 60_000; // 2 hours
+const RANKINGS_CACHE_TTL_MS = 4 * 60 * 60_000; // 4 hours -- changes even less often than news/injuries
+const PROJECTIONS_CACHE_TTL_MS = 3 * 60 * 60_000; // 3 hours
+
 export async function getFantasyProsNews(limit = 50, fpid?: number): Promise<FantasyProsNewsItem[]> {
   const query = new URLSearchParams({
     limit: String(Math.min(Math.max(limit, 1), 100)),
     order_by: "updated",
   });
   if (fpid != null) query.set("fpid", String(fpid));
-  const data = asRecord(await request<unknown>(`/nfl/news?${query.toString()}`, 15 * 60_000));
+  const data = asRecord(await request<unknown>(`/nfl/news?${query.toString()}`, NEWS_CACHE_TTL_MS));
   return asArray(data.items).map(item => {
     const row = asRecord(item);
     return {
@@ -138,7 +153,7 @@ export async function getFantasyProsNews(limit = 50, fpid?: number): Promise<Fan
 export async function getFantasyProsInjuries(year: number, week: number): Promise<FantasyProsInjury[]> {
   const data = asRecord(await request<unknown>(
     `/nfl/injuries?year=${year}&week=${week}&include_probabilities=true`,
-    20 * 60_000,
+    INJURIES_CACHE_TTL_MS,
   ));
   return asArray(data.injuries).map(item => {
     const row = asRecord(item);
@@ -161,7 +176,7 @@ export async function getFantasyProsInjuries(year: number, week: number): Promis
 
 export async function getFantasyProsRanks(position: string, week: number): Promise<FantasyProsRank[]> {
   const query = new URLSearchParams({ position, scoring: "PPR", type: week > 0 ? "WEEKLY" : "DRAFT", week: String(week) });
-  const data = asRecord(await request<unknown>(`/nfl/2026/consensus-rankings?${query.toString()}`, 60 * 60_000));
+  const data = asRecord(await request<unknown>(`/nfl/2026/consensus-rankings?${query.toString()}`, RANKINGS_CACHE_TTL_MS));
   return asArray(data.players).map(item => {
     const row = asRecord(item);
     return {
@@ -179,7 +194,7 @@ export async function getFantasyProsRanks(position: string, week: number): Promi
 
 export async function getFantasyProsProjections(position: string, week: number): Promise<FantasyProsProjection[]> {
   const query = new URLSearchParams({ position, week: String(week) });
-  const data = asRecord(await request<unknown>(`/nfl/2026/projections?${query.toString()}`, 60 * 60_000));
+  const data = asRecord(await request<unknown>(`/nfl/2026/projections?${query.toString()}`, PROJECTIONS_CACHE_TTL_MS));
   return asArray(data.players).map(item => {
     const row = asRecord(item);
     const stats = asRecord(asArray(row.stats)[0]);
