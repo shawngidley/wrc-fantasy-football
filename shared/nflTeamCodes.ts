@@ -3,6 +3,7 @@ const TEAM_CODE_ALIASES: Record<string, string> = {
   KAN: "KC",
   TAM: "TB",
   ARZ: "ARI",
+  AZ: "ARI",
   WAS: "WSH",
   WSN: "WSH",
   OAK: "LV",

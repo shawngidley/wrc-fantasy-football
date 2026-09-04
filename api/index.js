@@ -96554,6 +96554,7 @@ var TEAM_CODE_ALIASES = {
   KAN: "KC",
   TAM: "TB",
   ARZ: "ARI",
+  AZ: "ARI",
   WAS: "WSH",
   WSN: "WSH",
   OAK: "LV",

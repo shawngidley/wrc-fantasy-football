@@ -19,4 +19,13 @@ describe("normalizeNFLTeamCode", () => {
     // consistently uses LAC for the Chargers, never bare LA.
     expect(normalizeNFLTeamCode("LAC")).toBe("LAC");
   });
+
+  it("uses ARI as the canonical Cardinals code, covering both the AZ and ARZ variants", () => {
+    // Reported by a user: Jeremiyah Love and Trey McBride (both Cardinals)
+    // were showing an incorrect bye week, traced to a data source using
+    // the bare 2-letter "AZ" -- distinct from the 3-letter "ARZ" variant
+    // already covered.
+    expect(normalizeNFLTeamCode("AZ")).toBe("ARI");
+    expect(normalizeNFLTeamCode("ARZ")).toBe("ARI");
+  });
 });
