@@ -25,9 +25,10 @@ import { formatSeasonStat, type PlayerSeasonStats } from "@/lib/playerSeasonStat
 import { getNflTeamLogoUrl } from "@/lib/nflTeamLogo";
 import { fetchTeamSchedule } from "@/hooks/useNFLTeamSchedule";
 import { normalizePlayerName } from "@shared/playerNameMatch";
-import { NFL_PLAYERS_2026 } from "@/lib/nflPlayers2026";
 import { supabase } from "@/lib/supabase";
 import { getDraftUniversePlayerByName } from "@shared/draftPlayerUniverse";
+import { normalizeNFLTeamCode } from "@shared/nflTeamCodes";
+import { useDraftPlayerUniverse } from "@/hooks/useDraftPlayerUniverse";
 import { getEspnHeadshotUrl } from "@/lib/playerHeadshot";
 
 const STARTER_SLOTS = [
@@ -51,7 +52,7 @@ function sortBenchByPosition<T extends { pos: string }>(players: T[]): T[] {
 
 /** Stable selection key across Tank01, draft, and Supabase player-name variants. */
 // Delegates to the shared canonical normalizer so a roster player uploaded
-// as e.g. "James Cook" still matches NFL_PLAYERS_2026/live data returning
+// as e.g. "James Cook" still matches the live-merged pool/live data returning
 // "James Cook III" for the same person.
 const lineupPlayerKey = normalizePlayerName;
 
@@ -65,11 +66,16 @@ const DAY_COLORS: Record<string, string> = {
 };
 
 // ── NFL team abbreviation normalizer (KAN→KC, TAM→TB, ARZ→ARI, JAX→JAC) ────────
+// Delegates to the shared normalizer (shared/nflTeamCodes.ts) rather than
+// maintaining a separate, local alias table -- this used to be its own
+// duplicate implementation that silently drifted out of sync with every
+// fix made to the shared one (missing AZ, LA, OAK, WSN), which was the
+// actual root cause of a live bug: fetchTeamSchedule below was being
+// called with unnormalized "AZ" instead of "ARI" for Arizona players,
+// causing the schedule fetch to fail and every week (including week 1)
+// to look like the missing/bye week.
 function normalizeNFLTeam(abv: string): string {
-  const map: Record<string, string> = {
-    KAN: "KC", TAM: "TB", ARZ: "ARI", JAX: "JAC", WAS: "WSH",
-  };
-  return map[abv.toUpperCase()] ?? abv.toUpperCase();
+  return normalizeNFLTeamCode(abv);
 }
 
 /**
@@ -550,6 +556,7 @@ export default function Lineup() {
   const [, navigate] = useLocation();
   const { teamId } = useParams<{ teamId?: string }>();
   const { rostersByTeam, hasPicks, loading: draftLoading } = useDraftedRoster();
+  const draftPlayerPool = useDraftPlayerUniverse();
 
   // League median from team_standings
   const [leagueMedian, setLeagueMedian] = useState<number | null>(null);
@@ -630,7 +637,7 @@ export default function Lineup() {
     const players = rostersByTeam[viewTeamName];
     if (!players || players.length === 0) return null;
     const allPlayers: Player[] = players.map((rp) => {
-      const staticPlayer = NFL_PLAYERS_2026.find(candidate => lineupPlayerKey(candidate.name) === lineupPlayerKey(rp.name));
+      const staticPlayer = draftPlayerPool.find(candidate => lineupPlayerKey(candidate.name) === lineupPlayerKey(rp.name));
       return ({
       id: rp.id,
       name: rp.name,
@@ -658,7 +665,7 @@ export default function Lineup() {
     }
     const bench = pool.map(p => ({ ...p, isBench: true }));
     return { starters, bench };
-  }, [byeWeeksByTeam, rostersByTeam, viewTeamName]);
+  }, [byeWeeksByTeam, rostersByTeam, viewTeamName, draftPlayerPool]);
 
   const { starters: initialStarters, bench: initialBench } = useMemo(
     () => liveRoster ?? buildRealRoster(viewTeamName ?? undefined),
