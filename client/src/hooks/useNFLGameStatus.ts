@@ -21,6 +21,31 @@ export interface NFLGameStatus {
 /** Map of NFL team abbreviation -> their current game's live status */
 export type NFLGameStatusMap = Record<string, NFLGameStatus>;
 
+/**
+ * Minutes remaining in a single game's clock. Regulation is 4 quarters of
+ * 15 minutes (60 total): pre-game the full 60 is still "remaining" (none
+ * has elapsed), post-game none is, and live it's whatever's left in the
+ * current quarter plus any full quarters still ahead.
+ *
+ * Overtime (period >= 5) doesn't have a fixed, known-in-advance length the
+ * way regulation does -- a regular season OT period runs up to 10 minutes,
+ * sudden death, so this treats it as "whatever's showing on the OT clock
+ * right now" rather than trying to predict how much of it is left, which
+ * isn't knowable in advance.
+ */
+export function minutesRemainingInGame(status: NFLGameStatus | undefined): number {
+  if (!status) return 60; // no status yet (e.g. bye week or not fetched) -- treat as not-yet-started
+  if (status.state === "post") return 0;
+  if (status.state === "pre") return 60;
+
+  const [minStr, secStr] = status.displayClock.split(":");
+  const clockMinutes = (Number(minStr) || 0) + (Number(secStr) || 0) / 60;
+
+  if (status.period >= 5) return clockMinutes; // overtime -- no fixed regulation length to add on top of
+  const fullQuartersRemaining = Math.max(0, 4 - status.period);
+  return fullQuartersRemaining * 15 + clockMinutes;
+}
+
 interface UseNFLGameStatusResult {
   gameStatus: NFLGameStatusMap;
   loading: boolean;

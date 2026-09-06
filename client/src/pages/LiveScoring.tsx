@@ -13,7 +13,7 @@ import TeamLogo from "@/components/TeamLogo";
 import { supabase } from "@/lib/supabase";
 import { SCHEDULE_2026, OWNER_TO_TEAM, getCurrentWeek } from "@/lib/scheduleData2026";
 import { useNFLMatchups } from "@/hooks/useNFLMatchups";
-import { useNFLGameStatus, type NFLGameStatusMap, type NFLGameStatus } from "@/hooks/useNFLGameStatus";
+import { useNFLGameStatus, minutesRemainingInGame, type NFLGameStatusMap } from "@/hooks/useNFLGameStatus";
 import { normalizeNFLTeamCode as normalizeNFLTeam } from "@shared/nflTeamCodes";
 import { useNFLLiveScores, getLivePoints } from "@/hooks/useNFLLiveScores";
 import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections";
@@ -57,7 +57,7 @@ type TeamSide = {
   playersPlayed: number;
   playersPlaying: number;
   playersYetToPlay: number;
-  timeLeftDisplay: string;
+  minutesRemaining: number;
   playersTotal: number;
   logo?: string;
 };
@@ -78,8 +78,8 @@ type Matchup = {
 const MOCK_MATCHUPS: Matchup[] = [
   {
     id: 1, week: 1, isChallenge: false,
-    home: { team: "The Super Snuffleupagus", owner: "Jonas", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, timeLeftDisplay: "", playersTotal: 10 },
-    away: { team: "HamSandwich", owner: "Keith", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, timeLeftDisplay: "", playersTotal: 10 },
+    home: { team: "The Super Snuffleupagus", owner: "Jonas", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
+    away: { team: "HamSandwich", owner: "Keith", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
     bench: {
       home: [
         { slot: "BN", name: "G. Edwards", fullName: "Gus Edwards", pos: "RB", nflTeam: "LAC", pts: 8.4, proj: 8.4, gameInfo: "LAC 27 @ DEN 14 F", stats: [{ label: "YDS", value: 54 }, { label: "REC", value: 1 }] },
@@ -157,8 +157,8 @@ const MOCK_MATCHUPS: Matchup[] = [
   },
   {
     id: 2, week: 1, isChallenge: false,
-    home: { team: "The Boys of Fall", owner: "David R.", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, timeLeftDisplay: "", playersTotal: 10 },
-    away: { team: "Millertime", owner: "Scott N.", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, timeLeftDisplay: "", playersTotal: 10 },
+    home: { team: "The Boys of Fall", owner: "David R.", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
+    away: { team: "Millertime", owner: "Scott N.", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
     bench: {
       home: [
         { slot: "BN", name: "R. White", fullName: "Rachaad White", pos: "RB", nflTeam: "TB", pts: 6.4, proj: 6.4, gameInfo: "NO 24 @ TB 17 F", stats: [{ label: "YDS", value: 44 }] },
@@ -196,8 +196,8 @@ const MOCK_MATCHUPS: Matchup[] = [
   },
   {
     id: 3, week: 1, isChallenge: false,
-    home: { team: "Heiden's Hardtimes", owner: "Jason", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, timeLeftDisplay: "", playersTotal: 10 },
-    away: { team: "Billy Goats Gruff", owner: "Bill", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, timeLeftDisplay: "", playersTotal: 10 },
+    home: { team: "Heiden's Hardtimes", owner: "Jason", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
+    away: { team: "Billy Goats Gruff", owner: "Bill", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
     bench: {
       home: [
         { slot: "BN", name: "S. Perine", fullName: "Samaje Perine", pos: "RB", nflTeam: "DEN", pts: 4.2, proj: 4.2, gameInfo: "LAC 27 @ DEN 14 F", stats: [{ label: "YDS", value: 28 }] },
@@ -235,8 +235,8 @@ const MOCK_MATCHUPS: Matchup[] = [
   },
   {
     id: 4, week: 1, isChallenge: false,
-    home: { team: "The Four Horsemen", owner: "Jamie", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, timeLeftDisplay: "", playersTotal: 10 },
-    away: { team: "Legion of Doom", owner: "Dan", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, timeLeftDisplay: "", playersTotal: 10 },
+    home: { team: "The Four Horsemen", owner: "Jamie", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
+    away: { team: "Legion of Doom", owner: "Dan", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
     bench: {
       home: [
         { slot: "BN", name: "D. Pierce", fullName: "Dameon Pierce", pos: "RB", nflTeam: "HOU", pts: 5.4, proj: 5.4, gameInfo: "HOU 24 @ PIT 20 F", stats: [{ label: "YDS", value: 34 }] },
@@ -274,8 +274,8 @@ const MOCK_MATCHUPS: Matchup[] = [
   },
   {
     id: 5, week: 1, isChallenge: false,
-    home: { team: "Xavier Musketeers", owner: "Scott M.", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, timeLeftDisplay: "", playersTotal: 10 },
-    away: { team: "Legends", owner: "David S.", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, timeLeftDisplay: "", playersTotal: 10 },
+    home: { team: "Xavier Musketeers", owner: "Scott M.", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
+    away: { team: "Legends", owner: "David S.", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
     bench: {
       home: [
         { slot: "BN", name: "J. Waddle", fullName: "Jaylen Waddle", pos: "WR", nflTeam: "MIA", pts: 6.2, proj: 6.2, gameInfo: "MIA 28 @ NE 10 F", stats: [{ label: "REC", value: 4 }, { label: "YDS", value: 42 }] },
@@ -313,8 +313,8 @@ const MOCK_MATCHUPS: Matchup[] = [
   },
   {
     id: 6, week: 1, isChallenge: false,
-    home: { team: "Vipers", owner: "Shawn", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, timeLeftDisplay: "", playersTotal: 10 },
-    away: { team: 'Larry "Bud" Melman123', owner: "Greg", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, timeLeftDisplay: "", playersTotal: 10 },
+    home: { team: "Vipers", owner: "Shawn", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
+    away: { team: 'Larry "Bud" Melman123', owner: "Greg", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
     bench: {
       home: [
         { slot: "BN", name: "R. White", fullName: "Rachaad White", pos: "RB", nflTeam: "TB", pts: 6.4, proj: 6.4, gameInfo: "NO 24 @ TB 17 F", stats: [{ label: "YDS", value: 44 }] },
@@ -621,7 +621,7 @@ function MatchupDetail({ matchup, injuries }: { matchup: Matchup; injuries?: imp
               {/* Players played */}
               <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 3, fontSize: "0.65rem", color: "oklch(0.5 0.04 150)" }}>
                 <span title="Played / Playing now / Yet to play">👥 {matchup.home.playersPlayed} {matchup.home.playersPlaying} {matchup.home.playersYetToPlay}</span>
-                <span title="Time left until this team's score is final">⏱ {matchup.home.timeLeftDisplay}</span>
+                <span title="Total minutes remaining across all your starters' games (10 starters x 60 min = 600 to start)">⏱ {matchup.home.minutesRemaining}</span>
               </div>
             </div>
           </div>
@@ -647,7 +647,7 @@ function MatchupDetail({ matchup, injuries }: { matchup: Matchup; injuries?: imp
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 3, fontSize: "0.65rem", color: "oklch(0.5 0.04 150)", justifyContent: "flex-end" }}>
                 <span title="Played / Playing now / Yet to play">👥 {matchup.away.playersPlayed} {matchup.away.playersPlaying} {matchup.away.playersYetToPlay}</span>
-                <span title="Time left until this team's score is final">⏱ {matchup.away.timeLeftDisplay}</span>
+                <span title="Total minutes remaining across all your starters' games (10 starters x 60 min = 600 to start)">⏱ {matchup.away.minutesRemaining}</span>
               </div>
             </div>
           </div>
@@ -1023,26 +1023,20 @@ async function buildMatchupsFromLineups(
       const playersPlaying = starterGameStates.filter(g => g?.state === "in").length;
       const playersYetToPlay = pairedSlots.length - playersPlayed - playersPlaying;
 
-      // "Time left" shows the latest-kicking-off game among this team's
-      // starters that hasn't finished yet -- since that's the game that
-      // determines when this team's score is actually final, regardless of
-      // when earlier games wrap up. Falls back to "Final" once every
-      // starter's game has finished.
-      let latestUnfinishedKey = "";
-      let latestUnfinishedStatus: NFLGameStatus | undefined;
-      for (const s of pairedSlots) {
-        const player = (s as SlotRow & { _player: SlotPlayer | null })._player;
-        if (!player) continue;
-        const matchup = matchupMap[normalizeNFLTeam(player.nflTeam)];
-        const status = gameStatus[normalizeNFLTeam(player.nflTeam)];
-        if (!matchup || status?.state === "post") continue;
-        const key = matchup.gameDate + matchup.gameTime;
-        if (key >= latestUnfinishedKey) {
-          latestUnfinishedKey = key;
-          latestUnfinishedStatus = status;
-        }
-      }
-      const timeLeftDisplay = latestUnfinishedStatus?.shortDetail ?? (pairedSlots.length > 0 ? "Final" : "");
+      // Total minutes remaining in regulation across every starter's game,
+      // summed together -- 10 starters at 60 minutes each starts at 600
+      // and counts down as each individual game progresses toward final.
+      // An empty slot (no player assigned) still counts as a full 60,
+      // same as a game that hasn't kicked off yet, since the 600 baseline
+      // is meant to reflect the fixed 10-starter lineup regardless of
+      // whether every slot happens to be filled at this exact moment.
+      const minutesRemaining = Math.round(
+        pairedSlots.reduce((sum, s) => {
+          const player = (s as SlotRow & { _player: SlotPlayer | null })._player;
+          if (!player) return sum + 60;
+          return sum + minutesRemainingInGame(gameStatus[normalizeNFLTeam(player.nflTeam)]);
+        }, 0),
+      );
 
       const side: TeamSide = {
         team: OWNER_TO_TEAM[owner] ?? owner,
@@ -1052,7 +1046,7 @@ async function buildMatchupsFromLineups(
         playersPlayed,
         playersPlaying,
         playersYetToPlay,
-        timeLeftDisplay,
+        minutesRemaining,
         playersTotal: pairedSlots.length,
       };
 
