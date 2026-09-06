@@ -267,7 +267,7 @@ function calculateSeasonRow(year: number, pos: string, extracted: Partial<Season
   return { season: year, gp, ...extracted, wrcPts: Math.round(wrcPts * 10) / 10, wrcPtsPerGame: gp > 0 ? Math.round((wrcPts / gp) * 10) / 10 : 0 };
 }
 
-async function fetchSeasonStats(
+export async function fetchSeasonStats(
   espnId: string,
   year: number,
   pos: string

@@ -21,6 +21,7 @@ import { useNFLLiveScores, getLivePoints } from "@/hooks/useNFLLiveScores";
 import { useWeeklyResultsWriter } from "@/hooks/useWeeklyResultsWriter";
 import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } from "@/hooks/useNFLInjuries";
 import { useNFLSeasonStats } from "@/hooks/useNFLSeasonStats";
+import { fetchSeasonStats, type SeasonStatRow } from "@/hooks/useESPNSeasonStats";
 import { formatSeasonStat, type PlayerSeasonStats } from "@/lib/playerSeasonStats";
 import { getNflTeamLogoUrl } from "@/lib/nflTeamLogo";
 import { fetchTeamSchedule } from "@/hooks/useNFLTeamSchedule";
@@ -48,6 +49,65 @@ const STARTER_SLOTS = [
 const BENCH_POSITION_ORDER: Record<string, number> = { QB: 0, RB: 1, WR: 2, TE: 3, K: 4, DST: 5 };
 function sortBenchByPosition<T extends { pos: string }>(players: T[]): T[] {
   return [...players].sort((a, b) => (BENCH_POSITION_ORDER[a.pos] ?? 99) - (BENCH_POSITION_ORDER[b.pos] ?? 99));
+}
+
+// Same cutoff already used on PlayerPage.tsx for its own "2025 vs 2026"
+// season stats messaging -- kept as a single source of truth here so the
+// two pages can't drift out of sync on when the default season flips.
+const SEASON_2026_START = new Date("2026-09-09T00:00:00-04:00");
+function getDefaultStatsYear(now = new Date()): number {
+  return now >= SEASON_2026_START ? 2026 : 2025;
+}
+const AVAILABLE_STATS_YEARS = [2023, 2024, 2025, 2026];
+
+/**
+ * Maps the historical-years shape (SeasonStatRow, from ESPN's gamelog API,
+ * already proven working for 2020-2025 on Player Page) onto
+ * PlayerSeasonStats (the shape this page's table rendering already expects
+ * for the current/default year, from useNFLSeasonStats). A few fields
+ * PlayerSeasonStats has that SeasonStatRow doesn't (FG distance breakdowns,
+ * DST-specific fields) default to 0, since ESPN's gamelog doesn't break
+ * those out at that level of detail for historical seasons.
+ */
+function mapSeasonStatRowToPlayerSeasonStats(row: SeasonStatRow): PlayerSeasonStats {
+  return {
+    gp: row.gp,
+    passCmp: row.passCmp ?? 0,
+    passAtt: row.passAtt ?? 0,
+    passYds: row.passYds ?? 0,
+    passTD: row.passTD ?? 0,
+    passInt: row.passInt ?? 0,
+    passRating: row.passRating ?? 0,
+    rushAtt: row.rushAtt ?? 0,
+    rushYds: row.rushYds ?? 0,
+    rushTD: row.rushTD ?? 0,
+    receptions: row.rec ?? 0,
+    targets: row.recTargets ?? 0,
+    recYds: row.recYds ?? 0,
+    recTD: row.recTD ?? 0,
+    fgMade: row.fgMade ?? 0,
+    fgAtt: row.fgAtt ?? 0,
+    fgYds: 0,
+    fgMade1To39: 0,
+    fgMade40To49: 0,
+    fgMade50To59: 0,
+    fgMade60Plus: 0,
+    xpMade: row.xpMade ?? 0,
+    xpAtt: row.xpAtt ?? 0,
+    sacks: row.sacks ?? 0,
+    defInt: row.defInt ?? 0,
+    fumblesRecovered: row.fumblesRecovered ?? 0,
+    takeaways: (row.defInt ?? 0) + (row.fumblesRecovered ?? 0),
+    defTD: row.defTD ?? 0,
+    dstTD: 0,
+    returnTD: 0,
+    safeties: 0,
+    blockKicks: 0,
+    ptsAgainst: 0,
+    fumblesLost: row.fumblesLost ?? 0,
+    wrcPts: row.wrcPts ?? 0,
+    ptsPerGame: row.wrcPtsPerGame ?? 0,
+  };
 }
 
 /** Stable selection key across Tank01, draft, and Supabase player-name variants. */
@@ -684,6 +744,40 @@ export default function Lineup() {
     false,
   );
 
+  // ── Season stats year tabs (2023/2024/2025/2026) ──
+  // The default year (lineupStatMap/lineupMetaMap above) already handles
+  // the current/most-recently-completed season correctly, including
+  // auto-switching from 2025 to 2026 once the new season starts -- that
+  // path is untouched. This only adds an alternate path for the three
+  // *other* years, fetched on demand via the same ESPN gamelog function
+  // already proven working for this exact range on Player Page.
+  const defaultStatsYear = useMemo(() => getDefaultStatsYear(), []);
+  const [selectedStatsYear, setSelectedStatsYear] = useState<number>(defaultStatsYear);
+  const [historicalStatMap, setHistoricalStatMap] = useState<Record<string, PlayerSeasonStats>>({});
+  const [historicalStatsLoading, setHistoricalStatsLoading] = useState(false);
+
+  useEffect(() => {
+    if (selectedStatsYear === defaultStatsYear) return; // default path already covers this
+    let cancelled = false;
+    setHistoricalStatsLoading(true);
+    Promise.all(
+      lineupSeasonPlayers.map(async player => {
+        const universePlayer = getDraftUniversePlayerByName(player.name);
+        if (!universePlayer?.sourcePlayerId) return null;
+        const row = await fetchSeasonStats(universePlayer.sourcePlayerId, selectedStatsYear, player.pos);
+        return row ? [player.name.toLowerCase(), mapSeasonStatRowToPlayerSeasonStats(row)] as const : null;
+      }),
+    ).then(results => {
+      if (cancelled) return;
+      setHistoricalStatMap(Object.fromEntries(results.filter((r): r is readonly [string, PlayerSeasonStats] => r !== null)));
+      setHistoricalStatsLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [selectedStatsYear, defaultStatsYear, lineupSeasonPlayers]);
+
+  const activeStatMap = selectedStatsYear === defaultStatsYear ? lineupStatMap : historicalStatMap;
+  const activeStatsLoading = selectedStatsYear !== defaultStatsYear && historicalStatsLoading;
+
   // Refs to always have latest starters/bench in effects without stale closures
   const benchRef = useRef<Player[]>([]);
   const startersRef = useRef<Player[]>([]);
@@ -1037,12 +1131,44 @@ export default function Lineup() {
           </div>
         </div>
 
+        {/* ── SEASON STATS YEAR TABS ── */}
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
+          <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "oklch(0.5 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+            Stats:
+          </span>
+          {AVAILABLE_STATS_YEARS.filter(year => year <= defaultStatsYear).map(year => {
+            const isActive = year === selectedStatsYear;
+            return (
+              <button
+                key={year}
+                onClick={() => setSelectedStatsYear(year)}
+                style={{
+                  padding: "0.35rem 0.9rem",
+                  borderRadius: 20,
+                  border: isActive ? "none" : "1.5px solid oklch(0.85 0.02 150)",
+                  background: isActive ? "oklch(0.28 0.09 150)" : "white",
+                  color: isActive ? "white" : "oklch(0.35 0.05 150)",
+                  fontFamily: "Barlow Condensed, sans-serif",
+                  fontWeight: 700,
+                  fontSize: "0.8rem",
+                  cursor: "pointer",
+                }}
+              >
+                {year}{year === defaultStatsYear ? (year === 2026 ? " (current)" : "") : ""}
+              </button>
+            );
+          })}
+          {activeStatsLoading && (
+            <span style={{ fontSize: "0.75rem", color: "oklch(0.55 0.04 150)", fontStyle: "italic" }}>Loading {selectedStatsYear} stats…</span>
+          )}
+        </div>
+
         {/* ── POSITION-SPECIFIC LINEUP PANELS ── */}
         <LineupRosterTable
           title={`SFLEX · ${sflexPlayers.length} players · ${totalPts.toFixed(1)} pts · Proj ${totalProj.toFixed(1)}`}
           profile="SFLEX"
           players={sflexPlayers}
-          statMap={lineupStatMap}
+          statMap={activeStatMap}
           metaMap={lineupMetaMap}
           matchupMap={matchupMap}
           injuries={injuries}
@@ -1057,7 +1183,7 @@ export default function Lineup() {
           title={`K · ${kickerPlayers.length} player${kickerPlayers.length === 1 ? "" : "s"}`}
           profile="K"
           players={kickerPlayers}
-          statMap={lineupStatMap}
+          statMap={activeStatMap}
           metaMap={lineupMetaMap}
           matchupMap={matchupMap}
           injuries={injuries}
@@ -1072,7 +1198,7 @@ export default function Lineup() {
           title={`D/ST · ${defensePlayers.length} player${defensePlayers.length === 1 ? "" : "s"}`}
           profile="DST"
           players={defensePlayers}
-          statMap={lineupStatMap}
+          statMap={activeStatMap}
           metaMap={lineupMetaMap}
           matchupMap={matchupMap}
           injuries={injuries}
