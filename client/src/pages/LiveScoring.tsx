@@ -691,11 +691,20 @@ function MatchupDetail({ matchup, injuries }: { matchup: Matchup; injuries?: imp
       </div>
 
       {/* Slot-by-slot comparison */}
-      <div>
+      {matchup.home.owner === "TBD" ? (
+        <div style={{ padding: "2.5rem 1.5rem", textAlign: "center", color: "oklch(0.5 0.04 150)" }}>
+          <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1rem", letterSpacing: "0.04em", marginBottom: "0.4rem" }}>
+            Playoff matchup not yet determined
+          </div>
+          <div style={{ fontSize: "0.85rem" }}>Check back once the regular season ends and standings are final.</div>
+        </div>
+      ) : (
+        <div>
           {matchup.slots.map((row, i) => (
             <SlotRowComp key={i} row={row} injuries={injuries} />
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* BENCH section */}
       {(matchup.bench.home.length > 0 || matchup.bench.away.length > 0) && (
@@ -901,6 +910,29 @@ async function buildMatchupsFromLineups(
 
   for (let idx = 0; idx < scheduleWeek.matchups.length; idx++) {
     const [homeOwner, awayOwner] = scheduleWeek.matchups[idx];
+
+    // Playoff weeks (Wild Card/Divisional/Super Bowl) start with "TBD"
+    // placeholders in SCHEDULE_2026 until the regular season ends and
+    // standings determine who actually qualifies. "TBD" isn't a real
+    // owner name, so OWNER_TO_TEAM_ID[homeOwner] would resolve to
+    // undefined -- the various "?? []" fallbacks below would keep that
+    // from crashing, but would silently produce an empty, broken-looking
+    // roster table rather than a clear "matchup not yet set" state. Skip
+    // straight to a minimal placeholder instead.
+    if (homeOwner === "TBD" || awayOwner === "TBD") {
+      const tbdSide: TeamSide = {
+        team: "TBD", owner: "TBD", score: 0, projected: 0,
+        playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 0,
+        minutesRemaining: 0, playersTotal: 0,
+      };
+      matchups.push({
+        id: idx, week, isChallenge: false,
+        home: tbdSide, away: tbdSide,
+        slots: [], bench: { home: [], away: [] },
+      });
+      continue;
+    }
+
     const homeTeamId = OWNER_TO_TEAM_ID[homeOwner];
     const awayTeamId = OWNER_TO_TEAM_ID[awayOwner];
 
