@@ -32,8 +32,6 @@ const primaryLinks: NavLink[] = [
 const navLinks: NavLink[] = [
   { label: "Standings", path: "/standings" },
   { label: "Live", path: "/live", live: true },
-  { label: "Draft", path: "/draft" }, // expandable group
-  { label: "Draft Recap", path: "/draft-recap" },
   { label: "Lineup", path: "/lineup" },
   { label: "Rosters", path: "/rosters" },
   { label: "Free Agents", path: "/free-agents" },
@@ -41,6 +39,8 @@ const navLinks: NavLink[] = [
   { label: "Schedule & Results", path: "/schedule" },
   { label: "News", path: "/news" },
   { label: "Trades", path: "/trades" },
+  { label: "Draft", path: "/draft" }, // expandable group
+  { label: "Draft Recap", path: "/draft-recap" },
   { label: "League", path: "/league" }, // expandable group
   { label: "NFL Sites", path: "/nfl-sites" },
 ];
