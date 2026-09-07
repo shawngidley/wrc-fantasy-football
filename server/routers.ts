@@ -12,6 +12,7 @@ import { archiveFantasyProsNews, getArchivedFantasyProsNews, mergeFantasyProsNew
 import { getPublicLeagueTeam, listPublicLeagueTeams, verifyLeagueTeamPin } from "./leagueAuth";
 import { clearWrcTeamSession, readWrcTeamSession, writeWrcTeamSession } from "./wrcTeamSession";
 import { supabaseAdmin } from "./supabaseAdmin";
+import { getFreeAgentMarketState } from "./faabMarketState";
 import { sendSms } from "./twilioSms";
 import { validateProtectionSubmission } from "./protectionRules";
 import { releaseUnprotectedPlayers } from "./protectionRelease";
@@ -636,6 +637,9 @@ export const appRouter = router({
           updatedAt: data.updated_at,
         };
       }),
+    freeAgentMarketState: publicProcedure.query(() => {
+      return { state: getFreeAgentMarketState() };
+    }),
     faabBidRoster: teamProcedure.query(async ({ ctx }) => {
       const teamId = ctx.teamSession.teamId;
       const [{ data: roster, error: rosterError }, { data: team, error: teamError }] = await Promise.all([
@@ -665,15 +669,37 @@ export const appRouter = router({
         season: z.number().int().min(2020).max(2100),
       }))
       .mutation(async ({ input, ctx }) => {
+        const marketState = getFreeAgentMarketState();
+        if (marketState === "open_waiver") {
+          throw new Error("It's the open waiver window (Sunday 9am-1pm ET) -- add this player directly instead of bidding, no FAAB cost.");
+        }
+        if (marketState === "closed") {
+          throw new Error("The free agent market is closed until Tuesday 9am ET.");
+        }
         const teamId = ctx.teamSession.teamId;
-        const [{ data: team, error: teamError }, { data: roster, error: rosterError }, { data: targetPlayer, error: targetPlayerError }] = await Promise.all([
+        const [{ data: team, error: teamError }, { data: roster, error: rosterError }, { data: targetPlayer, error: targetPlayerError }, { data: pendingBids, error: pendingBidsError }] = await Promise.all([
           supabaseAdmin.from("teams").select("name, faab").eq("id", teamId).single(),
           supabaseAdmin.from("players").select("id").eq("team_id", teamId),
           supabaseAdmin.from("players").select("team_id").eq("name", input.playerName).maybeSingle(),
+          supabaseAdmin.from("faab_bids").select("bid_amount, player_name").eq("team_id", teamId).eq("status", "pending"),
         ]);
-        if (teamError || !team || rosterError || targetPlayerError) throw new Error("Unable to validate this FAAB bid");
+        if (teamError || !team || rosterError || targetPlayerError || pendingBidsError) throw new Error("Unable to validate this FAAB bid");
         const faab = Number(team.faab ?? 0);
-        if (input.bidAmount > faab) throw new Error(`Bid exceeds your FAAB balance ($${faab} remaining).`);
+        // Sum every pending bid this team already has out, across all
+        // players -- prevents a team bidding $50 on two different players
+        // when they only actually have $50 total, which the previous check
+        // (comparing only this one new bid against the raw FAAB balance)
+        // allowed.
+        const committedElsewhere = (pendingBids ?? [])
+          .reduce((sum, bid) => sum + Number(bid.bid_amount ?? 0), 0);
+        const trueAvailable = faab - committedElsewhere;
+        if (input.bidAmount > trueAvailable) {
+          throw new Error(
+            committedElsewhere > 0
+              ? `Bid exceeds your available FAAB. You have $${faab} total, but $${committedElsewhere} is already committed to other pending bids -- $${trueAvailable} available.`
+              : `Bid exceeds your FAAB balance ($${faab} remaining).`
+          );
+        }
         if (targetPlayer?.team_id) throw new Error("This player is already on a WRC roster.");
         if ((roster?.length ?? 0) >= 18 && !input.dropPlayerId) throw new Error("Select a player to drop before bidding with a full roster.");
 
@@ -705,6 +731,102 @@ export const appRouter = router({
         });
         if (error) throw new Error("Unable to submit FAAB bid");
         return { submitted: true, bidAmount: input.bidAmount };
+      }),
+    instantAddFreeAgent: teamProcedure
+      .input(z.object({
+        playerName: z.string().min(1).max(128),
+        playerPos: z.string().min(1).max(8),
+        playerNflTeam: z.string().min(1).max(8),
+        dropPlayerId: z.string().min(1).max(128).nullable(),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        if (getFreeAgentMarketState() !== "open_waiver") {
+          throw new Error("Instant adds are only available during the open waiver window (Sunday 9am-1pm ET).");
+        }
+        const teamId = ctx.teamSession.teamId;
+        const [{ data: team, error: teamError }, { data: roster, error: rosterError }, { data: existingPlayer, error: existingPlayerError }] = await Promise.all([
+          supabaseAdmin.from("teams").select("name").eq("id", teamId).single(),
+          supabaseAdmin.from("players").select("id").eq("team_id", teamId),
+          supabaseAdmin.from("players").select("id, team_id").eq("name", input.playerName).maybeSingle(),
+        ]);
+        if (teamError || !team || rosterError || existingPlayerError) throw new Error("Unable to validate this add");
+        if ((roster?.length ?? 0) >= 18 && !input.dropPlayerId) throw new Error("Select a player to drop before adding with a full roster.");
+
+        let dropPlayer: { id: string; name: string } | null = null;
+        if (input.dropPlayerId) {
+          const { data, error } = await supabaseAdmin
+            .from("players")
+            .select("id, name")
+            .eq("id", input.dropPlayerId)
+            .eq("team_id", teamId)
+            .maybeSingle();
+          if (error || !data) throw new Error("The selected drop player is not on your roster.");
+          dropPlayer = data;
+        }
+
+        // First-come-first-served: claim atomically via a conditional
+        // write, same pattern already used for claiming draft pick slots
+        // -- only succeeds if the player is still actually unrostered at
+        // the moment of the write, so two owners racing for the same
+        // player can't both succeed.
+        if (existingPlayer) {
+          if (existingPlayer.team_id) throw new Error("This player was already added by another team.");
+          const { data: claimed, error: claimError } = await supabaseAdmin
+            .from("players")
+            .update({ team_id: teamId, acquisition: "FA" })
+            .eq("id", existingPlayer.id)
+            .is("team_id", null)
+            .select("id");
+          if (claimError) throw new Error("Unable to add this player");
+          if (!claimed || claimed.length === 0) throw new Error("This player was just added by another team. Please pick someone else.");
+        } else {
+          const { error: insertError } = await supabaseAdmin.from("players").insert({
+            id: makePlayerId(teamId, input.playerName),
+            team_id: teamId,
+            name: input.playerName,
+            position: input.playerPos,
+            nfl_team: input.playerNflTeam,
+            acquisition: "FA",
+          });
+          // A unique constraint on name (if present) would make a genuine
+          // race here fail cleanly with a duplicate-key error rather than
+          // creating two rows for the same player -- surfaced as the same
+          // "someone else got there first" message either way.
+          if (insertError) throw new Error("This player was just added by another team. Please pick someone else.");
+        }
+
+        if (dropPlayer) {
+          const { error: dropError } = await supabaseAdmin.from("players")
+            .update({ team_id: null, acquisition: "FA" })
+            .eq("id", dropPlayer.id)
+            .eq("team_id", teamId);
+          if (dropError) throw new Error("Unable to drop the selected player");
+        }
+
+        const moves: { move_type: string; team_name: string; owner: string; player_name: string; player_pos: string; player_nfl_team: string; faab_spent: number | null; note: string }[] = [{
+          move_type: "ADD",
+          team_name: team.name,
+          owner: team.name,
+          player_name: input.playerName,
+          player_pos: input.playerPos,
+          player_nfl_team: input.playerNflTeam,
+          faab_spent: 0,
+          note: "Open waiver — no cost",
+        }];
+        if (dropPlayer) moves.push({
+          move_type: "DROP",
+          team_name: team.name,
+          owner: team.name,
+          player_name: dropPlayer.name,
+          player_pos: "—",
+          player_nfl_team: "FA",
+          faab_spent: null,
+          note: `Dropped to make room for ${input.playerName}`,
+        });
+        const { error: moveError } = await supabaseAdmin.from("roster_moves").insert(moves);
+        if (moveError) throw new Error("Player was added, but transaction history could not be written");
+
+        return { added: true, playerName: input.playerName };
       }),
     commissionerFaabBids: commissionerProcedure
       .input(z.object({ week: z.number().int().min(1).max(22), season: z.number().int().min(2020).max(2100) }))

@@ -88642,6 +88642,26 @@ async function verifyLeagueTeamPin(teamId, pin) {
 // server/routers.ts
 init_supabaseAdmin();
 
+// server/faabMarketState.ts
+function getFreeAgentMarketState(now = /* @__PURE__ */ new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    hour: "numeric",
+    hour12: false
+  }).formatToParts(now);
+  const weekday = parts.find((p) => p.type === "weekday")?.value;
+  const hour2 = Number(parts.find((p) => p.type === "hour")?.value ?? -1);
+  if (weekday === "Sun") {
+    if (hour2 < 9) return "bidding";
+    if (hour2 < 13) return "open_waiver";
+    return "closed";
+  }
+  if (weekday === "Mon") return "closed";
+  if (weekday === "Tue") return hour2 < 9 ? "closed" : "bidding";
+  return "bidding";
+}
+
 // server/twilioSms.ts
 async function sendSms(toPhoneNumber, body) {
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
@@ -98249,6 +98269,9 @@ var appRouter = router({
         updatedAt: data.updated_at
       };
     }),
+    freeAgentMarketState: publicProcedure.query(() => {
+      return { state: getFreeAgentMarketState() };
+    }),
     faabBidRoster: teamProcedure.query(async ({ ctx }) => {
       const teamId = ctx.teamSession.teamId;
       const [{ data: roster, error: rosterError }, { data: team, error: teamError }] = await Promise.all([
@@ -98268,15 +98291,29 @@ var appRouter = router({
       week: external_exports.number().int().min(1).max(22),
       season: external_exports.number().int().min(2020).max(2100)
     })).mutation(async ({ input: input2, ctx }) => {
+      const marketState = getFreeAgentMarketState();
+      if (marketState === "open_waiver") {
+        throw new Error("It's the open waiver window (Sunday 9am-1pm ET) -- add this player directly instead of bidding, no FAAB cost.");
+      }
+      if (marketState === "closed") {
+        throw new Error("The free agent market is closed until Tuesday 9am ET.");
+      }
       const teamId = ctx.teamSession.teamId;
-      const [{ data: team, error: teamError }, { data: roster, error: rosterError }, { data: targetPlayer, error: targetPlayerError }] = await Promise.all([
+      const [{ data: team, error: teamError }, { data: roster, error: rosterError }, { data: targetPlayer, error: targetPlayerError }, { data: pendingBids, error: pendingBidsError }] = await Promise.all([
         supabaseAdmin.from("teams").select("name, faab").eq("id", teamId).single(),
         supabaseAdmin.from("players").select("id").eq("team_id", teamId),
-        supabaseAdmin.from("players").select("team_id").eq("name", input2.playerName).maybeSingle()
+        supabaseAdmin.from("players").select("team_id").eq("name", input2.playerName).maybeSingle(),
+        supabaseAdmin.from("faab_bids").select("bid_amount, player_name").eq("team_id", teamId).eq("status", "pending")
       ]);
-      if (teamError || !team || rosterError || targetPlayerError) throw new Error("Unable to validate this FAAB bid");
+      if (teamError || !team || rosterError || targetPlayerError || pendingBidsError) throw new Error("Unable to validate this FAAB bid");
       const faab = Number(team.faab ?? 0);
-      if (input2.bidAmount > faab) throw new Error(`Bid exceeds your FAAB balance ($${faab} remaining).`);
+      const committedElsewhere = (pendingBids ?? []).reduce((sum, bid) => sum + Number(bid.bid_amount ?? 0), 0);
+      const trueAvailable = faab - committedElsewhere;
+      if (input2.bidAmount > trueAvailable) {
+        throw new Error(
+          committedElsewhere > 0 ? `Bid exceeds your available FAAB. You have $${faab} total, but $${committedElsewhere} is already committed to other pending bids -- $${trueAvailable} available.` : `Bid exceeds your FAAB balance ($${faab} remaining).`
+        );
+      }
       if (targetPlayer?.team_id) throw new Error("This player is already on a WRC roster.");
       if ((roster?.length ?? 0) >= 18 && !input2.dropPlayerId) throw new Error("Select a player to drop before bidding with a full roster.");
       let dropPlayer = null;
@@ -98301,6 +98338,73 @@ var appRouter = router({
       });
       if (error61) throw new Error("Unable to submit FAAB bid");
       return { submitted: true, bidAmount: input2.bidAmount };
+    }),
+    instantAddFreeAgent: teamProcedure.input(external_exports.object({
+      playerName: external_exports.string().min(1).max(128),
+      playerPos: external_exports.string().min(1).max(8),
+      playerNflTeam: external_exports.string().min(1).max(8),
+      dropPlayerId: external_exports.string().min(1).max(128).nullable()
+    })).mutation(async ({ input: input2, ctx }) => {
+      if (getFreeAgentMarketState() !== "open_waiver") {
+        throw new Error("Instant adds are only available during the open waiver window (Sunday 9am-1pm ET).");
+      }
+      const teamId = ctx.teamSession.teamId;
+      const [{ data: team, error: teamError }, { data: roster, error: rosterError }, { data: existingPlayer, error: existingPlayerError }] = await Promise.all([
+        supabaseAdmin.from("teams").select("name").eq("id", teamId).single(),
+        supabaseAdmin.from("players").select("id").eq("team_id", teamId),
+        supabaseAdmin.from("players").select("id, team_id").eq("name", input2.playerName).maybeSingle()
+      ]);
+      if (teamError || !team || rosterError || existingPlayerError) throw new Error("Unable to validate this add");
+      if ((roster?.length ?? 0) >= 18 && !input2.dropPlayerId) throw new Error("Select a player to drop before adding with a full roster.");
+      let dropPlayer = null;
+      if (input2.dropPlayerId) {
+        const { data, error: error61 } = await supabaseAdmin.from("players").select("id, name").eq("id", input2.dropPlayerId).eq("team_id", teamId).maybeSingle();
+        if (error61 || !data) throw new Error("The selected drop player is not on your roster.");
+        dropPlayer = data;
+      }
+      if (existingPlayer) {
+        if (existingPlayer.team_id) throw new Error("This player was already added by another team.");
+        const { data: claimed, error: claimError } = await supabaseAdmin.from("players").update({ team_id: teamId, acquisition: "FA" }).eq("id", existingPlayer.id).is("team_id", null).select("id");
+        if (claimError) throw new Error("Unable to add this player");
+        if (!claimed || claimed.length === 0) throw new Error("This player was just added by another team. Please pick someone else.");
+      } else {
+        const { error: insertError } = await supabaseAdmin.from("players").insert({
+          id: makePlayerId(teamId, input2.playerName),
+          team_id: teamId,
+          name: input2.playerName,
+          position: input2.playerPos,
+          nfl_team: input2.playerNflTeam,
+          acquisition: "FA"
+        });
+        if (insertError) throw new Error("This player was just added by another team. Please pick someone else.");
+      }
+      if (dropPlayer) {
+        const { error: dropError } = await supabaseAdmin.from("players").update({ team_id: null, acquisition: "FA" }).eq("id", dropPlayer.id).eq("team_id", teamId);
+        if (dropError) throw new Error("Unable to drop the selected player");
+      }
+      const moves = [{
+        move_type: "ADD",
+        team_name: team.name,
+        owner: team.name,
+        player_name: input2.playerName,
+        player_pos: input2.playerPos,
+        player_nfl_team: input2.playerNflTeam,
+        faab_spent: 0,
+        note: "Open waiver \u2014 no cost"
+      }];
+      if (dropPlayer) moves.push({
+        move_type: "DROP",
+        team_name: team.name,
+        owner: team.name,
+        player_name: dropPlayer.name,
+        player_pos: "\u2014",
+        player_nfl_team: "FA",
+        faab_spent: null,
+        note: `Dropped to make room for ${input2.playerName}`
+      });
+      const { error: moveError } = await supabaseAdmin.from("roster_moves").insert(moves);
+      if (moveError) throw new Error("Player was added, but transaction history could not be written");
+      return { added: true, playerName: input2.playerName };
     }),
     commissionerFaabBids: commissionerProcedure.input(external_exports.object({ week: external_exports.number().int().min(1).max(22), season: external_exports.number().int().min(2020).max(2100) })).query(async ({ input: input2 }) => {
       const { data, error: error61 } = await supabaseAdmin.from("faab_bids").select("id, team_id, team_name, player_id, player_name, player_pos, player_nfl_team, bid_amount, drop_player_id, drop_player_name, status, week, season, created_at").eq("week", input2.week).eq("season", input2.season).order("player_name", { ascending: true }).order("bid_amount", { ascending: false });
@@ -101178,6 +101282,135 @@ async function finalizeWeeklyResultsSchedule(_req, res) {
   }
 }
 
+// server/scheduledFaabAward.ts
+init_supabaseAdmin();
+
+// server/faabResolution.ts
+function winPct(standing) {
+  const gamesPlayed = standing.wins + standing.losses + standing.ties;
+  if (gamesPlayed === 0) return 0.5;
+  return (standing.wins + standing.ties * 0.5) / gamesPlayed;
+}
+function resolveFaabWinner(candidates, standingsByTeamId) {
+  if (candidates.length === 0) throw new Error("resolveFaabWinner called with no candidates");
+  const missing = candidates.find((c) => !standingsByTeamId.has(c.teamId));
+  if (missing) throw new Error(`Missing team standing for tiebreak: team ${missing.teamId}`);
+  const sorted = [...candidates].sort((a, b) => {
+    if (b.bidAmount !== a.bidAmount) return b.bidAmount - a.bidAmount;
+    const standingA = standingsByTeamId.get(a.teamId);
+    const standingB = standingsByTeamId.get(b.teamId);
+    const pctA = winPct(standingA);
+    const pctB = winPct(standingB);
+    if (pctA !== pctB) return pctA - pctB;
+    if (standingA.pointsFor !== standingB.pointsFor) return standingA.pointsFor - standingB.pointsFor;
+    return a.teamId.localeCompare(b.teamId);
+  });
+  return sorted[0];
+}
+
+// server/scheduledFaabAward.ts
+var AUTOMATION_START = /* @__PURE__ */ new Date("2026-09-13T09:00:00-04:00");
+function isFaabAwardWindow(now = /* @__PURE__ */ new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    hour: "numeric",
+    hour12: false
+  }).formatToParts(now);
+  const weekday = parts.find((p) => p.type === "weekday")?.value;
+  const hour2 = Number(parts.find((p) => p.type === "hour")?.value ?? -1);
+  return (weekday === "Sun" || weekday === "Thu") && hour2 === 9;
+}
+async function processAllPendingFaabBids() {
+  const { data: pendingBids, error: bidsError } = await supabaseAdmin.from("faab_bids").select("id, team_id, team_name, player_id, player_name, player_pos, player_nfl_team, bid_amount, drop_player_id, drop_player_name").eq("status", "pending");
+  if (bidsError) throw new Error("Unable to load pending FAAB bids");
+  if (!pendingBids || pendingBids.length === 0) return { awarded: [], skippedNoPending: true };
+  const { data: standings, error: standingsError } = await supabaseAdmin.from("teams").select("id, wins, losses, ties, points_for");
+  if (standingsError || !standings) throw new Error("Unable to load team standings for FAAB tiebreak");
+  const standingsByTeamId = new Map(
+    standings.map((team) => [team.id, {
+      wins: Number(team.wins ?? 0),
+      losses: Number(team.losses ?? 0),
+      ties: Number(team.ties ?? 0),
+      pointsFor: Number(team.points_for ?? 0)
+    }])
+  );
+  const byPlayer = /* @__PURE__ */ new Map();
+  for (const bid of pendingBids) {
+    const list = byPlayer.get(bid.player_name) ?? [];
+    list.push(bid);
+    byPlayer.set(bid.player_name, list);
+  }
+  const resolvedAt = (/* @__PURE__ */ new Date()).toISOString();
+  const awarded = [];
+  for (const [playerName, bids] of Array.from(byPlayer.entries())) {
+    const candidates = bids.map((b) => ({ id: b.id, teamId: b.team_id, bidAmount: Number(b.bid_amount ?? 0) }));
+    const winnerCandidate = resolveFaabWinner(candidates, standingsByTeamId);
+    const winningBid = bids.find((b) => b.id === winnerCandidate.id);
+    const losingBidIds = bids.filter((b) => b.id !== winningBid.id).map((b) => b.id);
+    const [{ error: winError }, { error: loseError }, { data: winningTeam, error: teamError }] = await Promise.all([
+      supabaseAdmin.from("faab_bids").update({ status: "won", resolved_at: resolvedAt }).eq("id", winningBid.id),
+      losingBidIds.length ? supabaseAdmin.from("faab_bids").update({ status: "lost", resolved_at: resolvedAt }).in("id", losingBidIds) : Promise.resolve({ error: null }),
+      supabaseAdmin.from("teams").select("faab").eq("id", winningBid.team_id).single()
+    ]);
+    if (winError || loseError || teamError || !winningTeam) throw new Error(`Unable to resolve FAAB bids for ${playerName}`);
+    const remainingFaab = Math.max(0, Number(winningTeam.faab ?? 0) - Number(winningBid.bid_amount));
+    const { error: faabError } = await supabaseAdmin.from("teams").update({ faab: remainingFaab }).eq("id", winningBid.team_id);
+    if (faabError) throw new Error(`Unable to deduct winning FAAB bid for ${playerName}`);
+    const { error: addError } = await supabaseAdmin.from("players").update({ team_id: winningBid.team_id, acquisition: "FA" }).eq("name", winningBid.player_name);
+    if (addError) throw new Error(`Unable to add ${playerName} to the winning roster`);
+    if (winningBid.drop_player_id) {
+      const { error: dropError } = await supabaseAdmin.from("players").update({ team_id: null, acquisition: "FA" }).eq("id", winningBid.drop_player_id).eq("team_id", winningBid.team_id);
+      if (dropError) throw new Error(`Unable to drop the selected player for ${playerName}'s winning team`);
+    }
+    const moves = [{
+      move_type: "ADD",
+      team_name: winningBid.team_name,
+      owner: winningBid.team_name,
+      player_name: winningBid.player_name,
+      player_pos: winningBid.player_pos,
+      player_nfl_team: winningBid.player_nfl_team,
+      faab_spent: winningBid.bid_amount,
+      note: `FAAB $${winningBid.bid_amount} \u2014 automated award`
+    }];
+    if (winningBid.drop_player_name) moves.push({
+      move_type: "DROP",
+      team_name: winningBid.team_name,
+      owner: winningBid.team_name,
+      player_name: winningBid.drop_player_name,
+      player_pos: "\u2014",
+      player_nfl_team: "FA",
+      faab_spent: null,
+      note: `Dropped to make room for ${winningBid.player_name}`
+    });
+    const { error: moveError } = await supabaseAdmin.from("roster_moves").insert(moves);
+    if (moveError) throw new Error(`FAAB awarded for ${playerName}, but transaction history could not be written`);
+    awarded.push({ playerName, winningTeamName: winningBid.team_name, bidAmount: winningBid.bid_amount, bidCount: bids.length });
+  }
+  return { awarded, skippedNoPending: false };
+}
+async function faabAwardSchedule(_req, res) {
+  try {
+    const now = /* @__PURE__ */ new Date();
+    if (now < AUTOMATION_START) {
+      res.json({ ok: true, skipped: "before-automation-start", automationStart: AUTOMATION_START.toISOString() });
+      return;
+    }
+    if (!isFaabAwardWindow(now)) {
+      res.json({ ok: true, skipped: "not-award-window" });
+      return;
+    }
+    const result = await processAllPendingFaabBids();
+    res.json({ ok: true, ...result, timestamp: now.toISOString() });
+  } catch (error61) {
+    res.status(500).json({
+      error: error61 instanceof Error ? error61.message : String(error61),
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      context: { finalization: "faab-award" }
+    });
+  }
+}
+
 // server/_core/app.ts
 function requireCronSecret(req, res, next) {
   const secret = process.env.CRON_SECRET;
@@ -101223,6 +101456,7 @@ function createApp() {
   app.get("/api/scheduled/fantasypros-archive", requireCronSecret, collectFantasyProsArchive);
   app.get("/api/scheduled/release-unprotected-players", requireCronSecret, releasePostDeadlinePlayers);
   app.get("/api/scheduled/weekly-results-finalize", requireCronSecret, finalizeWeeklyResultsSchedule);
+  app.get("/api/scheduled/faab-award", requireCronSecret, faabAwardSchedule);
   app.use(
     "/api/trpc",
     createExpressMiddleware({
