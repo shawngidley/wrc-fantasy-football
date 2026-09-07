@@ -14,6 +14,7 @@ import { supabase } from "@/lib/supabase";
 import { TEAMS, type RosterPlayer } from "@/lib/wrcData";
 import { useDraftPlayerUniverse } from "@/hooks/useDraftPlayerUniverse";
 import type { DraftUniversePlayer } from "@shared/draftPlayerUniverse";
+import { normalizePlayerName } from "@shared/playerNameMatch";
 
 interface DbRosterMove {
   id: number;
@@ -86,15 +87,15 @@ function applyMoves(byTeam: Record<string, RosterPlayer[]>, moves: DbRosterMove[
     if (!byTeam[move.team_name]) byTeam[move.team_name] = [];
     if (move.move_type === "ADD") {
       const alreadyOn = byTeam[move.team_name].some(
-        p => p.name.toLowerCase() === move.player_name.toLowerCase()
+        p => normalizePlayerName(p.name) === normalizePlayerName(move.player_name)
       );
       if (!alreadyOn) {
         const poolPlayer = pool.find(
-          p => p.name.toLowerCase() === move.player_name.toLowerCase()
+          p => normalizePlayerName(p.name) === normalizePlayerName(move.player_name)
         );
         byTeam[move.team_name].push({
           id: makeId(),
-          name: move.player_name,
+          name: poolPlayer?.name ?? move.player_name,
           pos: move.player_pos as RosterPlayer["pos"],
           nflTeam: poolPlayer?.nflTeam ?? move.player_nfl_team,
           byeWeek: poolPlayer?.bye ?? null,
@@ -103,7 +104,7 @@ function applyMoves(byTeam: Record<string, RosterPlayer[]>, moves: DbRosterMove[
       }
     } else if (move.move_type === "DROP") {
       byTeam[move.team_name] = byTeam[move.team_name].filter(
-        p => p.name.toLowerCase() !== move.player_name.toLowerCase()
+        p => normalizePlayerName(p.name) !== normalizePlayerName(move.player_name)
       );
     }
   }
@@ -145,11 +146,11 @@ export function useDraftedRoster(): DraftedRosterResult {
             if (!teamName) continue;
             if (!baseMap[teamName]) baseMap[teamName] = [];
             const poolPlayer = draftPlayerPool.find(
-              candidate => candidate.name.toLowerCase() === p.name.toLowerCase()
+              candidate => normalizePlayerName(candidate.name) === normalizePlayerName(p.name)
             );
             baseMap[teamName].push({
               id: p.id,
-              name: p.name,
+              name: poolPlayer?.name ?? p.name,
               pos: p.position as RosterPlayer["pos"],
               nflTeam: poolPlayer?.nflTeam ?? p.nfl_team,
               byeWeek: p.bye_week || null,
@@ -182,11 +183,11 @@ export function useDraftedRoster(): DraftedRosterResult {
       for (const pick of picks as DbDraftPick[]) {
         if (!byTeam[pick.team_name]) byTeam[pick.team_name] = [];
         const poolPlayer = draftPlayerPool.find(
-          p => p.name.toLowerCase() === pick.player_name.toLowerCase()
+          p => normalizePlayerName(p.name) === normalizePlayerName(pick.player_name)
         );
         byTeam[pick.team_name].push({
           id: makeId(),
-          name: pick.player_name,
+          name: poolPlayer?.name ?? pick.player_name,
           pos: pick.player_pos as RosterPlayer["pos"],
           nflTeam: poolPlayer?.nflTeam ?? pick.player_nfl_team,
           byeWeek: poolPlayer?.bye ?? null,
@@ -214,15 +215,15 @@ export function useDraftedRoster(): DraftedRosterResult {
           // them again here if they're already present via draft_picks --
           // only add players not already represented in this team's list.
           const alreadyPresent = byTeam[teamName].some(
-            existing => existing.name.toLowerCase() === p.name.toLowerCase()
+            existing => normalizePlayerName(existing.name) === normalizePlayerName(p.name)
           );
           if (alreadyPresent) continue;
           const poolPlayer = draftPlayerPool.find(
-            candidate => candidate.name.toLowerCase() === p.name.toLowerCase()
+            candidate => normalizePlayerName(candidate.name) === normalizePlayerName(p.name)
           );
           byTeam[teamName].push({
             id: p.id,
-            name: p.name,
+            name: poolPlayer?.name ?? p.name,
             pos: p.position as RosterPlayer["pos"],
             nflTeam: poolPlayer?.nflTeam ?? p.nfl_team,
             byeWeek: p.bye_week || null,
