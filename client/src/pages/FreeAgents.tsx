@@ -437,7 +437,7 @@ export default function FreeAgents() {
   );
   const statsGridColumns = useMemo(
     () => [
-      "210px", "52px", "60px", "42px",
+      "175px", "52px", "60px", "42px",
       visibleColumnSet.has("age") && "44px",
       visibleColumnSet.has("bye") && "44px",
       visibleColumnSet.has("opp") && "60px",
@@ -449,7 +449,7 @@ export default function FreeAgents() {
     [detailColumns, displaySeasonColumns, visibleColumnSet]
   );
   const statsTableMinWidth = useMemo(
-    () => 364
+    () => 329
       + (visibleColumnSet.has("age") ? 44 : 0)
       + (visibleColumnSet.has("bye") ? 44 : 0)
       + (visibleColumnSet.has("opp") ? 60 : 0)
