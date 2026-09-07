@@ -1,5 +1,5 @@
 export const FREE_AGENT_CONFIGURABLE_COLUMNS = [
-  "age", "bye", "opp", "game", "wrcPts", "ptsPerGame", "proj",
+  "bye", "opp", "game", "wrcPts", "ptsPerGame", "proj",
   "passYds", "passTD", "passInt", "rushAtt", "rushYds", "rushTD",
   "targets", "receptions", "recYds", "recTD", "turnovers", "gp",
   "fgMade", "fgAtt", "fgPct", "xpMade", "xpAtt", "xpPct",

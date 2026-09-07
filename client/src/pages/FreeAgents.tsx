@@ -217,7 +217,7 @@ function CommissionerBids({ week }: { week: number }) {
 // ── Sort options ─────────────────────────────────────────────────────────────
 type FreeAgentStatKey = SeasonStatKey | "turnovers" | "fgPct" | "xpPct";
 type FreeAgentStatColumn = Omit<SeasonStatColumn, "key"> & { key: FreeAgentStatKey };
-type SortKey = "name" | "wrcTeam" | "age" | "bye" | "opp" | "game" | "proj" | FreeAgentStatKey;
+type SortKey = "name" | "wrcTeam" | "bye" | "opp" | "game" | "proj" | FreeAgentStatKey;
 type SortDirection = "asc" | "desc";
 
 const SFLEX_COLUMNS: FreeAgentStatColumn[] = [
@@ -258,7 +258,6 @@ export function getFreeAgentTableColumns(
     { label: "Bid" },
     { label: "Watch" },
     ...[
-      { label: "Age", key: "age" as SortKey },
       { label: "Bye", key: "bye" as SortKey },
       { label: "Opp", key: "opp" as SortKey },
       { label: "Game", key: "game" as SortKey },
@@ -269,7 +268,7 @@ export function getFreeAgentTableColumns(
 }
 
 const FREE_AGENT_COLUMN_LABELS: Record<FreeAgentConfigurableColumn, string> = {
-  age: "Age", bye: "Bye", opp: "Opponent", game: "Game", wrcPts: "FPTS", ptsPerGame: "FP/G", proj: "Projection",
+  bye: "Bye", opp: "Opponent", game: "Game", wrcPts: "FPTS", ptsPerGame: "FP/G", proj: "Projection",
   passYds: "Pass Yds", passTD: "Pass TD", passInt: "Pass INT", rushAtt: "Rush Att", rushYds: "Rush Yds", rushTD: "Rush TD",
   targets: "Targets", receptions: "Receptions", recYds: "Rec Yds", recTD: "Rec TD", turnovers: "Turnovers", gp: "Games Played",
   fgMade: "FG Made", fgAtt: "FG Attempts", fgPct: "FG %", xpMade: "XP Made", xpAtt: "XP Attempts", xpPct: "XP %",
@@ -438,7 +437,6 @@ export default function FreeAgents() {
   const statsGridColumns = useMemo(
     () => [
       "175px", "52px", "60px", "42px",
-      visibleColumnSet.has("age") && "44px",
       visibleColumnSet.has("bye") && "44px",
       visibleColumnSet.has("opp") && "60px",
       visibleColumnSet.has("game") && "86px",
@@ -450,7 +448,6 @@ export default function FreeAgents() {
   );
   const statsTableMinWidth = useMemo(
     () => 329
-      + (visibleColumnSet.has("age") ? 44 : 0)
       + (visibleColumnSet.has("bye") ? 44 : 0)
       + (visibleColumnSet.has("opp") ? 60 : 0)
       + (visibleColumnSet.has("game") ? 86 : 0)
@@ -478,7 +475,6 @@ export default function FreeAgents() {
     const getValue = (player: NFLPlayer): string | number => {
       if (sortKey === "name") return player.name;
       if (sortKey === "wrcTeam") return ownershipMap[player.name.toLowerCase()] ?? "Free Agent";
-      if (sortKey === "age") return Number(playerMetaMap[player.name.toLowerCase()]?.age) || 999;
       if (sortKey === "bye") return player.bye ?? 99;
       if (sortKey === "opp") {
         const matchup = matchupMap[normalizeNFLTeamCode(player.nflTeam)];
@@ -508,7 +504,7 @@ export default function FreeAgents() {
       return;
     }
     setSortKey(nextKey);
-    setSortDirection(nextKey === "name" || nextKey === "wrcTeam" || nextKey === "age" || nextKey === "bye" || nextKey === "opp" || nextKey === "game" ? "asc" : "desc");
+    setSortDirection(nextKey === "name" || nextKey === "wrcTeam" || nextKey === "bye" || nextKey === "opp" || nextKey === "game" ? "asc" : "desc");
   };
 
   const tableHeaders = useMemo(() => getFreeAgentTableColumns(posFilter, visibleColumns), [posFilter, visibleColumns]);
@@ -856,7 +852,6 @@ export default function FreeAgents() {
                     const ownerTeam = ownershipMap[player.name.toLowerCase()];
                     const isOwned = !!ownerTeam;
                     const seasonStats = seasonStatMap[player.name.toLowerCase()];
-                    const playerMeta = playerMetaMap[player.name.toLowerCase()];
                     const matchup = matchupMap[normalizeNFLTeamCode(player.nflTeam)];
                     return (
                       <div
@@ -928,7 +923,6 @@ export default function FreeAgents() {
                           <button onClick={e => { e.stopPropagation(); toggleWatch({ name: player.name, pos: player.pos, nflTeam: player.nflTeam }); }} style={{ background: "none", border: "none", cursor: "pointer", padding: "0.15rem 0", color: isWatched(player.name) ? "oklch(0.55 0.16 85)" : "oklch(0.75 0.06 150)", display: "flex", alignItems: "center", justifyContent: "center" }} title={isWatched(player.name) ? "Remove from watchlist" : "Add to watchlist"}><Star size={15} fill={isWatched(player.name) ? "oklch(0.55 0.16 85)" : "none"} /></button>
                         ) : <span aria-label="Sign in to use watchlist" />}
 
-                        {visibleColumnSet.has("age") && <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", color: "oklch(0.5 0.06 150)", textAlign: "center" as const }}>{player.pos === "DST" ? "—" : playerMeta?.age ?? "—"}</span>}
                         {visibleColumnSet.has("bye") && <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", color: "oklch(0.5 0.06 150)", textAlign: "center" as const }}>{player.bye ?? "—"}</span>}
                         {visibleColumnSet.has("opp") && <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: 700, color: "oklch(0.42 0.06 150)", textAlign: "center" as const, whiteSpace: "nowrap" as const }}>{matchup ? `${matchup.isHome ? "vs" : "@"} ${matchup.opponent}` : "BYE"}</span>}
                         {visibleColumnSet.has("game") && <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem", color: "oklch(0.5 0.06 150)", textAlign: "center" as const, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>{matchup ? formatGameTime(matchup).replace(" ET", "") : "—"}</span>}

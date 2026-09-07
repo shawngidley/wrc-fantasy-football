@@ -32,15 +32,15 @@ describe("Free Agents Lineup stat alignment", () => {
 
   it("keeps Bid and Watch first after WRC while allowing optional stats to be customized", () => {
     expect(getFreeAgentTableColumns("SFLEX").map(column => column.label)).toEqual([
-      "Player", "WRC", "Bid", "Watch", "Age", "Bye", "Opp", "Game", "Proj", "FPTS", "FP/G",
+      "Player", "WRC", "Bid", "Watch", "Bye", "Opp", "Game", "Proj", "FPTS", "FP/G",
       "YDS", "TD", "INT", "ATT", "YDS", "TD", "TGT", "REC", "YDS", "TD", "TO", "GP",
     ]);
     expect(getFreeAgentTableColumns("K").map(column => column.label)).toEqual([
-      "Player", "WRC", "Bid", "Watch", "Age", "Bye", "Opp", "Game", "Proj", "FPTS", "FP/G",
+      "Player", "WRC", "Bid", "Watch", "Bye", "Opp", "Game", "Proj", "FPTS", "FP/G",
       "FGM", "FGA", "FG%", "XPM", "XPA", "XP%", "GP",
     ]);
     expect(getFreeAgentTableColumns("DST").map(column => column.label)).toEqual([
-      "Player", "WRC", "Bid", "Watch", "Age", "Bye", "Opp", "Game", "Proj", "FPTS", "FP/G",
+      "Player", "WRC", "Bid", "Watch", "Bye", "Opp", "Game", "Proj", "FPTS", "FP/G",
       "SK", "SFT", "TA", "TDDST", "GP",
     ]);
     expect(getFreeAgentTableColumns("SFLEX", ["bye", "wrcPts"]).map(column => column.label)).toEqual([
@@ -49,8 +49,8 @@ describe("Free Agents Lineup stat alignment", () => {
   });
 
   it("retains the complete table header schema while the player rows are loading", () => {
-    expect(getFreeAgentTableColumns("SFLEX").slice(0, 9).map(column => column.label)).toEqual([
-      "Player", "WRC", "Bid", "Watch", "Age", "Bye", "Opp", "Game", "Proj",
+    expect(getFreeAgentTableColumns("SFLEX").slice(0, 8).map(column => column.label)).toEqual([
+      "Player", "WRC", "Bid", "Watch", "Bye", "Opp", "Game", "Proj",
     ]);
   });
 
