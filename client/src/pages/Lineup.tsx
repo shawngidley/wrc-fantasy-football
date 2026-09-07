@@ -32,6 +32,21 @@ import { normalizeNFLTeamCode } from "@shared/nflTeamCodes";
 import { useDraftPlayerUniverse } from "@/hooks/useDraftPlayerUniverse";
 import { getEspnHeadshotUrl } from "@/lib/playerHeadshot";
 
+/**
+ * Display-only slot label: strips a trailing digit (RB1/RB2 -> RB,
+ * WR1/WR2 -> WR) for whatever's actually shown on screen. The underlying
+ * slot identifier itself is left completely untouched everywhere else --
+ * it's used as a unique key throughout this file (STARTER_SLOTS lookups,
+ * matching a starter to its slot, saving/loading lineups to Supabase),
+ * and RB1 vs RB2 (same for WR1/WR2) still need to stay distinguishable
+ * there. Only collapsing the *label* two people see into "RB"/"WR" is
+ * safe; collapsing the actual slot value would make STARTER_SLOTS.find()
+ * only ever return the first of the two matching entries.
+ */
+export function displaySlotLabel(slot: string): string {
+  return slot.replace(/\d+$/, "");
+}
+
 const STARTER_SLOTS = [
   { slot: "QB",    label: "Quarterback",   eligible: ["QB"] },
   { slot: "RB1",   label: "Running Back",  eligible: ["RB"] },
@@ -510,7 +525,7 @@ export function LineupRosterTable({
                 : undefined;
               const choices = selected && !isReadOnly ? getInlineChoices(player) : [];
               return <Fragment key={player.id}><tr style={{ background: rowBg }}>
-                <td style={{ ...tdStyle, position: "sticky", left: 0, zIndex: 2, background: rowBg, boxShadow: benchPinnedOutline }}><button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); onSelect(player); }} disabled={isReadOnly || locked} aria-label={`Change ${player.name} in ${player.slot ?? "bench"}`} title={isReadOnly ? "View only" : locked ? "Player locked" : "Change player"} style={{ display: "grid", placeItems: "center", minWidth: "var(--lineup-slot-button-width)", minHeight: 24, border: selected ? "1px solid oklch(0.62 0.16 85)" : "none", borderRadius: 4, background: selected ? "oklch(0.52 0.16 85)" : POS_COLORS[player.pos] || "oklch(0.5 0.04 150)", color: "white", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "var(--lineup-slot-font-size)", cursor: isReadOnly || locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>{locked ? <Lock size={11} aria-label="Locked" /> : <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>{player.slot ?? "BN"}{!isReadOnly && <ChevronDown size={10} />}</span>}</button></td>
+                <td style={{ ...tdStyle, position: "sticky", left: 0, zIndex: 2, background: rowBg, boxShadow: benchPinnedOutline }}><button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); onSelect(player); }} disabled={isReadOnly || locked} aria-label={`Change ${player.name} in ${player.slot ? displaySlotLabel(player.slot) : "bench"}`} title={isReadOnly ? "View only" : locked ? "Player locked" : "Change player"} style={{ display: "grid", placeItems: "center", minWidth: "var(--lineup-slot-button-width)", minHeight: 24, border: selected ? "1px solid oklch(0.62 0.16 85)" : "none", borderRadius: 4, background: selected ? "oklch(0.52 0.16 85)" : POS_COLORS[player.pos] || "oklch(0.5 0.04 150)", color: "white", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "var(--lineup-slot-font-size)", cursor: isReadOnly || locked ? "default" : "pointer", opacity: locked ? 0.6 : 1 }}>{locked ? <Lock size={11} aria-label="Locked" /> : <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>{player.slot ? displaySlotLabel(player.slot) : "BN"}{!isReadOnly && <ChevronDown size={10} />}</span>}</button></td>
                 <td onClick={() => onPlayerClick(player)} style={{ ...tdStyle, position: "sticky", left: slotWidth, zIndex: 2, minWidth: playerWidth, maxWidth: playerWidth, textAlign: "left", cursor: "pointer", background: rowBg, boxShadow: benchPinnedOutline }}><LineupIdentity player={player} meta={meta} /></td>
                 <td style={tdStyle}>{player.byeWeek ?? "—"}</td><td style={tdStyle}>{matchup ? `${matchup.isHome ? "vs" : "@"} ${matchup.opponent}` : "BYE"}</td><td style={{ ...tdStyle, maxWidth: 86, overflow: "hidden", textOverflow: "ellipsis" }}>{matchup ? formatGameTime(matchup).replace(" ET", "") : "—"}</td>
                 <td style={{ ...tdStyle, fontWeight: 800 }}>{player.proj.toFixed(1)}</td><td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(stats, "wrcPts", 1)}</td><td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(stats, "ptsPerGame", 1)}</td>
@@ -532,7 +547,7 @@ export function LineupRosterTable({
                 const candidateMatchup = matchupMap[candidate.nflTeam];
                 const candidateBg = "oklch(0.985 0.025 85)";
                 return <tr key={`${player.id}-${candidate.id}`} style={{ background: candidateBg }}>
-                  <td style={{ ...tdStyle, position: "sticky", left: 0, zIndex: 2, background: candidateBg }}><button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); onInlineSwap(player, candidate); }} aria-label={`Move ${candidate.name} into ${player.slot ?? "bench"}`} title={`Move ${candidate.name}`} style={{ display: "grid", placeItems: "center", minWidth: "var(--lineup-slot-button-width)", minHeight: 24, border: "1px solid oklch(0.62 0.16 85)", borderRadius: 4, background: "oklch(0.52 0.16 85)", color: "white", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "var(--lineup-slot-font-size)", cursor: "pointer" }}>{player.slot ?? "BN"}</button></td>
+                  <td style={{ ...tdStyle, position: "sticky", left: 0, zIndex: 2, background: candidateBg }}><button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); onInlineSwap(player, candidate); }} aria-label={`Move ${candidate.name} into ${player.slot ? displaySlotLabel(player.slot) : "bench"}`} title={`Move ${candidate.name}`} style={{ display: "grid", placeItems: "center", minWidth: "var(--lineup-slot-button-width)", minHeight: 24, border: "1px solid oklch(0.62 0.16 85)", borderRadius: 4, background: "oklch(0.52 0.16 85)", color: "white", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "var(--lineup-slot-font-size)", cursor: "pointer" }}>{player.slot ? displaySlotLabel(player.slot) : "BN"}</button></td>
                   <td onClick={() => onPlayerClick(candidate)} style={{ ...tdStyle, position: "sticky", left: slotWidth, zIndex: 2, minWidth: playerWidth, maxWidth: playerWidth, textAlign: "left", cursor: "pointer", background: candidateBg }}><LineupIdentity player={candidate} meta={candidateMeta} /></td>
                   <td style={tdStyle}>{candidateMeta?.age || "—"}</td><td style={tdStyle}>{candidate.byeWeek ?? "—"}</td><td style={tdStyle}>{candidateMatchup ? `${candidateMatchup.isHome ? "vs" : "@"} ${candidateMatchup.opponent}` : "BYE"}</td><td style={{ ...tdStyle, maxWidth: 86, overflow: "hidden", textOverflow: "ellipsis" }}>{candidateMatchup ? formatGameTime(candidateMatchup).replace(" ET", "") : "—"}</td>
                   <td style={{ ...tdStyle, fontWeight: 800 }}>{candidate.proj.toFixed(1)}</td><td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(candidateStats, "wrcPts", 1)}</td><td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(candidateStats, "ptsPerGame", 1)}</td>
@@ -1229,7 +1244,7 @@ export default function Lineup() {
                     return !currentStarter || !isPlayerLocked(currentStarter.nflTeam, matchupMap);
                   }).map(slot => {
                     const currentStarter = starters.find(player => player.slot === slot.slot);
-                    return currentStarter ? <button key={slot.slot} onClick={() => doSwap(currentStarter.id, selectedBench.id)} style={{ border: "1px solid oklch(0.78 0.1 85)", background: "white", color: "oklch(0.25 0.08 150)", borderRadius: 7, padding: "0.45rem 0.7rem", cursor: "pointer", fontWeight: 700 }}>{slot.slot}: {currentStarter.name}</button> : null;
+                    return currentStarter ? <button key={slot.slot} onClick={() => doSwap(currentStarter.id, selectedBench.id)} style={{ border: "1px solid oklch(0.78 0.1 85)", background: "white", color: "oklch(0.25 0.08 150)", borderRadius: 7, padding: "0.45rem 0.7rem", cursor: "pointer", fontWeight: 700 }}>{displaySlotLabel(slot.slot)}: {currentStarter.name}</button> : null;
                   })}
                 </div>
               ) : null}
@@ -1288,7 +1303,7 @@ export default function Lineup() {
                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}
                     title={(!isReadOnly && !playerLocked && player) ? "Tap to swap" : undefined}
                   >
-                    <div>{slot}</div>
+                    <div>{displaySlotLabel(slot)}</div>
                     {(!isReadOnly && !playerLocked && player) && (
                       <div style={{ fontSize: "0.5rem", opacity: 0.75, lineHeight: 1, marginTop: "1px" }}>⇄</div>
                     )}
@@ -1500,7 +1515,7 @@ export default function Lineup() {
                               onMouseEnter={e => (e.currentTarget.style.background = "oklch(0.92 0.04 150)")}
                               onMouseLeave={e => (e.currentTarget.style.background = "white")}
                             >
-                              <div style={{ width: 52, textAlign: "center", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 700, color: "white", background: "oklch(0.28 0.09 150)", borderRadius: 3, padding: "2px 0", flexShrink: 0 }}>{slotDef.slot}</div>
+                              <div style={{ width: 52, textAlign: "center", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 700, color: "white", background: "oklch(0.28 0.09 150)", borderRadius: 3, padding: "2px 0", flexShrink: 0 }}>{displaySlotLabel(slotDef.slot)}</div>
                               {currentStarter ? (
                                 <>
                                   <div style={{ flex: 1, minWidth: 0 }}>

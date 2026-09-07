@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { LineupRosterTable, mobileLineupName } from "./Lineup";
+import { LineupRosterTable, mobileLineupName, displaySlotLabel } from "./Lineup";
 import { DST_SEASON_STATS_2025 } from "@/lib/dstSeasonStats2025";
 import { normalizeCompletedDstSeasonStats, normalizeTankSeasonStats } from "@/lib/playerSeasonStats";
 
@@ -139,5 +139,24 @@ describe("LineupRosterTable D/ST candidate rows", () => {
     fireEvent.click(screen.getAllByText("GB Packers")[0].closest("td")!);
     expect(onPlayerClick).toHaveBeenCalledWith(candidate);
     expect(onInlineSwap).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("displaySlotLabel", () => {
+  it("strips the trailing digit from RB1/RB2 and WR1/WR2 so both display as just RB/WR", () => {
+    expect(displaySlotLabel("RB1")).toBe("RB");
+    expect(displaySlotLabel("RB2")).toBe("RB");
+    expect(displaySlotLabel("WR1")).toBe("WR");
+    expect(displaySlotLabel("WR2")).toBe("WR");
+  });
+
+  it("leaves slots with no trailing digit unchanged", () => {
+    expect(displaySlotLabel("QB")).toBe("QB");
+    expect(displaySlotLabel("TE")).toBe("TE");
+    expect(displaySlotLabel("SFLEX")).toBe("SFLEX");
+    expect(displaySlotLabel("FLEX")).toBe("FLEX");
+    expect(displaySlotLabel("K")).toBe("K");
+    expect(displaySlotLabel("DST")).toBe("DST");
+    expect(displaySlotLabel("BN")).toBe("BN");
   });
 });
