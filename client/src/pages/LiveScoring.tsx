@@ -1110,7 +1110,7 @@ export default function LiveScoring() {
     const weekParam = params.get("week");
     if (weekParam) {
       const parsed = parseInt(weekParam, 10);
-      if (!isNaN(parsed) && parsed >= 1 && parsed <= 18) return parsed;
+      if (!isNaN(parsed) && SCHEDULE_2026.some(w => w.week === parsed)) return parsed;
     }
     const w = getCurrentWeek();
     return w > 0 ? w : 1;
@@ -1244,9 +1244,9 @@ export default function LiveScoring() {
             backgroundRepeat: "no-repeat", backgroundPosition: "right 7px center",
           }}
         >
-          {Array.from({ length: 18 }, (_, i) => i + 1).map(week => (
+          {SCHEDULE_2026.map(({ week, label }) => (
             <option key={week} value={week} style={{ background: "#1a2318", color: "white" }}>
-              WK {week}{week === actualCurrentWeek ? " (Current)" : ""}
+              {label}{week === actualCurrentWeek ? " (Current)" : ""}
             </option>
           ))}
         </select>
