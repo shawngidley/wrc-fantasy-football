@@ -33,6 +33,25 @@ const SUFFIX_WORDS = new Set(["jr", "sr", "ii", "iii", "iv", "v"]);
 const NAME_ALIASES: Record<string, string> = {
   // "Kenneth Gainwell" (some providers) vs "Kenny Gainwell" (WRC roster)
   kennethgainwell: "kennygainwell",
+
+  // DST display names were shortened to their common colloquial form
+  // (e.g. "Los Angeles Rams" -> "LA Rams") in the draft pool. Any existing
+  // database record for a team that already drafted/protected one of
+  // these before that change would still have the old, full name stored
+  // -- these aliases keep that old value correctly matching the new pool
+  // entry, rather than silently breaking lineup/roster lookups for
+  // whichever teams already rostered one of these DSTs.
+  greenbaypackers: "gbpackers",
+  kansascitychiefs: "kcchiefs",
+  lasvegasraiders: "lvraiders",
+  losangeleschargers: "lachargers",
+  losangelesrams: "larams",
+  newenglandpatriots: "nepatriots",
+  neworleanssaints: "nosaints",
+  newyorkgiants: "nygiants",
+  newyorkjets: "nyjets",
+  sanfrancisco49ers: "sf49ers",
+  tampabaybuccaneers: "tbbuccaneers",
 };
 
 /**

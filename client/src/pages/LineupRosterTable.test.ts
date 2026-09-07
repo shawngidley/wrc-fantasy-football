@@ -7,13 +7,13 @@ import { LineupRosterTable, mobileLineupName } from "./Lineup";
 import { DST_SEASON_STATS_2025 } from "@/lib/dstSeasonStats2025";
 import { normalizeCompletedDstSeasonStats, normalizeTankSeasonStats } from "@/lib/playerSeasonStats";
 
-const starter = { id: "tb", name: "Tampa Bay Buccaneers", nflTeam: "TB", pos: "DST", pts: 0, proj: 8.3, status: "Active", slot: "DST", byeWeek: 9 };
-const candidate = { id: "gb", name: "Green Bay Packers", nflTeam: "GB", pos: "DST", pts: 0, proj: 7.5, status: "Active", isBench: true, byeWeek: 5 };
+const starter = { id: "tb", name: "TB Buccaneers", nflTeam: "TB", pos: "DST", pts: 0, proj: 8.3, status: "Active", slot: "DST", byeWeek: 9 };
+const candidate = { id: "gb", name: "GB Packers", nflTeam: "GB", pos: "DST", pts: 0, proj: 7.5, status: "Active", isBench: true, byeWeek: 5 };
 
 describe("LineupRosterTable D/ST candidate rows", () => {
   it("uses first-initial plus last-name mobile labels for individual players while preserving D/ST names", () => {
     expect(mobileLineupName({ name: "Justin Jefferson", pos: "WR" })).toBe("J. Jefferson");
-    expect(mobileLineupName({ name: "Tampa Bay Buccaneers", pos: "DST" })).toBe("Tampa Bay Buccaneers");
+    expect(mobileLineupName({ name: "TB Buccaneers", pos: "DST" })).toBe("TB Buccaneers");
   });
 
   it("renders populated GP as the final stat in SFLEX, K, and D/ST panels", () => {
@@ -74,13 +74,13 @@ describe("LineupRosterTable D/ST candidate rows", () => {
       profile: "DST",
       players: [starter],
       statMap: {
-        "tampa bay buccaneers": normalizeCompletedDstSeasonStats(DST_SEASON_STATS_2025.TB),
-        "green bay packers": normalizeCompletedDstSeasonStats(DST_SEASON_STATS_2025.GB),
+        "tb buccaneers": normalizeCompletedDstSeasonStats(DST_SEASON_STATS_2025.TB),
+        "gb packers": normalizeCompletedDstSeasonStats(DST_SEASON_STATS_2025.GB),
       },
       metaMap: {},
       matchupMap: {} as never,
       injuries: [],
-      selectedId: "tampabaybuccaneers",
+      selectedId: "tbbuccaneers",
       isReadOnly: false,
       onSelect: () => undefined,
       onPlayerClick: () => undefined,
@@ -93,9 +93,9 @@ describe("LineupRosterTable D/ST candidate rows", () => {
     expect(html).toContain("TA");
     expect(html).toContain("TDDST");
     expect(html).toContain(">GP<");
-    expect(html).toContain("Tampa Bay Buccaneers");
-    expect(html).toContain("Green Bay Packers");
-    expect(html).toContain('aria-label="Move Green Bay Packers into DST"');
+    expect(html).toContain("TB Buccaneers");
+    expect(html).toContain("GB Packers");
+    expect(html).toContain('aria-label="Move GB Packers into DST"');
     expect((html.match(/>37</g) ?? []).length).toBe(1);
     expect((html.match(/>1</g) ?? []).length).toBeGreaterThanOrEqual(1);
     expect((html.match(/>23</g) ?? []).length).toBe(1);
@@ -112,13 +112,13 @@ describe("LineupRosterTable D/ST candidate rows", () => {
       profile: "DST",
       players: [starter],
       statMap: {
-        "tampa bay buccaneers": normalizeCompletedDstSeasonStats(DST_SEASON_STATS_2025.TB),
-        "green bay packers": normalizeCompletedDstSeasonStats(DST_SEASON_STATS_2025.GB),
+        "tb buccaneers": normalizeCompletedDstSeasonStats(DST_SEASON_STATS_2025.TB),
+        "gb packers": normalizeCompletedDstSeasonStats(DST_SEASON_STATS_2025.GB),
       },
       metaMap: {},
       matchupMap: {} as never,
       injuries: [],
-      selectedId: "tampabaybuccaneers",
+      selectedId: "tbbuccaneers",
       isReadOnly: false,
       onSelect,
       onPlayerClick,
@@ -126,17 +126,17 @@ describe("LineupRosterTable D/ST candidate rows", () => {
       onInlineSwap,
     }));
 
-    fireEvent.click(screen.getByRole("button", { name: "Change Tampa Bay Buccaneers in DST" }));
+    fireEvent.click(screen.getByRole("button", { name: "Change TB Buccaneers in DST" }));
     expect(onSelect).toHaveBeenCalledWith(starter);
 
-    fireEvent.click(screen.getAllByText("Tampa Bay Buccaneers")[0].closest("td")!);
+    fireEvent.click(screen.getAllByText("TB Buccaneers")[0].closest("td")!);
     expect(onPlayerClick).toHaveBeenCalledWith(starter);
     expect(onInlineSwap).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Move Green Bay Packers into DST" }));
+    fireEvent.click(screen.getByRole("button", { name: "Move GB Packers into DST" }));
     expect(onInlineSwap).toHaveBeenCalledWith(starter, candidate);
 
-    fireEvent.click(screen.getAllByText("Green Bay Packers")[0].closest("td")!);
+    fireEvent.click(screen.getAllByText("GB Packers")[0].closest("td")!);
     expect(onPlayerClick).toHaveBeenCalledWith(candidate);
     expect(onInlineSwap).toHaveBeenCalledTimes(1);
   });

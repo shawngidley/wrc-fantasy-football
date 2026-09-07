@@ -69,7 +69,7 @@ export const TEAMS: TeamRecord[] = [
       p("Sam LaPorta",          "TE",  "DET", null, "FA"),
       p("Chase McLaughlin",     "K",   "TAM", null, "FA"),
       p("Cleveland Browns",     "DST", "CLE", 17,   "Draft"),
-      p("Los Angeles Chargers", "DST", "LAC", null, "FA"),
+      p("LA Chargers", "DST", "LAC", null, "FA"),
     ],
   },
   {
@@ -129,7 +129,7 @@ export const TEAMS: TeamRecord[] = [
       p("Jake Bates",           "K",   "DET", null, "FA"),
       p("Joshua Karty",         "K",   "LAR", null, "FA"),
       p("Detroit Lions",        "DST", "DET", 13,   "Draft"),
-      p("San Francisco 49ers",  "DST", "SF",  null, "FA"),
+      p("SF 49ers",  "DST", "SF",  null, "FA"),
     ],
   },
   // ── CENTRAL ───────────────────────────────────────────────────────────────
@@ -160,7 +160,7 @@ export const TEAMS: TeamRecord[] = [
       p("Brenton Strange",      "TE",  "JAC", null, "FA"),
       p("Chris Boswell",        "K",   "PIT", null, "FA"),
       p("Seattle Seahawks",     "DST", "SEA", 17,   "Draft"),
-      p("New England Patriots", "DST", "NE",  null, "FA"),
+      p("NE Patriots", "DST", "NE",  null, "FA"),
     ],
   },
   {
@@ -219,7 +219,7 @@ export const TEAMS: TeamRecord[] = [
       p("Kyle Pitts",           "TE",  "ATL", 12,   "Draft"),
       p("Oronde Gadsden",       "TE",  "LAC", null, "FA"),
       p("Evan McPherson",       "K",   "CIN", null, "FA"),
-      p("Kansas City Chiefs",   "DST", "KAN", null, "FA"),
+      p("KC Chiefs",   "DST", "KAN", null, "FA"),
       p("Houston Texans",       "DST", "HOU", null, "FA"),
     ],
   },
@@ -250,7 +250,7 @@ export const TEAMS: TeamRecord[] = [
       p("Cade Otton",           "TE",  "TB",  null, "FA"),
       p("Brandon Aubrey",       "K",   "DAL", 10,   "Draft"),
       p("Will Reichard",        "K",   "MIN", null, "FA"),
-      p("Los Angeles Rams",     "DST", "LAR", null, "FA"),
+      p("LA Rams",     "DST", "LAR", null, "FA"),
     ],
   },
   // ── WEST ──────────────────────────────────────────────────────────────────
@@ -341,7 +341,7 @@ export const TEAMS: TeamRecord[] = [
       p("Isaiah Likely",        "TE",  "BAL", null, "FA"),
       p("Cam Little",           "K",   "JAC", null, "FA"),
       p("Carolina Panthers",    "DST", "CAR", null, "FA"),
-      p("New York Giants",      "DST", "NYG", null, "FA"),
+      p("NY Giants",      "DST", "NYG", null, "FA"),
     ],
   },
   {
@@ -371,8 +371,8 @@ export const TEAMS: TeamRecord[] = [
       p("Trey McBride",             "TE",  "ARZ", 7,    "Draft"),
       p("Harold Fannin",            "TE",  "CLE", 16,   "Draft"),
       p("Ka'imi Fairbairn",         "K",   "HOU", null, "FA"),
-      p("Green Bay Packers",        "DST", "GB",  15,   "Draft"),
-      p("Tampa Bay Buccaneers",     "DST", "TB",  null, "FA"),
+      p("GB Packers",        "DST", "GB",  15,   "Draft"),
+      p("TB Buccaneers",     "DST", "TB",  null, "FA"),
     ],
   },
   {
