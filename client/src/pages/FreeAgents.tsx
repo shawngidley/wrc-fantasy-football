@@ -23,9 +23,10 @@ import { useNFLMatchups, formatGameTime } from "@/hooks/useNFLMatchups";
 import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } from "@/hooks/useNFLInjuries";
 import { normalizePlayerName } from "@shared/playerNameMatch";
 import FAABBidModal from "@/components/FAABBidModal";
+import InstantAddModal from "@/components/InstantAddModal";
 import { supabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
-import { Search, DollarSign, ChevronRight, Trophy, Clock, ArrowUpDown, ArrowUp, ArrowDown, Users, ArrowLeftRight, Star, Bookmark, SlidersHorizontal } from "lucide-react";
+import { Search, DollarSign, UserPlus, ChevronRight, Trophy, Clock, ArrowUpDown, ArrowUp, ArrowDown, Users, ArrowLeftRight, Star, Bookmark, SlidersHorizontal } from "lucide-react";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { toast } from "sonner";
 import Navigation from "@/components/Navigation";
@@ -346,6 +347,9 @@ export default function FreeAgents() {
   const [sortKey, setSortKey] = useState<SortKey>("wrcPts");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [bidPlayer, setBidPlayer] = useState<NFLPlayer | null>(null);
+  const [instantAddPlayer, setInstantAddPlayer] = useState<NFLPlayer | null>(null);
+  const marketStateQuery = trpc.league.freeAgentMarketState.useQuery(undefined, { refetchInterval: 60_000 });
+  const marketState = marketStateQuery.data?.state ?? "bidding";
   const [activeTab, setActiveTab] = useState<"pool" | "bids">("pool");
   const [ownedNames, setOwnedNames] = useState<Set<string>>(new Set());
   const [loadingOwned, setLoadingOwned] = useState(true);
@@ -666,9 +670,17 @@ export default function FreeAgents() {
                               <ArrowLeftRight size={9} />Trade
                             </Link>
                           ) : franchise ? (
-                            <button onClick={() => setBidPlayer(player as NFLPlayer)} style={{ background: "oklch(0.55 0.16 85)", color: "white", border: "none", borderRadius: 6, padding: "0.25rem 0.45rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.65rem", letterSpacing: "0.03em", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.2rem" }}>
-                              <DollarSign size={9} />Bid
-                            </button>
+                            marketState === "open_waiver" ? (
+                              <button onClick={() => setInstantAddPlayer(player as NFLPlayer)} style={{ background: "oklch(0.5 0.16 150)", color: "white", border: "none", borderRadius: 6, padding: "0.25rem 0.45rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.65rem", letterSpacing: "0.03em", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.2rem" }}>
+                                <UserPlus size={9} />Add
+                              </button>
+                            ) : marketState === "closed" ? (
+                              <span style={{ fontSize: "0.6rem", color: "oklch(0.6 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600 }}>Reopens Tue 9am</span>
+                            ) : (
+                              <button onClick={() => setBidPlayer(player as NFLPlayer)} style={{ background: "oklch(0.55 0.16 85)", color: "white", border: "none", borderRadius: 6, padding: "0.25rem 0.45rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.65rem", letterSpacing: "0.03em", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.2rem" }}>
+                                <DollarSign size={9} />Bid
+                              </button>
+                            )
                           ) : (
                             <span style={{ fontSize: "0.65rem", color: "oklch(0.6 0.06 150)" }}>Sign in</span>
                           )}
@@ -755,6 +767,18 @@ export default function FreeAgents() {
             {currentWeek === 0 && (
               <div style={{ background: "oklch(0.94 0.04 240)", border: "1.5px solid oklch(0.78 0.1 240)", borderRadius: 10, padding: "0.75rem 1rem", marginBottom: "0.75rem", fontSize: "0.8rem", color: "oklch(0.35 0.12 240)", fontFamily: "Barlow Condensed, sans-serif" }}>
                 <strong>PRE-SEASON:</strong> Player pool shows 2026 ADP rankings. FAAB bidding opens when the season starts on September 9, 2026.
+              </div>
+            )}
+
+            {/* ── Free agent market state banner ── */}
+            {marketState === "open_waiver" && (
+              <div style={{ background: "oklch(0.94 0.08 150)", border: "1.5px solid oklch(0.65 0.16 150)", borderRadius: 10, padding: "0.75rem 1rem", marginBottom: "0.75rem", fontSize: "0.8rem", color: "oklch(0.3 0.14 150)", fontFamily: "Barlow Condensed, sans-serif" }}>
+                🟢 <strong>OPEN WAIVER WIRE</strong> — Add any player for FREE, first-come-first-served, until 1pm ET.
+              </div>
+            )}
+            {marketState === "closed" && (
+              <div style={{ background: "oklch(0.94 0.02 25)", border: "1.5px solid oklch(0.7 0.06 25)", borderRadius: 10, padding: "0.75rem 1rem", marginBottom: "0.75rem", fontSize: "0.8rem", color: "oklch(0.4 0.1 25)", fontFamily: "Barlow Condensed, sans-serif" }}>
+                🔒 <strong>FREE AGENT MARKET CLOSED</strong> — Reopens Tuesday 9am ET.
               </div>
             )}
 
@@ -917,7 +941,13 @@ export default function FreeAgents() {
                             <Link href="/trades" style={{ background: "oklch(0.42 0.1 240)", color: "white", border: "none", borderRadius: 7, padding: "0.3rem 0.5rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.68rem", letterSpacing: "0.03em", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.2rem", justifyContent: "center", textDecoration: "none" }}><ArrowLeftRight size={10} />Trade</Link>
                           ) : <span style={{ fontSize: "0.65rem", color: "oklch(0.55 0.08 240)", textAlign: "center" as const, fontFamily: "Barlow Condensed, sans-serif" }}>Owned</span>
                         ) : franchise ? (
-                          <button onClick={() => setBidPlayer(player)} style={{ background: "oklch(0.55 0.16 85)", color: "white", border: "none", borderRadius: 7, padding: "0.3rem 0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem", letterSpacing: "0.04em", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem", justifyContent: "center" }}><DollarSign size={11} />Bid</button>
+                          marketState === "open_waiver" ? (
+                            <button onClick={() => setInstantAddPlayer(player)} style={{ background: "oklch(0.5 0.16 150)", color: "white", border: "none", borderRadius: 7, padding: "0.3rem 0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem", letterSpacing: "0.04em", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem", justifyContent: "center" }}><UserPlus size={11} />Add</button>
+                          ) : marketState === "closed" ? (
+                            <span style={{ fontSize: "0.65rem", color: "oklch(0.6 0.04 150)", textAlign: "center" as const, fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600 }}>Reopens Tue 9am ET</span>
+                          ) : (
+                            <button onClick={() => setBidPlayer(player)} style={{ background: "oklch(0.55 0.16 85)", color: "white", border: "none", borderRadius: 7, padding: "0.3rem 0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem", letterSpacing: "0.04em", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem", justifyContent: "center" }}><DollarSign size={11} />Bid</button>
+                          )
                         ) : <span style={{ fontSize: "0.68rem", color: "oklch(0.6 0.06 150)", textAlign: "center" as const }}>Sign in</span>}
                         {franchise ? (
                           <button onClick={e => { e.stopPropagation(); toggleWatch({ name: player.name, pos: player.pos, nflTeam: player.nflTeam }); }} style={{ background: "none", border: "none", cursor: "pointer", padding: "0.15rem 0", color: isWatched(player.name) ? "oklch(0.55 0.16 85)" : "oklch(0.75 0.06 150)", display: "flex", alignItems: "center", justifyContent: "center" }} title={isWatched(player.name) ? "Remove from watchlist" : "Add to watchlist"}><Star size={15} fill={isWatched(player.name) ? "oklch(0.55 0.16 85)" : "none"} /></button>
@@ -968,6 +998,20 @@ export default function FreeAgents() {
             nflTeam: bidPlayer.nflTeam,
           }}
           onClose={() => setBidPlayer(null)}
+        />
+      )}
+
+      {/* ── Open Waiver Instant Add Modal ── */}
+      {instantAddPlayer && franchise && (
+        <InstantAddModal
+          player={{
+            id: instantAddPlayer.id,
+            name: instantAddPlayer.name,
+            pos: instantAddPlayer.pos,
+            nflTeam: instantAddPlayer.nflTeam,
+          }}
+          onClose={() => setInstantAddPlayer(null)}
+          onAdded={() => rosteredPlayersQuery.refetch()}
         />
       )}
     </div>
