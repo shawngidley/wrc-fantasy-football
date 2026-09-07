@@ -1119,7 +1119,7 @@ async function buildMatchupsFromLineups(
 export default function LiveScoring() {
   const { franchise } = useAuth();
   const draftPlayerPool = useDraftPlayerUniverse();
-  const [location, navigate] = useLocation();
+  const [, navigate] = useLocation();
   const [countdown, setCountdown] = useState(REFRESH_SECONDS);
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [activeId, setActiveId] = useState<number | null>(null);
@@ -1136,7 +1136,7 @@ export default function LiveScoring() {
   }, []);
 
   // Read ?week=N from the URL; fall back to the current real week
-  const currentWeek = useMemo(() => {
+  function getWeekFromUrl(): number {
     const search = typeof window !== "undefined" ? window.location.search : "";
     const params = new URLSearchParams(search);
     const weekParam = params.get("week");
@@ -1146,7 +1146,17 @@ export default function LiveScoring() {
     }
     const w = getCurrentWeek();
     return w > 0 ? w : 1;
-  }, [location]); // re-compute when URL changes
+  }
+  // Real state rather than a useMemo derived from `location`: wouter's
+  // useLocation() tracks pathname only, not query string, so navigating
+  // from /live?week=1 to /live?week=5 doesn't reliably register as a
+  // location change -- the useMemo would never re-run even though the
+  // URL bar itself updates, which is exactly why the dropdown wasn't
+  // actually changing anything. The dropdown's onChange now calls
+  // setCurrentWeek directly; navigate() is still called alongside it
+  // purely to keep the URL in sync for bookmarking/sharing, not to drive
+  // the update itself.
+  const [currentWeek, setCurrentWeek] = useState<number>(getWeekFromUrl);
 
   // Live NFL matchup map (for game info + polling)
   const { matchups: nflMatchupMap } = useNFLMatchups(currentWeek);
@@ -1265,7 +1275,11 @@ export default function LiveScoring() {
             changing on its own. */}
         <select
           value={currentWeek}
-          onChange={e => navigate(`/live?week=${e.target.value}`)}
+          onChange={e => {
+            const week = Number(e.target.value);
+            setCurrentWeek(week);
+            navigate(`/live?week=${week}`);
+          }}
           style={{
             fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem",
             letterSpacing: "0.08em", color: "oklch(0.78 0.15 85)",
