@@ -1087,12 +1087,21 @@ async function buildMatchupsFromLineups(
 export default function LiveScoring() {
   const { franchise } = useAuth();
   const draftPlayerPool = useDraftPlayerUniverse();
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const [countdown, setCountdown] = useState(REFRESH_SECONDS);
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [activeId, setActiveId] = useState<number | null>(null);
   const [liveMatchups, setLiveMatchups] = useState<Matchup[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // The true current week, independent of whatever week is actually being
+  // viewed (which may be overridden via ?week=N) -- used only to label
+  // that one option in the dropdown so a person browsing an old week can
+  // still tell where "now" is.
+  const actualCurrentWeek = useMemo(() => {
+    const w = getCurrentWeek();
+    return w > 0 ? w : 1;
+  }, []);
 
   // Read ?week=N from the URL; fall back to the current real week
   const currentWeek = useMemo(() => {
@@ -1185,8 +1194,19 @@ export default function LiveScoring() {
     : 0;
   const aboveMedian = allScores.filter(s => s > median).length;
 
+  // Whether every team playing this week has a final game -- distinct from
+  // isPolling (which only tracks whether something is live right now), so
+  // a fully completed past week shows as final rather than incorrectly
+  // still saying "Pre-Game Projections."
+  const weekTeams = Object.keys(nflMatchupMap);
+  const weekIsComplete = weekTeams.length > 0 && weekTeams.every(team => nflGameStatus[team]?.state === "post");
+
   const tickerMessages = [
-    isPolling ? `🔴 LIVE — Week ${currentWeek} Scoring in Progress` : `📅 Week ${currentWeek} — Pre-Game Projections`,
+    isPolling
+      ? `🔴 LIVE — Week ${currentWeek} Scoring in Progress`
+      : weekIsComplete
+        ? `✅ Week ${currentWeek} — Final`
+        : `📅 Week ${currentWeek} — Pre-Game Projections`,
     `📊 LEAGUE MEDIAN: ${median.toFixed(1)} pts — ${aboveMedian} teams above`,
     isPolling ? "⚡ Live scores updating every 30 seconds from Tank01" : "📋 Lineups loaded from Supabase · Save your lineup to lock in starters",
   ];
@@ -1204,13 +1224,32 @@ export default function LiveScoring() {
         display: "flex", alignItems: "center", gap: "0.5rem",
         overflowX: "auto",
       }}>
-        {/* Week label */}
-        <span style={{
-          fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem",
-          letterSpacing: "0.08em", color: "oklch(0.78 0.15 85)",
-          background: "oklch(0.78 0.15 85 / 0.15)", border: "1px solid oklch(0.78 0.15 85 / 0.3)",
-          borderRadius: 5, padding: "2px 8px", flexShrink: 0, whiteSpace: "nowrap",
-        }}>WK {currentWeek}</span>
+        {/* Week selector -- defaults to the current real week, but any
+            week can be picked to view its history. Once every one of that
+            week's NFL games is final, its live-scoring numbers are final
+            too and just sit there as a permanent record, same as any
+            other past week -- there's no separate "archived" state to
+            build, since a finished game's status naturally stops
+            changing on its own. */}
+        <select
+          value={currentWeek}
+          onChange={e => navigate(`/live?week=${e.target.value}`)}
+          style={{
+            fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem",
+            letterSpacing: "0.08em", color: "oklch(0.78 0.15 85)",
+            background: "oklch(0.78 0.15 85 / 0.15)", border: "1px solid oklch(0.78 0.15 85 / 0.3)",
+            borderRadius: 5, padding: "2px 22px 2px 8px", flexShrink: 0, whiteSpace: "nowrap",
+            cursor: "pointer", appearance: "none",
+            backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23ceb15a' stroke-width='1.5' fill='none'/%3E%3C/svg%3E\")",
+            backgroundRepeat: "no-repeat", backgroundPosition: "right 7px center",
+          }}
+        >
+          {Array.from({ length: 18 }, (_, i) => i + 1).map(week => (
+            <option key={week} value={week} style={{ background: "#1a2318", color: "white" }}>
+              WK {week}{week === actualCurrentWeek ? " (Current)" : ""}
+            </option>
+          ))}
+        </select>
         {loading ? (
           <span style={{ color: "rgba(255,255,255,0.5)", fontSize: "0.75rem", fontFamily: "Barlow Condensed, sans-serif" }}>Loading matchups…</span>
         ) : (
