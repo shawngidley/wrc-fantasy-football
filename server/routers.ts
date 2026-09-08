@@ -13,6 +13,7 @@ import { getPublicLeagueTeam, listPublicLeagueTeams, verifyLeagueTeamPin } from 
 import { clearWrcTeamSession, readWrcTeamSession, writeWrcTeamSession } from "./wrcTeamSession";
 import { supabaseAdmin } from "./supabaseAdmin";
 import { getCurrentWeek, SCHEDULE_2026 } from "../client/src/lib/scheduleData2026";
+import { hasWeekKickedOff } from "./nflWeekKickoffCheck";
 import { getFreeAgentMarketState } from "./faabMarketState";
 import { sendSms } from "./twilioSms";
 import { validateProtectionSubmission } from "./protectionRules";
@@ -889,6 +890,7 @@ export const appRouter = router({
 
       let opponentName: string | null = null;
       let currentWeekEligible = false;
+      let weekKickedOff = false;
       const scheduleWeek = SCHEDULE_2026.find(w => w.week === currentWeek && w.type === "regular");
       if (scheduleWeek) {
         const { data: team } = await supabaseAdmin.from("teams").select("owner").eq("id", teamId).single();
@@ -898,7 +900,21 @@ export const appRouter = router({
           const opponentOwner = matchup[0] === myOwner ? matchup[1] : matchup[0];
           const { data: opponentTeam } = await supabaseAdmin.from("teams").select("name").eq("owner", opponentOwner).single();
           opponentName = opponentTeam?.name ?? opponentOwner;
-          currentWeekEligible = !existing;
+          // Only bother checking Tank01 if the owner hasn't already used
+          // their one declaration this season -- no point in the extra
+          // API call otherwise, since currentWeekEligible would be false
+          // either way.
+          if (!existing) {
+            try {
+              weekKickedOff = await hasWeekKickedOff(currentWeek, season);
+            } catch {
+              // If the kickoff check itself fails (e.g. Tank01 hiccup),
+              // fail safe by treating the window as closed rather than
+              // risking a late declaration slipping through.
+              weekKickedOff = true;
+            }
+          }
+          currentWeekEligible = !existing && !weekKickedOff;
         }
       }
 
@@ -913,6 +929,7 @@ export const appRouter = router({
         currentWeek,
         currentWeekEligible,
         currentWeekOpponentName: opponentName,
+        weekKickedOff,
       };
     }),
     declareRivalryGame: teamProcedure.mutation(async ({ ctx }) => {
@@ -932,6 +949,21 @@ export const appRouter = router({
 
       const scheduleWeek = SCHEDULE_2026.find(w => w.week === currentWeek && w.type === "regular");
       if (!scheduleWeek) throw new Error("The rivalry game can only be declared during a regular-season week.");
+
+      // Owners must declare before the first real NFL game of the week
+      // kicks off -- once any game that week has started, the window is
+      // closed for everyone, regardless of when their own specific
+      // matchup's games happen to be.
+      let weekKickedOff: boolean;
+      try {
+        weekKickedOff = await hasWeekKickedOff(currentWeek, season);
+      } catch {
+        // Fail safe: if the kickoff check itself can't be verified, treat
+        // the window as closed rather than risk a late declaration
+        // slipping through.
+        weekKickedOff = true;
+      }
+      if (weekKickedOff) throw new Error("This week's first game has already kicked off -- the rivalry game window is closed until next week.");
 
       const { data: team, error: teamError } = await supabaseAdmin.from("teams").select("owner").eq("id", teamId).single();
       if (teamError || !team) throw new Error("Unable to identify your team");

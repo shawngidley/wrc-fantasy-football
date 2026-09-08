@@ -88898,6 +88898,21 @@ function getCurrentWeek() {
   return 17;
 }
 
+// server/nflWeekKickoffCheck.ts
+var TANK01_BASE_URL = "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
+async function hasWeekKickedOff(week2, season) {
+  const key = process.env.TANK01_API_KEY;
+  if (!key) throw new Error("Tank01 API credential is unavailable.");
+  const headers = { "x-rapidapi-key": key, "x-rapidapi-host": "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com" };
+  const response = await fetch(
+    `${TANK01_BASE_URL}/getNFLGamesForWeek?week=${week2}&seasonType=Regular%20Season&season=${season}`,
+    { headers, signal: AbortSignal.timeout(15e3) }
+  );
+  if (!response.ok) throw new Error(`Unable to load this week's NFL games (${response.status}).`);
+  const games = (await response.json()).body ?? [];
+  return games.some((game) => game.gameStatus && game.gameStatus !== "Scheduled");
+}
+
 // server/faabMarketState.ts
 function getFreeAgentMarketState(now = /* @__PURE__ */ new Date()) {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -98472,6 +98487,7 @@ var appRouter = router({
       if (error61) throw new Error("Unable to load rivalry game status");
       let opponentName = null;
       let currentWeekEligible = false;
+      let weekKickedOff = false;
       const scheduleWeek = SCHEDULE_2026.find((w) => w.week === currentWeek && w.type === "regular");
       if (scheduleWeek) {
         const { data: team } = await supabaseAdmin.from("teams").select("owner").eq("id", teamId).single();
@@ -98481,7 +98497,14 @@ var appRouter = router({
           const opponentOwner = matchup[0] === myOwner ? matchup[1] : matchup[0];
           const { data: opponentTeam } = await supabaseAdmin.from("teams").select("name").eq("owner", opponentOwner).single();
           opponentName = opponentTeam?.name ?? opponentOwner;
-          currentWeekEligible = !existing;
+          if (!existing) {
+            try {
+              weekKickedOff = await hasWeekKickedOff(currentWeek, season);
+            } catch {
+              weekKickedOff = true;
+            }
+          }
+          currentWeekEligible = !existing && !weekKickedOff;
         }
       }
       let declaredOpponentName = null;
@@ -98493,7 +98516,8 @@ var appRouter = router({
         declared: existing ? { week: existing.week, opponentName: declaredOpponentName, declaredAt: existing.declared_at } : null,
         currentWeek,
         currentWeekEligible,
-        currentWeekOpponentName: opponentName
+        currentWeekOpponentName: opponentName,
+        weekKickedOff
       };
     }),
     declareRivalryGame: teamProcedure.mutation(async ({ ctx }) => {
@@ -98505,6 +98529,13 @@ var appRouter = router({
       if (existing) throw new Error("You've already used your rivalry game for this season.");
       const scheduleWeek = SCHEDULE_2026.find((w) => w.week === currentWeek && w.type === "regular");
       if (!scheduleWeek) throw new Error("The rivalry game can only be declared during a regular-season week.");
+      let weekKickedOff;
+      try {
+        weekKickedOff = await hasWeekKickedOff(currentWeek, season);
+      } catch {
+        weekKickedOff = true;
+      }
+      if (weekKickedOff) throw new Error("This week's first game has already kicked off -- the rivalry game window is closed until next week.");
       const { data: team, error: teamError } = await supabaseAdmin.from("teams").select("owner").eq("id", teamId).single();
       if (teamError || !team) throw new Error("Unable to identify your team");
       const matchup = scheduleWeek.matchups.find(([home, away]) => home === team.owner || away === team.owner);
