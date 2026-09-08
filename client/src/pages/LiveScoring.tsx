@@ -8,7 +8,9 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
-import { RefreshCw, Clock, Wifi } from "lucide-react";
+import { RefreshCw, Clock, Wifi, Swords } from "lucide-react";
+import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
 import TeamLogo from "@/components/TeamLogo";
 import { supabase } from "@/lib/supabase";
 import { SCHEDULE_2026, OWNER_TO_TEAM, getCurrentWeek } from "@/lib/scheduleData2026";
@@ -576,6 +578,93 @@ function SlotRowComp({ row, injuries }: { row: SlotRow; injuries?: import("@/hoo
 }
 
 // ── Matchup detail view (the main expanded view) ──────────────────────────────
+// ── Rivalry Game ─────────────────────────────────────────────────────────────
+// Each owner may designate exactly one regular-season matchup per year as
+// their rivalry game -- winner's money_owed goes down $30, loser's goes up
+// $30 (funded from entry fees already collected, so this is purely a
+// bookkeeping adjustment, not a new cash transaction). Locks immediately on
+// selection, no changing later. Only shown when the currently-viewed
+// matchup is the signed-in owner's own current-week game.
+function RivalryGameControl({ matchup }: { matchup: Matchup }) {
+  const { franchise } = useAuth();
+  const [confirming, setConfirming] = useState(false);
+  const statusQuery = trpc.league.myRivalryGame.useQuery(undefined, { enabled: Boolean(franchise?.id) });
+  const declareMutation = trpc.league.declareRivalryGame.useMutation();
+
+  if (!franchise) return null;
+  const myTeamName = franchise.team_name;
+  const isMyMatchup = matchup.home.team === myTeamName || matchup.away.team === myTeamName;
+  if (!isMyMatchup) return null;
+  if (statusQuery.isLoading || !statusQuery.data) return null;
+
+  const { declared, currentWeekEligible, currentWeekOpponentName } = statusQuery.data;
+
+  const handleConfirm = async () => {
+    try {
+      const result = await declareMutation.mutateAsync();
+      toast.success(`Rivalry game set vs ${result.opponentName}! Winner takes $30.`);
+      await statusQuery.refetch();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to declare rivalry game.");
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  const boxStyle = { marginTop: "0.6rem", padding: "0.6rem 0.75rem", borderRadius: 8, display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" as const };
+
+  if (declared) {
+    // Only show the "you're in a rivalry game" banner on the week it
+    // was actually declared for, not on every subsequent week's matchup.
+    if (declared.week !== matchup.week) return null;
+    return (
+      <div style={{ ...boxStyle, background: "oklch(0.95 0.06 25)", border: "1px solid oklch(0.7 0.15 25)" }}>
+        <Swords size={16} color="oklch(0.45 0.18 25)" />
+        <span style={{ fontSize: "0.8rem", fontWeight: 700, color: "oklch(0.35 0.16 25)", fontFamily: "Barlow Condensed, sans-serif" }}>
+          Rivalry Game vs {declared.opponentName} — winner takes $30
+        </span>
+      </div>
+    );
+  }
+
+  if (!currentWeekEligible) return null; // already used this season's rivalry game, or not a valid regular-season week
+
+  if (confirming) {
+    return (
+      <div style={{ ...boxStyle, background: "oklch(0.96 0.02 150)", border: "1px solid oklch(0.8 0.05 150)" }}>
+        <span style={{ fontSize: "0.8rem", color: "oklch(0.35 0.05 150)" }}>
+          Declare this as your rivalry game vs {currentWeekOpponentName}? Winner takes $30. This can't be undone.
+        </span>
+        <button
+          onClick={handleConfirm}
+          disabled={declareMutation.isPending}
+          style={{ background: "oklch(0.42 0.15 150)", color: "white", border: "none", borderRadius: 6, padding: "0.35rem 0.8rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.75rem", cursor: declareMutation.isPending ? "not-allowed" : "pointer" }}
+        >
+          {declareMutation.isPending ? "Confirming…" : "Confirm"}
+        </button>
+        <button
+          onClick={() => setConfirming(false)}
+          disabled={declareMutation.isPending}
+          style={{ background: "white", color: "oklch(0.4 0.04 150)", border: "1px solid oklch(0.8 0.02 150)", borderRadius: 6, padding: "0.35rem 0.8rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.75rem", cursor: "pointer" }}
+        >
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div style={boxStyle}>
+      <button
+        onClick={() => setConfirming(true)}
+        style={{ display: "flex", alignItems: "center", gap: "0.4rem", background: "oklch(0.95 0.06 25)", color: "oklch(0.4 0.16 25)", border: "1px solid oklch(0.7 0.15 25)", borderRadius: 6, padding: "0.4rem 0.85rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.75rem", letterSpacing: "0.02em", cursor: "pointer" }}
+      >
+        <Swords size={14} /> Make This Your Rivalry Game
+      </button>
+    </div>
+  );
+}
+
 function MatchupDetail({ matchup, injuries }: { matchup: Matchup; injuries?: import("@/hooks/useNFLInjuries").InjuryMap }) {
   const homeWinning = matchup.home.score > matchup.away.score;
   const homeTotal = matchup.home.score + matchup.away.score;
@@ -676,6 +765,8 @@ function MatchupDetail({ matchup, injuries }: { matchup: Matchup; injuries?: imp
             }} />
           </div>
         </div>
+
+        <RivalryGameControl matchup={matchup} />
 
         {/* OFFENSE label */}
         <div style={{

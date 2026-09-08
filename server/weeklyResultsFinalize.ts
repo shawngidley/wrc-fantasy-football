@@ -32,6 +32,14 @@ function median(values: number[]) {
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
+/** money_owed.id is the owner's first name (plus last initial where
+ * needed), lowercased with spaces/punctuation stripped -- e.g. "Scott M."
+ * -> "scottm". Matches the DEFAULT_OWNERS format already used in
+ * Money.tsx. */
+export function moneyOwedIdForOwner(owner: string): string {
+  return owner.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
 export async function finalizeWeeklyResultsFromTank(week: number, season: number) {
   const key = process.env.TANK01_API_KEY;
   if (!key) throw new Error("Tank01 API credential is unavailable.");
@@ -85,6 +93,47 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
       league_median: leagueMedian,
     }).eq("week", week).eq("season", season).eq("home_owner", homeOwner).eq("away_owner", awayOwner);
     if (error) throw new Error("Unable to save final weekly results.");
+
+    // Rivalry Game: either owner could have independently declared this
+    // specific matchup as their one rivalry game for the season -- if
+    // either did, the $30 swing applies once to this game's actual
+    // winner/loser, regardless of whether one or both sides declared it.
+    const { data: rivalryRows, error: rivalryError } = await supabaseAdmin
+      .from("rivalry_games")
+      .select("id")
+      .eq("week", week)
+      .eq("season", season)
+      .eq("resolved", false)
+      .or(`and(team_id.eq.${homeTeamId},opponent_team_id.eq.${awayTeamId}),and(team_id.eq.${awayTeamId},opponent_team_id.eq.${homeTeamId})`);
+    if (rivalryError) throw new Error("Unable to check rivalry game status for this matchup.");
+    if (rivalryRows && rivalryRows.length > 0) {
+      const homeScore = teamScores.get(homeTeamId) ?? 0;
+      const awayScore = teamScores.get(awayTeamId) ?? 0;
+      if (homeScore !== awayScore) { // no payout on an exact tie
+        const winnerOwner = homeScore > awayScore ? homeOwner : awayOwner;
+        const loserOwner = homeScore > awayScore ? awayOwner : homeOwner;
+        const winnerId = moneyOwedIdForOwner(winnerOwner);
+        const loserId = moneyOwedIdForOwner(loserOwner);
+        const { data: moneyRows, error: moneyReadError } = await supabaseAdmin
+          .from("money_owed").select("id, name, owed").in("id", [winnerId, loserId]);
+        if (moneyReadError) throw new Error("Rivalry game resolved, but money_owed could not be read.");
+        const existingById = new Map((moneyRows ?? []).map(row => [row.id, row]));
+        const winnerRow = existingById.get(winnerId) ?? { id: winnerId, name: winnerOwner, owed: 0 };
+        const loserRow = existingById.get(loserId) ?? { id: loserId, name: loserOwner, owed: 0 };
+        const { error: moneyWriteError } = await supabaseAdmin.from("money_owed").upsert([
+          { ...winnerRow, owed: Number(winnerRow.owed ?? 0) - 30 },
+          { ...loserRow, owed: Number(loserRow.owed ?? 0) + 30 },
+        ], { onConflict: "id" });
+        if (moneyWriteError) throw new Error("Rivalry game resolved, but money_owed could not be updated.");
+      }
+      // Mark resolved regardless of whether a payout was actually applied
+      // (e.g. an exact tie) -- either way this matchup's rivalry
+      // declaration(s) have now been processed and must not be
+      // reconsidered on a re-run.
+      const { error: resolveError } = await supabaseAdmin.from("rivalry_games")
+        .update({ resolved: true }).in("id", rivalryRows.map(row => row.id));
+      if (resolveError) throw new Error("Rivalry game payout applied, but could not be marked resolved.");
+    }
   }
 
   const { data: results, error: resultsError } = await supabaseAdmin.from("weekly_results")

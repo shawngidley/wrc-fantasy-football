@@ -9,7 +9,7 @@ import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { trpc } from "@/lib/trpc";
-import { Wallet } from "lucide-react";
+import { Wallet, Swords } from "lucide-react";
 
 // ─── Static data (fallback until Supabase is connected) ─────────────────────
 
@@ -116,6 +116,64 @@ const sectionTitle: React.CSSProperties = {
   color: "oklch(0.22 0.07 150)",
   marginBottom: "0.75rem",
 };
+
+// ─── Rivalry Game Section ───────────────────────────────────────────────────
+// Read-only and auto-populated (unlike GOW History above, which is manually
+// entered) -- rivalry declarations and their outcomes come straight from
+// rivalry_games/weekly_results via the automatic weekly finalization, so
+// there's nothing for a commissioner to edit here.
+function RivalryGameSection() {
+  const rivalryQuery = trpc.league.allRivalryGames.useQuery();
+  const rivalries = rivalryQuery.data ?? [];
+
+  return (
+    <div className="wrc-card" style={{ marginBottom: "1.75rem", overflowX: "auto" }}>
+      <div className="wrc-card-gold-stripe" />
+      <div style={{ padding: "0.85rem 1rem 0.5rem" }}>
+        <h2 style={{ ...sectionTitle, display: "flex", alignItems: "center", gap: "0.4rem" }}>
+          <Swords size={16} /> Rivalry Games
+        </h2>
+        <p style={{ fontSize: "0.75rem", color: "oklch(0.52 0.04 150)", margin: 0 }}>
+          Each owner's chosen rivalry game for the season · winner takes $30
+        </p>
+      </div>
+      {rivalryQuery.isLoading ? (
+        <div style={{ padding: "1.5rem", textAlign: "center", color: "oklch(0.55 0.04 150)", fontSize: "0.85rem" }}>Loading…</div>
+      ) : rivalries.length === 0 ? (
+        <div style={{ padding: "1.5rem", textAlign: "center", color: "oklch(0.55 0.04 150)", fontSize: "0.85rem" }}>
+          No rivalry games declared yet this season.
+        </div>
+      ) : (
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
+          <thead>
+            <tr style={{ borderBottom: "1px solid oklch(0.88 0.02 150)" }}>
+              <th style={{ textAlign: "left", padding: "0.5rem 1rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: "oklch(0.5 0.04 150)" }}>Week</th>
+              <th style={{ textAlign: "left", padding: "0.5rem 1rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: "oklch(0.5 0.04 150)" }}>Owner</th>
+              <th style={{ textAlign: "left", padding: "0.5rem 1rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: "oklch(0.5 0.04 150)" }}>Opponent</th>
+              <th style={{ textAlign: "left", padding: "0.5rem 1rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, color: "oklch(0.5 0.04 150)" }}>Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rivalries.map((r, i) => (
+              <tr key={i} style={{ borderBottom: "1px solid oklch(0.94 0.01 150)" }}>
+                <td style={{ padding: "0.5rem 1rem" }}>Wk {r.week}</td>
+                <td style={{ padding: "0.5rem 1rem", fontWeight: 600 }}>{r.teamName}</td>
+                <td style={{ padding: "0.5rem 1rem" }}>{r.opponentName}</td>
+                <td style={{ padding: "0.5rem 1rem" }}>
+                  {!r.resolved
+                    ? <span style={{ color: "oklch(0.55 0.04 150)" }}>Pending</span>
+                    : r.outcome === "won"
+                      ? <span style={{ color: "oklch(0.4 0.15 150)", fontWeight: 700 }}>Won +$30</span>
+                      : <span style={{ color: "oklch(0.45 0.18 25)", fontWeight: 700 }}>Lost -$30</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  );
+}
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
@@ -456,6 +514,9 @@ export default function Money() {
             </table>
           </div>
         </div>
+
+        {/* ── Rivalry Game ─────────────────────────────────────────────────── */}
+        <RivalryGameSection />
 
         {/* ── SECTION 3: Game of the Week History ───────────────────────────── */}
         <div className="wrc-card" style={{ marginBottom: "1.75rem", overflowX: "auto" }}>

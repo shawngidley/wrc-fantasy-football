@@ -88642,6 +88642,262 @@ async function verifyLeagueTeamPin(teamId, pin) {
 // server/routers.ts
 init_supabaseAdmin();
 
+// client/src/lib/scheduleData2026.ts
+var SCHEDULE_2026 = [
+  {
+    week: 1,
+    label: "Week 1",
+    dates: "Sept. 9\u201314",
+    type: "regular",
+    matchups: [
+      ["Jonas", "Keith"],
+      ["David R.", "Jason"],
+      ["Jamie", "Dan"],
+      ["Bill", "Scott N."],
+      ["Shawn", "Scott M."],
+      ["David S.", "Greg"]
+    ]
+  },
+  {
+    week: 2,
+    label: "Week 2",
+    dates: "Sept. 17\u201321",
+    type: "regular",
+    matchups: [
+      ["Jonas", "Scott N."],
+      ["David R.", "Bill"],
+      ["Jason", "Shawn"],
+      ["Keith", "David S."],
+      ["Dan", "Scott M."],
+      ["Jamie", "Greg"]
+    ]
+  },
+  {
+    week: 3,
+    label: "Week 3",
+    dates: "Sept. 24\u201328",
+    type: "regular",
+    matchups: [
+      ["Jonas", "Jamie"],
+      ["David R.", "Scott N."],
+      ["Jason", "David S."],
+      ["Keith", "Scott M."],
+      ["Dan", "Greg"],
+      ["Bill", "Shawn"]
+    ]
+  },
+  {
+    week: 4,
+    label: "Week 4",
+    dates: "Oct. 1\u20135",
+    type: "regular",
+    matchups: [
+      ["Jonas", "Jason"],
+      ["David R.", "Keith"],
+      ["Jamie", "Bill"],
+      ["Dan", "Scott N."],
+      ["Shawn", "David S."],
+      ["Scott M.", "Greg"]
+    ]
+  },
+  {
+    week: 5,
+    label: "Week 5",
+    dates: "Oct. 8\u201312",
+    type: "regular",
+    matchups: [
+      ["Jonas", "David R."],
+      ["Jason", "Keith"],
+      ["Jamie", "Scott N."],
+      ["Dan", "Bill"],
+      ["Shawn", "Greg"],
+      ["David S.", "Scott M."]
+    ]
+  },
+  {
+    week: 6,
+    label: "Week 6",
+    dates: "Oct. 15\u201319",
+    type: "regular",
+    matchups: [
+      ["Jonas", "Scott M."],
+      ["David R.", "Shawn"],
+      ["Jason", "Bill"],
+      ["Keith", "Jamie"],
+      ["Dan", "David S."],
+      ["Scott N.", "Greg"]
+    ]
+  },
+  {
+    week: 7,
+    label: "Week 7",
+    dates: "Oct. 22\u201326",
+    type: "regular",
+    matchups: [
+      ["Jonas", "Bill"],
+      ["David R.", "Jamie"],
+      ["Jason", "Scott M."],
+      ["Keith", "Greg"],
+      ["Dan", "Shawn"],
+      ["Scott N.", "David S."]
+    ]
+  },
+  {
+    week: 8,
+    label: "Week 8",
+    dates: "Oct. 29\u2013Nov. 2",
+    type: "regular",
+    matchups: [
+      ["Jonas", "Greg"],
+      ["David R.", "David S."],
+      ["Jason", "Jamie"],
+      ["Keith", "Dan"],
+      ["Scott N.", "Shawn"],
+      ["Bill", "Scott M."]
+    ]
+  },
+  {
+    week: 9,
+    label: "Week 9",
+    dates: "Nov. 5\u20139",
+    type: "regular",
+    matchups: [
+      ["Jonas", "David R."],
+      ["Jason", "Keith"],
+      ["Jamie", "Scott N."],
+      ["Dan", "Bill"],
+      ["Shawn", "Greg"],
+      ["David S.", "Scott M."]
+    ]
+  },
+  {
+    week: 10,
+    label: "Week 10",
+    dates: "Nov. 12\u201316",
+    type: "regular",
+    matchups: [
+      ["Jonas", "David S."],
+      ["David R.", "Dan"],
+      ["Jason", "Greg"],
+      ["Keith", "Bill"],
+      ["Jamie", "Shawn"],
+      ["Scott N.", "Scott M."]
+    ]
+  },
+  {
+    week: 11,
+    label: "Week 11",
+    dates: "Nov. 19\u201323",
+    type: "regular",
+    matchups: [
+      ["Jonas", "Shawn"],
+      ["David R.", "Scott M."],
+      ["Jason", "Dan"],
+      ["Keith", "Scott N."],
+      ["Jamie", "David S."],
+      ["Bill", "Greg"]
+    ]
+  },
+  {
+    week: 12,
+    label: "Week 12",
+    dates: "Nov. 25\u201330",
+    type: "regular",
+    matchups: [
+      ["Jonas", "Jason"],
+      ["David R.", "Keith"],
+      ["Jamie", "Bill"],
+      ["Dan", "Scott N."],
+      ["Shawn", "David S."],
+      ["Scott M.", "Greg"]
+    ]
+  },
+  {
+    week: 13,
+    label: "Week 13",
+    dates: "Dec. 3\u20137",
+    type: "regular",
+    matchups: [
+      ["Jonas", "Dan"],
+      ["David R.", "Greg"],
+      ["Jason", "Scott N."],
+      ["Keith", "Shawn"],
+      ["Jamie", "Scott M."],
+      ["Bill", "David S."]
+    ]
+  },
+  {
+    week: 14,
+    label: "Week 14",
+    dates: "Dec. 10\u201314",
+    type: "regular",
+    matchups: [
+      ["Jonas", "Keith"],
+      ["David R.", "Jason"],
+      ["Jamie", "Dan"],
+      ["Bill", "Scott N."],
+      ["Shawn", "Scott M."],
+      ["David S.", "Greg"]
+    ]
+  },
+  {
+    week: 15,
+    label: "Wild Card",
+    dates: "Dec. 17\u201321",
+    type: "wildcard",
+    matchups: [
+      ["TBD", "TBD"],
+      ["TBD", "TBD"]
+    ]
+  },
+  {
+    week: 16,
+    label: "Divisional",
+    dates: "Dec. 24\u201328",
+    type: "divisional",
+    matchups: [
+      ["TBD", "TBD"],
+      ["TBD", "TBD"]
+    ]
+  },
+  {
+    week: 17,
+    label: "Super Bowl",
+    dates: "Dec. 31\u2013Jan. 4",
+    type: "superbowl",
+    matchups: [
+      ["TBD", "TBD"]
+    ]
+  }
+];
+function getCurrentWeek() {
+  const now = Date.now();
+  const weekDates = [
+    [(/* @__PURE__ */ new Date("2026-09-09")).getTime(), (/* @__PURE__ */ new Date("2026-09-15")).getTime()],
+    [(/* @__PURE__ */ new Date("2026-09-17")).getTime(), (/* @__PURE__ */ new Date("2026-09-22")).getTime()],
+    [(/* @__PURE__ */ new Date("2026-09-24")).getTime(), (/* @__PURE__ */ new Date("2026-09-29")).getTime()],
+    [(/* @__PURE__ */ new Date("2026-10-01")).getTime(), (/* @__PURE__ */ new Date("2026-10-06")).getTime()],
+    [(/* @__PURE__ */ new Date("2026-10-08")).getTime(), (/* @__PURE__ */ new Date("2026-10-13")).getTime()],
+    [(/* @__PURE__ */ new Date("2026-10-15")).getTime(), (/* @__PURE__ */ new Date("2026-10-20")).getTime()],
+    [(/* @__PURE__ */ new Date("2026-10-22")).getTime(), (/* @__PURE__ */ new Date("2026-10-27")).getTime()],
+    [(/* @__PURE__ */ new Date("2026-10-29")).getTime(), (/* @__PURE__ */ new Date("2026-11-03")).getTime()],
+    [(/* @__PURE__ */ new Date("2026-11-05")).getTime(), (/* @__PURE__ */ new Date("2026-11-10")).getTime()],
+    [(/* @__PURE__ */ new Date("2026-11-12")).getTime(), (/* @__PURE__ */ new Date("2026-11-17")).getTime()],
+    [(/* @__PURE__ */ new Date("2026-11-19")).getTime(), (/* @__PURE__ */ new Date("2026-11-24")).getTime()],
+    [(/* @__PURE__ */ new Date("2026-11-25")).getTime(), (/* @__PURE__ */ new Date("2026-12-01")).getTime()],
+    [(/* @__PURE__ */ new Date("2026-12-03")).getTime(), (/* @__PURE__ */ new Date("2026-12-08")).getTime()],
+    [(/* @__PURE__ */ new Date("2026-12-10")).getTime(), (/* @__PURE__ */ new Date("2026-12-15")).getTime()],
+    [(/* @__PURE__ */ new Date("2026-12-17")).getTime(), (/* @__PURE__ */ new Date("2026-12-22")).getTime()],
+    [(/* @__PURE__ */ new Date("2026-12-24")).getTime(), (/* @__PURE__ */ new Date("2026-12-29")).getTime()],
+    [(/* @__PURE__ */ new Date("2026-12-31")).getTime(), (/* @__PURE__ */ new Date("2027-01-05")).getTime()]
+  ];
+  for (let i = 0; i < weekDates.length; i++) {
+    if (now >= weekDates[i][0] && now <= weekDates[i][1]) return i + 1;
+  }
+  if (now < weekDates[0][0]) return 1;
+  return 17;
+}
+
 // server/faabMarketState.ts
 function getFreeAgentMarketState(now = /* @__PURE__ */ new Date()) {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -89189,262 +89445,6 @@ var TOTAL_PICKS = DRAFT_PICKS_2026.length;
 // server/routers.ts
 init_storage();
 
-// client/src/lib/scheduleData2026.ts
-var SCHEDULE_2026 = [
-  {
-    week: 1,
-    label: "Week 1",
-    dates: "Sept. 9\u201314",
-    type: "regular",
-    matchups: [
-      ["Jonas", "Keith"],
-      ["David R.", "Jason"],
-      ["Jamie", "Dan"],
-      ["Bill", "Scott N."],
-      ["Shawn", "Scott M."],
-      ["David S.", "Greg"]
-    ]
-  },
-  {
-    week: 2,
-    label: "Week 2",
-    dates: "Sept. 17\u201321",
-    type: "regular",
-    matchups: [
-      ["Jonas", "Scott N."],
-      ["David R.", "Bill"],
-      ["Jason", "Shawn"],
-      ["Keith", "David S."],
-      ["Dan", "Scott M."],
-      ["Jamie", "Greg"]
-    ]
-  },
-  {
-    week: 3,
-    label: "Week 3",
-    dates: "Sept. 24\u201328",
-    type: "regular",
-    matchups: [
-      ["Jonas", "Jamie"],
-      ["David R.", "Scott N."],
-      ["Jason", "David S."],
-      ["Keith", "Scott M."],
-      ["Dan", "Greg"],
-      ["Bill", "Shawn"]
-    ]
-  },
-  {
-    week: 4,
-    label: "Week 4",
-    dates: "Oct. 1\u20135",
-    type: "regular",
-    matchups: [
-      ["Jonas", "Jason"],
-      ["David R.", "Keith"],
-      ["Jamie", "Bill"],
-      ["Dan", "Scott N."],
-      ["Shawn", "David S."],
-      ["Scott M.", "Greg"]
-    ]
-  },
-  {
-    week: 5,
-    label: "Week 5",
-    dates: "Oct. 8\u201312",
-    type: "regular",
-    matchups: [
-      ["Jonas", "David R."],
-      ["Jason", "Keith"],
-      ["Jamie", "Scott N."],
-      ["Dan", "Bill"],
-      ["Shawn", "Greg"],
-      ["David S.", "Scott M."]
-    ]
-  },
-  {
-    week: 6,
-    label: "Week 6",
-    dates: "Oct. 15\u201319",
-    type: "regular",
-    matchups: [
-      ["Jonas", "Scott M."],
-      ["David R.", "Shawn"],
-      ["Jason", "Bill"],
-      ["Keith", "Jamie"],
-      ["Dan", "David S."],
-      ["Scott N.", "Greg"]
-    ]
-  },
-  {
-    week: 7,
-    label: "Week 7",
-    dates: "Oct. 22\u201326",
-    type: "regular",
-    matchups: [
-      ["Jonas", "Bill"],
-      ["David R.", "Jamie"],
-      ["Jason", "Scott M."],
-      ["Keith", "Greg"],
-      ["Dan", "Shawn"],
-      ["Scott N.", "David S."]
-    ]
-  },
-  {
-    week: 8,
-    label: "Week 8",
-    dates: "Oct. 29\u2013Nov. 2",
-    type: "regular",
-    matchups: [
-      ["Jonas", "Greg"],
-      ["David R.", "David S."],
-      ["Jason", "Jamie"],
-      ["Keith", "Dan"],
-      ["Scott N.", "Shawn"],
-      ["Bill", "Scott M."]
-    ]
-  },
-  {
-    week: 9,
-    label: "Week 9",
-    dates: "Nov. 5\u20139",
-    type: "regular",
-    matchups: [
-      ["Jonas", "David R."],
-      ["Jason", "Keith"],
-      ["Jamie", "Scott N."],
-      ["Dan", "Bill"],
-      ["Shawn", "Greg"],
-      ["David S.", "Scott M."]
-    ]
-  },
-  {
-    week: 10,
-    label: "Week 10",
-    dates: "Nov. 12\u201316",
-    type: "regular",
-    matchups: [
-      ["Jonas", "David S."],
-      ["David R.", "Dan"],
-      ["Jason", "Greg"],
-      ["Keith", "Bill"],
-      ["Jamie", "Shawn"],
-      ["Scott N.", "Scott M."]
-    ]
-  },
-  {
-    week: 11,
-    label: "Week 11",
-    dates: "Nov. 19\u201323",
-    type: "regular",
-    matchups: [
-      ["Jonas", "Shawn"],
-      ["David R.", "Scott M."],
-      ["Jason", "Dan"],
-      ["Keith", "Scott N."],
-      ["Jamie", "David S."],
-      ["Bill", "Greg"]
-    ]
-  },
-  {
-    week: 12,
-    label: "Week 12",
-    dates: "Nov. 25\u201330",
-    type: "regular",
-    matchups: [
-      ["Jonas", "Jason"],
-      ["David R.", "Keith"],
-      ["Jamie", "Bill"],
-      ["Dan", "Scott N."],
-      ["Shawn", "David S."],
-      ["Scott M.", "Greg"]
-    ]
-  },
-  {
-    week: 13,
-    label: "Week 13",
-    dates: "Dec. 3\u20137",
-    type: "regular",
-    matchups: [
-      ["Jonas", "Dan"],
-      ["David R.", "Greg"],
-      ["Jason", "Scott N."],
-      ["Keith", "Shawn"],
-      ["Jamie", "Scott M."],
-      ["Bill", "David S."]
-    ]
-  },
-  {
-    week: 14,
-    label: "Week 14",
-    dates: "Dec. 10\u201314",
-    type: "regular",
-    matchups: [
-      ["Jonas", "Keith"],
-      ["David R.", "Jason"],
-      ["Jamie", "Dan"],
-      ["Bill", "Scott N."],
-      ["Shawn", "Scott M."],
-      ["David S.", "Greg"]
-    ]
-  },
-  {
-    week: 15,
-    label: "Wild Card",
-    dates: "Dec. 17\u201321",
-    type: "wildcard",
-    matchups: [
-      ["TBD", "TBD"],
-      ["TBD", "TBD"]
-    ]
-  },
-  {
-    week: 16,
-    label: "Divisional",
-    dates: "Dec. 24\u201328",
-    type: "divisional",
-    matchups: [
-      ["TBD", "TBD"],
-      ["TBD", "TBD"]
-    ]
-  },
-  {
-    week: 17,
-    label: "Super Bowl",
-    dates: "Dec. 31\u2013Jan. 4",
-    type: "superbowl",
-    matchups: [
-      ["TBD", "TBD"]
-    ]
-  }
-];
-function getCurrentWeek() {
-  const now = Date.now();
-  const weekDates = [
-    [(/* @__PURE__ */ new Date("2026-09-09")).getTime(), (/* @__PURE__ */ new Date("2026-09-15")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-09-17")).getTime(), (/* @__PURE__ */ new Date("2026-09-22")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-09-24")).getTime(), (/* @__PURE__ */ new Date("2026-09-29")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-10-01")).getTime(), (/* @__PURE__ */ new Date("2026-10-06")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-10-08")).getTime(), (/* @__PURE__ */ new Date("2026-10-13")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-10-15")).getTime(), (/* @__PURE__ */ new Date("2026-10-20")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-10-22")).getTime(), (/* @__PURE__ */ new Date("2026-10-27")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-10-29")).getTime(), (/* @__PURE__ */ new Date("2026-11-03")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-11-05")).getTime(), (/* @__PURE__ */ new Date("2026-11-10")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-11-12")).getTime(), (/* @__PURE__ */ new Date("2026-11-17")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-11-19")).getTime(), (/* @__PURE__ */ new Date("2026-11-24")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-11-25")).getTime(), (/* @__PURE__ */ new Date("2026-12-01")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-12-03")).getTime(), (/* @__PURE__ */ new Date("2026-12-08")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-12-10")).getTime(), (/* @__PURE__ */ new Date("2026-12-15")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-12-17")).getTime(), (/* @__PURE__ */ new Date("2026-12-22")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-12-24")).getTime(), (/* @__PURE__ */ new Date("2026-12-29")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-12-31")).getTime(), (/* @__PURE__ */ new Date("2027-01-05")).getTime()]
-  ];
-  for (let i = 0; i < weekDates.length; i++) {
-    if (now >= weekDates[i][0] && now <= weekDates[i][1]) return i + 1;
-  }
-  if (now < weekDates[0][0]) return 1;
-  return 17;
-}
-
 // server/weeklyResultsFinalize.ts
 init_supabaseAdmin();
 var HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
@@ -89473,6 +89473,9 @@ function median(values) {
   const sorted = [...values].sort((a, b) => a - b);
   const middle = Math.floor(sorted.length / 2);
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+function moneyOwedIdForOwner(owner) {
+  return owner.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
 async function finalizeWeeklyResultsFromTank(week2, season) {
   const key = process.env.TANK01_API_KEY;
@@ -89525,6 +89528,30 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
       league_median: leagueMedian
     }).eq("week", week2).eq("season", season).eq("home_owner", homeOwner).eq("away_owner", awayOwner);
     if (error61) throw new Error("Unable to save final weekly results.");
+    const { data: rivalryRows, error: rivalryError } = await supabaseAdmin.from("rivalry_games").select("id").eq("week", week2).eq("season", season).eq("resolved", false).or(`and(team_id.eq.${homeTeamId},opponent_team_id.eq.${awayTeamId}),and(team_id.eq.${awayTeamId},opponent_team_id.eq.${homeTeamId})`);
+    if (rivalryError) throw new Error("Unable to check rivalry game status for this matchup.");
+    if (rivalryRows && rivalryRows.length > 0) {
+      const homeScore = teamScores.get(homeTeamId) ?? 0;
+      const awayScore = teamScores.get(awayTeamId) ?? 0;
+      if (homeScore !== awayScore) {
+        const winnerOwner = homeScore > awayScore ? homeOwner : awayOwner;
+        const loserOwner = homeScore > awayScore ? awayOwner : homeOwner;
+        const winnerId = moneyOwedIdForOwner(winnerOwner);
+        const loserId = moneyOwedIdForOwner(loserOwner);
+        const { data: moneyRows, error: moneyReadError } = await supabaseAdmin.from("money_owed").select("id, name, owed").in("id", [winnerId, loserId]);
+        if (moneyReadError) throw new Error("Rivalry game resolved, but money_owed could not be read.");
+        const existingById = new Map((moneyRows ?? []).map((row) => [row.id, row]));
+        const winnerRow = existingById.get(winnerId) ?? { id: winnerId, name: winnerOwner, owed: 0 };
+        const loserRow = existingById.get(loserId) ?? { id: loserId, name: loserOwner, owed: 0 };
+        const { error: moneyWriteError } = await supabaseAdmin.from("money_owed").upsert([
+          { ...winnerRow, owed: Number(winnerRow.owed ?? 0) - 30 },
+          { ...loserRow, owed: Number(loserRow.owed ?? 0) + 30 }
+        ], { onConflict: "id" });
+        if (moneyWriteError) throw new Error("Rivalry game resolved, but money_owed could not be updated.");
+      }
+      const { error: resolveError } = await supabaseAdmin.from("rivalry_games").update({ resolved: true }).in("id", rivalryRows.map((row) => row.id));
+      if (resolveError) throw new Error("Rivalry game payout applied, but could not be marked resolved.");
+    }
   }
   const { data: results, error: resultsError } = await supabaseAdmin.from("weekly_results").select("week, home_team_id, away_team_id, home_score, away_score").eq("season", season).eq("is_final", true).order("week");
   const { data: standings, error: standingsError } = await supabaseAdmin.from("team_standings").select("team_id, division");
@@ -98405,6 +98432,94 @@ var appRouter = router({
       const { error: moveError } = await supabaseAdmin.from("roster_moves").insert(moves);
       if (moveError) throw new Error("Player was added, but transaction history could not be written");
       return { added: true, playerName: input2.playerName };
+    }),
+    allRivalryGames: publicProcedure.query(async () => {
+      const season = 2026;
+      const { data: rows, error: error61 } = await supabaseAdmin.from("rivalry_games").select("team_id, opponent_team_id, week, resolved, declared_at").eq("season", season).order("week");
+      if (error61) throw new Error("Unable to load rivalry games");
+      if (!rows || rows.length === 0) return [];
+      const teamIds = Array.from(new Set(rows.flatMap((r) => [r.team_id, r.opponent_team_id])));
+      const { data: teams, error: teamsError } = await supabaseAdmin.from("teams").select("id, name, owner").in("id", teamIds);
+      if (teamsError) throw new Error("Unable to load team names for rivalry games");
+      const nameById = new Map((teams ?? []).map((t2) => [t2.id, t2.name]));
+      const weeks = Array.from(new Set(rows.map((r) => r.week)));
+      const { data: results, error: resultsError } = await supabaseAdmin.from("weekly_results").select("week, home_team_id, away_team_id, home_score, away_score").eq("season", season).in("week", weeks);
+      if (resultsError) throw new Error("Unable to load weekly results for rivalry games");
+      return rows.map((row) => {
+        const matchupResult = (results ?? []).find(
+          (r) => r.week === row.week && (r.home_team_id === row.team_id && r.away_team_id === row.opponent_team_id || r.away_team_id === row.team_id && r.home_team_id === row.opponent_team_id)
+        );
+        let outcome = null;
+        if (row.resolved && matchupResult) {
+          const myScore = matchupResult.home_team_id === row.team_id ? matchupResult.home_score : matchupResult.away_score;
+          const oppScore = matchupResult.home_team_id === row.team_id ? matchupResult.away_score : matchupResult.home_score;
+          outcome = myScore > oppScore ? "won" : "lost";
+        }
+        return {
+          teamName: nameById.get(row.team_id) ?? row.team_id,
+          opponentName: nameById.get(row.opponent_team_id) ?? row.opponent_team_id,
+          week: row.week,
+          resolved: row.resolved,
+          outcome
+        };
+      });
+    }),
+    myRivalryGame: teamProcedure.query(async ({ ctx }) => {
+      const teamId = ctx.teamSession.teamId;
+      const season = 2026;
+      const currentWeek = getCurrentWeek();
+      const { data: existing, error: error61 } = await supabaseAdmin.from("rivalry_games").select("id, opponent_team_id, week, declared_at").eq("team_id", teamId).eq("season", season).maybeSingle();
+      if (error61) throw new Error("Unable to load rivalry game status");
+      let opponentName = null;
+      let currentWeekEligible = false;
+      const scheduleWeek = SCHEDULE_2026.find((w) => w.week === currentWeek && w.type === "regular");
+      if (scheduleWeek) {
+        const { data: team } = await supabaseAdmin.from("teams").select("owner").eq("id", teamId).single();
+        const myOwner = team?.owner;
+        const matchup = scheduleWeek.matchups.find(([home, away]) => home === myOwner || away === myOwner);
+        if (matchup) {
+          const opponentOwner = matchup[0] === myOwner ? matchup[1] : matchup[0];
+          const { data: opponentTeam } = await supabaseAdmin.from("teams").select("name").eq("owner", opponentOwner).single();
+          opponentName = opponentTeam?.name ?? opponentOwner;
+          currentWeekEligible = !existing;
+        }
+      }
+      let declaredOpponentName = null;
+      if (existing) {
+        const { data: opponentTeam } = await supabaseAdmin.from("teams").select("name").eq("id", existing.opponent_team_id).single();
+        declaredOpponentName = opponentTeam?.name ?? null;
+      }
+      return {
+        declared: existing ? { week: existing.week, opponentName: declaredOpponentName, declaredAt: existing.declared_at } : null,
+        currentWeek,
+        currentWeekEligible,
+        currentWeekOpponentName: opponentName
+      };
+    }),
+    declareRivalryGame: teamProcedure.mutation(async ({ ctx }) => {
+      const teamId = ctx.teamSession.teamId;
+      const season = 2026;
+      const currentWeek = getCurrentWeek();
+      const { data: existing, error: existingError } = await supabaseAdmin.from("rivalry_games").select("id").eq("team_id", teamId).eq("season", season).maybeSingle();
+      if (existingError) throw new Error("Unable to check rivalry game status");
+      if (existing) throw new Error("You've already used your rivalry game for this season.");
+      const scheduleWeek = SCHEDULE_2026.find((w) => w.week === currentWeek && w.type === "regular");
+      if (!scheduleWeek) throw new Error("The rivalry game can only be declared during a regular-season week.");
+      const { data: team, error: teamError } = await supabaseAdmin.from("teams").select("owner").eq("id", teamId).single();
+      if (teamError || !team) throw new Error("Unable to identify your team");
+      const matchup = scheduleWeek.matchups.find(([home, away]) => home === team.owner || away === team.owner);
+      if (!matchup) throw new Error("You don't have a matchup this week.");
+      const opponentOwner = matchup[0] === team.owner ? matchup[1] : matchup[0];
+      const { data: opponentTeam, error: opponentError } = await supabaseAdmin.from("teams").select("id, name").eq("owner", opponentOwner).single();
+      if (opponentError || !opponentTeam) throw new Error("Unable to identify your opponent");
+      const { error: insertError } = await supabaseAdmin.from("rivalry_games").insert({
+        team_id: teamId,
+        opponent_team_id: opponentTeam.id,
+        week: currentWeek,
+        season
+      });
+      if (insertError) throw new Error("Unable to declare rivalry game");
+      return { declared: true, week: currentWeek, opponentName: opponentTeam.name };
     }),
     commissionerFaabBids: commissionerProcedure.input(external_exports.object({ week: external_exports.number().int().min(1).max(22), season: external_exports.number().int().min(2020).max(2100) })).query(async ({ input: input2 }) => {
       const { data, error: error61 } = await supabaseAdmin.from("faab_bids").select("id, team_id, team_name, player_id, player_name, player_pos, player_nfl_team, bid_amount, drop_player_id, drop_player_name, status, week, season, created_at").eq("week", input2.week).eq("season", input2.season).order("player_name", { ascending: true }).order("bid_amount", { ascending: false });

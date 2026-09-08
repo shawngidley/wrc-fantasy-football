@@ -12,6 +12,7 @@ import { archiveFantasyProsNews, getArchivedFantasyProsNews, mergeFantasyProsNew
 import { getPublicLeagueTeam, listPublicLeagueTeams, verifyLeagueTeamPin } from "./leagueAuth";
 import { clearWrcTeamSession, readWrcTeamSession, writeWrcTeamSession } from "./wrcTeamSession";
 import { supabaseAdmin } from "./supabaseAdmin";
+import { getCurrentWeek, SCHEDULE_2026 } from "../client/src/lib/scheduleData2026";
 import { getFreeAgentMarketState } from "./faabMarketState";
 import { sendSms } from "./twilioSms";
 import { validateProtectionSubmission } from "./protectionRules";
@@ -828,6 +829,129 @@ export const appRouter = router({
 
         return { added: true, playerName: input.playerName };
       }),
+    allRivalryGames: publicProcedure.query(async () => {
+      const season = 2026;
+      const { data: rows, error } = await supabaseAdmin
+        .from("rivalry_games")
+        .select("team_id, opponent_team_id, week, resolved, declared_at")
+        .eq("season", season)
+        .order("week");
+      if (error) throw new Error("Unable to load rivalry games");
+      if (!rows || rows.length === 0) return [];
+
+      const teamIds = Array.from(new Set(rows.flatMap(r => [r.team_id, r.opponent_team_id])));
+      const { data: teams, error: teamsError } = await supabaseAdmin.from("teams").select("id, name, owner").in("id", teamIds);
+      if (teamsError) throw new Error("Unable to load team names for rivalry games");
+      const nameById = new Map((teams ?? []).map(t => [t.id, t.name]));
+
+      // Resolved rows need a winner/loser -- pull the matching weekly_results
+      // row to determine the outcome for display.
+      const weeks = Array.from(new Set(rows.map(r => r.week)));
+      const { data: results, error: resultsError } = await supabaseAdmin
+        .from("weekly_results")
+        .select("week, home_team_id, away_team_id, home_score, away_score")
+        .eq("season", season)
+        .in("week", weeks);
+      if (resultsError) throw new Error("Unable to load weekly results for rivalry games");
+
+      return rows.map(row => {
+        const matchupResult = (results ?? []).find(r =>
+          r.week === row.week &&
+          ((r.home_team_id === row.team_id && r.away_team_id === row.opponent_team_id) ||
+           (r.away_team_id === row.team_id && r.home_team_id === row.opponent_team_id)),
+        );
+        let outcome: "won" | "lost" | null = null;
+        if (row.resolved && matchupResult) {
+          const myScore = matchupResult.home_team_id === row.team_id ? matchupResult.home_score : matchupResult.away_score;
+          const oppScore = matchupResult.home_team_id === row.team_id ? matchupResult.away_score : matchupResult.home_score;
+          outcome = myScore > oppScore ? "won" : "lost";
+        }
+        return {
+          teamName: nameById.get(row.team_id) ?? row.team_id,
+          opponentName: nameById.get(row.opponent_team_id) ?? row.opponent_team_id,
+          week: row.week,
+          resolved: row.resolved,
+          outcome,
+        };
+      });
+    }),
+    myRivalryGame: teamProcedure.query(async ({ ctx }) => {
+      const teamId = ctx.teamSession.teamId;
+      const season = 2026;
+      const currentWeek = getCurrentWeek();
+      const { data: existing, error } = await supabaseAdmin
+        .from("rivalry_games")
+        .select("id, opponent_team_id, week, declared_at")
+        .eq("team_id", teamId)
+        .eq("season", season)
+        .maybeSingle();
+      if (error) throw new Error("Unable to load rivalry game status");
+
+      let opponentName: string | null = null;
+      let currentWeekEligible = false;
+      const scheduleWeek = SCHEDULE_2026.find(w => w.week === currentWeek && w.type === "regular");
+      if (scheduleWeek) {
+        const { data: team } = await supabaseAdmin.from("teams").select("owner").eq("id", teamId).single();
+        const myOwner = team?.owner;
+        const matchup = scheduleWeek.matchups.find(([home, away]) => home === myOwner || away === myOwner);
+        if (matchup) {
+          const opponentOwner = matchup[0] === myOwner ? matchup[1] : matchup[0];
+          const { data: opponentTeam } = await supabaseAdmin.from("teams").select("name").eq("owner", opponentOwner).single();
+          opponentName = opponentTeam?.name ?? opponentOwner;
+          currentWeekEligible = !existing;
+        }
+      }
+
+      let declaredOpponentName: string | null = null;
+      if (existing) {
+        const { data: opponentTeam } = await supabaseAdmin.from("teams").select("name").eq("id", existing.opponent_team_id).single();
+        declaredOpponentName = opponentTeam?.name ?? null;
+      }
+
+      return {
+        declared: existing ? { week: existing.week, opponentName: declaredOpponentName, declaredAt: existing.declared_at } : null,
+        currentWeek,
+        currentWeekEligible,
+        currentWeekOpponentName: opponentName,
+      };
+    }),
+    declareRivalryGame: teamProcedure.mutation(async ({ ctx }) => {
+      const teamId = ctx.teamSession.teamId;
+      const season = 2026;
+      const currentWeek = getCurrentWeek();
+
+      // One per season -- locks immediately on selection, no changing later.
+      const { data: existing, error: existingError } = await supabaseAdmin
+        .from("rivalry_games")
+        .select("id")
+        .eq("team_id", teamId)
+        .eq("season", season)
+        .maybeSingle();
+      if (existingError) throw new Error("Unable to check rivalry game status");
+      if (existing) throw new Error("You've already used your rivalry game for this season.");
+
+      const scheduleWeek = SCHEDULE_2026.find(w => w.week === currentWeek && w.type === "regular");
+      if (!scheduleWeek) throw new Error("The rivalry game can only be declared during a regular-season week.");
+
+      const { data: team, error: teamError } = await supabaseAdmin.from("teams").select("owner").eq("id", teamId).single();
+      if (teamError || !team) throw new Error("Unable to identify your team");
+      const matchup = scheduleWeek.matchups.find(([home, away]) => home === team.owner || away === team.owner);
+      if (!matchup) throw new Error("You don't have a matchup this week.");
+      const opponentOwner = matchup[0] === team.owner ? matchup[1] : matchup[0];
+
+      const { data: opponentTeam, error: opponentError } = await supabaseAdmin.from("teams").select("id, name").eq("owner", opponentOwner).single();
+      if (opponentError || !opponentTeam) throw new Error("Unable to identify your opponent");
+
+      const { error: insertError } = await supabaseAdmin.from("rivalry_games").insert({
+        team_id: teamId,
+        opponent_team_id: opponentTeam.id,
+        week: currentWeek,
+        season,
+      });
+      if (insertError) throw new Error("Unable to declare rivalry game");
+
+      return { declared: true, week: currentWeek, opponentName: opponentTeam.name };
+    }),
     commissionerFaabBids: commissionerProcedure
       .input(z.object({ week: z.number().int().min(1).max(22), season: z.number().int().min(2020).max(2100) }))
       .query(async ({ input }) => {
