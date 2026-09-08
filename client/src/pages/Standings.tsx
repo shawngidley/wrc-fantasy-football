@@ -20,6 +20,8 @@ import TeamLogo from "@/components/TeamLogo";
 import { trpc } from "@/lib/trpc";
 import { getRosterBriefingPreview } from "@/lib/rosterBriefing";
 import { mapRosterNewsForDisplay } from "@/lib/rosterNewsMapping";
+import { fetchTank01News } from "@/hooks/useNFLNews";
+import { useDraftPlayerUniverse } from "@/hooks/useDraftPlayerUniverse";
 
 const normalizeRosterName = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -305,13 +307,70 @@ function MyTeamNews({ ownerKey }: { ownerKey: string }) {
   }, [teamId]);
 
   const rosterInput = useMemo(() => ({ players: myPlayers.map(player => ({ name: player.name, pos: player.pos })), feedVersion: 2 as const }), [myPlayers]);
+  const draftPlayerPool = useDraftPlayerUniverse();
+
+  // Tank01 is the default/primary source here (FantasyPros has been
+  // unreliable -- see the 500/day rate limit work). Matches each Tank01
+  // news item to a roster player via ESPN id, same proven approach
+  // already used on the dedicated News page (PlayerNews.tsx).
+  const [tank01News, setTank01News] = useState<import("@/hooks/useNFLNews").Tank01NewsItem[]>([]);
+  const [tank01Loading, setTank01Loading] = useState(true);
+  useEffect(() => {
+    let cancelled = false;
+    setTank01Loading(true);
+    fetchTank01News().then(items => {
+      if (!cancelled) { setTank01News(items); setTank01Loading(false); }
+    }).catch(() => { if (!cancelled) setTank01Loading(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const espnIdByPlayerName = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const player of myPlayers) {
+      const poolPlayer = draftPlayerPool.find(p => p.name.toLowerCase() === player.name.toLowerCase());
+      if (poolPlayer?.sourcePlayerId) map.set(player.name.toLowerCase(), poolPlayer.sourcePlayerId);
+    }
+    return map;
+  }, [myPlayers, draftPlayerPool]);
+
+  const tank01Items = useMemo(() => {
+    if (myPlayers.length === 0) return [];
+    const result: PlayerNewsItem[] = [];
+    for (const item of tank01News) {
+      const espnId = item.playerIDs?.[0];
+      if (!espnId) continue;
+      const player = myPlayers.find(p => espnIdByPlayerName.get(p.name.toLowerCase()) === espnId);
+      if (!player) continue;
+      result.push({
+        playerName: player.name,
+        pos: player.pos,
+        nflTeam: player.nflTeam,
+        headline: item.title,
+        published: new Date().toISOString(),
+        url: item.link,
+        source: "Tank01",
+      });
+    }
+    return result;
+  }, [tank01News, myPlayers, espnIdByPlayerName]);
+
+  // FantasyPros kept as a fallback supplement only, still enabled, in case
+  // Tank01 doesn't have coverage for a given player -- not the primary
+  // source anymore.
   const fantasyProsRosterNews = trpc.fantasyPros.rosterNews.useQuery(rosterInput, {
     enabled: rosterInput.players.length > 0,
     staleTime: 15 * 60_000,
   });
 
-  const items = useMemo(() => mapRosterNewsForDisplay(fantasyProsRosterNews.data ?? [], myPlayers) as PlayerNewsItem[], [fantasyProsRosterNews.data, myPlayers]);
-  const loading = fantasyProsRosterNews.isLoading || (myPlayers.length === 0 && !fantasyProsRosterNews.isFetched);
+  const items = useMemo(() => {
+    const fantasyProsItems = mapRosterNewsForDisplay(fantasyProsRosterNews.data ?? [], myPlayers) as PlayerNewsItem[];
+    const seenPlayers = new Set(tank01Items.map(i => i.playerName.toLowerCase()));
+    // Tank01 items first (the default source), then any FantasyPros items
+    // for players Tank01 didn't have anything on, so nothing gets silently
+    // dropped if FantasyPros happens to have unique coverage.
+    return [...tank01Items, ...fantasyProsItems.filter(i => !seenPlayers.has(i.playerName.toLowerCase()))];
+  }, [tank01Items, fantasyProsRosterNews.data, myPlayers]);
+  const loading = tank01Loading || (myPlayers.length === 0 && !fantasyProsRosterNews.isFetched);
 
   /*
       const res = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/news?limit=100");

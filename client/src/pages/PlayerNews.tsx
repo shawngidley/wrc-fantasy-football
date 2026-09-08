@@ -61,7 +61,7 @@ export default function PlayerNews() {
   const [loading, setLoading] = useState(true);
   const [myTeamOnly, setMyTeamOnly] = useState(false);
   const [posFilter, setPosFilter] = useState<string>("ALL");
-  const [sourceFilter, setSourceFilter] = useState<NewsSourceFilter>("FANTASYPROS");
+  const [sourceFilter, setSourceFilter] = useState<NewsSourceFilter>("TANK01");
   const [myPlayers, setMyPlayers] = useState<{ name: string; pos: string; nflTeam: string }[]>([]);
   const newsRequestId = useRef(0);
   const lastSuccessfulFantasyProsItems = useRef<PlayerNewsItem[]>([]);
