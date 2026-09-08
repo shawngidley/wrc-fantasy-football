@@ -1043,11 +1043,11 @@ export default function Settings() {
         <div className="wrc-card" style={{ marginBottom: "1.25rem" }}>
           <div className="wrc-card-gold-stripe" />
           <div className="wrc-card-header" style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-            <MessageSquare size={14} /> Trade Text Alerts
+            <MessageSquare size={14} /> Text Alerts
           </div>
           <div style={{ padding: "1.25rem" }}>
             <p style={{ fontSize: "0.85rem", color: "oklch(0.5 0.04 150)", margin: "0 0 1.25rem" }}>
-              Get a text the moment another owner sends you a trade proposal, so you don't have to keep checking the app.
+              Get a text when another owner sends you a trade proposal or declares a Rivalry Game against you, so you don't have to keep checking the app.
             </p>
 
             <div style={{ marginBottom: "1rem" }}>
@@ -1063,7 +1063,7 @@ export default function Settings() {
 
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", marginBottom: "1rem" }}>
               <div>
-                <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.22 0.08 150)" }}>Text me on new trade proposals</div>
+                <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.22 0.08 150)" }}>Text me on trade proposals and Rivalry Game challenges</div>
                 <div style={{ fontSize: "0.76rem", color: "oklch(0.55 0.04 150)" }}>Off by default — you choose to turn this on.</div>
               </div>
               <button

@@ -965,13 +965,14 @@ export const appRouter = router({
       }
       if (weekKickedOff) throw new Error("This week's first game has already kicked off -- the rivalry game window is closed until next week.");
 
-      const { data: team, error: teamError } = await supabaseAdmin.from("teams").select("owner").eq("id", teamId).single();
+      const { data: team, error: teamError } = await supabaseAdmin.from("teams").select("owner, name").eq("id", teamId).single();
       if (teamError || !team) throw new Error("Unable to identify your team");
       const matchup = scheduleWeek.matchups.find(([home, away]) => home === team.owner || away === team.owner);
       if (!matchup) throw new Error("You don't have a matchup this week.");
       const opponentOwner = matchup[0] === team.owner ? matchup[1] : matchup[0];
 
-      const { data: opponentTeam, error: opponentError } = await supabaseAdmin.from("teams").select("id, name").eq("owner", opponentOwner).single();
+      const { data: opponentTeam, error: opponentError } = await supabaseAdmin.from("teams")
+        .select("id, name, phone_number, sms_trade_notifications").eq("owner", opponentOwner).single();
       if (opponentError || !opponentTeam) throw new Error("Unable to identify your opponent");
 
       const { error: insertError } = await supabaseAdmin.from("rivalry_games").insert({
@@ -981,6 +982,23 @@ export const appRouter = router({
         season,
       });
       if (insertError) throw new Error("Unable to declare rivalry game");
+
+      // Text the opponent, since they otherwise have no way to know
+      // they've been challenged -- myRivalryGame only ever returns the
+      // viewing owner's own declaration, not one made against them.
+      // Awaited (not fire-and-forget), same reasoning as the trade
+      // notifications: an un-awaited promise risks never completing in a
+      // serverless environment where the function can terminate right
+      // after the response is sent. Reuses the same phone_number/
+      // sms_trade_notifications opt-in as trades, rather than a separate
+      // toggle, to avoid a second parallel consent system for one
+      // additional notification type.
+      if (opponentTeam.sms_trade_notifications && opponentTeam.phone_number) {
+        await sendSms(
+          opponentTeam.phone_number,
+          `🏈 WRC Fantasy: ${team.name} has declared this week's game against you a Rivalry Game!`,
+        ).catch(error => console.error("[declareRivalryGame] SMS notification failed:", error));
+      }
 
       return { declared: true, week: currentWeek, opponentName: opponentTeam.name };
     }),
