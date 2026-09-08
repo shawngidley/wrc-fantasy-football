@@ -1238,3 +1238,8 @@
 
 - [ ] Compare the public Draft Lottery bundle with the latest state-lottery ball release.
 - [ ] Correct any deployment or stale-asset mismatch and verify the public glass-bin presentation.
+
+# Current 2026 NFL Team and Bye-Week Synchronization
+
+- [x] Run the supplied Tank01-based player-team comparison and apply verified `nfl_team` updates.
+- [x] Run the supplied 2026 bye-week update and verify the final player-record counts.
