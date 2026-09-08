@@ -26,6 +26,7 @@ function normalizeTeam(value) {
 
 function normalizePosition(value) {
   const upper = String(value ?? "").toUpperCase().replace(/\s/g, "");
+  if (["PK", "KICKER"].includes(upper)) return "K";
   if (["D/ST", "DST", "DEF"].includes(upper)) return "DST";
   return upper;
 }
@@ -37,6 +38,16 @@ function normalizeName(value) {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/\b(jr|sr|ii|iii|iv|v)\b\.?/g, "")
     .replace(/[^a-z0-9]/g, "");
+}
+
+const NAME_ALIASES = new Map([
+  ["kennethgainwell", "kennygainwell"],
+  ["chigoziemokonkwo", "chigokonkwo"],
+]);
+
+function canonicalName(value) {
+  const normalized = normalizeName(value);
+  return NAME_ALIASES.get(normalized) ?? normalized;
 }
 
 function isFreeAgent(record) {
@@ -99,8 +110,8 @@ const providerByIdentity = new Map();
 for (const player of tankPlayers) {
   const position = normalizePosition(player?.pos);
   const team = normalizeTeam(player?.team);
-  if (!normalizeName(player?.longName) || !position) continue;
-  const key = `${normalizeName(player.longName)}|${position}`;
+  if (!canonicalName(player?.longName) || !position) continue;
+  const key = `${canonicalName(player.longName)}|${position}`;
   const list = providerByIdentity.get(key) ?? [];
   list.push({ ...player, team });
   providerByIdentity.set(key, list);
@@ -115,7 +126,7 @@ for (const player of players ?? []) {
     resolved.push({ player, provider: null });
     continue;
   }
-  const candidates = providerByIdentity.get(`${normalizeName(player.name)}|${position}`) ?? [];
+  const candidates = providerByIdentity.get(`${canonicalName(player.name)}|${position}`) ?? [];
   const provider = choosePlayerMatch(player, candidates);
   if (!provider) {
     (candidates.length ? ambiguous : unmatched).push(player);
