@@ -2003,13 +2003,6 @@ export const appRouter = router({
         if (error) throw new Error("Unable to save money owed.");
         return { saved: input.updates.length };
       }),
-    commissionerSaveGowEntry: commissionerProcedure
-      .input(z.object({ week: z.number().int().min(1).max(22), winner: z.string().min(1).max(80), team: z.string().min(1).max(120), opponent: z.string().max(120), score: z.string().min(1).max(80), amount: z.number().finite().min(0).max(10_000), season: z.number().int().min(2020).max(2100) }))
-      .mutation(async ({ input }) => {
-        const { error } = await supabaseAdmin.from("gow_history").upsert(input, { onConflict: "week,season" });
-        if (error) throw new Error("Unable to save Game of the Week.");
-        return { saved: true };
-      }),
   }),
 
   fantasyPros: router({

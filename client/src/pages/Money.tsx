@@ -1,8 +1,8 @@
 /**
  * WRC Fantasy Football - Money Page
  * Background: Field turf
- * Sections: Money Owed (editable by commish), Prize Structure, GOW History, 2026 Earnings
- * Supabase tables: money_owed, gow_history, earnings
+ * Sections: Money Owed (editable by commish), Prize Structure, Rivalry Games (read-only, auto-populated), 2026 Earnings
+ * Supabase tables: money_owed, rivalry_games, earnings
  */
 import { useState, useEffect, useCallback } from "react";
 import Navigation from "@/components/Navigation";
@@ -33,7 +33,7 @@ const PRIZE_STRUCTURE = [
   { place: "Super Bowl",       players: 2,  perPlayer: 300.00, total: 600.00  },
   { place: "Divisional Round", players: 4,  perPlayer: 100.00, total: 400.00  },
   { place: "Wild Card Round",  players: 6,  perPlayer: 50.00,  total: 300.00  },
-  { place: "Game of the Week", players: 12, perPlayer: 30.00,  total: 360.00  },
+  { place: "Rivalry Game",     players: 12, perPlayer: 30.00,  total: 360.00  },
 ];
 
 const TOTAL_POOL = 2260.00;
@@ -62,18 +62,6 @@ const DEFAULT_EARNINGS: Earnings[] = [
   { name: "Keith",    gow: null, wildCard: null, divisional: null, superBowl: null, champ: null },
   { name: "Dan",      gow: null, wildCard: null, divisional: null, superBowl: null, champ: null },
 ];
-
-type GowEntry = {
-  id?: string;
-  week: number;
-  winner: string;
-  team: string;
-  opponent: string;
-  score: string;
-  amount: number;
-};
-
-const DEFAULT_GOW: GowEntry[] = [];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -118,10 +106,12 @@ const sectionTitle: React.CSSProperties = {
 };
 
 // ─── Rivalry Game Section ───────────────────────────────────────────────────
-// Read-only and auto-populated (unlike GOW History above, which is manually
-// entered) -- rivalry declarations and their outcomes come straight from
-// rivalry_games/weekly_results via the automatic weekly finalization, so
-// there's nothing for a commissioner to edit here.
+// Read-only and auto-populated -- this replaced the old, manually-entered
+// "Game of the Week" section, which turned out to describe the exact same
+// $30-per-winner concept this app now calls Rivalry Game. Declarations and
+// their outcomes come straight from rivalry_games/weekly_results via the
+// automatic weekly finalization, so there's nothing for a commissioner to
+// edit here.
 function RivalryGameSection() {
   const rivalryQuery = trpc.league.allRivalryGames.useQuery();
   const rivalries = rivalryQuery.data ?? [];
@@ -187,16 +177,9 @@ export default function Money() {
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState("");
 
-  // GOW History state
-  const [gowHistory, setGowHistory] = useState<GowEntry[]>(DEFAULT_GOW);
-  const [gowEditMode, setGowEditMode] = useState(false);
-  const [editingGow, setEditingGow] = useState<GowEntry | null>(null);
-  const [showGowForm, setShowGowForm] = useState(false);
-
   // Earnings state
   const [earnings, setEarnings] = useState<Earnings[]>(DEFAULT_EARNINGS);
   const saveMoneyMutation = trpc.league.commissionerSaveMoneyOwed.useMutation();
-  const saveGowMutation = trpc.league.commissionerSaveGowEntry.useMutation();
 
   // ── Load from Supabase ──────────────────────────────────────────────────────
   const loadData = useCallback(async () => {
@@ -207,10 +190,6 @@ export default function Money() {
         id: r.id, name: r.name, owed: r.owed ?? 0,
       })));
     }
-
-    // GOW History — columns: id, week, winner, team, opponent, score, amount, season
-    const { data: gowData } = await supabase.from("gow_history").select("*").order("week");
-    if (gowData && gowData.length > 0) setGowHistory(gowData);
 
     // Earnings — columns: id, name, gow, wild_card, divisional, super_bowl, champ, season
     const { data: earnData } = await supabase.from("earnings").select("*");
@@ -257,24 +236,6 @@ export default function Money() {
       setTimeout(() => setSaveMsg(""), 3000);
     }
   };
-
-  // ── Commissioner: GOW entry ──────────────────────────────────────────────────
-  const saveGowEntry = async (entry: GowEntry) => {
-    try {
-      await saveGowMutation.mutateAsync({ ...entry, season: 2026 });
-      setGowHistory(prev => {
-        const idx = prev.findIndex(g => g.week === entry.week);
-        if (idx >= 0) { const next = [...prev]; next[idx] = entry; return next; }
-        return [...prev, entry].sort((a, b) => a.week - b.week);
-      });
-    } catch (error) {
-      setSaveMsg(error instanceof Error ? error.message : "Unable to save Game of the Week.");
-    }
-    setEditingGow(null);
-    setShowGowForm(false);
-  };
-
-  const totalGowPaid = gowHistory.reduce((s, g) => s + g.amount, 0);
 
   return (
     <div className="bg-turf bg-overlay" style={{ minHeight: "100vh" }}>
@@ -518,148 +479,6 @@ export default function Money() {
         {/* ── Rivalry Game ─────────────────────────────────────────────────── */}
         <RivalryGameSection />
 
-        {/* ── SECTION 3: Game of the Week History ───────────────────────────── */}
-        <div className="wrc-card" style={{ marginBottom: "1.75rem", overflowX: "auto" }}>
-          <div className="wrc-card-gold-stripe" />
-          <div style={{ padding: "0.85rem 1rem 0.5rem", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: "0.5rem" }}>
-            <div>
-              <h2 style={sectionTitle}>Game of the Week History</h2>
-              <p style={{ fontSize: "0.75rem", color: "oklch(0.52 0.04 150)", margin: 0 }}>
-                Highest-scoring matchup each week · $30.00 per winner
-              </p>
-            </div>
-            {isCommissioner && (
-              <div style={{ display: "flex", gap: "0.5rem" }}>
-                <button
-                  onClick={() => { setGowEditMode(!gowEditMode); setEditingGow(null); setShowGowForm(false); }}
-                  style={{
-                    background: gowEditMode ? "oklch(0.92 0.01 150)" : "oklch(0.32 0.1 150)",
-                    color: gowEditMode ? "oklch(0.35 0.06 150)" : "white",
-                    border: "none",
-                    borderRadius: 6,
-                    padding: "0.35rem 0.9rem",
-                    fontFamily: "Barlow Condensed, sans-serif",
-                    fontWeight: 600,
-                    fontSize: "0.75rem",
-                    letterSpacing: "0.06em",
-                    textTransform: "uppercase",
-                    cursor: "pointer",
-                  }}
-                >
-                  {gowEditMode ? "Done Editing" : "✏ Edit"}
-                </button>
-                {gowEditMode && (
-                  <button
-                    onClick={() => { setEditingGow({ week: gowHistory.length + 1, winner: "", team: "", opponent: "", score: "", amount: 30 }); setShowGowForm(true); }}
-                    style={{
-                      background: "oklch(0.78 0.15 85)",
-                      color: "oklch(0.18 0.05 85)",
-                      border: "none",
-                      borderRadius: 6,
-                      padding: "0.35rem 0.9rem",
-                      fontFamily: "Barlow Condensed, sans-serif",
-                      fontWeight: 600,
-                      fontSize: "0.75rem",
-                      letterSpacing: "0.06em",
-                      textTransform: "uppercase",
-                      cursor: "pointer",
-                    }}
-                  >
-                    + Add Week
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* GOW Add/Edit Form */}
-          {showGowForm && editingGow && (
-            <div style={{ margin: "0 1rem 1rem", padding: "1rem", background: "oklch(0.97 0.01 150)", borderRadius: 8, border: "1px solid oklch(0.88 0.03 150)" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: "0.6rem", marginBottom: "0.75rem" }}>
-                {[
-                  { label: "Week", key: "week", type: "number" },
-                  { label: "Winner (Owner)", key: "winner", type: "text" },
-                  { label: "Team Name", key: "team", type: "text" },
-                  { label: "Opponent", key: "opponent", type: "text" },
-                  { label: "Score", key: "score", type: "text" },
-                  { label: "Amount ($)", key: "amount", type: "number" },
-                ].map(f => (
-                  <div key={f.key}>
-                    <label style={{ fontSize: "0.7rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase", color: "oklch(0.4 0.07 150)", display: "block", marginBottom: "0.2rem" }}>{f.label}</label>
-                    <input
-                      type={f.type}
-                      value={(editingGow as Record<string, unknown>)[f.key] as string ?? ""}
-                      onChange={e => setEditingGow(prev => prev ? { ...prev, [f.key]: f.type === "number" ? Number(e.target.value) : e.target.value } : prev)}
-                      style={{ width: "100%", border: "1px solid oklch(0.82 0.04 150)", borderRadius: 4, padding: "0.3rem 0.5rem", fontSize: "0.82rem", color: "oklch(0.25 0.06 150)" }}
-                    />
-                  </div>
-                ))}
-              </div>
-              <div style={{ display: "flex", gap: "0.5rem" }}>
-                <button
-                  onClick={() => saveGowEntry(editingGow)}
-                  style={{ background: "oklch(0.32 0.1 150)", color: "white", border: "none", borderRadius: 6, padding: "0.35rem 1rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600, fontSize: "0.75rem", letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}
-                >
-                  ✓ Save Entry
-                </button>
-                <button
-                  onClick={() => { setShowGowForm(false); setEditingGow(null); }}
-                  style={{ background: "oklch(0.92 0.01 150)", color: "oklch(0.35 0.06 150)", border: "none", borderRadius: 6, padding: "0.35rem 1rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600, fontSize: "0.75rem", letterSpacing: "0.06em", textTransform: "uppercase", cursor: "pointer" }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 560 }}>
-            <thead>
-              <tr>
-                <th style={{ ...hdr, textAlign: "center", width: 56 }}>Wk</th>
-                <th style={{ ...hdr, textAlign: "left", paddingLeft: "1rem" }}>Winner</th>
-                <th style={{ ...hdr, textAlign: "left" }}>Team</th>
-                <th style={{ ...hdr, textAlign: "left" }}>Opponent</th>
-                <th style={hdr}>Score</th>
-                <th style={hdr}>Prize</th>
-                {gowEditMode && <th style={hdr}>Edit</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {gowHistory.map((g, i) => (
-                <tr key={g.week} style={{ background: i % 2 === 0 ? "white" : "oklch(0.975 0.003 150)" }}>
-                  <td style={{ ...cell, textAlign: "center", fontWeight: 700, color: "oklch(0.35 0.09 150)" }}>{g.week}</td>
-                  <td style={{ ...cell, textAlign: "left", paddingLeft: "1rem", fontWeight: 600 }}>{g.winner}</td>
-                  <td style={{ ...cell, textAlign: "left" }}>{g.team}</td>
-                  <td style={{ ...cell, textAlign: "left", color: "oklch(0.48 0.04 150)" }}>{g.opponent}</td>
-                  <td style={{ ...cell, fontFamily: "monospace", fontSize: "0.8rem" }}>{g.score}</td>
-                  <td style={{ ...cell, fontWeight: 700, color: "oklch(0.28 0.12 150)" }}>${g.amount.toFixed(2)}</td>
-                  {gowEditMode && (
-                    <td style={{ ...cell, textAlign: "center" }}>
-                      <button
-                        onClick={() => { setEditingGow(g); setShowGowForm(true); }}
-                        style={{ background: "none", border: "none", cursor: "pointer", color: "oklch(0.38 0.09 150)", fontSize: "0.8rem", padding: "0.1rem 0.3rem" }}
-                      >
-                        ✏
-                      </button>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr style={{ background: "oklch(0.96 0.01 150)" }}>
-                <td colSpan={gowEditMode ? 5 : 4} style={{ ...cell, textAlign: "left", paddingLeft: "1rem", fontWeight: 700, color: "oklch(0.18 0.07 150)" }}>
-                  Total GOW Paid
-                </td>
-                <td style={{ ...cell, fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.22 0.12 150)" }}>
-                  ${totalGowPaid.toFixed(2)}
-                </td>
-                {gowEditMode && <td style={cell} />}
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-
         {/* ── SECTION 4: 2026 Earnings ──────────────────────────────────────── */}
         <div className="wrc-card" style={{ overflowX: "auto" }}>
           <div className="wrc-card-gold-stripe" />
@@ -670,7 +489,7 @@ export default function Money() {
             <thead>
               <tr>
                 <th style={{ ...hdr, textAlign: "left", paddingLeft: "1rem" }}>Owner</th>
-                <th style={hdr}>Game of Week</th>
+                <th style={hdr}>Rivalry Game</th>
                 <th style={hdr}>Wild Card</th>
                 <th style={hdr}>Divisional</th>
                 <th style={hdr}>Super Bowl</th>

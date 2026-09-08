@@ -99342,11 +99342,6 @@ var appRouter = router({
       const { error: error61 } = await supabaseAdmin.from("money_owed").upsert(input2.updates, { onConflict: "id" });
       if (error61) throw new Error("Unable to save money owed.");
       return { saved: input2.updates.length };
-    }),
-    commissionerSaveGowEntry: commissionerProcedure.input(external_exports.object({ week: external_exports.number().int().min(1).max(22), winner: external_exports.string().min(1).max(80), team: external_exports.string().min(1).max(120), opponent: external_exports.string().max(120), score: external_exports.string().min(1).max(80), amount: external_exports.number().finite().min(0).max(1e4), season: external_exports.number().int().min(2020).max(2100) })).mutation(async ({ input: input2 }) => {
-      const { error: error61 } = await supabaseAdmin.from("gow_history").upsert(input2, { onConflict: "week,season" });
-      if (error61) throw new Error("Unable to save Game of the Week.");
-      return { saved: true };
     })
   }),
   fantasyPros: router({

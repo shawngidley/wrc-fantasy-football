@@ -148,8 +148,6 @@ describe("private league procedures", () => {
 
     await expect(caller.league.commissionerSaveMoneyOwed({ updates: [{ id: "owner", name: "Owner", owed: 200 }] }))
       .rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(caller.league.commissionerSaveGowEntry({ week: 1, season: 2026, winner: "Owner", team: "Team", opponent: "Opponent", score: "100.0 – 90.0", amount: 30 }))
-      .rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("rejects unauthenticated commissioner protection-overview reads", async () => {
