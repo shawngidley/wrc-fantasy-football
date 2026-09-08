@@ -494,7 +494,7 @@ function PlayerCell({ player, side, injuries = {} }: { player: SlotPlayer | null
             {player.pts.toFixed(1)}
           </div>
           <div style={{ fontSize: "0.6rem", color: "oklch(0.6 0.04 150)", textAlign: "center" }}>
-            {player.pts.toFixed(1)}
+            PROJ {player.proj.toFixed(1)}
           </div>
         </div>
       </div>
@@ -722,7 +722,7 @@ function MatchupDetail({ matchup, injuries }: { matchup: Matchup; injuries?: imp
                 {matchup.home.team}
               </div>
               <div style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)" }}>
-                {matchup.home.score.toFixed(1)}
+                PROJ {matchup.home.projected.toFixed(1)}
               </div>
               {/* Players played */}
               <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 3, fontSize: "0.65rem", color: "oklch(0.5 0.04 150)" }}>
@@ -749,7 +749,7 @@ function MatchupDetail({ matchup, injuries }: { matchup: Matchup; injuries?: imp
                 {matchup.away.team}
               </div>
               <div style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)" }}>
-                {matchup.away.score.toFixed(2)}
+                PROJ {matchup.away.projected.toFixed(1)}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 3, fontSize: "0.65rem", color: "oklch(0.5 0.04 150)", justifyContent: "flex-end" }}>
                 <span title="Played / Playing now / Yet to play">👥 {matchup.away.playersPlayed} {matchup.away.playersPlaying} {matchup.away.playersYetToPlay}</span>
