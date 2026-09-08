@@ -4,7 +4,7 @@
  * progress bars → slot-by-slot player comparison with position label in center divider.
  * Player headshot placeholder, large orange fantasy pts, stat chips below each player.
  */
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation } from "wouter";
@@ -1232,6 +1232,7 @@ export default function LiveScoring() {
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [activeId, setActiveId] = useState<number | null>(null);
   const [liveMatchups, setLiveMatchups] = useState<Matchup[]>([]);
+  const hasLoadedOnceRef = useRef(false);
   const [loading, setLoading] = useState(true);
 
   // The true current week, independent of whatever week is actually being
@@ -1279,19 +1280,34 @@ export default function LiveScoring() {
   const { injuries } = useNFLInjuries();
 
   const loadMatchups = useCallback(async () => {
-    setLoading(true);
+    // Only show the "Loading matchups..." state on the very first load.
+    // liveScores and nflGameStatus both update every ~30s from background
+    // polling, which recreates this callback and re-runs the effect below
+    // each time -- without this check, setLoading(true) would fire on
+    // every single poll, blanking out the entire matchup card and pill
+    // selector and immediately replacing them with a loading message
+    // every 30 seconds, which is exactly the flashing being reported.
+    // Subsequent refreshes should update in place with no visible
+    // interruption, same as any other stale-while-revalidate pattern.
+    // Uses a ref rather than liveMatchups.length in the dependency array
+    // below, since that state is itself updated inside this callback --
+    // referencing it directly would recreate the callback (and trigger
+    // one extra fetch) the moment the initial load completes.
+    const isInitialLoad = !hasLoadedOnceRef.current;
+    if (isInitialLoad) setLoading(true);
     try {
       const matchups = await buildMatchupsFromLineups(currentWeek, liveScores, kickerEvents, projections, nflMatchupMap, draftPlayerPool, nflGameStatus);
       if (matchups.length > 0) {
         setLiveMatchups(matchups);
-      } else {
+      } else if (isInitialLoad) {
         setLiveMatchups(MOCK_MATCHUPS.slice(0, 6));
       }
     } catch {
-      setLiveMatchups(MOCK_MATCHUPS.slice(0, 6));
+      if (isInitialLoad) setLiveMatchups(MOCK_MATCHUPS.slice(0, 6));
     }
     setLastRefresh(new Date());
-    setLoading(false);
+    hasLoadedOnceRef.current = true;
+    if (isInitialLoad) setLoading(false);
   }, [currentWeek, liveScores, kickerEvents, projections, nflMatchupMap, draftPlayerPool, nflGameStatus]);
 
   // Reload matchups whenever live scores or projections update
