@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import TeamLogo from "@/components/TeamLogo";
 import { supabase } from "@/lib/supabase";
 import { SCHEDULE_2026, OWNER_TO_TEAM, getCurrentWeek } from "@/lib/scheduleData2026";
-import { useNFLMatchups } from "@/hooks/useNFLMatchups";
+import { useNFLMatchups, formatGameTime } from "@/hooks/useNFLMatchups";
 import { useNFLGameStatus, minutesRemainingInGame, type NFLGameStatusMap } from "@/hooks/useNFLGameStatus";
 import { normalizeNFLTeamCode as normalizeNFLTeam } from "@shared/nflTeamCodes";
 import { useNFLLiveScores, getLivePoints } from "@/hooks/useNFLLiveScores";
@@ -685,7 +685,20 @@ function RivalryGameControl({ matchup }: { matchup: Matchup }) {
 function MatchupDetail({ matchup, injuries }: { matchup: Matchup; injuries?: import("@/hooks/useNFLInjuries").InjuryMap }) {
   const homeWinning = matchup.home.score > matchup.away.score;
   const homeTotal = matchup.home.score + matchup.away.score;
-  const homePct = homeTotal > 0 ? (matchup.home.score / homeTotal) * 100 : 50;
+  // Before any real scoring exists (homeTotal === 0, i.e. pre-game), base
+  // the win-probability bar on projected points instead of defaulting to
+  // an even 50/50 split -- a real matchup between two projected lineups
+  // essentially never actually comes out exactly even, and the request
+  // specifically was to see the *projected* outcome represented here
+  // until the game actually starts producing real scores. Only falls
+  // through to a flat 50 if even the projections themselves are
+  // unavailable (both 0).
+  const projTotal = matchup.home.projected + matchup.away.projected;
+  const homePct = homeTotal > 0
+    ? (matchup.home.score / homeTotal) * 100
+    : projTotal > 0
+      ? (matchup.home.projected / projTotal) * 100
+      : 50;
 
   return (
     <div style={{ background: "white", borderRadius: 12, overflow: "hidden", boxShadow: "0 4px 24px rgba(0,0,0,0.18)" }}>
@@ -960,7 +973,7 @@ function makeSlotPlayer(
 ): SlotPlayer {
   const matchup = matchupMap[player.nfl_team?.toUpperCase()] ?? null;
   const gameInfo = matchup
-    ? `${matchup.isHome ? "vs" : "@"} ${matchup.opponent} ${matchup.gameTime}`
+    ? `${matchup.isHome ? "vs" : "@"} ${matchup.opponent} ${formatGameTime(matchup).replace(" ET", "")}`
     : "";
   return {
     name: abbrevName(player.name),

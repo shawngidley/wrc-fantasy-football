@@ -925,6 +925,38 @@ export default function Lineup() {
   const getEligibleSlots = (benchPlayer: Player) =>
     STARTER_SLOTS.filter(s => s.eligible.includes(benchPlayer.pos));
 
+  // Finds other starters this player can directly trade slots with --
+  // e.g. moving a TE currently in a flex slot into the dedicated TE slot,
+  // swapping places with whoever's there, without needing to bench either
+  // player first. A swap is only offered here if it's valid in BOTH
+  // directions: the selected player must be eligible for the candidate's
+  // slot, AND the candidate must be eligible for the selected player's
+  // slot (e.g. a QB currently in SFLEX can't swap into a dedicated RB
+  // slot just because the RB happens to also be SFLEX-eligible).
+  const getEligibleStarterSwaps = (selectedStarter: Player): Player[] => {
+    const mySlotDef = STARTER_SLOTS.find(s => s.slot === selectedStarter.slot);
+    if (!mySlotDef) return [];
+    return starters.filter(other => {
+      if (other.id === selectedStarter.id) return false;
+      const otherSlotDef = STARTER_SLOTS.find(s => s.slot === other.slot);
+      if (!otherSlotDef) return false;
+      return otherSlotDef.eligible.includes(selectedStarter.pos) && mySlotDef.eligible.includes(other.pos);
+    });
+  };
+
+  const doStarterSwap = (starterAId: string, starterBId: string) => {
+    const ai = starters.findIndex(p => p.id === starterAId);
+    const bi = starters.findIndex(p => p.id === starterBId);
+    if (ai === -1 || bi === -1) return;
+    const ns = [...starters];
+    const slotA = ns[ai].slot;
+    const slotB = ns[bi].slot;
+    ns[ai] = { ...ns[ai], slot: slotB };
+    ns[bi] = { ...ns[bi], slot: slotA };
+    setStarters(ns);
+    setSelectedId(null);
+  };
+
   const doSwap = (starterId: string, benchId: string) => {
     const si = starters.findIndex(p => p.id === starterId);
     const bi = bench.findIndex(p => p.id === benchId);
@@ -1232,10 +1264,13 @@ export default function Lineup() {
             <div style={{ padding: "0.75rem 1rem" }}>
               {selectedStarter ? (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+                  {getEligibleStarterSwaps(selectedStarter).map(player => (
+                    <button key={player.id} onClick={() => doStarterSwap(selectedStarter.id, player.id)} title={`Currently ${displaySlotLabel(player.slot ?? "")}`} style={{ border: "1px solid oklch(0.62 0.14 250)", background: "white", color: "oklch(0.25 0.08 150)", borderRadius: 7, padding: "0.45rem 0.7rem", cursor: "pointer", fontWeight: 700 }}>{player.name} <span style={{ color: "oklch(0.5 0.14 250)" }}>· {displaySlotLabel(player.slot ?? "")} · {player.proj.toFixed(1)} proj</span></button>
+                  ))}
                   {getEligibleBench(selectedStarter.slot ?? "").map(player => (
                     <button key={player.id} onClick={() => doSwap(selectedStarter.id, player.id)} style={{ border: "1px solid oklch(0.78 0.1 85)", background: "white", color: "oklch(0.25 0.08 150)", borderRadius: 7, padding: "0.45rem 0.7rem", cursor: "pointer", fontWeight: 700 }}>{player.name} <span style={{ color: "oklch(0.55 0.13 85)" }}>· {player.proj.toFixed(1)} proj</span></button>
                   ))}
-                  {getEligibleBench(selectedStarter.slot ?? "").length === 0 && <span style={{ color: "oklch(0.52 0.04 150)", fontSize: "0.8rem" }}>No eligible bench players for this slot.</span>}
+                  {getEligibleStarterSwaps(selectedStarter).length === 0 && getEligibleBench(selectedStarter.slot ?? "").length === 0 && <span style={{ color: "oklch(0.52 0.04 150)", fontSize: "0.8rem" }}>No eligible bench players or other starters for this slot.</span>}
                 </div>
               ) : selectedBench ? (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
