@@ -1246,6 +1246,7 @@ export default function LiveScoring() {
   const [activeId, setActiveId] = useState<number | null>(null);
   const [liveMatchups, setLiveMatchups] = useState<Matchup[]>([]);
   const hasLoadedOnceRef = useRef(false);
+  const autoSelectedWeekRef = useRef<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   // The true current week, independent of whatever week is actually being
@@ -1328,15 +1329,25 @@ export default function LiveScoring() {
     loadMatchups();
   }, [loadMatchups]);
 
-  // Auto-select the franchise's matchup when matchups load or week changes
+  // Auto-select the franchise's matchup on initial load or when the week
+  // actually changes -- NOT on every background poll refresh. liveMatchups
+  // gets a brand-new array reference every ~30s from polling even when the
+  // underlying data is identical, so depending on it directly here would
+  // re-run this every single poll cycle, unconditionally resetting activeId
+  // back to the owner's own matchup regardless of what they'd manually
+  // selected to view instead.
   useEffect(() => {
     if (!franchise || liveMatchups.length === 0) return;
+    if (autoSelectedWeekRef.current === currentWeek) return;
     const myTeam = franchise.team_name;
     const myMatchup = liveMatchups.find(
       m => m.home.team === myTeam || m.away.team === myTeam
     );
-    if (myMatchup) setActiveId(myMatchup.id);
-  }, [liveMatchups, franchise]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (myMatchup) {
+      setActiveId(myMatchup.id);
+      autoSelectedWeekRef.current = currentWeek;
+    }
+  }, [liveMatchups, franchise, currentWeek]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const refresh = useCallback(() => {
     loadMatchups();
