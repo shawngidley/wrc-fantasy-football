@@ -146,9 +146,9 @@ function RivalryGameSection() {
           <tbody>
             {rivalries.map((r, i) => (
               <tr key={i} style={{ borderBottom: "1px solid oklch(0.94 0.01 150)" }}>
-                <td style={{ padding: "0.5rem 1rem" }}>Wk {r.week}</td>
-                <td style={{ padding: "0.5rem 1rem", fontWeight: 600 }}>{r.teamName}</td>
-                <td style={{ padding: "0.5rem 1rem" }}>{r.opponentName}</td>
+                <td style={{ padding: "0.5rem 1rem", color: "oklch(0.25 0.05 150)" }}>Wk {r.week}</td>
+                <td style={{ padding: "0.5rem 1rem", fontWeight: 600, color: "oklch(0.25 0.05 150)" }}>{r.teamName}</td>
+                <td style={{ padding: "0.5rem 1rem", color: "oklch(0.25 0.05 150)" }}>{r.opponentName}</td>
                 <td style={{ padding: "0.5rem 1rem" }}>
                   {!r.resolved
                     ? <span style={{ color: "oklch(0.55 0.04 150)" }}>Pending</span>
