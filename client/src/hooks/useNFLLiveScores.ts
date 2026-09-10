@@ -156,6 +156,17 @@ export function useNFLLiveScores(
   const [kickerEvents, setKickerEvents] = useState<KickerEventMap>([]);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
+  // Once polling has genuinely stopped for a given week (no game likely
+  // still in progress), this guarantees it stays stopped for that week
+  // regardless of how many times the effect below re-runs -- observed
+  // live: something is causing this effect to re-run roughly every 5
+  // minutes well after a game had finished, and each re-run's
+  // unconditional "initial fetch" was still hitting Tank01 for every
+  // game in the wide 6-day window every time, even though the recurring
+  // 30s timer itself correctly stopped in between. This ref persists
+  // across those re-runs (useRef survives effect cleanup/re-setup within
+  // the same component instance) and is checked before any fetch at all.
+  const stoppedForWeekRef = useRef<number | null>(null);
 
   // Get list of gameIds that are currently active
   const getActiveGameIds = useCallback((): string[] => {
@@ -283,6 +294,10 @@ export function useNFLLiveScores(
     mountedRef.current = true;
 
     const schedule = () => {
+      if (stoppedForWeekRef.current === week) {
+        setIsPolling(false);
+        return;
+      }
       const activeIds = getActiveGameIds();
       if (activeIds.length === 0) {
         setIsPolling(false);
@@ -292,6 +307,7 @@ export function useNFLLiveScores(
         if (mountedRef.current && hasAnyGameLikelyInProgress()) {
           timerRef.current = setTimeout(schedule, POLL_INTERVAL_MS);
         } else {
+          stoppedForWeekRef.current = week;
           setIsPolling(false);
         }
       });
