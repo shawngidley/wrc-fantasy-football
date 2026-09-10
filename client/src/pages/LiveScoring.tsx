@@ -1115,7 +1115,7 @@ async function buildMatchupsFromLineups(
       const slotRows: SlotRow[] = SLOT_ORDER.map((slotLabel) => {
         const match = starters.find(s => s.slot === slotLabel && !starters.some((s2, i2) => s2.slot === slotLabel && starters.indexOf(s) > i2 && starters.indexOf(s2) < starters.indexOf(s)));
         const player = match?.player ?? null;
-        const pts = player ? (getLivePoints(liveScores, player.name, player.position, player.nfl_team) ?? 0) : 0;
+        const pts = player ? (getLivePoints(liveScores, player.name, player.position, player.nfl_team, kickerEvents) ?? 0) : 0;
         const proj = player ? getProjectedPoints(projections, player.name, player.position, player.nfl_team) : 0;
         return {
           slotLabel,
@@ -1132,7 +1132,7 @@ async function buildMatchupsFromLineups(
         slotCounts[slotLabel] = count + 1;
         const matches = starters.filter(s => s.slot === slotLabel);
         const player = matches[count]?.player ?? null;
-        const pts = player ? (getLivePoints(liveScores, player.name, player.position, player.nfl_team) ?? 0) : 0;
+        const pts = player ? (getLivePoints(liveScores, player.name, player.position, player.nfl_team, kickerEvents) ?? 0) : 0;
         const proj = player ? getProjectedPoints(projections, player.name, player.position, player.nfl_team) : 0;
         return {
           slotLabel,
@@ -1204,7 +1204,7 @@ async function buildMatchupsFromLineups(
       };
 
       const bench: BenchPlayer[] = benchPlayers.slice(0, 8).map(p => {
-        const pts = getLivePoints(liveScores, p.name, p.position, p.nfl_team) ?? 0;
+        const pts = getLivePoints(liveScores, p.name, p.position, p.nfl_team, kickerEvents) ?? 0;
         const proj = getProjectedPoints(projections, p.name, p.position, p.nfl_team);
         return { ...makeSlotPlayer(p, pts, proj, matchupMap, gameStatus, liveStats, kickerEvents), slot: "BN" as const };
       });
