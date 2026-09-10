@@ -90,6 +90,75 @@ function n(v: string | number | undefined): number {
   return isNaN(parsed) ? 0 : parsed;
 }
 
+export interface StatChipData {
+  label: string;
+  value: string | number;
+}
+
+/**
+ * Builds a compact, ordered list of non-zero stat categories for display as
+ * chips under a player on Live Scoring -- the raw numbers that combine to
+ * produce their fantasy points total. Includes every category with actual
+ * data (passing, rushing, receiving, etc.) rather than branching purely on
+ * position, since e.g. a mobile QB can have both real passing and rushing
+ * lines worth showing. Kept intentionally compact (yards + TDs, not every
+ * single field Tank01 returns) so this fits a player's panel without
+ * overflowing it.
+ */
+export function buildStatChips(stats: Tank01Stats): StatChipData[] {
+  const chips: StatChipData[] = [];
+
+  const passYds = n(stats.Passing?.passYds);
+  const passTD = n(stats.Passing?.passTD);
+  const passInt = n(stats.Passing?.int);
+  if (passYds > 0 || passTD > 0 || passInt > 0) {
+    chips.push({ label: "YDS", value: passYds });
+    if (passTD > 0) chips.push({ label: "TD", value: passTD });
+    if (passInt > 0) chips.push({ label: "INT", value: passInt });
+  }
+
+  const rushYds = n(stats.Rushing?.rushYds);
+  const rushTD = n(stats.Rushing?.rushTD);
+  const carries = n(stats.Rushing?.carries);
+  if (carries > 0 || rushYds !== 0 || rushTD > 0) {
+    chips.push({ label: "RUSH", value: rushYds });
+    if (rushTD > 0) chips.push({ label: "TD", value: rushTD });
+  }
+
+  const recYds = n(stats.Receiving?.recYds);
+  const recTD = n(stats.Receiving?.recTD);
+  const receptions = n(stats.Receiving?.receptions);
+  if (receptions > 0 || recYds > 0 || recTD > 0) {
+    chips.push({ label: "REC", value: receptions });
+    chips.push({ label: "YDS", value: recYds });
+    if (recTD > 0) chips.push({ label: "TD", value: recTD });
+  }
+
+  const fgMade = stats.Kicking?.fgMade;
+  const fgAttempts = stats.Kicking?.fgAttempts;
+  if (fgMade !== undefined || fgAttempts !== undefined) {
+    chips.push({ label: "FG", value: `${n(fgMade)}/${n(fgAttempts)}` });
+  }
+  const xpMade = stats.Kicking?.xpMade;
+  const xpAttempts = stats.Kicking?.xpAttempts;
+  if (xpMade !== undefined || xpAttempts !== undefined) {
+    chips.push({ label: "XP", value: `${n(xpMade)}/${n(xpAttempts)}` });
+  }
+
+  const sacks = n(stats.Defense?.sacks);
+  const defInt = n(stats.Defense?.defensiveInterceptions);
+  const defTD = n(stats.Defense?.defTD) + n(stats.Defense?.defensiveOrSpecialTeamsTds);
+  const fumblesRecovered = n(stats.Defense?.fumblesRecovered);
+  const safeties = n(stats.Defense?.safeties);
+  if (sacks > 0) chips.push({ label: "SACK", value: sacks });
+  if (defInt > 0) chips.push({ label: "INT", value: defInt });
+  if (fumblesRecovered > 0) chips.push({ label: "FR", value: fumblesRecovered });
+  if (safeties > 0) chips.push({ label: "SFTY", value: safeties });
+  if (defTD > 0) chips.push({ label: "TD", value: defTD });
+
+  return chips;
+}
+
 /**
  * Calculate WRC fantasy points from a Tank01 stats object.
  * @param stats  - Tank01 stats object

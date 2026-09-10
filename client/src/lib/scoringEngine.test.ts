@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calcFantasyPoints } from "./scoringEngine";
+import { calcFantasyPoints, buildStatChips } from "./scoringEngine";
 import { DST_SEASON_STATS_2025 } from "./dstSeasonStats2025";
 
 describe("calcFantasyPoints", () => {
@@ -45,5 +45,76 @@ describe("calcFantasyPoints", () => {
     expect(score("CLE") / DST_SEASON_STATS_2025.CLE.games).toBeCloseTo(10.8, 1);
     expect(score("LAC")).toBe(161);
     expect(score("LAC") / DST_SEASON_STATS_2025.LAC.games).toBeCloseTo(9.5, 1);
+  });
+});
+
+describe("buildStatChips", () => {
+  it("returns an empty array for a player with no stats yet", () => {
+    expect(buildStatChips({})).toEqual([]);
+  });
+
+  it("builds passing chips, omitting TD/INT when zero", () => {
+    expect(buildStatChips({ Passing: { passYds: "248", passTD: "2", int: "0" } })).toEqual([
+      { label: "YDS", value: 248 },
+      { label: "TD", value: 2 },
+    ]);
+  });
+
+  it("includes INT when present", () => {
+    expect(buildStatChips({ Passing: { passYds: "180", passTD: "1", int: "2" } })).toEqual([
+      { label: "YDS", value: 180 },
+      { label: "TD", value: 1 },
+      { label: "INT", value: 2 },
+    ]);
+  });
+
+  it("builds rushing chips", () => {
+    expect(buildStatChips({ Rushing: { rushYds: "84", rushTD: "1", carries: "18" } })).toEqual([
+      { label: "RUSH", value: 84 },
+      { label: "TD", value: 1 },
+    ]);
+  });
+
+  it("builds a mobile QB's combined passing and rushing chips", () => {
+    expect(buildStatChips({
+      Passing: { passYds: "220", passTD: "2", int: "0" },
+      Rushing: { rushYds: "45", rushTD: "1", carries: "6" },
+    })).toEqual([
+      { label: "YDS", value: 220 },
+      { label: "TD", value: 2 },
+      { label: "RUSH", value: 45 },
+      { label: "TD", value: 1 },
+    ]);
+  });
+
+  it("builds receiving chips even with a scoreless target (0 receptions)", () => {
+    expect(buildStatChips({ Receiving: { receptions: "0", recYds: "0", recTD: "0", targets: "3" } })).toEqual([]);
+  });
+
+  it("builds receiving chips with actual production", () => {
+    expect(buildStatChips({ Receiving: { receptions: "6", recYds: "84", recTD: "1" } })).toEqual([
+      { label: "REC", value: 6 },
+      { label: "YDS", value: 84 },
+      { label: "TD", value: 1 },
+    ]);
+  });
+
+  it("builds kicking chips as made/attempted fractions", () => {
+    expect(buildStatChips({ Kicking: { fgMade: "2", fgAttempts: "3", xpMade: "4", xpAttempts: "4" } })).toEqual([
+      { label: "FG", value: "2/3" },
+      { label: "XP", value: "4/4" },
+    ]);
+  });
+
+  it("builds defense chips, omitting zero categories", () => {
+    expect(buildStatChips({ Defense: { sacks: "2", defensiveInterceptions: "1", fumblesRecovered: "0", safeties: "0", defTD: "1" } })).toEqual([
+      { label: "SACK", value: 2 },
+      { label: "INT", value: 1 },
+      { label: "TD", value: 1 },
+    ]);
+  });
+
+  it("returns an empty array for an all-zero defense line", () => {
+    expect(buildStatChips({ Defense: { sacks: "0", defensiveInterceptions: "0", fumblesRecovered: "0", safeties: "0", defTD: "0" } })).toEqual([]);
   });
 });

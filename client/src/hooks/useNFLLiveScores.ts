@@ -21,10 +21,14 @@ const POLL_INTERVAL_MS = 30_000; // 30 seconds
 
 /** Map of lowercase player name → live WRC fantasy points */
 export type LiveScoreMap = Record<string, number>;
+/** Map of lowercase player name (or dst:TEAM) → raw Tank01 stats, for
+ * building the per-player stat-chip display alongside their points. */
+export type LiveStatsMap = Record<string, Tank01Stats>;
 export type KickerEventMap = KickerPlayEvent[];
 
 interface UseNFLLiveScoresResult {
   liveScores: LiveScoreMap;
+  liveStats: LiveStatsMap;
   isPolling: boolean;
   lastUpdated: Date | null;
   kickerEvents: KickerEventMap;
@@ -89,6 +93,7 @@ export function useNFLLiveScores(
   matchupMap: NFLMatchupMap
 ): UseNFLLiveScoresResult {
   const [liveScores, setLiveScores] = useState<LiveScoreMap>({});
+  const [liveStats, setLiveStats] = useState<LiveStatsMap>({});
   const [isPolling, setIsPolling] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [kickerEvents, setKickerEvents] = useState<KickerEventMap>([]);
@@ -160,6 +165,7 @@ export function useNFLLiveScores(
 
     setIsPolling(true);
     const newScores: LiveScoreMap = { ...liveScores };
+    const newStats: LiveStatsMap = { ...liveStats };
 
     const espnEvents = await fetchEspnKickerEvents(activeGames);
     for (const gameId of activeGameIds) {
@@ -179,6 +185,7 @@ export function useNFLLiveScores(
           const kickerPlays = pos === "K" ? getKickerEventsForPlayer(espnEvents, name) : [];
           const pts = pos === "K" && kickerPlays.length > 0 ? calculateWrcKickerPoints(kickerPlays) : calcWRCLive(p, pos);
           newScores[name.toLowerCase()] = pts;
+          newStats[name.toLowerCase()] = p as Tank01Stats;
         }
 
         // Team DST stats
@@ -187,6 +194,7 @@ export function useNFLLiveScores(
           const normAbv = normalizeAbv(teamAbv);
           const pts = calcDSTLive(d);
           newScores[`dst:${normAbv}`] = pts;
+          newStats[`dst:${normAbv}`] = { Defense: d };
         }
       } catch (err) {
         console.warn(`Failed to fetch box score for game ${gameId}:`, err);
@@ -195,10 +203,11 @@ export function useNFLLiveScores(
 
     if (mountedRef.current) {
       setLiveScores(newScores);
+      setLiveStats(newStats);
       setKickerEvents(espnEvents);
       setLastUpdated(new Date());
     }
-  }, [fetchEspnKickerEvents, getActiveGameIds, getActiveGames, liveScores]);
+  }, [fetchEspnKickerEvents, getActiveGameIds, getActiveGames, liveScores, liveStats]);
 
   // Start/stop polling based on active games
   useEffect(() => {
@@ -227,7 +236,7 @@ export function useNFLLiveScores(
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [week, season, matchupMap]);
 
-  return { liveScores, isPolling, lastUpdated, kickerEvents };
+  return { liveScores, liveStats, isPolling, lastUpdated, kickerEvents };
 }
 
 /**
@@ -252,4 +261,19 @@ export function getLivePoints(
   }
   const v = liveScores[playerName.toLowerCase()];
   return v !== undefined ? v : null;
+}
+
+/** Look up a player's raw live stats (for building the stat-chip display),
+ * following the same DST vs. individual-player lookup as getLivePoints. */
+export function getLiveStats(
+  liveStats: LiveStatsMap,
+  playerName: string,
+  pos: string,
+  nflTeam: string,
+): Tank01Stats | null {
+  if (pos === "DST") {
+    const normAbv = normalizeAbv(nflTeam);
+    return liveStats[`dst:${normAbv}`] ?? null;
+  }
+  return liveStats[playerName.toLowerCase()] ?? null;
 }
