@@ -74,15 +74,41 @@ export function getKickerEventsForPlayer(events: KickerPlayEvent[], fullPlayerNa
   return events.filter(event => matchesKickerEvent(event.playerName, fullPlayerName));
 }
 
-export function calculateWrcKickerPoints(events: KickerPlayEvent[]): number {
-  const points = events.reduce((total, event) => {
-    if (event.type === "xp") return total + (event.outcome === "made" ? 1 : -2);
-    if (event.outcome === "missed") return total + ((event.yards ?? 0) <= 49 ? -2 : 0);
-    const yards = event.yards ?? 0;
-    const bonus = yards >= 65 ? 2 : yards >= 60 ? 1 : 0;
-    return total + yards * 0.1 + bonus;
-  }, 0);
-  return Math.round(points * 10) / 10;
+export function calculateWrcKickerPoints(events: KickerPlayEvent[], rawStats?: import("./scoringEngine").Tank01Stats): number {
+  // FG scoring genuinely needs ESPN's play-by-play events, since the WRC
+  // distance-based formula (0.1/yard + bonus for 60+/65+) requires each
+  // individual kick's exact yardage -- Tank01's box score only gives
+  // aggregate fgMade/fgAttempts, not per-kick distance.
+  const fgPoints = events
+    .filter(event => event.type === "fg")
+    .reduce((total, event) => {
+      if (event.outcome === "missed") return total + ((event.yards ?? 0) <= 49 ? -2 : 0);
+      const yards = event.yards ?? 0;
+      const bonus = yards >= 65 ? 2 : yards >= 60 ? 1 : 0;
+      return total + yards * 0.1 + bonus;
+    }, 0);
+
+  // XP scoring is always a flat +1 made / -2 missed regardless of any
+  // distance-like variable, so it doesn't need play-by-play text parsing
+  // at all -- and relying on it was the actual bug here: ESPN's exact
+  // wording for an XP play doesn't always match the parser's regex,
+  // silently dropping that play from the events array entirely (with no
+  // error, since an empty match just means "no XP events found" rather
+  // than "XP data is missing"). Tank01's structured xpMade/xpAttempts is
+  // reliable and needs no parsing, so prefer it whenever available.
+  let xpPoints: number;
+  if (rawStats?.Kicking?.xpMade !== undefined || rawStats?.Kicking?.xpAttempts !== undefined) {
+    const xpMade = Number(rawStats.Kicking.xpMade ?? 0);
+    const xpAttempts = Number(rawStats.Kicking.xpAttempts ?? 0);
+    const xpMissed = Math.max(0, xpAttempts - xpMade);
+    xpPoints = xpMade * 1 + xpMissed * -2;
+  } else {
+    xpPoints = events
+      .filter(event => event.type === "xp")
+      .reduce((total, event) => total + (event.outcome === "made" ? 1 : -2), 0);
+  }
+
+  return Math.round((fgPoints + xpPoints) * 10) / 10;
 }
 
 export function formatKickerEvent(event: KickerPlayEvent): string {

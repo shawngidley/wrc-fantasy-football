@@ -198,7 +198,7 @@ export function useNFLLiveScores(
           const pos  = (p.pos      as string) ?? "";
           if (!name) continue;
           const kickerPlays = pos === "K" ? getKickerEventsForPlayer(espnEvents, name) : [];
-          const pts = pos === "K" && kickerPlays.length > 0 ? calculateWrcKickerPoints(kickerPlays) : calcWRCLive(p, pos);
+          const pts = pos === "K" && kickerPlays.length > 0 ? calculateWrcKickerPoints(kickerPlays, p as Tank01Stats) : calcWRCLive(p, pos);
           newScores[name.toLowerCase()] = pts;
           newStats[name.toLowerCase()] = p as Tank01Stats;
         }
@@ -264,6 +264,7 @@ export function getLivePoints(
   pos: string,
   nflTeam: string,
   kickerEvents: KickerEventMap = [],
+  liveStats: LiveStatsMap = {},
 ): number | null {
   if (pos === "DST") {
     const normAbv = normalizeAbv(nflTeam);
@@ -272,7 +273,8 @@ export function getLivePoints(
   }
   if (pos === "K") {
     const events = getKickerEventsForPlayer(kickerEvents, playerName);
-    const fromEvents = events.length > 0 ? calculateWrcKickerPoints(events) : null;
+    const rawStats = liveStats[playerName.toLowerCase()];
+    const fromEvents = events.length > 0 ? calculateWrcKickerPoints(events, rawStats) : null;
     const fromLiveScores = liveScores[playerName.toLowerCase()];
     // Defend against either source being independently stale/incomplete:
     // the ESPN-derived kickerEvents state and the Tank01-derived

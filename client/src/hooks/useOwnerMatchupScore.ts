@@ -40,7 +40,7 @@ interface UseOwnerMatchupScoreResult {
  */
 export function useOwnerMatchupScore(myTeamId: string, oppTeamId: string, week: number): UseOwnerMatchupScoreResult {
   const { matchups: matchupMap } = useNFLMatchups(week, 2026);
-  const { liveScores, kickerEvents } = useNFLLiveScores(week, 2026, matchupMap);
+  const { liveScores, liveStats, kickerEvents } = useNFLLiveScores(week, 2026, matchupMap);
   const draftPlayerPool = useDraftPlayerUniverse();
   const [myStarters, setMyStarters] = useState<StarterInfo[]>([]);
   const [oppStarters, setOppStarters] = useState<StarterInfo[]>([]);
@@ -86,12 +86,12 @@ export function useOwnerMatchupScore(myTeamId: string, oppTeamId: string, week: 
   }, [myTeamId, oppTeamId, week, draftPlayerPool]);
 
   const myScore = useMemo(
-    () => myStarters.reduce((sum, s) => sum + (getLivePoints(liveScores, s.name, s.position, s.nflTeam, kickerEvents) ?? 0), 0),
-    [myStarters, liveScores, kickerEvents],
+    () => myStarters.reduce((sum, s) => sum + (getLivePoints(liveScores, s.name, s.position, s.nflTeam, kickerEvents, liveStats) ?? 0), 0),
+    [myStarters, liveScores, kickerEvents, liveStats],
   );
   const oppScore = useMemo(
-    () => oppStarters.reduce((sum, s) => sum + (getLivePoints(liveScores, s.name, s.position, s.nflTeam, kickerEvents) ?? 0), 0),
-    [oppStarters, liveScores, kickerEvents],
+    () => oppStarters.reduce((sum, s) => sum + (getLivePoints(liveScores, s.name, s.position, s.nflTeam, kickerEvents, liveStats) ?? 0), 0),
+    [oppStarters, liveScores, kickerEvents, liveStats],
   );
 
   return { myScore, oppScore, loading };
