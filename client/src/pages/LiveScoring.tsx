@@ -58,6 +58,7 @@ type TeamSide = {
   owner: string;
   score: number;
   projected: number;
+  projectedFinal: number;
   playersPlayed: number;
   playersPlaying: number;
   playersYetToPlay: number;
@@ -82,8 +83,8 @@ type Matchup = {
 const MOCK_MATCHUPS: Matchup[] = [
   {
     id: 1, week: 1, isChallenge: false,
-    home: { team: "The Super Snuffleupagus", owner: "Jonas", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
-    away: { team: "HamSandwich", owner: "Keith", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
+    home: { team: "The Super Snuffleupagus", owner: "Jonas", score: 0, projected: 0, projectedFinal: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
+    away: { team: "HamSandwich", owner: "Keith", score: 0, projected: 0, projectedFinal: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
     bench: {
       home: [
         { slot: "BN", name: "G. Edwards", fullName: "Gus Edwards", pos: "RB", nflTeam: "LAC", pts: 8.4, proj: 8.4, gameInfo: "LAC 27 @ DEN 14 F", stats: [{ label: "YDS", value: 54 }, { label: "REC", value: 1 }] },
@@ -161,8 +162,8 @@ const MOCK_MATCHUPS: Matchup[] = [
   },
   {
     id: 2, week: 1, isChallenge: false,
-    home: { team: "The Boys of Fall", owner: "David R.", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
-    away: { team: "Millertime", owner: "Scott N.", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
+    home: { team: "The Boys of Fall", owner: "David R.", score: 0, projected: 0, projectedFinal: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
+    away: { team: "Millertime", owner: "Scott N.", score: 0, projected: 0, projectedFinal: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
     bench: {
       home: [
         { slot: "BN", name: "R. White", fullName: "Rachaad White", pos: "RB", nflTeam: "TB", pts: 6.4, proj: 6.4, gameInfo: "NO 24 @ TB 17 F", stats: [{ label: "YDS", value: 44 }] },
@@ -200,8 +201,8 @@ const MOCK_MATCHUPS: Matchup[] = [
   },
   {
     id: 3, week: 1, isChallenge: false,
-    home: { team: "Heiden's Hardtimes", owner: "Jason", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
-    away: { team: "Billy Goats Gruff", owner: "Bill", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
+    home: { team: "Heiden's Hardtimes", owner: "Jason", score: 0, projected: 0, projectedFinal: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
+    away: { team: "Billy Goats Gruff", owner: "Bill", score: 0, projected: 0, projectedFinal: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
     bench: {
       home: [
         { slot: "BN", name: "S. Perine", fullName: "Samaje Perine", pos: "RB", nflTeam: "DEN", pts: 4.2, proj: 4.2, gameInfo: "LAC 27 @ DEN 14 F", stats: [{ label: "YDS", value: 28 }] },
@@ -239,8 +240,8 @@ const MOCK_MATCHUPS: Matchup[] = [
   },
   {
     id: 4, week: 1, isChallenge: false,
-    home: { team: "The Four Horsemen", owner: "Jamie", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
-    away: { team: "Legion of Doom", owner: "Dan", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
+    home: { team: "The Four Horsemen", owner: "Jamie", score: 0, projected: 0, projectedFinal: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
+    away: { team: "Legion of Doom", owner: "Dan", score: 0, projected: 0, projectedFinal: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
     bench: {
       home: [
         { slot: "BN", name: "D. Pierce", fullName: "Dameon Pierce", pos: "RB", nflTeam: "HOU", pts: 5.4, proj: 5.4, gameInfo: "HOU 24 @ PIT 20 F", stats: [{ label: "YDS", value: 34 }] },
@@ -278,8 +279,8 @@ const MOCK_MATCHUPS: Matchup[] = [
   },
   {
     id: 5, week: 1, isChallenge: false,
-    home: { team: "Xavier Musketeers", owner: "Scott M.", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
-    away: { team: "Legends", owner: "David S.", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
+    home: { team: "Xavier Musketeers", owner: "Scott M.", score: 0, projected: 0, projectedFinal: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
+    away: { team: "Legends", owner: "David S.", score: 0, projected: 0, projectedFinal: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
     bench: {
       home: [
         { slot: "BN", name: "J. Waddle", fullName: "Jaylen Waddle", pos: "WR", nflTeam: "MIA", pts: 6.2, proj: 6.2, gameInfo: "MIA 28 @ NE 10 F", stats: [{ label: "REC", value: 4 }, { label: "YDS", value: 42 }] },
@@ -317,8 +318,8 @@ const MOCK_MATCHUPS: Matchup[] = [
   },
   {
     id: 6, week: 1, isChallenge: false,
-    home: { team: "Vipers", owner: "Shawn", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
-    away: { team: 'Larry "Bud" Melman123', owner: "Greg", score: 0, projected: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
+    home: { team: "Vipers", owner: "Shawn", score: 0, projected: 0, projectedFinal: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
+    away: { team: 'Larry "Bud" Melman123', owner: "Greg", score: 0, projected: 0, projectedFinal: 0, playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 10, minutesRemaining: 600, playersTotal: 10 },
     bench: {
       home: [
         { slot: "BN", name: "R. White", fullName: "Rachaad White", pos: "RB", nflTeam: "TB", pts: 6.4, proj: 6.4, gameInfo: "NO 24 @ TB 17 F", stats: [{ label: "YDS", value: 44 }] },
@@ -678,21 +679,19 @@ function RivalryGameControl({ matchup }: { matchup: Matchup }) {
 
 function MatchupDetail({ matchup, injuries }: { matchup: Matchup; injuries?: import("@/hooks/useNFLInjuries").InjuryMap }) {
   const homeWinning = matchup.home.score > matchup.away.score;
-  const homeTotal = matchup.home.score + matchup.away.score;
-  // Before any real scoring exists (homeTotal === 0, i.e. pre-game), base
-  // the win-probability bar on projected points instead of defaulting to
-  // an even 50/50 split -- a real matchup between two projected lineups
-  // essentially never actually comes out exactly even, and the request
-  // specifically was to see the *projected* outcome represented here
-  // until the game actually starts producing real scores. Only falls
-  // through to a flat 50 if even the projections themselves are
-  // unavailable (both 0).
-  const projTotal = matchup.home.projected + matchup.away.projected;
-  const homePct = homeTotal > 0
-    ? (matchup.home.score / homeTotal) * 100
-    : projTotal > 0
-      ? (matchup.home.projected / projTotal) * 100
-      : 50;
+  // Win-probability bar is based on a blended estimate (projectedFinal):
+  // actual points for any starter whose game has genuinely finished, their
+  // pre-game projection otherwise. This starts identical to a pure
+  // pre-game projection (a real matchup between two lineups essentially
+  // never comes out exactly 50/50) and smoothly shifts toward the real
+  // outcome as each starter's game actually completes over the course of
+  // the week -- rather than swinging to an extreme split off a tiny,
+  // still-incomplete sample the moment a single early game produces any
+  // points at all, which raw current-score ratio did.
+  const projectedFinalTotal = matchup.home.projectedFinal + matchup.away.projectedFinal;
+  const homePct = projectedFinalTotal > 0
+    ? (matchup.home.projectedFinal / projectedFinalTotal) * 100
+    : 50;
 
   return (
     <div style={{ background: "white", borderRadius: 12, overflow: "hidden", boxShadow: "0 4px 24px rgba(0,0,0,0.18)" }}>
@@ -1054,7 +1053,7 @@ async function buildMatchupsFromLineups(
     // straight to a minimal placeholder instead.
     if (homeOwner === "TBD" || awayOwner === "TBD") {
       const tbdSide: TeamSide = {
-        team: "TBD", owner: "TBD", score: 0, projected: 0,
+        team: "TBD", owner: "TBD", score: 0, projected: 0, projectedFinal: 0,
         playersPlayed: 0, playersPlaying: 0, playersYetToPlay: 0,
         minutesRemaining: 0, playersTotal: 0,
       };
@@ -1147,6 +1146,20 @@ async function buildMatchupsFromLineups(
 
       const totalPts = pairedSlots.reduce((sum, s) => sum + ((s as SlotRow & { _player: SlotPlayer | null })._player?.pts ?? 0), 0);
       const totalProj = pairedSlots.reduce((sum, s) => sum + ((s as SlotRow & { _player: SlotPlayer | null })._player?.proj ?? 0), 0);
+      // Blended win-probability estimate: actual points for any starter
+      // whose game has genuinely finished (fully known), their pre-game
+      // projection otherwise (still in progress or not yet started).
+      // Starts identical to totalProj before any game finishes, then
+      // smoothly shifts toward the real total as each starter's game
+      // actually completes -- unlike using totalPts directly, which
+      // swings to an extreme 0/100 split off a tiny, still-incomplete
+      // sample the moment a single early game produces any points at all.
+      const totalProjectedFinal = pairedSlots.reduce((sum, s) => {
+        const player = (s as SlotRow & { _player: SlotPlayer | null })._player;
+        if (!player) return sum;
+        const state = gameStatus[normalizeNFLTeam(player.nflTeam)]?.state;
+        return sum + (state === "post" ? player.pts : player.proj);
+      }, 0);
 
       // Status-based three-way split (rather than mixing in the points>0
       // check used elsewhere) so these three numbers always sum cleanly to
@@ -1182,6 +1195,7 @@ async function buildMatchupsFromLineups(
         owner,
         score: Math.round(totalPts * 100) / 100,
         projected: Math.round(totalProj * 100) / 100,
+        projectedFinal: Math.round(totalProjectedFinal * 100) / 100,
         playersPlayed,
         playersPlaying,
         playersYetToPlay,
