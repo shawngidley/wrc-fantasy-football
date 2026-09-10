@@ -969,12 +969,26 @@ function makeSlotPlayer(
   pts: number,
   proj: number,
   matchupMap: import("@/hooks/useNFLMatchups").NFLMatchupMap,
+  gameStatus: NFLGameStatusMap,
   kickerEvents: KickerPlayEvent[] = [],
 ): SlotPlayer {
   const matchup = matchupMap[player.nfl_team?.toUpperCase()] ?? null;
-  const gameInfo = matchup
-    ? `${matchup.isHome ? "vs" : "@"} ${matchup.opponent} ${formatGameTime(matchup).replace(" ET", "")}`
-    : "";
+  const status = gameStatus[normalizeNFLTeam(player.nfl_team ?? "")];
+  const opponentInfo = matchup ? `${matchup.isHome ? "vs" : "@"} ${matchup.opponent}` : "";
+  let gameInfo = "";
+  if (matchup) {
+    if (status?.state === "in") {
+      // Live: show the current quarter and clock instead of the
+      // scheduled kickoff time, since that's no longer the useful piece
+      // of information once the game is actually underway.
+      const quarterLabel = status.period >= 5 ? "OT" : `Q${status.period}`;
+      gameInfo = `${opponentInfo} ${quarterLabel} ${status.displayClock}`;
+    } else if (status?.state === "post") {
+      gameInfo = `${opponentInfo} Final`;
+    } else {
+      gameInfo = `${opponentInfo} ${formatGameTime(matchup).replace(" ET", "")}`;
+    }
+  }
   return {
     name: abbrevName(player.name),
     fullName: player.name,
@@ -1136,7 +1150,7 @@ async function buildMatchupsFromLineups(
           slotLabel,
           home: null,
           away: null,
-          _player: player ? makeSlotPlayer(player, pts, proj, matchupMap, kickerEvents) : null,
+          _player: player ? makeSlotPlayer(player, pts, proj, matchupMap, gameStatus, kickerEvents) : null,
         } as SlotRow & { _player: SlotPlayer | null };
       });
 
@@ -1153,7 +1167,7 @@ async function buildMatchupsFromLineups(
           slotLabel,
           home: null,
           away: null,
-          _player: player ? makeSlotPlayer(player, pts, proj, matchupMap, kickerEvents) : null,
+          _player: player ? makeSlotPlayer(player, pts, proj, matchupMap, gameStatus, kickerEvents) : null,
         } as SlotRow & { _player: SlotPlayer | null };
       });
 
@@ -1206,7 +1220,7 @@ async function buildMatchupsFromLineups(
       const bench: BenchPlayer[] = benchPlayers.slice(0, 8).map(p => {
         const pts = getLivePoints(liveScores, p.name, p.position, p.nfl_team) ?? 0;
         const proj = getProjectedPoints(projections, p.name, p.position, p.nfl_team);
-        return { ...makeSlotPlayer(p, pts, proj, matchupMap, kickerEvents), slot: "BN" as const };
+        return { ...makeSlotPlayer(p, pts, proj, matchupMap, gameStatus, kickerEvents), slot: "BN" as const };
       });
 
       return { side, slots: pairedSlots as SlotRow[], bench };
