@@ -56,8 +56,23 @@ function calcDSTLive(d: Record<string, string>): number {
 }
 
 /**
- * Returns true if the current time is within the game window
- * (from kickoff to ~4 hours after kickoff = final).
+ * Returns true if the current time is within the game's fetchable window:
+ * from kickoff through the rest of that WRC week (roughly 6 days). This
+ * governs whether a game is included in the box-score fetch list at all --
+ * NOT just whether it's still actively being played.
+ *
+ * Deliberately generous rather than cutting off shortly after a typical
+ * game's expected duration: liveScores/liveStats are purely in-memory
+ * state (useState, no persistence), so a game excluded from this window
+ * is permanently unreachable until the page fully reloads with it back in
+ * range. A narrower cutoff (this used to be kickoff + 4h) meant that once
+ * a completed game passed that mark, any fresh page load -- checking the
+ * score again later that night, the next day, or later in the week --
+ * would never fetch its data at all and would show 0 forever, even
+ * though the final stats were fully available from Tank01 the whole
+ * time. The actual cost of the wider window is bounded and modest: a few
+ * dozen already-final games get harmlessly re-fetched each poll for the
+ * rest of the week rather than none.
  */
 function isGameActive(gameDate: string, gameTime: string): boolean {
   if (!gameDate || !gameTime) return false;
@@ -82,9 +97,9 @@ function isGameActive(gameDate: string, gameTime: string): boolean {
   // never register as active, so live scores were never fetched for
   // them at all.
   const kickoffUTC = new Date(Date.UTC(year, month, day, hours + offsetHours, mins, 0));
-  const finalUTC = new Date(kickoffUTC.getTime() + 4 * 60 * 60 * 1000); // +4h
+  const windowEndUTC = new Date(kickoffUTC.getTime() + 6 * 24 * 60 * 60 * 1000); // +6 days
   const now = Date.now();
-  return now >= kickoffUTC.getTime() && now <= finalUTC.getTime();
+  return now >= kickoffUTC.getTime() && now <= windowEndUTC.getTime();
 }
 
 export function useNFLLiveScores(
