@@ -15,7 +15,7 @@ describe("hasWeekKickedOff", () => {
     vi.restoreAllMocks();
   });
 
-  function mockGames(games: Array<{ gameStatus?: string }>) {
+  function mockGames(games: Array<{ gameStatus?: string; gameDate?: string; gameTime?: string }>) {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({ body: games }),
@@ -50,5 +50,35 @@ describe("hasWeekKickedOff", () => {
   it("throws if no API credential is configured", async () => {
     delete process.env.TANK01_API_KEY;
     await expect(hasWeekKickedOff(1, 2026)).rejects.toThrow(/credential is unavailable/);
+  });
+
+  describe("time-based fallback signal", () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("returns true once the scheduled kickoff time has passed, even if gameStatus is still stuck on Scheduled", async () => {
+      // Reproduces exactly what was observed live in production: Tank01's
+      // own gameStatus field still showing "Scheduled" a dozen-plus
+      // minutes after a game's actual scheduled kickoff.
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-10T00:32:00Z")); // 8:32pm ET
+      mockGames([{ gameStatus: "Scheduled", gameDate: "20260909", gameTime: "8:20p" }]); // 8:20pm ET kickoff
+      expect(await hasWeekKickedOff(1, 2026)).toBe(true);
+    });
+
+    it("returns false before the scheduled kickoff time, when gameStatus also says Scheduled", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-10T00:00:00Z")); // 8:00pm ET
+      mockGames([{ gameStatus: "Scheduled", gameDate: "20260909", gameTime: "8:20p" }]); // 8:20pm ET kickoff
+      expect(await hasWeekKickedOff(1, 2026)).toBe(false);
+    });
+
+    it("correctly handles an 8pm+ ET kickoff (the exact hour-overflow bug fixed tonight elsewhere)", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-09-14T01:00:00Z")); // 9:00pm ET Sept 13, after an 8:15pm kickoff
+      mockGames([{ gameStatus: "Scheduled", gameDate: "20260913", gameTime: "8:15p" }]);
+      expect(await hasWeekKickedOff(1, 2026)).toBe(true);
+    });
   });
 });

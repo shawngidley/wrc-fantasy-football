@@ -88900,6 +88900,22 @@ function getCurrentWeek() {
 
 // server/nflWeekKickoffCheck.ts
 var TANK01_BASE_URL = "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
+function hasKickoffTimePassed(gameDate, gameTime) {
+  if (!gameDate || !gameTime || gameDate.length < 8) return false;
+  const year2 = parseInt(gameDate.slice(0, 4), 10);
+  const month = parseInt(gameDate.slice(4, 6), 10) - 1;
+  const day2 = parseInt(gameDate.slice(6, 8), 10);
+  const timeMatch = gameTime.match(/(\d+):(\d+)([ap])/i);
+  if (!timeMatch) return false;
+  let hours = parseInt(timeMatch[1], 10);
+  const mins = parseInt(timeMatch[2], 10);
+  const ampm = timeMatch[3].toLowerCase();
+  if (ampm === "p" && hours !== 12) hours += 12;
+  if (ampm === "a" && hours === 12) hours = 0;
+  const offsetHours = 4;
+  const kickoffUTC = new Date(Date.UTC(year2, month, day2, hours + offsetHours, mins, 0));
+  return Date.now() >= kickoffUTC.getTime();
+}
 async function hasWeekKickedOff(week2, season) {
   const key = process.env.TANK01_API_KEY;
   if (!key) throw new Error("Tank01 API credential is unavailable.");
@@ -88910,7 +88926,9 @@ async function hasWeekKickedOff(week2, season) {
   );
   if (!response.ok) throw new Error(`Unable to load this week's NFL games (${response.status}).`);
   const games = (await response.json()).body ?? [];
-  return games.some((game) => game.gameStatus && game.gameStatus !== "Scheduled");
+  return games.some(
+    (game) => game.gameStatus && game.gameStatus !== "Scheduled" || hasKickoffTimePassed(game.gameDate, game.gameTime)
+  );
 }
 
 // server/faabMarketState.ts
