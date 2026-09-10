@@ -135,12 +135,14 @@ function MatchupWidget({ ownerKey, standings }: { ownerKey: string; standings: D
   const myTeam = OWNER_TO_TEAM[ownerKey] ?? ownerKey;
   const oppKey = matchup ? (matchup[0] === ownerKey ? matchup[1] : matchup[0]) : "";
   const oppTeam = OWNER_TO_TEAM[oppKey] ?? oppKey;
+  const myTeamId = OWNER_TO_TEAM_ID[ownerKey] ?? `team-${ownerKey.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
+  const oppTeamId = OWNER_TO_TEAM_ID[oppKey] ?? `team-${oppKey.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
 
   // Hooks must run unconditionally on every render (Rules of Hooks) -- both
   // "not found" cases below return null only after this call, using "" for
   // oppTeam when there's genuinely no matchup this week rather than
   // skipping the hook call itself.
-  const { myScore, oppScore } = useOwnerMatchupScore(myTeam, oppTeam, currentWeek);
+  const { myScore, oppScore } = useOwnerMatchupScore(myTeamId, oppTeamId, currentWeek);
 
   if (!weekData || !matchup) return null;
 

@@ -24,7 +24,21 @@ interface UseOwnerMatchupScoreResult {
  * on Live Scoring: no projections, no per-player display data, no game
  * status -- just the two numbers.
  */
-export function useOwnerMatchupScore(myTeamName: string, oppTeamName: string, week: number): UseOwnerMatchupScoreResult {
+/**
+ * Computes just the current live point total for a specific matchup (two
+ * team IDs), for a compact score display -- e.g. the Standings page's
+ * "Week N Matchup" card. Deliberately lighter than buildMatchupsFromLineups
+ * on Live Scoring: no projections, no per-player display data, no game
+ * status -- just the two numbers.
+ *
+ * Takes team IDs directly rather than resolving them from team names via a
+ * client-side "teams" table query -- confirmed live that query was
+ * silently returning nothing (likely RLS, since nothing else in this app
+ * reads "teams" client-side; every other page resolves an owner straight
+ * to their team_id via the same static OWNER_TO_TEAM_ID mapping this
+ * hook's caller already uses elsewhere on this page).
+ */
+export function useOwnerMatchupScore(myTeamId: string, oppTeamId: string, week: number): UseOwnerMatchupScoreResult {
   const { matchups: matchupMap } = useNFLMatchups(week, 2026);
   const { liveScores } = useNFLLiveScores(week, 2026, matchupMap);
   const draftPlayerPool = useDraftPlayerUniverse();
@@ -37,14 +51,6 @@ export function useOwnerMatchupScore(myTeamName: string, oppTeamName: string, we
     setLoading(true);
 
     async function load() {
-      const { data: teams } = await supabase.from("teams").select("id, name").in("name", [myTeamName, oppTeamName]);
-      const myTeamId = teams?.find(t => t.name === myTeamName)?.id;
-      const oppTeamId = teams?.find(t => t.name === oppTeamName)?.id;
-      if (!myTeamId || !oppTeamId) {
-        if (!cancelled) { setMyStarters([]); setOppStarters([]); setLoading(false); }
-        return;
-      }
-
       const [{ data: lineupRows }, { data: playerRows }] = await Promise.all([
         supabase.from("lineups").select("team_id, player_name, is_bench").eq("week", week).eq("season", 2026).in("team_id", [myTeamId, oppTeamId]),
         supabase.from("players").select("id, name, position, nfl_team, team_id").in("team_id", [myTeamId, oppTeamId]),
@@ -77,7 +83,7 @@ export function useOwnerMatchupScore(myTeamName: string, oppTeamName: string, we
 
     load().catch(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [myTeamName, oppTeamName, week, draftPlayerPool]);
+  }, [myTeamId, oppTeamId, week, draftPlayerPool]);
 
   const myScore = useMemo(
     () => myStarters.reduce((sum, s) => sum + (getLivePoints(liveScores, s.name, s.position, s.nflTeam) ?? 0), 0),
