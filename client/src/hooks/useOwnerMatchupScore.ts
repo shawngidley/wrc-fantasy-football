@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useNFLMatchups } from "@/hooks/useNFLMatchups";
 import { useNFLLiveScores, getLivePoints } from "@/hooks/useNFLLiveScores";
+import { buildDefaultStarters } from "@/lib/defaultLineup";
+import { useDraftPlayerUniverse } from "@/hooks/useDraftPlayerUniverse";
 
 interface StarterInfo {
   name: string;
@@ -25,6 +27,7 @@ interface UseOwnerMatchupScoreResult {
 export function useOwnerMatchupScore(myTeamName: string, oppTeamName: string, week: number): UseOwnerMatchupScoreResult {
   const { matchups: matchupMap } = useNFLMatchups(week, 2026);
   const { liveScores } = useNFLLiveScores(week, 2026, matchupMap);
+  const draftPlayerPool = useDraftPlayerUniverse();
   const [myStarters, setMyStarters] = useState<StarterInfo[]>([]);
   const [oppStarters, setOppStarters] = useState<StarterInfo[]>([]);
   const [loading, setLoading] = useState(true);
@@ -44,17 +47,26 @@ export function useOwnerMatchupScore(myTeamName: string, oppTeamName: string, we
 
       const [{ data: lineupRows }, { data: playerRows }] = await Promise.all([
         supabase.from("lineups").select("team_id, player_name, is_bench").eq("week", week).eq("season", 2026).in("team_id", [myTeamId, oppTeamId]),
-        supabase.from("players").select("name, position, nfl_team, team_id").in("team_id", [myTeamId, oppTeamId]),
+        supabase.from("players").select("id, name, position, nfl_team, team_id").in("team_id", [myTeamId, oppTeamId]),
       ]);
 
       const playerByName = new Map((playerRows ?? []).map(p => [p.name, p]));
-      const buildStarters = (teamId: string): StarterInfo[] =>
-        (lineupRows ?? [])
-          .filter(row => row.team_id === teamId && !row.is_bench)
-          .map(row => {
+      const buildStarters = (teamId: string): StarterInfo[] => {
+        const savedLineup = (lineupRows ?? []).filter(row => row.team_id === teamId && !row.is_bench);
+        if (savedLineup.length > 0) {
+          return savedLineup.map(row => {
             const p = playerByName.get(row.player_name);
             return { name: row.player_name, position: p?.position ?? "", nflTeam: p?.nfl_team ?? "" };
           });
+        }
+        // No saved lineup yet for this team/week -- same ADP-based default
+        // Live Scoring already falls back to, so this matches what that
+        // page would actually show instead of reporting 0.0.
+        const teamPlayers = (playerRows ?? []).filter(p => p.team_id === teamId);
+        return buildDefaultStarters(teamPlayers, draftPlayerPool).map(({ player }) => ({
+          name: player.name, position: player.position, nflTeam: player.nfl_team,
+        }));
+      };
 
       if (!cancelled) {
         setMyStarters(buildStarters(myTeamId));
@@ -65,7 +77,7 @@ export function useOwnerMatchupScore(myTeamName: string, oppTeamName: string, we
 
     load().catch(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [myTeamName, oppTeamName, week]);
+  }, [myTeamName, oppTeamName, week, draftPlayerPool]);
 
   const myScore = useMemo(
     () => myStarters.reduce((sum, s) => sum + (getLivePoints(liveScores, s.name, s.position, s.nflTeam) ?? 0), 0),

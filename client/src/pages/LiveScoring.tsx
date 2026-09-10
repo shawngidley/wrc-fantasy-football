@@ -24,6 +24,7 @@ import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } 
 import { fetchPlayerByName } from "@/hooks/useTank01Player";
 import { getEspnHeadshotUrl } from "@/lib/playerHeadshot";
 import { normalizePlayerName } from "@shared/playerNameMatch";
+import { buildDefaultStarters } from "@/lib/defaultLineup";
 import { useDraftPlayerUniverse } from "@/hooks/useDraftPlayerUniverse";
 import { formatKickerEvent, getKickerEventsForPlayer, type KickerPlayEvent } from "@/lib/espnKickerEvents";
 
@@ -1102,39 +1103,13 @@ async function buildMatchupsFromLineups(
         // actually better -- not a real selection, just array-order luck.
         // Sorting by ADP first means the best available player at each
         // position gets picked, matching what a sensible default lineup
-        // should actually look like.
-        const adpByNormalizedName = new Map<string, number>();
-        for (const p of nflTeamPool) {
-          adpByNormalizedName.set(normalizePlayerName(p.name), p.adp);
-        }
-        const sortedByAdp = [...teamPlayers].sort((a, b) => {
-          const adpA = adpByNormalizedName.get(normalizePlayerName(a.name)) ?? 9999;
-          const adpB = adpByNormalizedName.get(normalizePlayerName(b.name)) ?? 9999;
-          return adpA - adpB;
-        });
-        const posCount: Record<string, number> = {};
-        const slotDef: Array<{ slot: string; pos: string }> = [
-          { slot: "QB", pos: "QB" },
-          { slot: "RB", pos: "RB" },
-          { slot: "RB", pos: "RB" },
-          { slot: "WR", pos: "WR" },
-          { slot: "WR", pos: "WR" },
-          { slot: "TE", pos: "TE" },
-          { slot: "SFLEX", pos: "QB" },
-          { slot: "FLEX", pos: "RB" },
-          { slot: "K", pos: "K" },
-          { slot: "DST", pos: "DST" },
-        ];
-        const used = new Set<string>();
-        for (const { slot, pos } of slotDef) {
-          const candidate = sortedByAdp.find(p => p.position === pos && !used.has(p.id));
-          if (candidate) {
-            starters.push({ slot, player: candidate });
-            used.add(candidate.id);
-          }
-        }
+        // should actually look like. Extracted to buildDefaultStarters so
+        // this same logic can also be reused by useOwnerMatchupScore
+        // (Standings page's live matchup score) without risking drift
+        // between two separately-maintained copies.
+        starters = buildDefaultStarters(teamPlayers, nflTeamPool);
+        const used = new Set(starters.map(s => s.player.id));
         benchPlayers = teamPlayers.filter(p => !used.has(p.id));
-        void posCount;
       }
 
       // Build slot rows
