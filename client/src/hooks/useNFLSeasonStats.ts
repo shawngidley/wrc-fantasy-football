@@ -170,10 +170,32 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
       while (!cancelled && individualPlayers.length) {
         const player = individualPlayers.shift();
         if (!player) return;
+        const key = player.name.toLowerCase();
+
+        // Check the cache BEFORE fetching. This was the actual bug: this
+        // cache was being written to (cacheSet below) but never read from
+        // first, so it was write-only and did nothing to prevent
+        // redundant fetches -- every single load of this hook re-fetched
+        // every player from Tank01 via fetchPlayerByName (a slow, ~2.5s
+        // individual network call) regardless of how recently that same
+        // player had already been fetched and cached. Confirmed live via
+        // Tank01's own request logs: a burst of ~48 back-to-back "Get
+        // Player Information" calls on a single page load.
+        const cached = cacheGet(player.name);
+        if (cached) {
+          if (cached.stats && !next[key]) {
+            next[key] = cached.stats;
+            setStatMap({ ...next });
+          }
+          nextMeta[key] = { age: cached.age, headshot: cached.headshot };
+          setPlayerMetaMap({ ...nextMeta });
+          setLoadedCount(Object.keys(next).length);
+          continue;
+        }
+
         const tankPlayer = await fetchPlayerByName(player.name);
         if (cancelled) return;
         const exactKickerSeason = player.pos === "K" ? getCompletedKickerSeasonStats(player.name) : undefined;
-        const key = player.name.toLowerCase();
         // Only fall back to a live Tank01 stats line when the caller
         // actually allows it -- Lineup.tsx passes allowProviderFallback:
         // false specifically so a player missing from the completed-season
