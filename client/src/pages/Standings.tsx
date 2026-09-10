@@ -22,6 +22,7 @@ import { getRosterBriefingPreview } from "@/lib/rosterBriefing";
 import { mapRosterNewsForDisplay } from "@/lib/rosterNewsMapping";
 import { fetchTank01News } from "@/hooks/useNFLNews";
 import { useDraftPlayerUniverse } from "@/hooks/useDraftPlayerUniverse";
+import { useOwnerMatchupScore } from "@/hooks/useOwnerMatchupScore";
 
 const normalizeRosterName = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -129,14 +130,19 @@ function StreakBadge({ streak }: { streak: string }) {
 function MatchupWidget({ ownerKey, standings }: { ownerKey: string; standings: DbStanding[] }) {
   const currentWeek = getCurrentWeek();
   const weekData = SCHEDULE_2026.find(w => w.week === currentWeek);
-  if (!weekData) return null;
-
-  const matchup = weekData.matchups.find(m => m[0] === ownerKey || m[1] === ownerKey);
-  if (!matchup) return null;
+  const matchup = weekData?.matchups.find(m => m[0] === ownerKey || m[1] === ownerKey);
 
   const myTeam = OWNER_TO_TEAM[ownerKey] ?? ownerKey;
-  const oppKey = matchup[0] === ownerKey ? matchup[1] : matchup[0];
+  const oppKey = matchup ? (matchup[0] === ownerKey ? matchup[1] : matchup[0]) : "";
   const oppTeam = OWNER_TO_TEAM[oppKey] ?? oppKey;
+
+  // Hooks must run unconditionally on every render (Rules of Hooks) -- both
+  // "not found" cases below return null only after this call, using "" for
+  // oppTeam when there's genuinely no matchup this week rather than
+  // skipping the hook call itself.
+  const { myScore, oppScore } = useOwnerMatchupScore(myTeam, oppTeam, currentWeek);
+
+  if (!weekData || !matchup) return null;
 
   // League median from live standings
   const allPts = standings.map(t => t.pts_for);
@@ -167,12 +173,14 @@ function MatchupWidget({ ownerKey, standings }: { ownerKey: string; standings: D
         {/* H2H Matchup */}
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "0.75rem" }}>
           <div style={{ flex: 1, display: "flex", flexDirection: "column" as const, alignItems: "center", gap: "0.25rem" }}>
+            <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1.6rem", fontWeight: 900, color: "oklch(0.22 0.08 150)" }}>{myScore.toFixed(1)}</div>
             <TeamLogo teamName={myTeam} size={40} round style={{ border: "2px solid oklch(0.88 0.04 150)", flexShrink: 0 }} />
             <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.88rem", fontWeight: 800, color: "oklch(0.18 0.06 150)", letterSpacing: "0.02em", textAlign: "center" as const }}>{myTeam}</div>
             <div style={{ fontSize: "0.68rem", color: "oklch(0.5 0.04 150)", marginTop: 2 }}>{myTeamData ? `${myTeamData.wins}-${myTeamData.losses}` : ""}</div>
           </div>
           <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1.2rem", fontWeight: 900, color: "oklch(0.55 0.16 85)", padding: "0.2rem 0.75rem", background: "oklch(0.97 0.04 85)", borderRadius: 8, border: "1.5px solid oklch(0.85 0.12 85)" }}>VS</div>
           <div style={{ flex: 1, display: "flex", flexDirection: "column" as const, alignItems: "center", gap: "0.25rem" }}>
+            <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1.6rem", fontWeight: 900, color: "oklch(0.22 0.08 150)" }}>{oppScore.toFixed(1)}</div>
             <TeamLogo teamName={oppTeam} size={40} round style={{ border: "2px solid oklch(0.88 0.04 150)", flexShrink: 0 }} />
             <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.88rem", fontWeight: 800, color: "oklch(0.18 0.06 150)", letterSpacing: "0.02em", textAlign: "center" as const }}>{oppTeam}</div>
             <div style={{ fontSize: "0.68rem", color: "oklch(0.5 0.04 150)", marginTop: 2 }}>{oppTeamData ? `${oppTeamData.wins}-${oppTeamData.losses}` : ""}</div>
