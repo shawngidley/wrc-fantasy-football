@@ -272,7 +272,20 @@ export function getLivePoints(
   }
   if (pos === "K") {
     const events = getKickerEventsForPlayer(kickerEvents, playerName);
-    if (events.length > 0) return calculateWrcKickerPoints(events);
+    const fromEvents = events.length > 0 ? calculateWrcKickerPoints(events) : null;
+    const fromLiveScores = liveScores[playerName.toLowerCase()];
+    // Defend against either source being independently stale/incomplete:
+    // the ESPN-derived kickerEvents state and the Tank01-derived
+    // liveScores value are computed on separate fetch cycles and can
+    // disagree, most notably right after a game exits its active polling
+    // window with only partial events captured. Take whichever is
+    // higher rather than unconditionally preferring the event-based
+    // recomputation, since a kicker's true total should never be lower
+    // than what either source has already independently confirmed.
+    if (fromEvents !== null && fromLiveScores !== undefined) return Math.max(fromEvents, fromLiveScores);
+    if (fromEvents !== null) return fromEvents;
+    if (fromLiveScores !== undefined) return fromLiveScores;
+    return null;
   }
   const v = liveScores[playerName.toLowerCase()];
   return v !== undefined ? v : null;
