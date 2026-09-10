@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { proxyTank01Request } from "./tank01Proxy";
+import { proxyTank01Request, __clearTank01ProxyCacheForTests } from "./tank01Proxy";
 
 describe("proxyTank01Request", () => {
   const originalApiKey = process.env.TANK01_API_KEY;
@@ -7,6 +7,7 @@ describe("proxyTank01Request", () => {
 
   beforeEach(() => {
     process.env.TANK01_API_KEY = "test-key";
+    __clearTank01ProxyCacheForTests();
   });
 
   afterEach(() => {
@@ -47,5 +48,77 @@ describe("proxyTank01Request", () => {
 
     expect(res.status).toHaveBeenCalledWith(504);
     expect(res.json).toHaveBeenCalledWith({ error: "Tank01 data request timed out" });
+  });
+});
+
+describe("proxyTank01Request response caching", () => {
+  const originalApiKey = process.env.TANK01_API_KEY;
+  const originalFetch = global.fetch;
+
+  beforeEach(() => {
+    process.env.TANK01_API_KEY = "test-key";
+    __clearTank01ProxyCacheForTests();
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    process.env.TANK01_API_KEY = originalApiKey;
+    global.fetch = originalFetch;
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  function responseMock() {
+    return {
+      status: vi.fn().mockReturnThis(),
+      type: vi.fn().mockReturnThis(),
+      send: vi.fn().mockReturnThis(),
+      json: vi.fn().mockReturnThis(),
+    };
+  }
+
+  function mockFetchAlwaysReturning(status: number, body: unknown) {
+    global.fetch = vi.fn().mockImplementation(() =>
+      Promise.resolve(new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } }))
+    );
+  }
+
+  it("serves a second request for the same endpoint+params from cache without hitting Tank01 again", async () => {
+    mockFetchAlwaysReturning(200, { body: { score: 7 } });
+
+    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20260910_NE@SEA" } } as never, responseMock() as never);
+    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20260910_NE@SEA" } } as never, responseMock() as never);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("hits Tank01 again once the cache TTL has expired", async () => {
+    mockFetchAlwaysReturning(200, { body: {} });
+
+    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20260910_NE@SEA" } } as never, responseMock() as never);
+    vi.advanceTimersByTime(21_000); // just past the 20s TTL
+    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20260910_NE@SEA" } } as never, responseMock() as never);
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not share the cache across different query params (different games)", async () => {
+    mockFetchAlwaysReturning(200, { body: {} });
+
+    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20260910_NE@SEA" } } as never, responseMock() as never);
+    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20260913_ARI@LAC" } } as never, responseMock() as never);
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not cache a failed upstream response, so a transient error doesn't get stuck", async () => {
+    global.fetch = vi.fn()
+      .mockImplementationOnce(() => Promise.resolve(new Response(JSON.stringify({ error: "upstream error" }), { status: 502, headers: { "content-type": "application/json" } })))
+      .mockImplementationOnce(() => Promise.resolve(new Response(JSON.stringify({ body: {} }), { status: 200, headers: { "content-type": "application/json" } })));
+
+    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20260910_NE@SEA" } } as never, responseMock() as never);
+    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20260910_NE@SEA" } } as never, responseMock() as never);
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 });

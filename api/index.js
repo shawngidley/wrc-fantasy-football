@@ -99472,6 +99472,8 @@ var ALLOWED_ENDPOINTS = /* @__PURE__ */ new Set([
   "getNFLNews",
   "getNFLDepthCharts"
 ]);
+var CACHE_TTL_MS = 2e4;
+var responseCache = /* @__PURE__ */ new Map();
 async function proxyTank01Request(req, res) {
   const endpoint = req.params.endpoint;
   if (!ALLOWED_ENDPOINTS.has(endpoint)) {
@@ -99487,6 +99489,12 @@ async function proxyTank01Request(req, res) {
   for (const [key, value] of Object.entries(req.query)) {
     if (typeof value === "string" && key.length <= 64 && value.length <= 256) query.set(key, value);
   }
+  const cacheKey = `${endpoint}?${query.toString()}`;
+  const cached2 = responseCache.get(cacheKey);
+  if (cached2 && Date.now() - cached2.ts < CACHE_TTL_MS) {
+    res.status(cached2.status).type(cached2.contentType).send(cached2.body);
+    return;
+  }
   try {
     const upstream = await fetch(`https://${TANK01_HOST}/${endpoint}?${query.toString()}`, {
       headers: { "x-rapidapi-key": apiKey, "x-rapidapi-host": TANK01_HOST },
@@ -99494,6 +99502,7 @@ async function proxyTank01Request(req, res) {
     });
     const contentType = upstream.headers.get("content-type") || "application/json";
     const body = await upstream.text();
+    if (upstream.ok) responseCache.set(cacheKey, { ts: Date.now(), status: upstream.status, contentType, body });
     res.status(upstream.status).type(contentType).send(body);
   } catch (error61) {
     console.error("Tank01 proxy request failed", error61);

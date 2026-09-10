@@ -15,6 +15,26 @@ const ALLOWED_ENDPOINTS = new Set([
   "getNFLDepthCharts",
 ]);
 
+// Server-side response cache, keyed by endpoint+params. Sits in front of
+// every Tank01 call regardless of which client hook/page issued it, or
+// whether that client is running the latest polling fixes -- a genuine
+// chokepoint fix rather than relying on every open browser tab across
+// every owner having reloaded with the newest client-side code. Directly
+// caps upstream call volume even if many overlapping/duplicate client
+// requests arrive for the same endpoint+params within the TTL window
+// (e.g. many owners' tabs all requesting the same live game's box score
+// at once). 20s is deliberately just under the 30s client poll interval,
+// so legitimate polling still gets reasonably fresh data while
+// overlapping/duplicate requests within that window share one response.
+const CACHE_TTL_MS = 20_000;
+const responseCache = new Map<string, { ts: number; status: number; contentType: string; body: string }>();
+
+/** Test-only: clears the module-level response cache so test cases using
+ * the same endpoint+params don't leak cached responses into each other. */
+export function __clearTank01ProxyCacheForTests(): void {
+  responseCache.clear();
+}
+
 /**
  * Proxies the small allowlist of Tank01 endpoints required by WRC. The browser
  * can choose only an approved endpoint and scalar query parameters; the RapidAPI
@@ -38,6 +58,13 @@ export async function proxyTank01Request(req: Request, res: Response) {
     if (typeof value === "string" && key.length <= 64 && value.length <= 256) query.set(key, value);
   }
 
+  const cacheKey = `${endpoint}?${query.toString()}`;
+  const cached = responseCache.get(cacheKey);
+  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+    res.status(cached.status).type(cached.contentType).send(cached.body);
+    return;
+  }
+
   try {
     const upstream = await fetch(`https://${TANK01_HOST}/${endpoint}?${query.toString()}`, {
       headers: { "x-rapidapi-key": apiKey, "x-rapidapi-host": TANK01_HOST },
@@ -45,6 +72,7 @@ export async function proxyTank01Request(req: Request, res: Response) {
     });
     const contentType = upstream.headers.get("content-type") || "application/json";
     const body = await upstream.text();
+    if (upstream.ok) responseCache.set(cacheKey, { ts: Date.now(), status: upstream.status, contentType, body });
     res.status(upstream.status).type(contentType).send(body);
   } catch (error) {
     console.error("Tank01 proxy request failed", error);
