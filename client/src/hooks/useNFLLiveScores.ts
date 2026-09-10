@@ -102,6 +102,48 @@ function isGameActive(gameDate: string, gameTime: string): boolean {
   return now >= kickoffUTC.getTime() && now <= windowEndUTC.getTime();
 }
 
+/**
+ * Narrower than isGameActive -- used specifically to decide whether the
+ * recurring 30-second poll should keep re-scheduling itself, as opposed
+ * to isGameActive's much wider 6-day window (which decides which games
+ * are eligible to be fetched AT ALL, including on a fresh page load well
+ * after a game has finished, so its final stats still populate).
+ *
+ * Without this distinction, the scheduling loop below -- which stops
+ * polling once getActiveGameIds() returns empty -- never actually
+ * stopped for the entire 6-day window once any game kicked off, since
+ * isGameActive alone stayed true that whole time. That meant every open
+ * Live Scoring tab kept re-fetching Tank01's box score every 30 seconds,
+ * continuously, for days after a game had already finished -- confirmed
+ * as the direct cause of the Tank01 quota being exhausted after just
+ * one game.
+ *
+ * Roughly covers a game's actual duration plus overtime buffer; once no
+ * game is within this narrower window, the poll stops rescheduling
+ * itself (after one final fetch to still capture each game's last
+ * update), while isGameActive's wider window keeps those same games
+ * fetchable on any later page load for the rest of the week.
+ */
+function isLikelyStillInProgress(gameDate: string, gameTime: string): boolean {
+  if (!gameDate || !gameTime) return false;
+  const d = gameDate;
+  const year = parseInt(d.slice(0,4), 10);
+  const month = parseInt(d.slice(4,6), 10) - 1;
+  const day = parseInt(d.slice(6,8), 10);
+  const timeMatch = gameTime.match(/(\d+):(\d+)([ap])/i);
+  if (!timeMatch) return false;
+  let hours = parseInt(timeMatch[1], 10);
+  const mins = parseInt(timeMatch[2], 10);
+  const ampm = timeMatch[3].toLowerCase();
+  if (ampm === "p" && hours !== 12) hours += 12;
+  if (ampm === "a" && hours === 12) hours = 0;
+  const offsetHours = 4; // EDT
+  const kickoffUTC2 = new Date(Date.UTC(year, month, day, hours + offsetHours, mins, 0));
+  const likelyEndUTC = new Date(kickoffUTC2.getTime() + 4.5 * 60 * 60 * 1000); // +4.5h
+  const now2 = Date.now();
+  return now2 >= kickoffUTC2.getTime() && now2 <= likelyEndUTC.getTime();
+}
+
 export function useNFLLiveScores(
   week: number,
   season: number,
@@ -137,6 +179,18 @@ export function useNFLLiveScores(
       games.set(matchup.gameId, { gameDate: matchup.gameDate, home: normalizeAbv(home), away: normalizeAbv(away) });
     }
     return Array.from(games.values());
+  }, [matchupMap]);
+
+  // Used by the scheduling loop below to decide whether to keep
+  // rescheduling the recurring poll -- deliberately the narrower
+  // isLikelyStillInProgress window, not isGameActive's wide 6-day
+  // fetch-eligibility window. See isLikelyStillInProgress's comment for
+  // why this distinction is what actually stops runaway polling.
+  const hasAnyGameLikelyInProgress = useCallback((): boolean => {
+    for (const m of Object.values(matchupMap)) {
+      if (m.gameId && isLikelyStillInProgress(m.gameDate, m.gameTime)) return true;
+    }
+    return false;
   }, [matchupMap]);
 
   const fetchEspnKickerEvents = useCallback(async (activeGames: Array<{ gameDate: string; home: string; away: string }>) => {
@@ -235,8 +289,10 @@ export function useNFLLiveScores(
         return;
       }
       fetchBoxScores().finally(() => {
-        if (mountedRef.current) {
+        if (mountedRef.current && hasAnyGameLikelyInProgress()) {
           timerRef.current = setTimeout(schedule, POLL_INTERVAL_MS);
+        } else {
+          setIsPolling(false);
         }
       });
     };
