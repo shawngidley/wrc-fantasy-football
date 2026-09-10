@@ -104,7 +104,8 @@ export async function fetchPlayerById(playerID: string): Promise<Tank01Player | 
 }
 
 // ── Fetch player by name ─────────────────────────────────────────────────────
-export async function fetchPlayerByName(name: string): Promise<Tank01Player | null> {
+export async function fetchPlayerByName(rawName: string): Promise<Tank01Player | null> {
+  const name = rawName.trim();
   const canonicalName = normalizePlayerName(name) === normalizePlayerName("Kenny Gainwell") ? "Kenny Gainwell" : name;
   const cacheKey = `name_${canonicalName.toLowerCase().replace(/\s+/g, "_")}`;
   const cached = cacheGet<Tank01Player>(cacheKey);
