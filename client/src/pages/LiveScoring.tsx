@@ -635,15 +635,7 @@ function RivalryGameControl({ matchup }: { matchup: Matchup }) {
   // declared banner above already handles showing a past declaration.
   if (matchup.week !== statusQuery.data.currentWeek) return null;
 
-  if (statusQuery.data.weekKickedOff) {
-    return (
-      <div style={{ ...boxStyle, background: "oklch(0.96 0.01 150)", border: "1px solid oklch(0.85 0.02 150)" }}>
-        <span style={{ fontSize: "0.78rem", color: "oklch(0.5 0.04 150)" }}>
-          This week's first game has kicked off — the rivalry game window is closed until next week.
-        </span>
-      </div>
-    );
-  }
+  if (statusQuery.data.weekKickedOff) return null;
 
   if (!currentWeekEligible) return null; // already used this season's rivalry game, or not a valid regular-season week
 
