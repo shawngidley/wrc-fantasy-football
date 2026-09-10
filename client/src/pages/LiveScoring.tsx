@@ -591,7 +591,7 @@ function SlotRowComp({ row, injuries }: { row: SlotRow; injuries?: import("@/hoo
 function RivalryGameControl({ matchup }: { matchup: Matchup }) {
   const { franchise } = useAuth();
   const [confirming, setConfirming] = useState(false);
-  const statusQuery = trpc.league.myRivalryGame.useQuery(undefined, { enabled: Boolean(franchise?.id) });
+  const statusQuery = trpc.league.myRivalryGame.useQuery(undefined, { enabled: Boolean(franchise?.id), staleTime: 5 * 60_000 });
   const declareMutation = trpc.league.declareRivalryGame.useMutation();
 
   if (!franchise) return null;
