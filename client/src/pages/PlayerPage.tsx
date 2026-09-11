@@ -26,6 +26,7 @@ import { useNFLMatchups, formatMatchup, formatGameTime } from "@/hooks/useNFLMat
 import { useESPNSeasonStats, type SeasonStatRow } from "@/hooks/useESPNSeasonStats";
 import { useNFLTeamSchedule, parseDate, type ScheduleGame } from "@/hooks/useNFLTeamSchedule";
 import { useNFLGameLog, type GameLogEntry } from "@/hooks/useNFLGameLog";
+import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections";
 import TeamLogo from "@/components/TeamLogo";
 import { PlayerNewsRow, type PlayerNewsItem } from "@/components/PlayerNewsRow";
 import { trpc } from "@/lib/trpc";
@@ -498,6 +499,12 @@ export default function PlayerPage() {
   const currentWeek = getCurrentWeek();
   const nflWeek = currentWeek > 0 ? currentWeek : 1; // default to week 1 pre-season
   const { matchups: matchupMap, loading: matchupLoading } = useNFLMatchups(nflWeek);
+  // Tank01-based fallback for FantasyPros' week projection, since
+  // FantasyPros has been unreliable (500/day rate limit, same issue that
+  // made Tank01 the default news source elsewhere tonight) -- this same
+  // projections data is already fetched and displayed throughout Live
+  // Scoring and Lineup, so it's a proven, working source for this player.
+  const { projections: tank01Projections } = useNFLProjections(nflWeek);
   const matchup = canonicalTeam ? matchupMap[canonicalTeam] : undefined;
   const fantasyProsPosition = (["QB", "RB", "WR", "TE", "K", "DST"].includes(player?.pos ?? "") ? player?.pos : "OP") as "QB" | "RB" | "WR" | "TE" | "K" | "DST" | "OP";
   const fantasyProsRanks = trpc.fantasyPros.ranks.useQuery(
@@ -518,6 +525,9 @@ export default function PlayerPage() {
   // may include a generational suffix) still matches Tank01's player.longName
   // (which may not, or vice versa) for the same person.
   const normalizePlayerName = sharedNormalizePlayerName;
+  const tank01ProjectedPoints = player?.longName
+    ? getProjectedPoints(tank01Projections, player.longName, player.pos ?? "", canonicalTeam ?? "")
+    : 0;
   const normalizedPlayerName = normalizePlayerName(player?.longName ?? "");
   const fantasyRank = (fantasyProsRanks.data ?? []).find(item => normalizePlayerName(item.name) === normalizedPlayerName);
   const fantasyOverallRank = (fantasyProsOverallRanks.data ?? []).find(item => normalizePlayerName(item.name) === normalizedPlayerName);
@@ -792,7 +802,13 @@ export default function PlayerPage() {
                 <Insight label="Overall ECR" value={getOverallEcrDisplay(fantasyOverallRank?.ecr, fantasyRank?.positionRank)} />
                 <Insight label="Position Rank" value={fantasyRank?.positionRank || "—"} />
                 <Insight label="Tier" value={fantasyRank?.tier != null ? `Tier ${fantasyRank.tier}` : "—"} />
-                <Insight label="Week Projection" value={fantasyProjection?.pprPoints != null ? `${fantasyProjection.pprPoints.toFixed(1)} PPR` : "—"} />
+                <Insight label="Week Projection" value={
+                  fantasyProjection?.pprPoints != null
+                    ? `${fantasyProjection.pprPoints.toFixed(1)} PPR`
+                    : tank01ProjectedPoints > 0
+                      ? `${tank01ProjectedPoints.toFixed(1)} pts`
+                      : "—"
+                } />
               </div>
             </div>
 
