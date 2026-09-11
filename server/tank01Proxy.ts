@@ -35,6 +35,31 @@ export function __clearTank01ProxyCacheForTests(): void {
   responseCache.clear();
 }
 
+// Emergency kill switch. ACTIVE BY DEFAULT as soon as this deploys --
+// blocks the two endpoints responsible for an ongoing, unresolved pattern
+// of runaway Tank01 usage that persisted through multiple rounds of
+// client-side and server-side fixes -- most likely a browser tab still
+// running older code from before those fixes deployed, but the exact
+// source couldn't be pinned down further, so this is a guaranteed stop
+// regardless of what any client is doing.
+//
+// Deliberately returns a 503 rather than an empty-but-successful
+// response: getNFLGamesForWeek also backs the rivalry-game and free-agent
+// kickoff-lock checks built earlier tonight, both of which already treat
+// a failed check as "assume locked" specifically to fail safe -- an
+// empty 200 response would instead read as "no games found, nothing has
+// started," silently failing those checks open (the wrong direction) for
+// as long as this switch stays on. A 503 lets that existing fail-safe
+// logic do its job correctly.
+//
+// To turn OFF (restore live scoring): set TANK01_KILL_SWITCH=off in the
+// environment and redeploy (or however this platform applies env var
+// changes). Any other value, or leaving it unset, keeps the switch on.
+const KILL_SWITCH_ENDPOINTS = new Set(["getNFLBoxScore", "getNFLGamesForWeek"]);
+function isKillSwitchActive(): boolean {
+  return process.env.TANK01_KILL_SWITCH !== "off";
+}
+
 /**
  * Proxies the small allowlist of Tank01 endpoints required by WRC. The browser
  * can choose only an approved endpoint and scalar query parameters; the RapidAPI
@@ -44,6 +69,11 @@ export async function proxyTank01Request(req: Request, res: Response) {
   const endpoint = req.params.endpoint;
   if (!ALLOWED_ENDPOINTS.has(endpoint)) {
     res.status(404).json({ error: "Unknown Tank01 endpoint" });
+    return;
+  }
+
+  if (KILL_SWITCH_ENDPOINTS.has(endpoint) && isKillSwitchActive()) {
+    res.status(503).json({ error: "Live scoring is temporarily disabled." });
     return;
   }
 

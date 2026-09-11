@@ -99520,10 +99520,18 @@ var ALLOWED_ENDPOINTS = /* @__PURE__ */ new Set([
 ]);
 var CACHE_TTL_MS = 2e4;
 var responseCache = /* @__PURE__ */ new Map();
+var KILL_SWITCH_ENDPOINTS = /* @__PURE__ */ new Set(["getNFLBoxScore", "getNFLGamesForWeek"]);
+function isKillSwitchActive() {
+  return process.env.TANK01_KILL_SWITCH !== "off";
+}
 async function proxyTank01Request(req, res) {
   const endpoint = req.params.endpoint;
   if (!ALLOWED_ENDPOINTS.has(endpoint)) {
     res.status(404).json({ error: "Unknown Tank01 endpoint" });
+    return;
+  }
+  if (KILL_SWITCH_ENDPOINTS.has(endpoint) && isKillSwitchActive()) {
+    res.status(503).json({ error: "Live scoring is temporarily disabled." });
     return;
   }
   const apiKey = process.env.TANK01_API_KEY;

@@ -54,15 +54,18 @@ describe("proxyTank01Request", () => {
 describe("proxyTank01Request response caching", () => {
   const originalApiKey = process.env.TANK01_API_KEY;
   const originalFetch = global.fetch;
+  const originalKillSwitch = process.env.TANK01_KILL_SWITCH;
 
   beforeEach(() => {
     process.env.TANK01_API_KEY = "test-key";
+    process.env.TANK01_KILL_SWITCH = "off"; // these tests verify caching, not the kill switch
     __clearTank01ProxyCacheForTests();
     vi.useFakeTimers();
   });
 
   afterEach(() => {
     process.env.TANK01_API_KEY = originalApiKey;
+    process.env.TANK01_KILL_SWITCH = originalKillSwitch;
     global.fetch = originalFetch;
     vi.restoreAllMocks();
     vi.useRealTimers();
@@ -120,5 +123,87 @@ describe("proxyTank01Request response caching", () => {
     await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20260910_NE@SEA" } } as never, responseMock() as never);
 
     expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("proxyTank01Request kill switch", () => {
+  const originalApiKey = process.env.TANK01_API_KEY;
+  const originalFetch = global.fetch;
+  const originalKillSwitch = process.env.TANK01_KILL_SWITCH;
+
+  beforeEach(() => {
+    process.env.TANK01_API_KEY = "test-key";
+    __clearTank01ProxyCacheForTests();
+  });
+
+  afterEach(() => {
+    process.env.TANK01_API_KEY = originalApiKey;
+    process.env.TANK01_KILL_SWITCH = originalKillSwitch;
+    global.fetch = originalFetch;
+    vi.restoreAllMocks();
+  });
+
+  function responseMock() {
+    return {
+      status: vi.fn().mockReturnThis(),
+      type: vi.fn().mockReturnThis(),
+      send: vi.fn().mockReturnThis(),
+      json: vi.fn().mockReturnThis(),
+    };
+  }
+
+  it("blocks getNFLBoxScore by default (no env var set)", async () => {
+    delete process.env.TANK01_KILL_SWITCH;
+    global.fetch = vi.fn();
+    const res = responseMock();
+
+    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "1" } } as never, res as never);
+
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(503);
+  });
+
+  it("blocks getNFLGamesForWeek by default", async () => {
+    delete process.env.TANK01_KILL_SWITCH;
+    global.fetch = vi.fn();
+    const res = responseMock();
+
+    await proxyTank01Request({ params: { endpoint: "getNFLGamesForWeek" }, query: { week: "1" } } as never, res as never);
+
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(503);
+  });
+
+  it("blocks even when explicitly set to any value other than 'off'", async () => {
+    process.env.TANK01_KILL_SWITCH = "true";
+    global.fetch = vi.fn();
+    const res = responseMock();
+
+    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "1" } } as never, res as never);
+
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(503);
+  });
+
+  it("does NOT block unrelated endpoints (e.g. getNFLPlayerInfo)", async () => {
+    delete process.env.TANK01_KILL_SWITCH;
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ body: {} }), { status: 200, headers: { "content-type": "application/json" } }));
+    const res = responseMock();
+
+    await proxyTank01Request({ params: { endpoint: "getNFLPlayerInfo" }, query: { playerName: "Mike Evans" } } as never, res as never);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(res.status).toHaveBeenCalledWith(200);
+  });
+
+  it("allows getNFLBoxScore through once explicitly set to 'off'", async () => {
+    process.env.TANK01_KILL_SWITCH = "off";
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ body: {} }), { status: 200, headers: { "content-type": "application/json" } }));
+    const res = responseMock();
+
+    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "1" } } as never, res as never);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(res.status).toHaveBeenCalledWith(200);
   });
 });
