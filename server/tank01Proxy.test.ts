@@ -152,41 +152,41 @@ describe("proxyTank01Request kill switch", () => {
     };
   }
 
-  it("blocks getNFLBoxScore by default (no env var set)", async () => {
+  it("does NOT block getNFLBoxScore by default (no env var set)", async () => {
     delete process.env.TANK01_KILL_SWITCH;
-    global.fetch = vi.fn();
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ body: {} }), { status: 200, headers: { "content-type": "application/json" } }));
     const res = responseMock();
 
     await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "1" } } as never, res as never);
 
-    expect(global.fetch).not.toHaveBeenCalled();
-    expect(res.status).toHaveBeenCalledWith(503);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(res.status).toHaveBeenCalledWith(200);
   });
 
-  it("blocks getNFLGamesForWeek by default", async () => {
+  it("does NOT block getNFLGamesForWeek by default", async () => {
     delete process.env.TANK01_KILL_SWITCH;
-    global.fetch = vi.fn();
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ body: [] }), { status: 200, headers: { "content-type": "application/json" } }));
     const res = responseMock();
 
     await proxyTank01Request({ params: { endpoint: "getNFLGamesForWeek" }, query: { week: "1" } } as never, res as never);
 
-    expect(global.fetch).not.toHaveBeenCalled();
-    expect(res.status).toHaveBeenCalledWith(503);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(res.status).toHaveBeenCalledWith(200);
   });
 
-  it("blocks even when explicitly set to any value other than 'off'", async () => {
-    process.env.TANK01_KILL_SWITCH = "true";
-    global.fetch = vi.fn();
+  it("does NOT block when explicitly set to any value other than 'on'", async () => {
+    process.env.TANK01_KILL_SWITCH = "off";
+    global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ body: {} }), { status: 200, headers: { "content-type": "application/json" } }));
     const res = responseMock();
 
     await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "1" } } as never, res as never);
 
-    expect(global.fetch).not.toHaveBeenCalled();
-    expect(res.status).toHaveBeenCalledWith(503);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(res.status).toHaveBeenCalledWith(200);
   });
 
-  it("does NOT block unrelated endpoints (e.g. getNFLPlayerInfo)", async () => {
-    delete process.env.TANK01_KILL_SWITCH;
+  it("does NOT block unrelated endpoints (e.g. getNFLPlayerInfo), even when the switch is on", async () => {
+    process.env.TANK01_KILL_SWITCH = "on";
     global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ body: {} }), { status: 200, headers: { "content-type": "application/json" } }));
     const res = responseMock();
 
@@ -196,14 +196,14 @@ describe("proxyTank01Request kill switch", () => {
     expect(res.status).toHaveBeenCalledWith(200);
   });
 
-  it("allows getNFLBoxScore through once explicitly set to 'off'", async () => {
-    process.env.TANK01_KILL_SWITCH = "off";
+  it("blocks getNFLBoxScore once explicitly set to 'on'", async () => {
+    process.env.TANK01_KILL_SWITCH = "on";
     global.fetch = vi.fn().mockResolvedValue(new Response(JSON.stringify({ body: {} }), { status: 200, headers: { "content-type": "application/json" } }));
     const res = responseMock();
 
     await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "1" } } as never, res as never);
 
-    expect(global.fetch).toHaveBeenCalledTimes(1);
-    expect(res.status).toHaveBeenCalledWith(200);
+    expect(global.fetch).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(503);
   });
 });

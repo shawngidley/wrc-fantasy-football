@@ -99522,7 +99522,7 @@ var CACHE_TTL_MS = 2e4;
 var responseCache = /* @__PURE__ */ new Map();
 var KILL_SWITCH_ENDPOINTS = /* @__PURE__ */ new Set(["getNFLBoxScore", "getNFLGamesForWeek"]);
 function isKillSwitchActive() {
-  return process.env.TANK01_KILL_SWITCH !== "off";
+  return process.env.TANK01_KILL_SWITCH === "on";
 }
 async function proxyTank01Request(req, res) {
   const endpoint = req.params.endpoint;
