@@ -522,7 +522,6 @@ export default function Standings() {
         {/* Page Title */}
         <div className="wrc-page-title" style={{ padding: "1rem 0 1.25rem" }}>
           <h1>WRC Fantasy Football 2026</h1>
-          <p>Regular Season Standings — 2026 Pre-Season</p>
         </div>
 
         {/* Weekly Matchup Widget — only when logged in */}
