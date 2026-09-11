@@ -16,12 +16,16 @@
  * declaration window stay open past the real first snap during that lag.
  */
 
+import { normalizeNFLTeamCode } from "../shared/nflTeamCodes";
+
 const TANK01_BASE_URL = "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
 
 interface Tank01Game {
   gameStatus?: string;
   gameDate?: string;
   gameTime?: string;
+  home?: string;
+  away?: string;
 }
 
 /** Same Date.UTC-based kickoff computation as the client-side
@@ -45,7 +49,11 @@ function hasKickoffTimePassed(gameDate: string | undefined, gameTime: string | u
   return Date.now() >= kickoffUTC.getTime();
 }
 
-export async function hasWeekKickedOff(week: number, season: number): Promise<boolean> {
+function hasGameStarted(game: Tank01Game): boolean {
+  return Boolean(game.gameStatus && game.gameStatus !== "Scheduled") || hasKickoffTimePassed(game.gameDate, game.gameTime);
+}
+
+async function fetchGamesForWeek(week: number, season: number): Promise<Tank01Game[]> {
   const key = process.env.TANK01_API_KEY;
   if (!key) throw new Error("Tank01 API credential is unavailable.");
   const headers = { "x-rapidapi-key": key, "x-rapidapi-host": "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com" };
@@ -54,9 +62,25 @@ export async function hasWeekKickedOff(week: number, season: number): Promise<bo
     { headers, signal: AbortSignal.timeout(15_000) },
   );
   if (!response.ok) throw new Error(`Unable to load this week's NFL games (${response.status}).`);
-  const games = ((await response.json()).body ?? []) as Tank01Game[];
-  return games.some(game =>
-    (game.gameStatus && game.gameStatus !== "Scheduled") ||
-    hasKickoffTimePassed(game.gameDate, game.gameTime)
-  );
+  return ((await response.json()).body ?? []) as Tank01Game[];
+}
+
+export async function hasWeekKickedOff(week: number, season: number): Promise<boolean> {
+  const games = await fetchGamesForWeek(week, season);
+  return games.some(hasGameStarted);
+}
+
+/**
+ * Has a specific NFL team's game this week already started? Used to lock
+ * a free agent's bid/pickup eligibility the moment their own game kicks
+ * off, for the rest of that week -- independent of whether any OTHER
+ * game around the league has started. A team with no game this week
+ * (bye) is never considered started.
+ */
+export async function hasPlayerTeamGameStarted(nflTeam: string, week: number, season: number): Promise<boolean> {
+  const games = await fetchGamesForWeek(week, season);
+  const normTeam = normalizeNFLTeamCode(nflTeam);
+  const game = games.find(g => normalizeNFLTeamCode(g.home ?? "") === normTeam || normalizeNFLTeamCode(g.away ?? "") === normTeam);
+  if (!game) return false; // no game this week → not started (bye)
+  return hasGameStarted(game);
 }

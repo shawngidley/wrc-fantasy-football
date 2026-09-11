@@ -88898,6 +88898,23 @@ function getCurrentWeek() {
   return 17;
 }
 
+// shared/nflTeamCodes.ts
+var TEAM_CODE_ALIASES = {
+  JAX: "JAC",
+  KAN: "KC",
+  TAM: "TB",
+  ARZ: "ARI",
+  AZ: "ARI",
+  WAS: "WSH",
+  WSN: "WSH",
+  OAK: "LV",
+  LA: "LAR"
+};
+function normalizeNFLTeamCode(team) {
+  const code = (team ?? "").trim().toUpperCase();
+  return TEAM_CODE_ALIASES[code] ?? code;
+}
+
 // server/nflWeekKickoffCheck.ts
 var TANK01_BASE_URL = "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
 function hasKickoffTimePassed(gameDate, gameTime) {
@@ -88916,7 +88933,10 @@ function hasKickoffTimePassed(gameDate, gameTime) {
   const kickoffUTC = new Date(Date.UTC(year2, month, day2, hours + offsetHours, mins, 0));
   return Date.now() >= kickoffUTC.getTime();
 }
-async function hasWeekKickedOff(week2, season) {
+function hasGameStarted(game) {
+  return Boolean(game.gameStatus && game.gameStatus !== "Scheduled") || hasKickoffTimePassed(game.gameDate, game.gameTime);
+}
+async function fetchGamesForWeek(week2, season) {
   const key = process.env.TANK01_API_KEY;
   if (!key) throw new Error("Tank01 API credential is unavailable.");
   const headers = { "x-rapidapi-key": key, "x-rapidapi-host": "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com" };
@@ -88925,10 +88945,18 @@ async function hasWeekKickedOff(week2, season) {
     { headers, signal: AbortSignal.timeout(15e3) }
   );
   if (!response.ok) throw new Error(`Unable to load this week's NFL games (${response.status}).`);
-  const games = (await response.json()).body ?? [];
-  return games.some(
-    (game) => game.gameStatus && game.gameStatus !== "Scheduled" || hasKickoffTimePassed(game.gameDate, game.gameTime)
-  );
+  return (await response.json()).body ?? [];
+}
+async function hasWeekKickedOff(week2, season) {
+  const games = await fetchGamesForWeek(week2, season);
+  return games.some(hasGameStarted);
+}
+async function hasPlayerTeamGameStarted(nflTeam, week2, season) {
+  const games = await fetchGamesForWeek(week2, season);
+  const normTeam = normalizeNFLTeamCode(nflTeam);
+  const game = games.find((g) => normalizeNFLTeamCode(g.home ?? "") === normTeam || normalizeNFLTeamCode(g.away ?? "") === normTeam);
+  if (!game) return false;
+  return hasGameStarted(game);
 }
 
 // server/faabMarketState.ts
@@ -98358,6 +98386,15 @@ var appRouter = router({
       if (marketState === "closed") {
         throw new Error("The free agent market is closed until Tuesday 9am ET.");
       }
+      let playerGameStarted;
+      try {
+        playerGameStarted = await hasPlayerTeamGameStarted(input2.playerNflTeam, input2.week, input2.season);
+      } catch {
+        playerGameStarted = true;
+      }
+      if (playerGameStarted) {
+        throw new Error(`${input2.playerName}'s game has already started this week -- they can't be picked up until next week.`);
+      }
       const teamId = ctx.teamSession.teamId;
       const [{ data: team, error: teamError }, { data: roster, error: rosterError }, { data: targetPlayer, error: targetPlayerError }, { data: pendingBids, error: pendingBidsError }] = await Promise.all([
         supabaseAdmin.from("teams").select("name, faab").eq("id", teamId).single(),
@@ -98407,6 +98444,15 @@ var appRouter = router({
     })).mutation(async ({ input: input2, ctx }) => {
       if (getFreeAgentMarketState() !== "open_waiver") {
         throw new Error("Instant adds are only available during the open waiver window (Sunday 9am-1pm ET).");
+      }
+      let playerGameStarted;
+      try {
+        playerGameStarted = await hasPlayerTeamGameStarted(input2.playerNflTeam, getCurrentWeek(), 2026);
+      } catch {
+        playerGameStarted = true;
+      }
+      if (playerGameStarted) {
+        throw new Error(`${input2.playerName}'s game has already started this week -- they can't be picked up until next week.`);
       }
       const teamId = ctx.teamSession.teamId;
       const [{ data: team, error: teamError }, { data: roster, error: rosterError }, { data: existingPlayer, error: existingPlayerError }] = await Promise.all([
@@ -101351,25 +101397,6 @@ var parse6 = function(data, opts = {}) {
 
 // server/nflTeamRefresh.ts
 init_supabaseAdmin();
-
-// shared/nflTeamCodes.ts
-var TEAM_CODE_ALIASES = {
-  JAX: "JAC",
-  KAN: "KC",
-  TAM: "TB",
-  ARZ: "ARI",
-  AZ: "ARI",
-  WAS: "WSH",
-  WSN: "WSH",
-  OAK: "LV",
-  LA: "LAR"
-};
-function normalizeNFLTeamCode(team) {
-  const code = (team ?? "").trim().toUpperCase();
-  return TEAM_CODE_ALIASES[code] ?? code;
-}
-
-// server/nflTeamRefresh.ts
 var ROSTER_URL = "https://github.com/nflverse/nflverse-data/releases/download/rosters/roster_2026.csv";
 async function fetchRosterCsv() {
   const response = await fetch(ROSTER_URL, { redirect: "follow" });

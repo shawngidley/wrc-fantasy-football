@@ -13,7 +13,7 @@ import { getPublicLeagueTeam, listPublicLeagueTeams, verifyLeagueTeamPin } from 
 import { clearWrcTeamSession, readWrcTeamSession, writeWrcTeamSession } from "./wrcTeamSession";
 import { supabaseAdmin } from "./supabaseAdmin";
 import { getCurrentWeek, SCHEDULE_2026 } from "../client/src/lib/scheduleData2026";
-import { hasWeekKickedOff } from "./nflWeekKickoffCheck";
+import { hasWeekKickedOff, hasPlayerTeamGameStarted } from "./nflWeekKickoffCheck";
 import { getFreeAgentMarketState } from "./faabMarketState";
 import { sendSms } from "./twilioSms";
 import { validateProtectionSubmission } from "./protectionRules";
@@ -678,6 +678,23 @@ export const appRouter = router({
         if (marketState === "closed") {
           throw new Error("The free agent market is closed until Tuesday 9am ET.");
         }
+        // Once a specific free agent's own game has kicked off this week,
+        // they're locked for the rest of the week regardless of whether
+        // the overall market is still open -- same reasoning as a
+        // rostered player locking the moment their game starts, just
+        // applied to free agent pickups instead of lineup edits.
+        let playerGameStarted: boolean;
+        try {
+          playerGameStarted = await hasPlayerTeamGameStarted(input.playerNflTeam, input.week, input.season);
+        } catch {
+          // Fail safe: if this can't be verified, treat the player as
+          // locked rather than risking a bid on someone who's already
+          // played slipping through.
+          playerGameStarted = true;
+        }
+        if (playerGameStarted) {
+          throw new Error(`${input.playerName}'s game has already started this week -- they can't be picked up until next week.`);
+        }
         const teamId = ctx.teamSession.teamId;
         const [{ data: team, error: teamError }, { data: roster, error: rosterError }, { data: targetPlayer, error: targetPlayerError }, { data: pendingBids, error: pendingBidsError }] = await Promise.all([
           supabaseAdmin.from("teams").select("name, faab").eq("id", teamId).single(),
@@ -744,6 +761,17 @@ export const appRouter = router({
       .mutation(async ({ input, ctx }) => {
         if (getFreeAgentMarketState() !== "open_waiver") {
           throw new Error("Instant adds are only available during the open waiver window (Sunday 9am-1pm ET).");
+        }
+        // Same rule as FAAB bids: once a free agent's own game has kicked
+        // off this week, they're locked for the rest of the week.
+        let playerGameStarted: boolean;
+        try {
+          playerGameStarted = await hasPlayerTeamGameStarted(input.playerNflTeam, getCurrentWeek(), 2026);
+        } catch {
+          playerGameStarted = true; // fail safe, same reasoning as submitFaabBid
+        }
+        if (playerGameStarted) {
+          throw new Error(`${input.playerName}'s game has already started this week -- they can't be picked up until next week.`);
         }
         const teamId = ctx.teamSession.teamId;
         const [{ data: team, error: teamError }, { data: roster, error: rosterError }, { data: existingPlayer, error: existingPlayerError }] = await Promise.all([

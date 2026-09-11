@@ -20,6 +20,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentWeek } from "@/lib/scheduleData2026";
 import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections";
 import { useNFLMatchups, formatGameTime } from "@/hooks/useNFLMatchups";
+import { hasTeamGameStarted } from "@/lib/playerGameLock";
 import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } from "@/hooks/useNFLInjuries";
 import { normalizePlayerName } from "@shared/playerNameMatch";
 import FAABBidModal from "@/components/FAABBidModal";
@@ -877,6 +878,7 @@ export default function FreeAgents() {
                     const isOwned = !!ownerTeam;
                     const seasonStats = seasonStatMap[player.name.toLowerCase()];
                     const matchup = matchupMap[normalizeNFLTeamCode(player.nflTeam)];
+                    const playerGameStarted = hasTeamGameStarted(player.nflTeam, matchupMap);
                     return (
                       <div
                         key={player.id}
@@ -941,7 +943,9 @@ export default function FreeAgents() {
                             <Link href="/trades" style={{ background: "oklch(0.42 0.1 240)", color: "white", border: "none", borderRadius: 7, padding: "0.3rem 0.5rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.68rem", letterSpacing: "0.03em", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.2rem", justifyContent: "center", textDecoration: "none" }}><ArrowLeftRight size={10} />Trade</Link>
                           ) : <span style={{ fontSize: "0.65rem", color: "oklch(0.55 0.08 240)", textAlign: "center" as const, fontFamily: "Barlow Condensed, sans-serif" }}>Owned</span>
                         ) : franchise ? (
-                          marketState === "open_waiver" ? (
+                          playerGameStarted ? (
+                            <span style={{ fontSize: "0.65rem", color: "oklch(0.6 0.04 150)", textAlign: "center" as const, fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600 }}>Game started</span>
+                          ) : marketState === "open_waiver" ? (
                             <button onClick={() => setInstantAddPlayer(player)} style={{ background: "oklch(0.5 0.16 150)", color: "white", border: "none", borderRadius: 7, padding: "0.3rem 0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem", letterSpacing: "0.04em", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem", justifyContent: "center" }}><UserPlus size={11} />Add</button>
                           ) : marketState === "closed" ? (
                             <span style={{ fontSize: "0.65rem", color: "oklch(0.6 0.04 150)", textAlign: "center" as const, fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600 }}>Reopens Tue 9am ET</span>
