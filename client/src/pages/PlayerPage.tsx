@@ -34,7 +34,6 @@ import { getVisiblePlayerNews } from "@/lib/playerNewsDisplay";
 import { getOverallEcrDisplay } from "@/lib/playerRankDisplay";
 import { calculateStatAverage } from "@/lib/playerStatMath";
 import { normalizeNFLTeamCode } from "@shared/nflTeamCodes";
-import { getHistoricalSeasonTeam } from "@/lib/playerSeasonTeam";
 import { normalizePlayerName as sharedNormalizePlayerName } from "@shared/playerNameMatch";
 
 // ── Position badge colors ────────────────────────────────────────────────────
@@ -144,13 +143,12 @@ function MultiSeasonStatsTable({
   currentNflTeam?: string;
 }) {
   const { seasons, loading } = useESPNSeasonStats(espnId, pos);
-  const completedSeasonTeam = getHistoricalSeasonTeam(seasons, 2025);
 
   // Build current season row from Tank01 data
-  const currentRow: SeasonStatRow | null = currentStats && completedSeasonTeam
+  const currentRow: SeasonStatRow | null = currentStats && currentNflTeam
     ? {
-        season: 2025,
-        team: completedSeasonTeam,
+        season: 2026,
+        team: currentNflTeam,
         gp: parseInt(String(currentStats.gamesPlayed ?? "0"), 10),
         passYds:    Number(currentStats.Passing?.passYds ?? 0),
         passTD:     Number(currentStats.Passing?.passTD ?? 0),
