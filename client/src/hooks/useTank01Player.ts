@@ -54,14 +54,28 @@ export interface Tank01TeamInfo {
   teamStats?: Tank01Stats;
 }
 
-// ── Session cache ────────────────────────────────────────────────────────────
+// ── Persistent cache ─────────────────────────────────────────────────────────
+// localStorage (not sessionStorage): shared across every tab on this
+// browser, not scoped to one tab. sessionStorage meant a fresh tab always
+// started cold, independently re-fetching every visible player even if
+// the exact same players had just been looked up moments earlier in a
+// different tab -- confirmed live via a burst of 45+ getNFLPlayerInfo
+// calls in under a minute, matching LiveScoring's PlayerAvatar component
+// (rendered once per visible player, ~30+ per matchup) all missing an
+// effectively-empty, tab-local cache at once on a fresh page load.
+//
+// 24h TTL (was 10 minutes): basic player info -- name, team, headshot,
+// age -- doesn't meaningfully change within a day, matching the same TTL
+// already used for season stats in seasonStatsCache.ts. The old 10-minute
+// TTL meant even a single long-running tab would re-fetch everyone again
+// after a short gap.
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 function cacheGet<T>(key: string): T | null {
   try {
-    const raw = sessionStorage.getItem(`tank01_${key}`);
+    const raw = localStorage.getItem(`tank01_${key}`);
     if (!raw) return null;
     const { data, ts } = JSON.parse(raw);
-    // 10-minute TTL
-    if (Date.now() - ts > 10 * 60 * 1000) return null;
+    if (Date.now() - ts > CACHE_TTL_MS) return null;
     return data as T;
   } catch {
     return null;
@@ -70,9 +84,9 @@ function cacheGet<T>(key: string): T | null {
 
 function cacheSet(key: string, data: unknown) {
   try {
-    sessionStorage.setItem(`tank01_${key}`, JSON.stringify({ data, ts: Date.now() }));
+    localStorage.setItem(`tank01_${key}`, JSON.stringify({ data, ts: Date.now() }));
   } catch {
-    // sessionStorage full — ignore
+    // localStorage full or unavailable — ignore
   }
 }
 
