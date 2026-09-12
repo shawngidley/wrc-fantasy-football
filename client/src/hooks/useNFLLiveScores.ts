@@ -286,7 +286,7 @@ export function useNFLLiveScores(
         // Team DST stats
         const teamStats = body.teamStats ?? {};
         const teams = gameTeams.get(gameId);
-        console.log(`[DST DEBUG 4] game ${gameId}: gameTeams.get() returned:`, teams, "gameTeams has keys:", Array.from(gameTeams.keys()));
+        console.log(`[DST DEBUG 4] game ${gameId}: gameTeams.get() returned: ${JSON.stringify(teams)}. gameTeams has keys: [${Array.from(gameTeams.keys()).join(", ")}]`);
         for (const [homeAway, d] of Object.entries(teamStats) as [string, Record<string, string>][]) {
           const teamAbv = homeAway === "home" ? teams?.home : homeAway === "away" ? teams?.away : undefined;
           if (!teamAbv) continue;
