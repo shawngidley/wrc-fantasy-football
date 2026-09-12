@@ -165,7 +165,7 @@ export function buildStatChips(stats: Tank01Stats): StatChipData[] {
     chips.push({ label: "XP", value: `${n(xpMade)}/${n(xpAttempts)}` });
   }
 
-  const sacks = n(stats.Defense?.sacks);
+  const sacks = stats.Defense ? sacksFrom(stats.Defense) : 0;
   const defInt = n(stats.Defense?.defensiveInterceptions);
   const defTD = n(stats.Defense?.defTD) + n(stats.Defense?.defensiveOrSpecialTeamsTds);
   const fumblesRecovered = n(stats.Defense?.fumblesRecovered);
@@ -188,8 +188,7 @@ export function buildStatChips(stats: Tank01Stats): StatChipData[] {
 export function calcFantasyPoints(
   stats: Tank01Stats,
   pos: string,
-  isTE = false,
-  opponentScore?: number
+  isTE = false
 ): number {
   let pts = 0;
   const teReception = pos === "TE" || isTE;
@@ -264,15 +263,12 @@ export function calcFantasyPoints(
       : n(d.defTD) + n(d.returnTD);
     pts += dstTouchdowns * 6;
     pts += n(d.safeties) * 2;
-    // Points allowed: needs the OPPONENT's score, not a per-team stat --
-    // Tank01's teamStats has no ptsAgainst field at all. Only scored when
-    // the caller provides it (fetchBoxScores threads through
-    // body.homePts/awayPts, whichever belongs to the opponent), matching
-    // the server-side formula (server/weeklyResultsFinalize.ts) exactly
-    // so live and final DST scores agree on this category.
-    if (opponentScore !== undefined) {
-      pts += opponentScore === 0 ? 10 : opponentScore <= 6 ? 7 : opponentScore <= 13 ? 4 : opponentScore <= 17 ? 1 : opponentScore <= 27 ? 0 : opponentScore <= 34 ? -1 : -4;
-    }
+    // NOTE: no points-allowed category -- confirmed with the commissioner
+    // that WRC's actual DST rules are exactly: sack (2), fumble/
+    // interception (3 each), touchdown (6), safety (2). No points-allowed
+    // tier exists. (A points-allowed category was briefly added here and
+    // in the server-side final scoring, then removed once confirmed it
+    // wasn't part of the real ruleset.)
     // Reset fumbles lost penalty for DST (doesn't apply)
     pts += fumblesLost * 3; // undo the offense fumble penalty applied above
   }

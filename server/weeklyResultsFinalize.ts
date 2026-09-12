@@ -54,9 +54,8 @@ function playerPoints(stats: Record<string, unknown>, position: string) {
   return Math.round(Math.max(points, 0) * 10) / 10;
 }
 
-export function defensePoints(stats: Record<string, unknown>, opponentScore: number) {
-  let points = sacksFrom(stats) * 2 + n(stats.defensiveInterceptions) * 3 + n(stats.fumblesRecovered) * 3 + n(stats.defTD) * 6 + n(stats.returnTD) * 6 + n(stats.safeties) * 2 + n(stats.blockKick) * 2;
-  points += opponentScore === 0 ? 10 : opponentScore <= 6 ? 7 : opponentScore <= 13 ? 4 : opponentScore <= 17 ? 1 : opponentScore <= 27 ? 0 : opponentScore <= 34 ? -1 : -4;
+export function defensePoints(stats: Record<string, unknown>) {
+  const points = sacksFrom(stats) * 2 + n(stats.defensiveInterceptions) * 3 + n(stats.fumblesRecovered) * 3 + n(stats.defTD) * 6 + n(stats.returnTD) * 6 + n(stats.safeties) * 2;
   return Math.round(Math.max(points, 0) * 10) / 10;
 }
 
@@ -102,8 +101,7 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
     Object.entries(body.teamStats ?? {}).forEach(([homeAway, stats]) => {
       const teamAbv = resolveTeamStatsKey(homeAway, game);
       if (!teamAbv) return;
-      const opponentScore = homeAway === "home" ? n(body.awayPts) : n(body.homePts);
-      dstScores[teamAbv] = defensePoints(stats as Record<string, unknown>, opponentScore);
+      dstScores[teamAbv] = defensePoints(stats as Record<string, unknown>);
     });
   }
 

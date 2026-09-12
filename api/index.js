@@ -89538,9 +89538,8 @@ function playerPoints(stats, position) {
   if (position === "K" || position === "PK") points += n(kick.xpMade) + n(kick.fgYds) * 0.1 - n(kick.fgMissed) * 2 - n(kick.xpMissed) * 2;
   return Math.round(Math.max(points, 0) * 10) / 10;
 }
-function defensePoints(stats, opponentScore) {
-  let points = sacksFrom(stats) * 2 + n(stats.defensiveInterceptions) * 3 + n(stats.fumblesRecovered) * 3 + n(stats.defTD) * 6 + n(stats.returnTD) * 6 + n(stats.safeties) * 2 + n(stats.blockKick) * 2;
-  points += opponentScore === 0 ? 10 : opponentScore <= 6 ? 7 : opponentScore <= 13 ? 4 : opponentScore <= 17 ? 1 : opponentScore <= 27 ? 0 : opponentScore <= 34 ? -1 : -4;
+function defensePoints(stats) {
+  const points = sacksFrom(stats) * 2 + n(stats.defensiveInterceptions) * 3 + n(stats.fumblesRecovered) * 3 + n(stats.defTD) * 6 + n(stats.returnTD) * 6 + n(stats.safeties) * 2;
   return Math.round(Math.max(points, 0) * 10) / 10;
 }
 function median(values) {
@@ -89577,8 +89576,7 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
     Object.entries(body.teamStats ?? {}).forEach(([homeAway, stats]) => {
       const teamAbv = resolveTeamStatsKey(homeAway, game);
       if (!teamAbv) return;
-      const opponentScore = homeAway === "home" ? n(body.awayPts) : n(body.homePts);
-      dstScores[teamAbv] = defensePoints(stats, opponentScore);
+      dstScores[teamAbv] = defensePoints(stats);
     });
   }
   const playerMeta = new Map((players ?? []).map((player) => [String(player.name).toLowerCase(), { position: String(player.position), nflTeam: String(player.nfl_team) }]));

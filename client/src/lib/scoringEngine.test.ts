@@ -142,23 +142,11 @@ describe("DST sacks parsing (Tank01's actual field shape)", () => {
   });
 });
 
-describe("DST points-allowed scoring (requires the opponent's score)", () => {
-  it("does not score points-allowed at all when opponentScore is not provided", () => {
+describe("DST has no points-allowed category (confirmed with commissioner)", () => {
+  it("does not add any points-allowed bonus regardless of game context", () => {
+    // Only sack/fumble-interception/touchdown/safety exist -- no fourth
+    // parameter or opponent-score input affects this at all anymore.
     const points = calcFantasyPoints({ Defense: { safeties: 1 } }, "DST");
-    expect(points).toBe(2); // just the safety, no shutout bonus assumed
-  });
-
-  it("awards the shutout bonus only when opponentScore is explicitly 0", () => {
-    const points = calcFantasyPoints({ Defense: {} }, "DST", false, 0);
-    expect(points).toBe(10);
-  });
-
-  it("scores each points-allowed tier correctly", () => {
-    expect(calcFantasyPoints({ Defense: {} }, "DST", false, 3)).toBe(7);
-    expect(calcFantasyPoints({ Defense: {} }, "DST", false, 10)).toBe(4);
-    expect(calcFantasyPoints({ Defense: {} }, "DST", false, 15)).toBe(1);
-    expect(calcFantasyPoints({ Defense: {} }, "DST", false, 20)).toBe(0);
-    expect(calcFantasyPoints({ Defense: {} }, "DST", false, 30)).toBe(-1);
-    expect(calcFantasyPoints({ Defense: {} }, "DST", false, 40)).toBe(-4);
+    expect(points).toBe(2); // just the safety
   });
 });

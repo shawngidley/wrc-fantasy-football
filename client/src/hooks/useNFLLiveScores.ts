@@ -51,8 +51,8 @@ function calcWRCLive(stats: Record<string, unknown>, pos: string): number {
   return calcFantasyPoints(stats as Tank01Stats, pos);
 }
 
-function calcDSTLive(d: Record<string, string>, opponentScore?: number): number {
-  return calcFantasyPoints({ Defense: d }, "DST", false, opponentScore);
+function calcDSTLive(d: Record<string, string>): number {
+  return calcFantasyPoints({ Defense: d }, "DST");
 }
 
 /**
@@ -285,11 +285,7 @@ export function useNFLLiveScores(
         for (const [homeAway, d] of Object.entries(teamStats) as [string, Record<string, string>][]) {
           const teamAbv = homeAway === "home" ? teams?.home : homeAway === "away" ? teams?.away : undefined;
           if (!teamAbv) continue;
-          // Points allowed is the OPPONENT's score, not a per-team stat --
-          // for the home team's defense that's awayPts, for the away
-          // team's defense that's homePts.
-          const opponentScore = homeAway === "home" ? Number(body.awayPts) : Number(body.homePts);
-          const pts = calcDSTLive(d, isNaN(opponentScore) ? undefined : opponentScore);
+          const pts = calcDSTLive(d);
           newScores[`dst:${teamAbv}`] = pts;
           newStats[`dst:${teamAbv}`] = { Defense: d };
         }

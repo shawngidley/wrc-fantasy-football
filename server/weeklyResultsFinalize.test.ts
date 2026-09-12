@@ -56,18 +56,19 @@ describe("sacksFrom", () => {
   });
 });
 
-describe("defensePoints", () => {
+describe("defensePoints (confirmed rules: sack 2pts, fumble/interception 3pts each, touchdown 6pts, safety 2pts -- nothing else)", () => {
   it("scores sacks from sacksAndYardsLost correctly (this was the actual bug: always 0 before)", () => {
-    expect(defensePoints({ sacksAndYardsLost: "3-10" }, 20)).toBe(6); // 3 sacks * 2, 0 for 20 pts allowed
+    expect(defensePoints({ sacksAndYardsLost: "3-10" })).toBe(6); // 3 sacks * 2
   });
 
-  it("scores the opponent's actual score for points-allowed, not a per-team stat", () => {
-    expect(defensePoints({}, 0)).toBe(10);
-    expect(defensePoints({}, 6)).toBe(7);
-    expect(defensePoints({}, 27)).toBe(0);
+  it("scores each confirmed category correctly", () => {
+    expect(defensePoints({ defensiveInterceptions: 2 })).toBe(6); // 2 * 3
+    expect(defensePoints({ fumblesRecovered: 1 })).toBe(3);
+    expect(defensePoints({ defTD: 1 })).toBe(6);
+    expect(defensePoints({ safeties: 1 })).toBe(2);
   });
 
-  it("clamps a negative total (e.g. a very high points-allowed penalty) to 0", () => {
-    expect(defensePoints({}, 40)).toBe(0);
+  it("does not score points-allowed or a blocked-kick bonus -- confirmed neither is a real category", () => {
+    expect(defensePoints({})).toBe(0);
   });
 });
