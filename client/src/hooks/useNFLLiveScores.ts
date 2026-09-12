@@ -263,9 +263,13 @@ export function useNFLLiveScores(
       try {
         const url = `${TANK01_BASE_URL}/getNFLBoxScore?gameID=${gameId}&fantasyPoints=true&twoPointConversions=2&passYards=.04&passTD=4&passInterceptions=-3&pointsPerReception=1&carries=0&rushYards=.1&rushTD=6&fumbles=-3&receivingYards=.1&receivingTD=6&targets=0&defTD=6&fgMade=0&fgYards=.1&xpMade=1`;
         const res = await fetch(url);
-        if (!res.ok) continue;
+        if (!res.ok) {
+          console.log(`[DST DEBUG 3] getNFLBoxScore fetch FAILED for game ${gameId}: status ${res.status} ${res.statusText}`);
+          continue;
+        }
         const data = await res.json();
         const body = data?.body ?? {};
+        console.log(`[DST DEBUG 3] game ${gameId} fetch succeeded. body.teamStats:`, body.teamStats, "full body keys:", Object.keys(body));
 
         // Player stats
         const playerStats = body.playerStats ?? {};
