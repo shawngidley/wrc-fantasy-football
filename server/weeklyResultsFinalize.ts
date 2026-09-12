@@ -23,6 +23,28 @@ export function resolveTeamStatsKey(homeAway: string, game: { home?: string; awa
 }
 
 /**
+ * Tank01's sacksAndYardsLost is framed from the OFFENSE's side -- it's
+ * how many times THIS team's own offense was sacked, not how many sacks
+ * this team's defense made. Confirmed against the actual box score: a
+ * game where New England's own teamStats entry showed sacksAndYardsLost
+ * "3-10", but New England's defense genuinely had only 2 sacks (Seattle's
+ * offense was sacked 2 times) -- the "3" belonged to Seattle's defense
+ * sacking New England's offense. So a team's own defensive sack credit
+ * for fantasy scoring comes from the OPPONENT's teamStats entry, not this
+ * team's own -- all other defensive categories (interceptions, fumbles
+ * recovered, defensive TDs, safeties) are already correctly framed from
+ * this team's own defensive perspective and don't need this swap.
+ */
+export function attributeDefensiveSacks(
+  homeAway: string,
+  stats: Record<string, unknown>,
+  teamStatsBody: Record<string, Record<string, unknown>>,
+): Record<string, unknown> {
+  const opponentStats = teamStatsBody[homeAway === "home" ? "away" : "home"];
+  return { ...stats, sacksAndYardsLost: opponentStats?.sacksAndYardsLost, sacks: opponentStats?.sacks };
+}
+
+/**
  * Tank01's team defense stats have no plain "sacks" field -- confirmed
  * live: the actual field is "sacksAndYardsLost", a combined string like
  * "3-10" (3 sacks for 10 yards). n(stats.sacks) always silently returned
@@ -98,10 +120,12 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
     Object.values(body.playerStats ?? {}).forEach((entry: any) => {
       if (entry.longName) individualScores[String(entry.longName).toLowerCase()] = playerPoints(entry, String(entry.pos ?? ""));
     });
-    Object.entries(body.teamStats ?? {}).forEach(([homeAway, stats]) => {
+    const teamStatsBody = (body.teamStats ?? {}) as Record<string, Record<string, unknown>>;
+    Object.entries(teamStatsBody).forEach(([homeAway, stats]) => {
       const teamAbv = resolveTeamStatsKey(homeAway, game);
       if (!teamAbv) return;
-      dstScores[teamAbv] = defensePoints(stats as Record<string, unknown>);
+      const statsWithCorrectSacks = attributeDefensiveSacks(homeAway, stats, teamStatsBody);
+      dstScores[teamAbv] = defensePoints(statsWithCorrectSacks);
     });
   }
 

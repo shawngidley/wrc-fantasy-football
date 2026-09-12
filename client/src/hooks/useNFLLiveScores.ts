@@ -56,6 +56,34 @@ function calcDSTLive(d: Record<string, string>): number {
 }
 
 /**
+ * Tank01's sacksAndYardsLost is framed from the OFFENSE's side -- it's
+ * how many times THIS team's own offense was sacked, not how many sacks
+ * this team's defense made. Confirmed against the actual box score: a
+ * game where New England's own teamStats entry showed sacksAndYardsLost
+ * "3-10", but New England's defense genuinely had only 2 sacks (Seattle's
+ * offense was sacked 2 times) -- the "3" belonged to Seattle's defense
+ * sacking New England's offense. So a team's own defensive sack credit
+ * comes from the OPPONENT's teamStats entry, not this team's own -- all
+ * other defensive categories (interceptions, fumbles recovered,
+ * defensive TDs, safeties) are already correctly framed from this team's
+ * own defensive perspective and don't need this swap.
+ */
+export function attributeDefensiveSacks(
+  homeAway: string,
+  d: Record<string, string>,
+  teamStats: Record<string, Record<string, string>>,
+): Record<string, string> {
+  const opponentHomeAway = homeAway === "home" ? "away" : "home";
+  const opponentStats = teamStats[opponentHomeAway];
+  const { sacksAndYardsLost: _ownSacks, sacks: _ownSacksAlt, ...dWithoutOwnSacks } = d;
+  return {
+    ...dWithoutOwnSacks,
+    ...(opponentStats?.sacksAndYardsLost !== undefined ? { sacksAndYardsLost: opponentStats.sacksAndYardsLost } : {}),
+    ...(opponentStats?.sacks !== undefined ? { sacks: opponentStats.sacks } : {}),
+  };
+}
+
+/**
  * Returns true if the current time is within the game's fetchable window:
  * from kickoff through the rest of that WRC week (roughly 6 days). This
  * governs whether a game is included in the box-score fetch list at all --
@@ -285,9 +313,10 @@ export function useNFLLiveScores(
         for (const [homeAway, d] of Object.entries(teamStats) as [string, Record<string, string>][]) {
           const teamAbv = homeAway === "home" ? teams?.home : homeAway === "away" ? teams?.away : undefined;
           if (!teamAbv) continue;
-          const pts = calcDSTLive(d);
+          const dWithCorrectSacks = attributeDefensiveSacks(homeAway, d, teamStats as Record<string, Record<string, string>>);
+          const pts = calcDSTLive(dWithCorrectSacks);
           newScores[`dst:${teamAbv}`] = pts;
-          newStats[`dst:${teamAbv}`] = { Defense: d };
+          newStats[`dst:${teamAbv}`] = { Defense: dWithCorrectSacks };
         }
       } catch (err) {
         console.warn(`Failed to fetch box score for game ${gameId}:`, err);
