@@ -354,6 +354,9 @@ export function getLivePoints(
   if (pos === "DST") {
     const normAbv = normalizeAbv(nflTeam);
     const v = liveScores[`dst:${normAbv}`];
+    if (v === undefined) {
+      console.log(`[DST DEBUG 2] no score found for "${playerName}" -- nflTeam param: "${nflTeam}", normalized to: "${normAbv}", key looked up: "dst:${normAbv}". Available dst: keys:`, Object.keys(liveScores).filter(k => k.startsWith("dst:")));
+    }
     return v !== undefined ? v : null;
   }
   if (pos === "K") {
