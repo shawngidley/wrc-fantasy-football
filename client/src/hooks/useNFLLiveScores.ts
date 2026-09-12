@@ -288,11 +288,19 @@ export function useNFLLiveScores(
         const teams = gameTeams.get(gameId);
         console.log(`[DST DEBUG 4] game ${gameId}: gameTeams.get() returned: ${JSON.stringify(teams)}. gameTeams has keys: [${Array.from(gameTeams.keys()).join(", ")}]`);
         for (const [homeAway, d] of Object.entries(teamStats) as [string, Record<string, string>][]) {
-          const teamAbv = homeAway === "home" ? teams?.home : homeAway === "away" ? teams?.away : undefined;
-          if (!teamAbv) continue;
-          const pts = calcDSTLive(d);
-          newScores[`dst:${teamAbv}`] = pts;
-          newStats[`dst:${teamAbv}`] = { Defense: d };
+          try {
+            const teamAbv = homeAway === "home" ? teams?.home : homeAway === "away" ? teams?.away : undefined;
+            if (!teamAbv) {
+              console.log(`[DST DEBUG 5] game ${gameId}, homeAway="${homeAway}": no teamAbv resolved (teams=${JSON.stringify(teams)}), skipping.`);
+              continue;
+            }
+            const pts = calcDSTLive(d);
+            console.log(`[DST DEBUG 5] game ${gameId}, homeAway="${homeAway}" -> ${teamAbv}: computed ${pts} pts from`, d);
+            newScores[`dst:${teamAbv}`] = pts;
+            newStats[`dst:${teamAbv}`] = { Defense: d };
+          } catch (dstErr) {
+            console.log(`[DST DEBUG 5] game ${gameId}, homeAway="${homeAway}": THREW an error:`, dstErr);
+          }
         }
       } catch (err) {
         console.warn(`Failed to fetch box score for game ${gameId}:`, err);
