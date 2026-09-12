@@ -89511,6 +89511,11 @@ init_supabaseAdmin();
 var HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
 var n = (value) => Number.parseFloat(String(value ?? "0")) || 0;
 var teamCode = (value) => ({ jax: "JAC", jac: "JAC", was: "WSH", wsh: "WSH", kan: "KC", kc: "KC", tam: "TB", tb: "TB", arz: "ARI", ari: "ARI" })[value.toLowerCase()] ?? value.toUpperCase();
+function resolveTeamStatsKey(homeAway, game) {
+  if (homeAway === "home") return game.home ? teamCode(game.home) : void 0;
+  if (homeAway === "away") return game.away ? teamCode(game.away) : void 0;
+  return void 0;
+}
 function playerPoints(stats, position) {
   const pass = stats.Passing ?? {};
   const rush = stats.Rushing ?? {};
@@ -89561,8 +89566,10 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
     Object.values(body.playerStats ?? {}).forEach((entry) => {
       if (entry.longName) individualScores[String(entry.longName).toLowerCase()] = playerPoints(entry, String(entry.pos ?? ""));
     });
-    Object.entries(body.teamStats ?? {}).forEach(([code, stats]) => {
-      dstScores[teamCode(code)] = defensePoints(stats);
+    Object.entries(body.teamStats ?? {}).forEach(([homeAway, stats]) => {
+      const teamAbv = resolveTeamStatsKey(homeAway, game);
+      if (!teamAbv) return;
+      dstScores[teamAbv] = defensePoints(stats);
     });
   }
   const playerMeta = new Map((players ?? []).map((player) => [String(player.name).toLowerCase(), { position: String(player.position), nflTeam: String(player.nfl_team) }]));

@@ -5,6 +5,23 @@ const HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
 const n = (value: unknown) => Number.parseFloat(String(value ?? "0")) || 0;
 const teamCode = (value: string) => ({ jax: "JAC", jac: "JAC", was: "WSH", wsh: "WSH", kan: "KC", kc: "KC", tam: "TB", tb: "TB", arz: "ARI", ari: "ARI" }[value.toLowerCase()] ?? value.toUpperCase());
 
+/**
+ * Tank01's getNFLBoxScore response keys teamStats by the literal strings
+ * "home" and "away", not by team abbreviation -- confirmed live via
+ * console diagnostics: `{ away: {...}, home: {...} }`, no team code
+ * anywhere in that object. This resolves a teamStats key back to the
+ * actual team abbreviation for that specific game (using the home/away
+ * fields already present on getNFLGamesForWeek's response), so DST
+ * scores get stored under the real team code rather than the literal
+ * string "home"/"away" -- which was never found by anything looking up
+ * a real team code, meaning every DST always computed as 0 here.
+ */
+export function resolveTeamStatsKey(homeAway: string, game: { home?: string; away?: string }): string | undefined {
+  if (homeAway === "home") return game.home ? teamCode(game.home) : undefined;
+  if (homeAway === "away") return game.away ? teamCode(game.away) : undefined;
+  return undefined;
+}
+
 function playerPoints(stats: Record<string, unknown>, position: string) {
   const pass = (stats.Passing as Record<string, unknown>) ?? {};
   const rush = (stats.Rushing as Record<string, unknown>) ?? {};
@@ -46,7 +63,7 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
   const headers = { "x-rapidapi-key": key, "x-rapidapi-host": HOST };
   const gamesResponse = await fetch(`https://${HOST}/getNFLGamesForWeek?week=${week}&seasonType=Regular%20Season&season=${season}`, { headers, signal: AbortSignal.timeout(30_000) });
   if (!gamesResponse.ok) throw new Error(`Unable to load NFL games (${gamesResponse.status}).`);
-  const games = ((await gamesResponse.json()).body ?? []) as Array<{ gameID: string; gameStatus?: string }>;
+  const games = ((await gamesResponse.json()).body ?? []) as Array<{ gameID: string; gameStatus?: string; home?: string; away?: string }>;
   if (!games.length || games.some(game => !/final/i.test(game.gameStatus ?? ""))) throw new Error("NFL games for this week are not all final yet.");
 
   const [{ data: lineups, error: lineupsError }, { data: players, error: playersError }, { data: teams, error: teamsError }] = await Promise.all([
@@ -65,7 +82,11 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
     Object.values(body.playerStats ?? {}).forEach((entry: any) => {
       if (entry.longName) individualScores[String(entry.longName).toLowerCase()] = playerPoints(entry, String(entry.pos ?? ""));
     });
-    Object.entries(body.teamStats ?? {}).forEach(([code, stats]) => { dstScores[teamCode(code)] = defensePoints(stats as Record<string, unknown>); });
+    Object.entries(body.teamStats ?? {}).forEach(([homeAway, stats]) => {
+      const teamAbv = resolveTeamStatsKey(homeAway, game);
+      if (!teamAbv) return;
+      dstScores[teamAbv] = defensePoints(stats as Record<string, unknown>);
+    });
   }
 
   const playerMeta = new Map((players ?? []).map(player => [String(player.name).toLowerCase(), { position: String(player.position), nflTeam: String(player.nfl_team) }]));

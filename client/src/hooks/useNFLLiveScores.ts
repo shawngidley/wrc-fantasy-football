@@ -182,12 +182,12 @@ export function useNFLLiveScores(
   }, [matchupMap]);
 
   const getActiveGames = useCallback(() => {
-    const games = new Map<string, { gameDate: string; home: string; away: string }>();
+    const games = new Map<string, { gameId: string; gameDate: string; home: string; away: string }>();
     for (const [team, matchup] of Object.entries(matchupMap)) {
       if (!matchup.gameId || !isGameActive(matchup.gameDate, matchup.gameTime)) continue;
       const home = matchup.isHome ? team : matchup.opponent;
       const away = matchup.isHome ? matchup.opponent : team;
-      games.set(matchup.gameId, { gameDate: matchup.gameDate, home: normalizeAbv(home), away: normalizeAbv(away) });
+      games.set(matchup.gameId, { gameId: matchup.gameId, gameDate: matchup.gameDate, home: normalizeAbv(home), away: normalizeAbv(away) });
     }
     return Array.from(games.values());
   }, [matchupMap]);
@@ -246,6 +246,17 @@ export function useNFLLiveScores(
     setIsPolling(true);
     const newScores: LiveScoreMap = { ...liveScores };
     const newStats: LiveStatsMap = { ...liveStats };
+    // Tank01's getNFLBoxScore response keys teamStats by the literal
+    // strings "home" and "away", not by team abbreviation -- confirmed
+    // live via console diagnostics: `{ away: {...}, home: {...} }`, no
+    // team code anywhere in that object. Every DST score lookup elsewhere
+    // in this file correctly searches for the real team abbreviation
+    // (e.g. dst:SEA), so scores stored under the literal keys dst:HOME /
+    // dst:AWAY were never found by anything -- meaning DST scoring never
+    // actually worked for any team, not just the one team that happened
+    // to get noticed first. This lookup maps each game's home/away teamStats
+    // entry back to the real team code already known from the schedule.
+    const gameTeams = new Map(activeGames.map(g => [g.gameId, { home: g.home, away: g.away }]));
 
     const espnEvents = await fetchEspnKickerEvents(activeGames);
     for (const gameId of activeGameIds) {
@@ -270,17 +281,13 @@ export function useNFLLiveScores(
 
         // Team DST stats
         const teamStats = body.teamStats ?? {};
-        // TEMPORARY DIAGNOSTIC: reveal exactly what Tank01 actually returns
-        // for teamStats on this game, since Seattle's DST is showing 0
-        // points with no stat chips at all -- meaning dst:SEA was never
-        // written here in the first place. Remove once the cause is
-        // confirmed.
-        console.log(`[DST DEBUG] game ${gameId} teamStats keys:`, Object.keys(teamStats), "raw:", teamStats);
-        for (const [teamAbv, d] of Object.entries(teamStats) as [string, Record<string, string>][]) {
-          const normAbv = normalizeAbv(teamAbv);
+        const teams = gameTeams.get(gameId);
+        for (const [homeAway, d] of Object.entries(teamStats) as [string, Record<string, string>][]) {
+          const teamAbv = homeAway === "home" ? teams?.home : homeAway === "away" ? teams?.away : undefined;
+          if (!teamAbv) continue;
           const pts = calcDSTLive(d);
-          newScores[`dst:${normAbv}`] = pts;
-          newStats[`dst:${normAbv}`] = { Defense: d };
+          newScores[`dst:${teamAbv}`] = pts;
+          newStats[`dst:${teamAbv}`] = { Defense: d };
         }
       } catch (err) {
         console.warn(`Failed to fetch box score for game ${gameId}:`, err);
