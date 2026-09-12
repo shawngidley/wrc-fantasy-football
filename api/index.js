@@ -89516,6 +89516,15 @@ function resolveTeamStatsKey(homeAway, game) {
   if (homeAway === "away") return game.away ? teamCode(game.away) : void 0;
   return void 0;
 }
+function sacksFrom(stats) {
+  if (stats.sacks !== void 0) return n(stats.sacks);
+  const combined = stats.sacksAndYardsLost;
+  if (typeof combined === "string") {
+    const first = parseFloat(combined.split("-")[0]);
+    return isNaN(first) ? 0 : first;
+  }
+  return 0;
+}
 function playerPoints(stats, position) {
   const pass = stats.Passing ?? {};
   const rush = stats.Rushing ?? {};
@@ -89529,10 +89538,9 @@ function playerPoints(stats, position) {
   if (position === "K" || position === "PK") points += n(kick.xpMade) + n(kick.fgYds) * 0.1 - n(kick.fgMissed) * 2 - n(kick.xpMissed) * 2;
   return Math.round(Math.max(points, 0) * 10) / 10;
 }
-function defensePoints(stats) {
-  let points = n(stats.sacks) * 2 + n(stats.defensiveInterceptions) * 3 + n(stats.fumblesRecovered) * 3 + n(stats.defTD) * 6 + n(stats.returnTD) * 6 + n(stats.safeties) * 2 + n(stats.blockKick) * 2;
-  const allowed = n(stats.ptsAgainst);
-  points += allowed === 0 ? 10 : allowed <= 6 ? 7 : allowed <= 13 ? 4 : allowed <= 17 ? 1 : allowed <= 27 ? 0 : allowed <= 34 ? -1 : -4;
+function defensePoints(stats, opponentScore) {
+  let points = sacksFrom(stats) * 2 + n(stats.defensiveInterceptions) * 3 + n(stats.fumblesRecovered) * 3 + n(stats.defTD) * 6 + n(stats.returnTD) * 6 + n(stats.safeties) * 2 + n(stats.blockKick) * 2;
+  points += opponentScore === 0 ? 10 : opponentScore <= 6 ? 7 : opponentScore <= 13 ? 4 : opponentScore <= 17 ? 1 : opponentScore <= 27 ? 0 : opponentScore <= 34 ? -1 : -4;
   return Math.round(Math.max(points, 0) * 10) / 10;
 }
 function median(values) {
@@ -89569,7 +89577,8 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
     Object.entries(body.teamStats ?? {}).forEach(([homeAway, stats]) => {
       const teamAbv = resolveTeamStatsKey(homeAway, game);
       if (!teamAbv) return;
-      dstScores[teamAbv] = defensePoints(stats);
+      const opponentScore = homeAway === "home" ? n(body.awayPts) : n(body.homePts);
+      dstScores[teamAbv] = defensePoints(stats, opponentScore);
     });
   }
   const playerMeta = new Map((players ?? []).map((player) => [String(player.name).toLowerCase(), { position: String(player.position), nflTeam: String(player.nfl_team) }]));

@@ -22,6 +22,24 @@ export function resolveTeamStatsKey(homeAway: string, game: { home?: string; awa
   return undefined;
 }
 
+/**
+ * Tank01's team defense stats have no plain "sacks" field -- confirmed
+ * live: the actual field is "sacksAndYardsLost", a combined string like
+ * "3-10" (3 sacks for 10 yards). n(stats.sacks) always silently returned
+ * 0 regardless of the real sack count, since that field simply doesn't
+ * exist under that name. Prefers a plain "sacks" field if one is ever
+ * present, for robustness against a different response shape.
+ */
+export function sacksFrom(stats: Record<string, unknown>): number {
+  if (stats.sacks !== undefined) return n(stats.sacks);
+  const combined = stats.sacksAndYardsLost;
+  if (typeof combined === "string") {
+    const first = parseFloat(combined.split("-")[0]);
+    return isNaN(first) ? 0 : first;
+  }
+  return 0;
+}
+
 function playerPoints(stats: Record<string, unknown>, position: string) {
   const pass = (stats.Passing as Record<string, unknown>) ?? {};
   const rush = (stats.Rushing as Record<string, unknown>) ?? {};
@@ -36,10 +54,9 @@ function playerPoints(stats: Record<string, unknown>, position: string) {
   return Math.round(Math.max(points, 0) * 10) / 10;
 }
 
-function defensePoints(stats: Record<string, unknown>) {
-  let points = n(stats.sacks) * 2 + n(stats.defensiveInterceptions) * 3 + n(stats.fumblesRecovered) * 3 + n(stats.defTD) * 6 + n(stats.returnTD) * 6 + n(stats.safeties) * 2 + n(stats.blockKick) * 2;
-  const allowed = n(stats.ptsAgainst);
-  points += allowed === 0 ? 10 : allowed <= 6 ? 7 : allowed <= 13 ? 4 : allowed <= 17 ? 1 : allowed <= 27 ? 0 : allowed <= 34 ? -1 : -4;
+export function defensePoints(stats: Record<string, unknown>, opponentScore: number) {
+  let points = sacksFrom(stats) * 2 + n(stats.defensiveInterceptions) * 3 + n(stats.fumblesRecovered) * 3 + n(stats.defTD) * 6 + n(stats.returnTD) * 6 + n(stats.safeties) * 2 + n(stats.blockKick) * 2;
+  points += opponentScore === 0 ? 10 : opponentScore <= 6 ? 7 : opponentScore <= 13 ? 4 : opponentScore <= 17 ? 1 : opponentScore <= 27 ? 0 : opponentScore <= 34 ? -1 : -4;
   return Math.round(Math.max(points, 0) * 10) / 10;
 }
 
@@ -85,7 +102,8 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
     Object.entries(body.teamStats ?? {}).forEach(([homeAway, stats]) => {
       const teamAbv = resolveTeamStatsKey(homeAway, game);
       if (!teamAbv) return;
-      dstScores[teamAbv] = defensePoints(stats as Record<string, unknown>);
+      const opponentScore = homeAway === "home" ? n(body.awayPts) : n(body.homePts);
+      dstScores[teamAbv] = defensePoints(stats as Record<string, unknown>, opponentScore);
     });
   }
 

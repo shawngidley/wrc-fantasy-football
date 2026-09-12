@@ -65,6 +65,7 @@ export interface Tank01Stats {
   };
   Defense?: {
     sacks?: string | number;
+    sacksAndYardsLost?: string;
     defensiveInterceptions?: string | number;
     fumblesRecovered?: string | number;
     defTD?: string | number;
@@ -88,6 +89,25 @@ function n(v: string | number | undefined): number {
   if (v === undefined || v === null) return 0;
   const parsed = typeof v === "string" ? parseFloat(v) : v;
   return isNaN(parsed) ? 0 : parsed;
+}
+
+/**
+ * Tank01's team defense stats don't include a plain "sacks" number --
+ * confirmed live: the actual field is "sacksAndYardsLost", a combined
+ * string like "3-10" (3 sacks for 10 yards). Looking for d.sacks
+ * directly always silently returned 0 regardless of the real sack
+ * count, since that field simply doesn't exist under that name.
+ * Prefers a plain "sacks" field if one is ever present, for robustness
+ * against a different response shape.
+ */
+function sacksFrom(d: { sacks?: string | number; sacksAndYardsLost?: string }): number {
+  if (d.sacks !== undefined) return n(d.sacks);
+  const combined = d.sacksAndYardsLost;
+  if (typeof combined === "string") {
+    const first = parseFloat(combined.split("-")[0]);
+    return isNaN(first) ? 0 : first;
+  }
+  return 0;
 }
 
 export interface StatChipData {
@@ -168,7 +188,8 @@ export function buildStatChips(stats: Tank01Stats): StatChipData[] {
 export function calcFantasyPoints(
   stats: Tank01Stats,
   pos: string,
-  isTE = false
+  isTE = false,
+  opponentScore?: number
 ): number {
   let pts = 0;
   const teReception = pos === "TE" || isTE;
@@ -235,7 +256,7 @@ export function calcFantasyPoints(
   // ── DST ──────────────────────────────────────────────────────────────────
   if (pos === "DST" && stats.Defense) {
     const d = stats.Defense;
-    pts += n(d.sacks) * 2;
+    pts += sacksFrom(d) * 2;
     pts += n(d.defensiveInterceptions) * 3;
     pts += n(d.fumblesRecovered) * 3;
     const dstTouchdowns = d.defensiveOrSpecialTeamsTds !== undefined
@@ -243,6 +264,15 @@ export function calcFantasyPoints(
       : n(d.defTD) + n(d.returnTD);
     pts += dstTouchdowns * 6;
     pts += n(d.safeties) * 2;
+    // Points allowed: needs the OPPONENT's score, not a per-team stat --
+    // Tank01's teamStats has no ptsAgainst field at all. Only scored when
+    // the caller provides it (fetchBoxScores threads through
+    // body.homePts/awayPts, whichever belongs to the opponent), matching
+    // the server-side formula (server/weeklyResultsFinalize.ts) exactly
+    // so live and final DST scores agree on this category.
+    if (opponentScore !== undefined) {
+      pts += opponentScore === 0 ? 10 : opponentScore <= 6 ? 7 : opponentScore <= 13 ? 4 : opponentScore <= 17 ? 1 : opponentScore <= 27 ? 0 : opponentScore <= 34 ? -1 : -4;
+    }
     // Reset fumbles lost penalty for DST (doesn't apply)
     pts += fumblesLost * 3; // undo the offense fumble penalty applied above
   }
@@ -300,7 +330,7 @@ export function getStatLine(stats: Tank01Stats, pos: string): string {
     }
     case "DST": {
       const d = stats.Defense ?? {};
-      return `${n(d.sacks)} sacks, ${n(d.defensiveInterceptions)} INT, ${n(d.defTD)} TD`;
+      return `${sacksFrom(d)} sacks, ${n(d.defensiveInterceptions)} INT, ${n(d.defTD)} TD`;
     }
     default:
       return `${gp} games played`;
