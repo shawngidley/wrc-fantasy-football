@@ -270,6 +270,12 @@ export function useNFLLiveScores(
 
         // Team DST stats
         const teamStats = body.teamStats ?? {};
+        // TEMPORARY DIAGNOSTIC: reveal exactly what Tank01 actually returns
+        // for teamStats on this game, since Seattle's DST is showing 0
+        // points with no stat chips at all -- meaning dst:SEA was never
+        // written here in the first place. Remove once the cause is
+        // confirmed.
+        console.log(`[DST DEBUG] game ${gameId} teamStats keys:`, Object.keys(teamStats), "raw:", teamStats);
         for (const [teamAbv, d] of Object.entries(teamStats) as [string, Record<string, string>][]) {
           const normAbv = normalizeAbv(teamAbv);
           const pts = calcDSTLive(d);
