@@ -1402,7 +1402,7 @@ export default function LiveScoring() {
   const effectiveActiveId = activeId ?? (displayMatchups[0]?.id ?? 1);
   const activeMatchup = displayMatchups.find(m => m.id === effectiveActiveId) ?? displayMatchups[0];
 
-  // Compute league median for ticker
+  // Compute league median (used in the League Scoreboard display below)
   const allScores = displayMatchups.flatMap(m => [
     m.home.score > 0 ? m.home.score : null,
     m.away.score > 0 ? m.away.score : null,
@@ -1412,28 +1412,10 @@ export default function LiveScoring() {
   const median = sortedScores.length > 0
     ? (sortedScores.length % 2 === 0 ? (sortedScores[mid - 1] + sortedScores[mid]) / 2 : sortedScores[mid])
     : 0;
-  const aboveMedian = allScores.filter(s => s > median).length;
-
-  // Whether every team playing this week has a final game -- distinct from
-  // isPolling (which only tracks whether something is live right now), so
-  // a fully completed past week shows as final rather than incorrectly
-  // still saying "Pre-Game Projections."
-  const weekTeams = Object.keys(nflMatchupMap);
-  const weekIsComplete = weekTeams.length > 0 && weekTeams.every(team => nflGameStatus[team]?.state === "post");
-
-  const tickerMessages = [
-    isPolling
-      ? `🔴 LIVE — Week ${currentWeek} Scoring in Progress`
-      : weekIsComplete
-        ? `✅ Week ${currentWeek} — Final`
-        : `📅 Week ${currentWeek} — Pre-Game Projections`,
-    `📊 LEAGUE MEDIAN: ${median.toFixed(1)} pts — ${aboveMedian} teams above`,
-    isPolling ? "⚡ Live scores updating every 30 seconds from Tank01" : "📋 Lineups loaded from Supabase · Save your lineup to lock in starters",
-  ];
 
   return (
     <div className="bg-crowd bg-overlay" style={{ minHeight: "100vh" }}>
-      <Navigation showTicker={true} tickerMessages={tickerMessages} teamName={franchise?.team_name} />
+      <Navigation showTicker={false} teamName={franchise?.team_name} />
 
       {/* Matchup selector bar */}
       <div style={{
