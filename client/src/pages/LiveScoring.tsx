@@ -26,7 +26,7 @@ import { getEspnHeadshotUrl } from "@/lib/playerHeadshot";
 import { normalizePlayerName } from "@shared/playerNameMatch";
 import { buildDefaultStarters } from "@/lib/defaultLineup";
 import { useDraftPlayerUniverse } from "@/hooks/useDraftPlayerUniverse";
-import { formatKickerEvent, getKickerEventsForPlayer, type KickerPlayEvent } from "@/lib/espnKickerEvents";
+import { groupKickerEventsForDisplay, getKickerEventsForPlayer, type KickerPlayEvent } from "@/lib/espnKickerEvents";
 
 const REFRESH_SECONDS = 300;
 // Matches the same QB/RB/WR/TE/K/DST progression already used for
@@ -534,14 +534,14 @@ function PlayerCell({ player, side, injuries = {} }: { player: SlotPlayer | null
 
       {player.pos === "K" && player.kickerEvents && player.kickerEvents.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: "0.2rem", justifyContent: isHome ? "flex-start" : "flex-end" }}>
-          {player.kickerEvents.map((event, index) => (
-            <span key={`${event.text}-${index}`} style={{
+          {groupKickerEventsForDisplay(player.kickerEvents).map((chip) => (
+            <span key={chip.key} style={{
               fontSize: "0.58rem", fontWeight: 700, borderRadius: 3, padding: "1px 4px",
-              color: event.outcome === "made" ? "oklch(0.42 0.13 145)" : "oklch(0.5 0.18 25)",
-              background: event.outcome === "made" ? "oklch(0.96 0.04 145)" : "oklch(0.97 0.04 25)",
-              border: `1px solid ${event.outcome === "made" ? "oklch(0.85 0.06 145)" : "oklch(0.87 0.08 25)"}`,
+              color: chip.outcome === "made" ? "oklch(0.42 0.13 145)" : "oklch(0.5 0.18 25)",
+              background: chip.outcome === "made" ? "oklch(0.96 0.04 145)" : "oklch(0.97 0.04 25)",
+              border: `1px solid ${chip.outcome === "made" ? "oklch(0.85 0.06 145)" : "oklch(0.87 0.08 25)"}`,
             }}>
-              {formatKickerEvent(event)}
+              {chip.text}
             </span>
           ))}
         </div>

@@ -118,3 +118,37 @@ export function formatKickerEvent(event: KickerPlayEvent): string {
   const bonus = (event.yards ?? 0) >= 65 ? 2 : (event.yards ?? 0) >= 60 ? 1 : 0;
   return `${distance} FG made (+${((event.yards ?? 0) * 0.1 + bonus).toFixed(1)})`;
 }
+
+/**
+ * Groups multiple made-FG events into a single display chip listing all
+ * their yardages together (e.g. "20, 56 yd FG made (+7.6)") instead of a
+ * separate "X yd FG made" chip per kick -- less repetitive when a kicker
+ * has made more than one FG in a game. XP events and missed FGs stay as
+ * individual chips, one each, same as before.
+ */
+export function groupKickerEventsForDisplay(events: KickerPlayEvent[]): { key: string; text: string; outcome: "made" | "missed" }[] {
+  const madeFGs = events.filter(e => e.type === "fg" && e.outcome === "made");
+  const others = events.filter(e => !(e.type === "fg" && e.outcome === "made"));
+
+  const chips: { key: string; text: string; outcome: "made" | "missed" }[] = others.map((e, i) => ({
+    key: `${e.text}-${i}`,
+    text: formatKickerEvent(e),
+    outcome: e.outcome,
+  }));
+
+  if (madeFGs.length > 0) {
+    const yardages = madeFGs.map(e => e.yards ?? 0);
+    const totalPoints = madeFGs.reduce((sum, e) => {
+      const yards = e.yards ?? 0;
+      const bonus = yards >= 65 ? 2 : yards >= 60 ? 1 : 0;
+      return sum + yards * 0.1 + bonus;
+    }, 0);
+    chips.push({
+      key: "made-fgs-combined",
+      text: `${yardages.join(", ")} yd FG made (+${totalPoints.toFixed(1)})`,
+      outcome: "made",
+    });
+  }
+
+  return chips;
+}
