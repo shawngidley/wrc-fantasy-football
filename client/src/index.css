@@ -696,3 +696,36 @@
   .bracket-desktop { display: block !important; }
   .bracket-mobile { display: none !important; }
 }
+
+/* Player/Injury news rows (PlayerNewsRow.tsx) -- base sizes match the
+   original, mobile-tuned inline values; desktop gets meaningfully
+   larger text and a taller panel, per request. */
+.news-row-summary { padding: 0.55rem 1rem; gap: 0.6rem; }
+.news-row-date-col { width: 44px; }
+.news-row-date { font-size: 0.65rem; }
+.news-row-avatar { width: 36px; height: 36px; }
+.news-row-initials { font-size: 0.75rem; }
+.news-row-name { font-size: 0.82rem; }
+.news-row-flag { font-size: 0.7rem; }
+.news-row-meta { font-size: 0.65rem; }
+.news-row-source { font-size: 0.56rem; }
+.news-row-headline { font-size: 0.72rem; }
+.news-row-chevron { font-size: 1rem; }
+.news-row-details { margin: -0.1rem 1rem 0.7rem 6.2rem; font-size: 0.7rem; }
+.news-row-link { font-size: 0.68rem; }
+
+@media (min-width: 768px) {
+  .news-row-summary { padding: 0.9rem 1.5rem; gap: 0.9rem; }
+  .news-row-date-col { width: 64px; }
+  .news-row-date { font-size: 0.82rem; }
+  .news-row-avatar { width: 52px; height: 52px; }
+  .news-row-initials { font-size: 1rem; }
+  .news-row-name { font-size: 1.1rem; }
+  .news-row-flag { font-size: 0.95rem; }
+  .news-row-meta { font-size: 0.88rem; }
+  .news-row-source { font-size: 0.75rem; }
+  .news-row-headline { font-size: 0.98rem; }
+  .news-row-chevron { font-size: 1.3rem; }
+  .news-row-details { margin-left: 8.5rem; font-size: 0.95rem; }
+  .news-row-link { font-size: 0.9rem; }
+}

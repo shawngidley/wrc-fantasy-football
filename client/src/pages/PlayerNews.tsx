@@ -61,7 +61,7 @@ export default function PlayerNews() {
   const [loading, setLoading] = useState(true);
   const [myTeamOnly, setMyTeamOnly] = useState(false);
   const [posFilter, setPosFilter] = useState<string>("ALL");
-  const [sourceFilter, setSourceFilter] = useState<NewsSourceFilter>("TANK01");
+  const [sourceFilter, setSourceFilter] = useState<NewsSourceFilter>("ALL");
   const [myPlayers, setMyPlayers] = useState<{ name: string; pos: string; nflTeam: string }[]>([]);
   const newsRequestId = useRef(0);
   const lastSuccessfulFantasyProsItems = useRef<PlayerNewsItem[]>([]);
@@ -320,9 +320,9 @@ export default function PlayerNews() {
             onChange={event => setSourceFilter(event.target.value as NewsSourceFilter)}
             style={{ flex: 1, maxWidth: 240, minHeight: 38, borderRadius: 10, border: "1.5px solid oklch(0.82 0.04 150)", background: "white", color: "oklch(0.28 0.06 150)", padding: "0.35rem 0.65rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", fontWeight: 700, letterSpacing: "0.03em" }}
           >
+            <option value="ALL">All News</option>
             <option value="FANTASYPROS">FantasyPros</option>
             <option value="TANK01">Tank01</option>
-            <option value="ALL">All News</option>
           </select>
         </div>
 

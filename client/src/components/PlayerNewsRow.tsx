@@ -60,38 +60,38 @@ export function PlayerNewsRow({ item, isFirst = false, showDetails = false }: { 
       className="wrc-row-hover news-disclosure"
       style={{ borderTop: isFirst ? "none" : "1px solid oklch(0.93 0.005 150)", transition: "background 0.12s" }}
     >
-      <summary style={{ padding: "0.55rem 1rem", display: "flex", alignItems: "flex-start", gap: "0.6rem", cursor: "pointer", listStyle: "none" }}>
-        <div style={{ flexShrink: 0, width: 44, paddingTop: 2 }}>
-          <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 600, color: "oklch(0.55 0.04 150)", whiteSpace: "nowrap" }}>{formatDate(item.published)}</span>
+      <summary className="news-row-summary" style={{ display: "flex", alignItems: "flex-start", cursor: "pointer", listStyle: "none" }}>
+        <div className="news-row-date-col" style={{ flexShrink: 0, paddingTop: 2 }}>
+          <span className="news-row-date" style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600, color: "oklch(0.55 0.04 150)", whiteSpace: "nowrap" }}>{formatDate(item.published)}</span>
         </div>
 
-        <div style={{ flexShrink: 0, width: 36, height: 36, borderRadius: "50%", overflow: "hidden", background: "oklch(0.93 0.02 150)", border: "1.5px solid oklch(0.88 0.03 150)" }}>
+        <div className="news-row-avatar" style={{ flexShrink: 0, borderRadius: "50%", overflow: "hidden", background: "oklch(0.93 0.02 150)", border: "1.5px solid oklch(0.88 0.03 150)" }}>
           {headshotUrl && !headshotFailed ? (
             <img src={headshotUrl} alt={item.playerName} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={() => setHeadshotFailed(true)} />
           ) : (
-            <div style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem", fontWeight: 800, color: "oklch(0.45 0.06 150)" }}>{initials}</div>
+            <div className="news-row-initials" style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, color: "oklch(0.45 0.06 150)" }}>{initials}</div>
           )}
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", marginBottom: "0.15rem", flexWrap: "wrap" }}>
-            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: 800, color: "oklch(0.38 0.18 240)", letterSpacing: "0.01em" }}>{displayName}</span>
-            {item.isInjury && <span style={{ fontSize: "0.7rem" }}>🚩</span>}
-            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 600, color: "oklch(0.5 0.04 150)" }}>{item.pos}· {item.nflTeam}</span>
-            {item.source && <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.56rem", fontWeight: 800, color: item.source === "FantasyPros" ? "oklch(0.5 0.16 85)" : "oklch(0.5 0.04 150)", letterSpacing: "0.03em" }}>{item.source === "FantasyPros" ? "FP" : item.source}</span>}
+            <span className="news-row-name" style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, color: "oklch(0.38 0.18 240)", letterSpacing: "0.01em" }}>{displayName}</span>
+            {item.isInjury && <span className="news-row-flag">🚩</span>}
+            <span className="news-row-meta" style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600, color: "oklch(0.5 0.04 150)" }}>{item.pos}· {item.nflTeam}</span>
+            {item.source && <span className="news-row-source" style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, color: item.source === "FantasyPros" ? "oklch(0.5 0.16 85)" : "oklch(0.5 0.04 150)", letterSpacing: "0.03em" }}>{item.source === "FantasyPros" ? "FP" : item.source}</span>}
           </div>
-          <div style={{ fontSize: "0.72rem", color: "oklch(0.35 0.04 150)", lineHeight: 1.45, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%", textDecoration: "underline", textDecorationColor: "oklch(0.65 0.06 240)" }}>{item.headline}</div>
+          <div className="news-row-headline" style={{ color: "oklch(0.35 0.04 150)", lineHeight: 1.45, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%", textDecoration: "underline", textDecorationColor: "oklch(0.65 0.06 240)" }}>{item.headline}</div>
         </div>
 
-        <span aria-hidden="true" className="news-disclosure-icon" style={{ flexShrink: 0, marginTop: 1, color: "oklch(0.6 0.04 150)", fontSize: "1rem", lineHeight: 1 }}>⌄</span>
+        <span aria-hidden="true" className="news-disclosure-icon news-row-chevron" style={{ flexShrink: 0, marginTop: 1, color: "oklch(0.6 0.04 150)", lineHeight: 1 }}>⌄</span>
       </summary>
 
-      <div id={detailsId} style={{ margin: "-0.1rem 1rem 0.7rem 6.2rem", fontSize: "0.7rem", color: "oklch(0.45 0.04 150)", lineHeight: 1.5 }}>
+      <div id={detailsId} className="news-row-details" style={{ color: "oklch(0.45 0.04 150)", lineHeight: 1.5 }}>
         {item.description || "No written summary is available from this news source for this headline."}
         {item.url ? (
-          <a href={item.url} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", marginTop: "0.35rem", fontSize: "0.68rem", color: "oklch(0.42 0.18 240)", fontWeight: 700, textDecoration: "none", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.03em" }}>Read full article →</a>
+          <a href={item.url} target="_blank" rel="noopener noreferrer" className="news-row-link" style={{ display: "inline-block", marginTop: "0.35rem", color: "oklch(0.42 0.18 240)", fontWeight: 700, textDecoration: "none", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.03em" }}>Read full article →</a>
         ) : (
-          <Link href={`/player/${playerSlug}`} style={{ display: "inline-block", marginTop: "0.35rem", fontSize: "0.68rem", color: "oklch(0.42 0.18 240)", fontWeight: 700, textDecoration: "none", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.03em" }}>Open player card →</Link>
+          <Link href={`/player/${playerSlug}`} className="news-row-link" style={{ display: "inline-block", marginTop: "0.35rem", color: "oklch(0.42 0.18 240)", fontWeight: 700, textDecoration: "none", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.03em" }}>Open player card →</Link>
         )}
       </div>
     </details>
