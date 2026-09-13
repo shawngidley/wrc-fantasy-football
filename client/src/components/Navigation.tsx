@@ -194,7 +194,7 @@ function MobileNavList({ location, setMobileOpen }: { location: string; setMobil
 }
 
 interface NavigationProps {
-  tickerMessages?: string[];
+  tickerMessages?: (string | React.ReactNode)[];
   showTicker?: boolean;
   teamName?: string;
 }
@@ -215,7 +215,20 @@ export default function Navigation({
     "🏈 WRC FANTASY FOOTBALL 2026",
   ];
   const messages = tickerMessages.length > 0 ? tickerMessages : defaultTicker;
-  const tickerText = messages.join("   •   ");
+  // Each message can be a plain string or a full React node (e.g. a
+  // sequence of text and inline team logo <img> tags) -- rendered as a
+  // sequence of elements with a "   •   " separator between them, rather
+  // than joined into a single string, since a node can't be joined that way.
+  const tickerContent = (
+    <>
+      {messages.map((msg, i) => (
+        <span key={i}>
+          {i > 0 && "   •   "}
+          {msg}
+        </span>
+      ))}
+    </>
+  );
 
   return (
     <>
@@ -329,7 +342,7 @@ export default function Navigation({
       {showTicker && (
         <div className="wrc-ticker">
           <span className="wrc-ticker-inner">
-            {tickerText}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{tickerText}
+            {tickerContent}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{tickerContent}
           </span>
         </div>
       )}

@@ -896,6 +896,8 @@ export const appRouter = router({
           outcome = myScore > oppScore ? "won" : "lost";
         }
         return {
+          teamId: row.team_id,
+          opponentTeamId: row.opponent_team_id,
           teamName: nameById.get(row.team_id) ?? row.team_id,
           opponentName: nameById.get(row.opponent_team_id) ?? row.opponent_team_id,
           week: row.week,

@@ -127,6 +127,40 @@ function StreakBadge({ streak }: { streak: string }) {
 
 // ── Matchup Widget ────────────────────────────────────────────────────────────
 
+/**
+ * Renders one rivalry game's ticker content -- team logos inline with the
+ * team names, showing a live score once either team has started scoring
+ * (a simple, reasonable proxy for "the matchup is underway," since a
+ * fantasy matchup spans many individual NFL games rather than one), or
+ * just the matchup announcement before that.
+ *
+ * A standalone component (not inline logic in a loop) specifically so
+ * useOwnerMatchupScore can be called once per rivalry game safely --
+ * there can be more than one rivalry game declared in the same week
+ * (each owner declares independently), and hooks can't be called in a
+ * loop within a single component, but multiple separate component
+ * instances each calling the same hook once is perfectly fine.
+ */
+function RivalryTickerMessage({ teamId, opponentTeamId, teamName, opponentName, week }: {
+  teamId: string; opponentTeamId: string; teamName: string; opponentName: string; week: number;
+}) {
+  const { myScore, oppScore } = useOwnerMatchupScore(teamId, opponentTeamId, week);
+  const isLive = myScore > 0 || oppScore > 0;
+  const logoStyle: React.CSSProperties = { display: "inline-block", verticalAlign: "middle", margin: "0 0.3em" };
+  return (
+    <>
+      {isLive ? "🔥 RIVALRY GAME LIVE: " : "🔥 RIVALRY GAME THIS WEEK: "}
+      <TeamLogo teamName={teamName} size={20} round style={logoStyle} />
+      {teamName}
+      {isLive && ` ${myScore.toFixed(1)}`}
+      {" vs "}
+      <TeamLogo teamName={opponentName} size={20} round style={logoStyle} />
+      {opponentName}
+      {isLive && ` ${oppScore.toFixed(1)}`}
+    </>
+  );
+}
+
 function MatchupWidget({ ownerKey, standings }: { ownerKey: string; standings: DbStanding[] }) {
   const currentWeek = getCurrentWeek();
   const weekData = SCHEDULE_2026.find(w => w.week === currentWeek);
@@ -486,11 +520,26 @@ export default function Standings() {
   // Derive the schedule owner key from franchise owner name
   const ownerKey = franchise?.owner ?? null;
 
-  const tickerMessages = [
-    "🏈 2026 WRC FANTASY FOOTBALL — Season kicks off September 9th!",
-    "🏆 PLAYOFF PICTURE: Top 6 teams qualify — Division winners + 3 Wild Cards",
-    "📅 REGULAR SEASON — 14 weeks across 3 divisions, Sept. 9 – Dec. 15",
-  ];
+  const currentWeek = getCurrentWeek();
+  const allRivalryGamesQuery = trpc.league.allRivalryGames.useQuery();
+  const rivalryGamesThisWeek = (allRivalryGamesQuery.data ?? []).filter(g => g.week === currentWeek && !g.resolved);
+
+  const tickerMessages = rivalryGamesThisWeek.length > 0
+    ? rivalryGamesThisWeek.map(g => (
+        <RivalryTickerMessage
+          key={`${g.teamId}-${g.opponentTeamId}`}
+          teamId={g.teamId}
+          opponentTeamId={g.opponentTeamId}
+          teamName={g.teamName}
+          opponentName={g.opponentName}
+          week={g.week}
+        />
+      ))
+    : [
+        "🏈 2026 WRC FANTASY FOOTBALL — Season kicks off September 9th!",
+        "🏆 PLAYOFF PICTURE: Top 6 teams qualify — Division winners + 3 Wild Cards",
+        "📅 REGULAR SEASON — 14 weeks across 3 divisions, Sept. 9 – Dec. 15",
+      ];
 
   // Compact table styles (smaller font for mobile)
   const TH_COMPACT: React.CSSProperties = {
