@@ -113,6 +113,7 @@ function sacksFrom(d: { sacks?: string | number; sacksAndYardsLost?: string }): 
 export interface StatChipData {
   label: string;
   value: string | number;
+  negative?: boolean;
 }
 
 /**
@@ -134,7 +135,7 @@ export function buildStatChips(stats: Tank01Stats): StatChipData[] {
   if (passYds > 0 || passTD > 0 || passInt > 0) {
     chips.push({ label: "YDS", value: passYds });
     if (passTD > 0) chips.push({ label: "TD", value: passTD });
-    if (passInt > 0) chips.push({ label: "INT", value: passInt });
+    if (passInt > 0) chips.push({ label: "INT", value: passInt, negative: true });
   }
 
   const rushYds = n(stats.Rushing?.rushYds);
@@ -153,6 +154,12 @@ export function buildStatChips(stats: Tank01Stats): StatChipData[] {
     chips.push({ label: "YDS", value: recYds });
     if (recTD > 0) chips.push({ label: "TD", value: recTD });
   }
+
+  // Fumbles lost by the offensive player -- previously not shown as a
+  // chip at all, despite costing points the same way a thrown
+  // interception does.
+  const fumblesLost = n(stats.Fumbles?.fumblesLost);
+  if (fumblesLost > 0) chips.push({ label: "FUM", value: fumblesLost, negative: true });
 
   const fgMade = stats.Kicking?.fgMade;
   const fgAttempts = stats.Kicking?.fgAttempts;

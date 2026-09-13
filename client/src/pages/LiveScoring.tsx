@@ -37,7 +37,7 @@ const REFRESH_SECONDS = 300;
 const BENCH_POSITION_ORDER: Record<string, number> = { QB: 0, RB: 1, WR: 2, TE: 3, K: 4, DST: 5 };
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-type StatChip = { label: string; value: string | number };
+type StatChip = { label: string; value: string | number; negative?: boolean };
 
 type SlotPlayer = {
   name: string;          // "D. Prescott" (abbreviated first name)
@@ -405,18 +405,18 @@ function PlayerAvatar({ name, pos, size = 36 }: { name: string; pos: string; siz
 }
 
 // ── Stat chip ─────────────────────────────────────────────────────────────────
-function Chip({ label, value }: StatChip) {
+function Chip({ label, value, negative }: StatChip) {
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", gap: 3,
-      background: "oklch(0.93 0.01 150)",
-      border: "1px solid oklch(0.87 0.02 150)",
+      background: negative ? "oklch(0.97 0.04 25)" : "oklch(0.93 0.01 150)",
+      border: `1px solid ${negative ? "oklch(0.87 0.08 25)" : "oklch(0.87 0.02 150)"}`,
       borderRadius: 4, padding: "1px 5px",
       fontSize: "0.62rem", fontFamily: "Barlow Condensed, sans-serif",
       letterSpacing: "0.04em",
     }}>
-      <span style={{ color: "oklch(0.55 0.04 150)", fontWeight: 600 }}>{label}</span>
-      <span style={{ color: "oklch(0.22 0.06 150)", fontWeight: 700 }}>{value}</span>
+      <span style={{ color: negative ? "oklch(0.5 0.18 25)" : "oklch(0.55 0.04 150)", fontWeight: 600 }}>{label}</span>
+      <span style={{ color: negative ? "oklch(0.5 0.18 25)" : "oklch(0.22 0.06 150)", fontWeight: 700 }}>{value}</span>
     </span>
   );
 }
@@ -537,9 +537,9 @@ function PlayerCell({ player, side, injuries = {} }: { player: SlotPlayer | null
           {groupKickerEventsForDisplay(player.kickerEvents).map((chip) => (
             <span key={chip.key} style={{
               fontSize: "0.58rem", fontWeight: 700, borderRadius: 3, padding: "1px 4px",
-              color: chip.outcome === "made" ? "oklch(0.42 0.13 145)" : "oklch(0.5 0.18 25)",
-              background: chip.outcome === "made" ? "oklch(0.96 0.04 145)" : "oklch(0.97 0.04 25)",
-              border: `1px solid ${chip.outcome === "made" ? "oklch(0.85 0.06 145)" : "oklch(0.87 0.08 25)"}`,
+              color: chip.outcome === "made" ? "oklch(0.42 0.13 145)" : chip.outcome === "neutral" ? "oklch(0.55 0.04 150)" : "oklch(0.5 0.18 25)",
+              background: chip.outcome === "made" ? "oklch(0.96 0.04 145)" : chip.outcome === "neutral" ? "oklch(0.93 0.01 150)" : "oklch(0.97 0.04 25)",
+              border: `1px solid ${chip.outcome === "made" ? "oklch(0.85 0.06 145)" : chip.outcome === "neutral" ? "oklch(0.87 0.02 150)" : "oklch(0.87 0.08 25)"}`,
             }}>
               {chip.text}
             </span>

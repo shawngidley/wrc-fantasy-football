@@ -64,7 +64,7 @@ describe("buildStatChips", () => {
     expect(buildStatChips({ Passing: { passYds: "180", passTD: "1", int: "2" } })).toEqual([
       { label: "YDS", value: 180 },
       { label: "TD", value: 1 },
-      { label: "INT", value: 2 },
+      { label: "INT", value: 2, negative: true },
     ]);
   });
 
@@ -148,5 +148,38 @@ describe("DST has no points-allowed category (confirmed with commissioner)", () 
     // parameter or opponent-score input affects this at all anymore.
     const points = calcFantasyPoints({ Defense: { safeties: 1 } }, "DST");
     expect(points).toBe(2); // just the safety
+  });
+});
+
+describe("buildStatChips negative-event flagging", () => {
+  it("marks a thrown interception (offensive) as negative", () => {
+    const chips = buildStatChips({ Passing: { passYds: 250, passTD: 2, int: 1 } });
+    const intChip = chips.find(c => c.label === "INT");
+    expect(intChip?.negative).toBe(true);
+  });
+
+  it("does NOT mark a defensive interception (DST) as negative -- it's a positive event", () => {
+    const chips = buildStatChips({ Defense: { defensiveInterceptions: 1 } });
+    const intChip = chips.find(c => c.label === "INT");
+    expect(intChip?.negative).toBeFalsy();
+  });
+
+  it("shows a FUM chip (previously missing entirely) for an offensive fumble lost, marked negative", () => {
+    const chips = buildStatChips({ Fumbles: { fumblesLost: 1 } });
+    const fumChip = chips.find(c => c.label === "FUM");
+    expect(fumChip).toBeDefined();
+    expect(fumChip?.value).toBe(1);
+    expect(fumChip?.negative).toBe(true);
+  });
+
+  it("does NOT mark a defensive fumble recovery (FR) as negative -- it's a positive event for DST", () => {
+    const chips = buildStatChips({ Defense: { fumblesRecovered: 1 } });
+    const frChip = chips.find(c => c.label === "FR");
+    expect(frChip?.negative).toBeFalsy();
+  });
+
+  it("does not show a FUM chip at all when there's no fumble lost", () => {
+    const chips = buildStatChips({ Rushing: { rushYds: 50, carries: 10 } });
+    expect(chips.find(c => c.label === "FUM")).toBeUndefined();
   });
 });

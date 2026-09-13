@@ -64,6 +64,24 @@ describe("calculateWrcKickerPoints with rawStats (XP scoring)", () => {
 });
 
 describe("groupKickerEventsForDisplay", () => {
+  it("styles a missed FG over 49 yards as neutral, not 'missed' (red) -- it costs no points", () => {
+    const events = [
+      { playerName: "K", type: "fg" as const, outcome: "missed" as const, yards: 55, text: "" },
+    ];
+    const chips = groupKickerEventsForDisplay(events);
+    expect(chips[0].outcome).toBe("neutral");
+    expect(chips[0].text).toBe("55 yd FG missed"); // no point penalty shown either
+  });
+
+  it("still styles a missed FG of 49 yards or less as 'missed' (red) -- it does cost points", () => {
+    const events = [
+      { playerName: "K", type: "fg" as const, outcome: "missed" as const, yards: 45, text: "" },
+    ];
+    const chips = groupKickerEventsForDisplay(events);
+    expect(chips[0].outcome).toBe("missed");
+    expect(chips[0].text).toBe("45 yd FG missed (-2)");
+  });
+
   it("combines multiple made FGs into one chip listing all yardages and their total points", () => {
     // Exact scenario from the E. Pineiro screenshot: 20yd made, 56yd
     // made, 52yd missed (not penalized since >49yd), 3/3 XP made.

@@ -126,14 +126,17 @@ export function formatKickerEvent(event: KickerPlayEvent): string {
  * has made more than one FG in a game. XP events and missed FGs stay as
  * individual chips, one each, same as before.
  */
-export function groupKickerEventsForDisplay(events: KickerPlayEvent[]): { key: string; text: string; outcome: "made" | "missed" }[] {
+export function groupKickerEventsForDisplay(events: KickerPlayEvent[]): { key: string; text: string; outcome: "made" | "missed" | "neutral" }[] {
   const madeFGs = events.filter(e => e.type === "fg" && e.outcome === "made");
   const others = events.filter(e => !(e.type === "fg" && e.outcome === "made"));
 
-  const chips: { key: string; text: string; outcome: "made" | "missed" }[] = others.map((e, i) => ({
+  const chips: { key: string; text: string; outcome: "made" | "missed" | "neutral" }[] = others.map((e, i) => ({
     key: `${e.text}-${i}`,
     text: formatKickerEvent(e),
-    outcome: e.outcome,
+    // A missed FG over 49 yards costs no points at all, so it isn't
+    // styled as a negative (red) event -- only a miss that actually
+    // costs points (49 yards or less) is.
+    outcome: e.type === "fg" && e.outcome === "missed" && (e.yards ?? 0) > 49 ? "neutral" : e.outcome,
   }));
 
   if (madeFGs.length > 0) {
