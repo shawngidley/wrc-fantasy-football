@@ -945,6 +945,27 @@ function abbrevName(full: string): string {
   return `${parts[0][0]}. ${parts.slice(1).join(" ")}`;
 }
 
+// Short-form DST display names, matching the convention already
+// established in wrcData.ts (multi-word city names shortened to their
+// initials -- NE, LA, NY, KC, SF, TB, GB, LV, NO -- single-word cities
+// left as-is). Keyed by the normalized team code, since that field is
+// already reliably correct, rather than trying to parse/rewrite
+// whatever full name string a given roster entry happens to store.
+const DST_DISPLAY_NAMES: Record<string, string> = {
+  ARI: "Arizona Cardinals", ATL: "Atlanta Falcons", BAL: "Baltimore Ravens", BUF: "Buffalo Bills",
+  CAR: "Carolina Panthers", CHI: "Chicago Bears", CIN: "Cincinnati Bengals", CLE: "Cleveland Browns",
+  DAL: "Dallas Cowboys", DEN: "Denver Broncos", DET: "Detroit Lions", GB: "GB Packers",
+  HOU: "Houston Texans", IND: "Indianapolis Colts", JAC: "Jacksonville Jaguars", KC: "KC Chiefs",
+  LAC: "LA Chargers", LAR: "LA Rams", LV: "LV Raiders", MIA: "Miami Dolphins",
+  MIN: "Minnesota Vikings", NE: "NE Patriots", NO: "NO Saints", NYG: "NY Giants",
+  NYJ: "NY Jets", PHI: "Philadelphia Eagles", PIT: "Pittsburgh Steelers", SEA: "Seattle Seahawks",
+  SF: "SF 49ers", TB: "TB Buccaneers", TEN: "Tennessee Titans", WSH: "Washington Commanders",
+};
+export function displayName(fullName: string, position: string, nflTeam: string): string {
+  if (position === "DST") return DST_DISPLAY_NAMES[normalizeNFLTeam(nflTeam)] ?? fullName;
+  return abbrevName(fullName);
+}
+
 type DbPlayer = {
   id: string;
   name: string;
@@ -992,7 +1013,7 @@ function makeSlotPlayer(
   const rawStats = getLiveStats(liveStats, player.name, player.position, player.nfl_team ?? "");
   const stats = rawStats ? buildStatChips(rawStats) : [];
   return {
-    name: abbrevName(player.name),
+    name: displayName(player.name, player.position, player.nfl_team ?? ""),
     fullName: player.name,
     pos: player.position,
     nflTeam: player.nfl_team,
