@@ -88959,6 +88959,45 @@ async function hasPlayerTeamGameStarted(nflTeam, week2, season) {
   return hasGameStarted(game);
 }
 
+// shared/freeAgentCutRestriction.ts
+function etDateAt9am(year2, month, day2) {
+  const guess = new Date(Date.UTC(year2, month - 1, day2, 13, 0, 0));
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "numeric",
+    hour12: false
+  }).formatToParts(guess);
+  const observedHour = Number(parts.find((p) => p.type === "hour")?.value ?? 9);
+  const hourDiff = observedHour - 9;
+  return new Date(guess.getTime() - hourDiff * 60 * 60 * 1e3);
+}
+function getFreeAgentEligibleDate(droppedAt) {
+  const minEligibleTime = new Date(droppedAt.getTime() + 48 * 60 * 60 * 1e3);
+  for (let dayOffset = 0; dayOffset <= 8; dayOffset++) {
+    const candidateDay = new Date(minEligibleTime.getTime() + dayOffset * 24 * 60 * 60 * 1e3);
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      weekday: "short",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }).formatToParts(candidateDay);
+    const weekday = parts.find((p) => p.type === "weekday")?.value;
+    if (weekday !== "Sun" && weekday !== "Tue") continue;
+    const year2 = Number(parts.find((p) => p.type === "year")?.value);
+    const month = Number(parts.find((p) => p.type === "month")?.value);
+    const day2 = Number(parts.find((p) => p.type === "day")?.value);
+    const boundary = etDateAt9am(year2, month, day2);
+    if (boundary.getTime() >= minEligibleTime.getTime()) return boundary;
+  }
+  return minEligibleTime;
+}
+function isEligibleAfterCut(droppedAt, now = /* @__PURE__ */ new Date()) {
+  if (!droppedAt) return true;
+  const dropDate = typeof droppedAt === "string" ? new Date(droppedAt) : droppedAt;
+  return now.getTime() >= getFreeAgentEligibleDate(dropDate).getTime();
+}
+
 // server/faabMarketState.ts
 function getFreeAgentMarketState(now = /* @__PURE__ */ new Date()) {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -98419,10 +98458,13 @@ var appRouter = router({
       const [{ data: team, error: teamError }, { data: roster, error: rosterError }, { data: targetPlayer, error: targetPlayerError }, { data: pendingBids, error: pendingBidsError }] = await Promise.all([
         supabaseAdmin.from("teams").select("name, faab").eq("id", teamId).single(),
         supabaseAdmin.from("players").select("id").eq("team_id", teamId),
-        supabaseAdmin.from("players").select("team_id").eq("name", input2.playerName).maybeSingle(),
+        supabaseAdmin.from("players").select("team_id, dropped_at").eq("name", input2.playerName).maybeSingle(),
         supabaseAdmin.from("faab_bids").select("bid_amount, player_name").eq("team_id", teamId).eq("status", "pending")
       ]);
       if (teamError || !team || rosterError || targetPlayerError || pendingBidsError) throw new Error("Unable to validate this FAAB bid");
+      if (!isEligibleAfterCut(targetPlayer?.dropped_at ?? null)) {
+        throw new Error(`${input2.playerName} was recently dropped and isn't eligible to be picked up yet.`);
+      }
       const faab = Number(team.faab ?? 0);
       const committedElsewhere = (pendingBids ?? []).reduce((sum, bid) => sum + Number(bid.bid_amount ?? 0), 0);
       const trueAvailable = faab - committedElsewhere;
@@ -98478,9 +98520,12 @@ var appRouter = router({
       const [{ data: team, error: teamError }, { data: roster, error: rosterError }, { data: existingPlayer, error: existingPlayerError }] = await Promise.all([
         supabaseAdmin.from("teams").select("name").eq("id", teamId).single(),
         supabaseAdmin.from("players").select("id").eq("team_id", teamId),
-        supabaseAdmin.from("players").select("id, team_id").eq("name", input2.playerName).maybeSingle()
+        supabaseAdmin.from("players").select("id, team_id, dropped_at").eq("name", input2.playerName).maybeSingle()
       ]);
       if (teamError || !team || rosterError || existingPlayerError) throw new Error("Unable to validate this add");
+      if (!isEligibleAfterCut(existingPlayer?.dropped_at ?? null)) {
+        throw new Error(`${input2.playerName} was recently dropped and isn't eligible to be picked up yet.`);
+      }
       if ((roster?.length ?? 0) >= 18 && !input2.dropPlayerId) throw new Error("Select a player to drop before adding with a full roster.");
       let dropPlayer = null;
       if (input2.dropPlayerId) {
@@ -98505,7 +98550,7 @@ var appRouter = router({
         if (insertError) throw new Error("This player was just added by another team. Please pick someone else.");
       }
       if (dropPlayer) {
-        const { error: dropError } = await supabaseAdmin.from("players").update({ team_id: null, acquisition: "FA" }).eq("id", dropPlayer.id).eq("team_id", teamId);
+        const { error: dropError } = await supabaseAdmin.from("players").update({ team_id: null, acquisition: "FA", dropped_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", dropPlayer.id).eq("team_id", teamId);
         if (dropError) throw new Error("Unable to drop the selected player");
       }
       const moves = [{
@@ -98555,6 +98600,8 @@ var appRouter = router({
           outcome = myScore > oppScore ? "won" : "lost";
         }
         return {
+          teamId: row.team_id,
+          opponentTeamId: row.opponent_team_id,
           teamName: nameById.get(row.team_id) ?? row.team_id,
           opponentName: nameById.get(row.opponent_team_id) ?? row.opponent_team_id,
           week: row.week,
@@ -98663,7 +98710,7 @@ var appRouter = router({
       const { error: addError } = await supabaseAdmin.from("players").update({ team_id: bid.team_id, acquisition: "FA" }).eq("name", bid.player_name);
       if (addError) throw new Error("Unable to add the awarded player to the roster");
       if (bid.drop_player_id) {
-        const { error: dropError } = await supabaseAdmin.from("players").update({ team_id: null, acquisition: "FA" }).eq("id", bid.drop_player_id).eq("team_id", bid.team_id);
+        const { error: dropError } = await supabaseAdmin.from("players").update({ team_id: null, acquisition: "FA", dropped_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", bid.drop_player_id).eq("team_id", bid.team_id);
         if (dropError) throw new Error("Unable to drop the selected player");
       }
       const moves = [{
@@ -99235,7 +99282,7 @@ var appRouter = router({
         is_starter: false
       });
       if (addResult.error) throw new Error("Transaction was recorded, but the added player could not be assigned.");
-      const { error: dropAssignmentError } = await supabaseAdmin.from("players").update({ team_id: null, acquisition: "FA", draft_round: null, draft_pick: null }).eq("id", dropPlayer.id).eq("team_id", targetTeam.id);
+      const { error: dropAssignmentError } = await supabaseAdmin.from("players").update({ team_id: null, acquisition: "FA", draft_round: null, draft_pick: null, dropped_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", dropPlayer.id).eq("team_id", targetTeam.id);
       if (dropAssignmentError) throw new Error("Transaction was recorded, but the dropped player could not be released.");
       return { submitted: true, teamName: targetTeam.team_name, remainingFaab: balance - input2.faab };
     }),
@@ -99289,6 +99336,12 @@ var appRouter = router({
       const { data, error: error61 } = await supabaseAdmin.from("players").select("name, team_id, teams(name)").not("team_id", "is", null);
       if (error61) throw new Error("Unable to load rostered player data.");
       return (data ?? []).map((row) => ({ name: row.name, teamId: row.team_id, teamName: row.teams?.name ?? null }));
+    }),
+    recentlyDroppedPlayers: publicProcedure.query(async () => {
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1e3).toISOString();
+      const { data, error: error61 } = await supabaseAdmin.from("players").select("name, dropped_at").is("team_id", null).gte("dropped_at", sevenDaysAgo);
+      if (error61) throw new Error("Unable to load recently dropped player data.");
+      return (data ?? []).map((row) => ({ name: row.name, droppedAt: row.dropped_at }));
     }),
     nflTeamAssignments: publicProcedure.query(async () => {
       const PAGE_SIZE = 1e3;
@@ -101589,7 +101642,7 @@ async function processAllPendingFaabBids() {
     const { error: addError } = await supabaseAdmin.from("players").update({ team_id: winningBid.team_id, acquisition: "FA" }).eq("name", winningBid.player_name);
     if (addError) throw new Error(`Unable to add ${playerName} to the winning roster`);
     if (winningBid.drop_player_id) {
-      const { error: dropError } = await supabaseAdmin.from("players").update({ team_id: null, acquisition: "FA" }).eq("id", winningBid.drop_player_id).eq("team_id", winningBid.team_id);
+      const { error: dropError } = await supabaseAdmin.from("players").update({ team_id: null, acquisition: "FA", dropped_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", winningBid.drop_player_id).eq("team_id", winningBid.team_id);
       if (dropError) throw new Error(`Unable to drop the selected player for ${playerName}'s winning team`);
     }
     const moves = [{

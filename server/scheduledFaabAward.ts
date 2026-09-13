@@ -94,7 +94,7 @@ export async function processAllPendingFaabBids(): Promise<{ awarded: AwardResul
 
     if (winningBid.drop_player_id) {
       const { error: dropError } = await supabaseAdmin.from("players")
-        .update({ team_id: null, acquisition: "FA" })
+        .update({ team_id: null, acquisition: "FA", dropped_at: new Date().toISOString() })
         .eq("id", winningBid.drop_player_id)
         .eq("team_id", winningBid.team_id);
       if (dropError) throw new Error(`Unable to drop the selected player for ${playerName}'s winning team`);

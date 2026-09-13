@@ -14,6 +14,7 @@ import { clearWrcTeamSession, readWrcTeamSession, writeWrcTeamSession } from "./
 import { supabaseAdmin } from "./supabaseAdmin";
 import { getCurrentWeek, SCHEDULE_2026 } from "../client/src/lib/scheduleData2026";
 import { hasWeekKickedOff, hasPlayerTeamGameStarted } from "./nflWeekKickoffCheck";
+import { isEligibleAfterCut } from "../shared/freeAgentCutRestriction";
 import { getFreeAgentMarketState } from "./faabMarketState";
 import { sendSms } from "./twilioSms";
 import { validateProtectionSubmission } from "./protectionRules";
@@ -699,10 +700,16 @@ export const appRouter = router({
         const [{ data: team, error: teamError }, { data: roster, error: rosterError }, { data: targetPlayer, error: targetPlayerError }, { data: pendingBids, error: pendingBidsError }] = await Promise.all([
           supabaseAdmin.from("teams").select("name, faab").eq("id", teamId).single(),
           supabaseAdmin.from("players").select("id").eq("team_id", teamId),
-          supabaseAdmin.from("players").select("team_id").eq("name", input.playerName).maybeSingle(),
+          supabaseAdmin.from("players").select("team_id, dropped_at").eq("name", input.playerName).maybeSingle(),
           supabaseAdmin.from("faab_bids").select("bid_amount, player_name").eq("team_id", teamId).eq("status", "pending"),
         ]);
         if (teamError || !team || rosterError || targetPlayerError || pendingBidsError) throw new Error("Unable to validate this FAAB bid");
+        // A player who was cut has to wait at least 48 hours, becoming
+        // eligible at the next Sunday 9am ET or Tuesday 9am ET market
+        // boundary after that -- see freeAgentCutRestriction.ts.
+        if (!isEligibleAfterCut(targetPlayer?.dropped_at ?? null)) {
+          throw new Error(`${input.playerName} was recently dropped and isn't eligible to be picked up yet.`);
+        }
         const faab = Number(team.faab ?? 0);
         // Sum every pending bid this team already has out, across all
         // players -- prevents a team bidding $50 on two different players
@@ -777,9 +784,15 @@ export const appRouter = router({
         const [{ data: team, error: teamError }, { data: roster, error: rosterError }, { data: existingPlayer, error: existingPlayerError }] = await Promise.all([
           supabaseAdmin.from("teams").select("name").eq("id", teamId).single(),
           supabaseAdmin.from("players").select("id").eq("team_id", teamId),
-          supabaseAdmin.from("players").select("id, team_id").eq("name", input.playerName).maybeSingle(),
+          supabaseAdmin.from("players").select("id, team_id, dropped_at").eq("name", input.playerName).maybeSingle(),
         ]);
         if (teamError || !team || rosterError || existingPlayerError) throw new Error("Unable to validate this add");
+        // Same rule as FAAB bids: a cut player has to wait at least 48
+        // hours, becoming eligible at the next Sunday/Tuesday 9am ET
+        // market boundary after that.
+        if (!isEligibleAfterCut(existingPlayer?.dropped_at ?? null)) {
+          throw new Error(`${input.playerName} was recently dropped and isn't eligible to be picked up yet.`);
+        }
         if ((roster?.length ?? 0) >= 18 && !input.dropPlayerId) throw new Error("Select a player to drop before adding with a full roster.");
 
         let dropPlayer: { id: string; name: string } | null = null;
@@ -827,7 +840,7 @@ export const appRouter = router({
 
         if (dropPlayer) {
           const { error: dropError } = await supabaseAdmin.from("players")
-            .update({ team_id: null, acquisition: "FA" })
+            .update({ team_id: null, acquisition: "FA", dropped_at: new Date().toISOString() })
             .eq("id", dropPlayer.id)
             .eq("team_id", teamId);
           if (dropError) throw new Error("Unable to drop the selected player");
@@ -1073,7 +1086,7 @@ export const appRouter = router({
         if (addError) throw new Error("Unable to add the awarded player to the roster");
         if (bid.drop_player_id) {
           const { error: dropError } = await supabaseAdmin.from("players")
-            .update({ team_id: null, acquisition: "FA" })
+            .update({ team_id: null, acquisition: "FA", dropped_at: new Date().toISOString() })
             .eq("id", bid.drop_player_id)
             .eq("team_id", bid.team_id);
           if (dropError) throw new Error("Unable to drop the selected player");
@@ -1783,7 +1796,7 @@ export const appRouter = router({
             });
         if (addResult.error) throw new Error("Transaction was recorded, but the added player could not be assigned.");
         const { error: dropAssignmentError } = await supabaseAdmin.from("players")
-          .update({ team_id: null, acquisition: "FA", draft_round: null, draft_pick: null })
+          .update({ team_id: null, acquisition: "FA", draft_round: null, draft_pick: null, dropped_at: new Date().toISOString() })
           .eq("id", dropPlayer.id)
           .eq("team_id", targetTeam.id);
         if (dropAssignmentError) throw new Error("Transaction was recorded, but the dropped player could not be released.");
@@ -1853,6 +1866,20 @@ export const appRouter = router({
         .not("team_id", "is", null);
       if (error) throw new Error("Unable to load rostered player data.");
       return (data ?? []).map(row => ({ name: row.name, teamId: row.team_id, teamName: (row.teams as { name?: string | null } | null)?.name ?? null }));
+    }),
+    recentlyDroppedPlayers: publicProcedure.query(async () => {
+      // Only free agents (team_id null) with a dropped_at in the last 7
+      // days are relevant -- well past the max ~5-day restriction window
+      // (see freeAgentCutRestriction.ts), so this stays a small result
+      // set even though most players never have a recent dropped_at at
+      // all. Used to show "not eligible yet" on the Free Agents page.
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { data, error } = await supabaseAdmin.from("players")
+        .select("name, dropped_at")
+        .is("team_id", null)
+        .gte("dropped_at", sevenDaysAgo);
+      if (error) throw new Error("Unable to load recently dropped player data.");
+      return (data ?? []).map(row => ({ name: row.name, droppedAt: row.dropped_at as string }));
     }),
     nflTeamAssignments: publicProcedure.query(async () => {
       // Live override on top of currentDraftPlayerUniverse2026.ts's static
