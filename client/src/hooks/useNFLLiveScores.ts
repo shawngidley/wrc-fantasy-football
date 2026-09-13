@@ -287,6 +287,7 @@ export function useNFLLiveScores(
     const gameTeams = new Map(activeGames.map(g => [g.gameId, { home: g.home, away: g.away }]));
 
     const espnEvents = await fetchEspnKickerEvents(activeGames);
+    console.log(`[FETCH DEBUG] games being fetched this cycle:`, activeGameIds);
     for (const gameId of activeGameIds) {
       try {
         const url = `${TANK01_BASE_URL}/getNFLBoxScore?gameID=${gameId}&fantasyPoints=true&twoPointConversions=2&passYards=.04&passTD=4&passInterceptions=-3&pointsPerReception=1&carries=0&rushYards=.1&rushTD=6&fumbles=-3&receivingYards=.1&receivingTD=6&targets=0&defTD=6&fgMade=0&fgYards=.1&xpMade=1`;
