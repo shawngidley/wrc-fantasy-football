@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { displayName } from "./LiveScoring";
+import { displayName, blendedProjection } from "./LiveScoring";
 
 describe("displayName", () => {
   describe("DST", () => {
@@ -47,5 +47,26 @@ describe("displayName", () => {
     it("leaves a single-word name unchanged", () => {
       expect(displayName("Ochocinco", "WR", "MIA")).toBe("Ochocinco");
     });
+  });
+});
+
+describe("blendedProjection", () => {
+  it("uses the static projection before the game starts", () => {
+    expect(blendedProjection(15.2, 0, "pre")).toBe(15.2);
+  });
+
+  it("uses the static projection while the game is in progress (does not partially blend)", () => {
+    // Deliberately not blended mid-game -- a partial stat line would
+    // understate the player's true pace, looking like a worse
+    // projection than reality rather than a better one.
+    expect(blendedProjection(15.2, 6.4, "in")).toBe(15.2);
+  });
+
+  it("switches to the actual score once the game is finished", () => {
+    expect(blendedProjection(15.2, 22.7, "post")).toBe(22.7);
+  });
+
+  it("uses the static projection when game state is unknown/undefined", () => {
+    expect(blendedProjection(15.2, 0, undefined)).toBe(15.2);
   });
 });

@@ -939,6 +939,23 @@ const OWNER_TO_TEAM_ID: Record<string, string> = {
 const SLOT_ORDER = ["QB", "RB", "RB", "WR", "WR", "TE", "SFLEX", "FLEX", "K", "DST"] as const;
 type SlotLabel = typeof SLOT_ORDER[number];
 
+/**
+ * Blends a player's displayed "PROJ" number toward their actual score
+ * once their game is finished, rather than leaving it frozen at a
+ * static, pre-game estimate for the rest of the week regardless of how
+ * they actually performed. Same reasoning as the existing win-
+ * probability blend (projectedFinal in buildSide): a projection is a
+ * reasonable stand-in before the outcome is known, but once it is
+ * known, showing the real number is strictly more informative.
+ * Deliberately does NOT partially blend during an in-progress game
+ * (unlike projectedFinal) -- a mid-game partial stat line understates a
+ * player's true pace in a way that would look like a worse projection,
+ * not a better one, so this only switches over once "post" (finished).
+ */
+export function blendedProjection(staticProj: number, actualPts: number, gameState: string | undefined): number {
+  return gameState === "post" ? actualPts : staticProj;
+}
+
 function abbrevName(full: string): string {
   const parts = full.trim().split(" ");
   if (parts.length < 2) return full;
@@ -1143,7 +1160,8 @@ async function buildMatchupsFromLineups(
         const match = starters.find(s => s.slot === slotLabel && !starters.some((s2, i2) => s2.slot === slotLabel && starters.indexOf(s) > i2 && starters.indexOf(s2) < starters.indexOf(s)));
         const player = match?.player ?? null;
         const pts = player ? (getLivePoints(liveScores, player.name, player.position, player.nfl_team, kickerEvents, liveStats) ?? 0) : 0;
-        const proj = player ? getProjectedPoints(projections, player.name, player.position, player.nfl_team) : 0;
+        const staticProj = player ? getProjectedPoints(projections, player.name, player.position, player.nfl_team) : 0;
+        const proj = player ? blendedProjection(staticProj, pts, gameStatus[normalizeNFLTeam(player.nfl_team ?? "")]?.state) : 0;
         return {
           slotLabel,
           home: null,
@@ -1160,7 +1178,8 @@ async function buildMatchupsFromLineups(
         const matches = starters.filter(s => s.slot === slotLabel);
         const player = matches[count]?.player ?? null;
         const pts = player ? (getLivePoints(liveScores, player.name, player.position, player.nfl_team, kickerEvents, liveStats) ?? 0) : 0;
-        const proj = player ? getProjectedPoints(projections, player.name, player.position, player.nfl_team) : 0;
+        const staticProj = player ? getProjectedPoints(projections, player.name, player.position, player.nfl_team) : 0;
+        const proj = player ? blendedProjection(staticProj, pts, gameStatus[normalizeNFLTeam(player.nfl_team ?? "")]?.state) : 0;
         return {
           slotLabel,
           home: null,
@@ -1235,7 +1254,8 @@ async function buildMatchupsFromLineups(
         .slice(0, 8)
         .map(p => {
           const pts = getLivePoints(liveScores, p.name, p.position, p.nfl_team, kickerEvents, liveStats) ?? 0;
-          const proj = getProjectedPoints(projections, p.name, p.position, p.nfl_team);
+          const staticProj = getProjectedPoints(projections, p.name, p.position, p.nfl_team);
+          const proj = blendedProjection(staticProj, pts, gameStatus[normalizeNFLTeam(p.nfl_team ?? "")]?.state);
           return { ...makeSlotPlayer(p, pts, proj, matchupMap, gameStatus, liveStats, kickerEvents), slot: "BN" as const };
         });
 
