@@ -297,14 +297,25 @@ export function useNFLLiveScores(
 
         // Player stats
         const playerStats = body.playerStats ?? {};
+        let foundCook = false;
         for (const p of Object.values(playerStats) as Record<string, unknown>[]) {
           const name = (p.longName as string) ?? "";
           const pos  = (p.pos      as string) ?? "";
           if (!name) continue;
+          if (name.toLowerCase().includes("cook")) {
+            foundCook = true;
+            console.log(`[COOK DEBUG] game ${gameId}: found "${name}" (pos ${pos}), raw stats:`, p);
+          }
           const kickerPlays = pos === "K" ? getKickerEventsForPlayer(espnEvents, name) : [];
           const pts = pos === "K" && kickerPlays.length > 0 ? calculateWrcKickerPoints(kickerPlays, p as Tank01Stats) : calcWRCLive(p, pos);
+          if (name.toLowerCase().includes("cook")) {
+            console.log(`[COOK DEBUG] game ${gameId}: "${name}" computed pts = ${pts}`);
+          }
           newScores[name.toLowerCase()] = pts;
           newStats[name.toLowerCase()] = p as Tank01Stats;
+        }
+        if (!foundCook) {
+          console.log(`[COOK DEBUG] game ${gameId}: no player with "cook" in the name found. All player names in this game's playerStats:`, Object.values(playerStats).map((p: unknown) => (p as Record<string, unknown>).longName));
         }
 
         // Team DST stats
@@ -404,6 +415,9 @@ export function getLivePoints(
     return null;
   }
   const v = liveScores[playerName.toLowerCase()];
+  if (playerName.toLowerCase().includes("cook") && v === undefined) {
+    console.log(`[COOK DEBUG 2] no score found for "${playerName}" -- key looked up: "${playerName.toLowerCase()}". All keys in liveScores containing "cook":`, Object.keys(liveScores).filter(k => k.includes("cook")));
+  }
   return v !== undefined ? v : null;
 }
 
