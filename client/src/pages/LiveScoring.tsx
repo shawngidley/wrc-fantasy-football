@@ -528,7 +528,7 @@ function PlayerCell({ player, side, injuries = {} }: { player: SlotPlayer | null
           display: "flex", flexWrap: "wrap", gap: "0.2rem",
           justifyContent: isHome ? "flex-start" : "flex-end",
         }}>
-          {player.stats.map((s, i) => <Chip key={i} label={s.label} value={s.value} />)}
+          {player.stats.map((s, i) => <Chip key={i} label={s.label} value={s.value} negative={s.negative} />)}
         </div>
       )}
 
