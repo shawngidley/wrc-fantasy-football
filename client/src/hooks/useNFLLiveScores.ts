@@ -15,6 +15,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { type NFLMatchupMap } from "@/hooks/useNFLMatchups";
 import { calculateWrcKickerPoints, getKickerEventsForPlayer, parseEspnKickerEvents, type KickerPlayEvent } from "@/lib/espnKickerEvents";
 import { calcFantasyPoints, type Tank01Stats } from "@/lib/scoringEngine";
+import { normalizePlayerName } from "@shared/playerNameMatch";
 
 const TANK01_BASE_URL = "/api/tank01";
 const POLL_INTERVAL_MS = 30_000; // 30 seconds
@@ -287,7 +288,6 @@ export function useNFLLiveScores(
     const gameTeams = new Map(activeGames.map(g => [g.gameId, { home: g.home, away: g.away }]));
 
     const espnEvents = await fetchEspnKickerEvents(activeGames);
-    console.log(`[FETCH DEBUG] games being fetched this cycle:`, activeGameIds);
     for (const gameId of activeGameIds) {
       try {
         const url = `${TANK01_BASE_URL}/getNFLBoxScore?gameID=${gameId}&fantasyPoints=true&twoPointConversions=2&passYards=.04&passTD=4&passInterceptions=-3&pointsPerReception=1&carries=0&rushYards=.1&rushTD=6&fumbles=-3&receivingYards=.1&receivingTD=6&targets=0&defTD=6&fgMade=0&fgYards=.1&xpMade=1`;
@@ -298,25 +298,15 @@ export function useNFLLiveScores(
 
         // Player stats
         const playerStats = body.playerStats ?? {};
-        let foundCook = false;
         for (const p of Object.values(playerStats) as Record<string, unknown>[]) {
           const name = (p.longName as string) ?? "";
           const pos  = (p.pos      as string) ?? "";
           if (!name) continue;
-          if (name.toLowerCase().includes("cook")) {
-            foundCook = true;
-            console.log(`[COOK DEBUG] game ${gameId}: found "${name}" (pos ${pos}), raw stats:`, p);
-          }
           const kickerPlays = pos === "K" ? getKickerEventsForPlayer(espnEvents, name) : [];
           const pts = pos === "K" && kickerPlays.length > 0 ? calculateWrcKickerPoints(kickerPlays, p as Tank01Stats) : calcWRCLive(p, pos);
-          if (name.toLowerCase().includes("cook")) {
-            console.log(`[COOK DEBUG] game ${gameId}: "${name}" computed pts = ${pts}`);
-          }
-          newScores[name.toLowerCase()] = pts;
-          newStats[name.toLowerCase()] = p as Tank01Stats;
-        }
-        if (!foundCook) {
-          console.log(`[COOK DEBUG] game ${gameId}: no player with "cook" in the name found. All player names in this game's playerStats:`, Object.values(playerStats).map((p: unknown) => (p as Record<string, unknown>).longName));
+          const key = normalizePlayerName(name);
+          newScores[key] = pts;
+          newStats[key] = p as Tank01Stats;
         }
 
         // Team DST stats
@@ -399,9 +389,10 @@ export function getLivePoints(
   }
   if (pos === "K") {
     const events = getKickerEventsForPlayer(kickerEvents, playerName);
-    const rawStats = liveStats[playerName.toLowerCase()];
+    const key = normalizePlayerName(playerName);
+    const rawStats = liveStats[key];
     const fromEvents = events.length > 0 ? calculateWrcKickerPoints(events, rawStats) : null;
-    const fromLiveScores = liveScores[playerName.toLowerCase()];
+    const fromLiveScores = liveScores[key];
     // Defend against either source being independently stale/incomplete:
     // the ESPN-derived kickerEvents state and the Tank01-derived
     // liveScores value are computed on separate fetch cycles and can
@@ -415,10 +406,7 @@ export function getLivePoints(
     if (fromLiveScores !== undefined) return fromLiveScores;
     return null;
   }
-  const v = liveScores[playerName.toLowerCase()];
-  if (playerName.toLowerCase().includes("cook") && v === undefined) {
-    console.log(`[COOK DEBUG 2] no score found for "${playerName}" -- key looked up: "${playerName.toLowerCase()}". All keys in liveScores containing "cook":`, Object.keys(liveScores).filter(k => k.includes("cook")));
-  }
+  const v = liveScores[normalizePlayerName(playerName)];
   return v !== undefined ? v : null;
 }
 
@@ -434,5 +422,5 @@ export function getLiveStats(
     const normAbv = normalizeAbv(nflTeam);
     return liveStats[`dst:${normAbv}`] ?? null;
   }
-  return liveStats[playerName.toLowerCase()] ?? null;
+  return liveStats[normalizePlayerName(playerName)] ?? null;
 }

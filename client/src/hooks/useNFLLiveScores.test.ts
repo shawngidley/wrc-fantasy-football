@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { attributeDefensiveSacks } from "./useNFLLiveScores";
+import { attributeDefensiveSacks, getLivePoints, getLiveStats } from "./useNFLLiveScores";
 
 describe("attributeDefensiveSacks", () => {
   // Real, confirmed data from the actual box score (NE @ SEA, Sept 9 2026):
@@ -31,5 +31,40 @@ describe("attributeDefensiveSacks", () => {
     const incompleteTeamStats = { away: teamStats.away }; // no "home" entry at all
     const result = attributeDefensiveSacks("away", teamStats.away, incompleteTeamStats);
     expect(result.sacksAndYardsLost).toBeUndefined();
+  });
+});
+
+describe("getLivePoints suffix mismatch (James Cook bug)", () => {
+  // Confirmed live: Tank01 returns "James Cook III" (with the
+  // generational suffix), but WRC's roster stores him as "James Cook"
+  // (no suffix) -- a naive .toLowerCase() key match never found him,
+  // even though his score was correctly computed and stored under the
+  // Tank01 name's key. normalizePlayerName("James Cook") -> "jamescook"
+  // (no space -- it strips all non-alphanumeric characters).
+  it("finds a player's score when the roster name lacks a suffix Tank01's name includes", () => {
+    const liveScores = { "jamescook": 14.2 }; // stored under the normalized (suffix-stripped) key
+    const points = getLivePoints(liveScores, "James Cook", "RB", "BUF");
+    expect(points).toBe(14.2);
+  });
+
+  it("finds a player's score when the roster name includes a suffix and the stored key is also normalized", () => {
+    const liveScores = { "jamescook": 14.2 };
+    // Even if the roster happened to store the suffix too, both sides
+    // normalize to the same key.
+    const points = getLivePoints(liveScores, "James Cook III", "RB", "BUF");
+    expect(points).toBe(14.2);
+  });
+
+  it("returns null (not 0) when the player genuinely isn't found", () => {
+    const points = getLivePoints({}, "James Cook", "RB", "BUF");
+    expect(points).toBeNull();
+  });
+});
+
+describe("getLiveStats suffix mismatch", () => {
+  it("finds a player's raw stats despite a suffix mismatch between the two sides", () => {
+    const liveStats = { "jamescook": { Rushing: { rushYds: 87, rushTD: 1, carries: 18 } } };
+    const stats = getLiveStats(liveStats, "James Cook", "RB", "BUF");
+    expect(stats?.Rushing?.rushYds).toBe(87);
   });
 });
