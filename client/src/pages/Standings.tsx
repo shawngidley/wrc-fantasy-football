@@ -524,22 +524,16 @@ export default function Standings() {
   const allRivalryGamesQuery = trpc.league.allRivalryGames.useQuery();
   const rivalryGamesThisWeek = (allRivalryGamesQuery.data ?? []).filter(g => g.week === currentWeek && !g.resolved);
 
-  const tickerMessages = rivalryGamesThisWeek.length > 0
-    ? rivalryGamesThisWeek.map(g => (
-        <RivalryTickerMessage
-          key={`${g.teamId}-${g.opponentTeamId}`}
-          teamId={g.teamId}
-          opponentTeamId={g.opponentTeamId}
-          teamName={g.teamName}
-          opponentName={g.opponentName}
-          week={g.week}
-        />
-      ))
-    : [
-        "🏈 2026 WRC FANTASY FOOTBALL — Season kicks off September 9th!",
-        "🏆 PLAYOFF PICTURE: Top 6 teams qualify — Division winners + 3 Wild Cards",
-        "📅 REGULAR SEASON — 14 weeks across 3 divisions, Sept. 9 – Dec. 15",
-      ];
+  const tickerMessages = rivalryGamesThisWeek.map(g => (
+    <RivalryTickerMessage
+      key={`${g.teamId}-${g.opponentTeamId}`}
+      teamId={g.teamId}
+      opponentTeamId={g.opponentTeamId}
+      teamName={g.teamName}
+      opponentName={g.opponentName}
+      week={g.week}
+    />
+  ));
 
   // Compact table styles (smaller font for mobile)
   const TH_COMPACT: React.CSSProperties = {
@@ -565,7 +559,7 @@ export default function Standings() {
 
   return (
     <div className="bg-stadium-night bg-overlay" style={{ minHeight: "100vh" }}>
-      <Navigation showTicker={true} tickerMessages={tickerMessages} teamName={franchise?.team_name} />
+      <Navigation showTicker={rivalryGamesThisWeek.length > 0} tickerMessages={tickerMessages} teamName={franchise?.team_name} />
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "1.5rem 0.75rem 3rem" }}>
         {/* Page Title */}

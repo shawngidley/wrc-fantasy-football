@@ -209,19 +209,13 @@ export default function Navigation({
   const [leagueOpen, setLeagueOpen] = useState(false);
   const isLeagueActive = LEAGUE_SUB_ITEMS.some((item) => location === item.path);
 
-  const defaultTicker = [
-    "⚔️ CHALLENGE GAME IN PROGRESS: Vipers vs. Legends",
-    "📅 LINEUP LOCK: Sunday 1:00pm ET",
-    "🏈 WRC FANTASY FOOTBALL 2026",
-  ];
-  const messages = tickerMessages.length > 0 ? tickerMessages : defaultTicker;
   // Each message can be a plain string or a full React node (e.g. a
   // sequence of text and inline team logo <img> tags) -- rendered as a
   // sequence of elements with a "   •   " separator between them, rather
   // than joined into a single string, since a node can't be joined that way.
   const tickerContent = (
     <>
-      {messages.map((msg, i) => (
+      {tickerMessages.map((msg, i) => (
         <span key={i}>
           {i > 0 && "   •   "}
           {msg}
@@ -338,11 +332,11 @@ export default function Navigation({
         </div>
       </nav>
 
-      {/* Ticker */}
+      {/* Rivalry game banner (static, not scrolling) -- only rendered when showTicker is true */}
       {showTicker && (
         <div className="wrc-ticker">
           <span className="wrc-ticker-inner">
-            {tickerContent}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;{tickerContent}
+            {tickerContent}
           </span>
         </div>
       )}
