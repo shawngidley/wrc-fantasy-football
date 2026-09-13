@@ -29,6 +29,12 @@ import { useDraftPlayerUniverse } from "@/hooks/useDraftPlayerUniverse";
 import { formatKickerEvent, getKickerEventsForPlayer, type KickerPlayEvent } from "@/lib/espnKickerEvents";
 
 const REFRESH_SECONDS = 300;
+// Matches the same QB/RB/WR/TE/K/DST progression already used for
+// starter slot ordering throughout the app (e.g. buildDefaultStarters),
+// so the bench list reads in the same familiar order as the active
+// lineup above it, rather than whatever order players happen to come
+// back from the database in.
+const BENCH_POSITION_ORDER: Record<string, number> = { QB: 0, RB: 1, WR: 2, TE: 3, K: 4, DST: 5 };
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type StatChip = { label: string; value: string | number };
@@ -1203,11 +1209,14 @@ async function buildMatchupsFromLineups(
         playersTotal: pairedSlots.length,
       };
 
-      const bench: BenchPlayer[] = benchPlayers.slice(0, 8).map(p => {
-        const pts = getLivePoints(liveScores, p.name, p.position, p.nfl_team, kickerEvents, liveStats) ?? 0;
-        const proj = getProjectedPoints(projections, p.name, p.position, p.nfl_team);
-        return { ...makeSlotPlayer(p, pts, proj, matchupMap, gameStatus, liveStats, kickerEvents), slot: "BN" as const };
-      });
+      const bench: BenchPlayer[] = [...benchPlayers]
+        .sort((a, b) => (BENCH_POSITION_ORDER[a.position] ?? 99) - (BENCH_POSITION_ORDER[b.position] ?? 99))
+        .slice(0, 8)
+        .map(p => {
+          const pts = getLivePoints(liveScores, p.name, p.position, p.nfl_team, kickerEvents, liveStats) ?? 0;
+          const proj = getProjectedPoints(projections, p.name, p.position, p.nfl_team);
+          return { ...makeSlotPlayer(p, pts, proj, matchupMap, gameStatus, liveStats, kickerEvents), slot: "BN" as const };
+        });
 
       return { side, slots: pairedSlots as SlotRow[], bench };
     };
