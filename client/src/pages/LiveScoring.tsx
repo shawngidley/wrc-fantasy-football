@@ -537,9 +537,9 @@ function PlayerCell({ player, side, injuries = {} }: { player: SlotPlayer | null
           {groupKickerEventsForDisplay(player.kickerEvents).map((chip) => (
             <span key={chip.key} style={{
               fontSize: "0.58rem", fontWeight: 700, borderRadius: 3, padding: "1px 4px",
-              color: chip.outcome === "made" ? "oklch(0.42 0.13 145)" : chip.outcome === "neutral" ? "oklch(0.55 0.04 150)" : "oklch(0.5 0.18 25)",
-              background: chip.outcome === "made" ? "oklch(0.96 0.04 145)" : chip.outcome === "neutral" ? "oklch(0.93 0.01 150)" : "oklch(0.97 0.04 25)",
-              border: `1px solid ${chip.outcome === "made" ? "oklch(0.85 0.06 145)" : chip.outcome === "neutral" ? "oklch(0.87 0.02 150)" : "oklch(0.87 0.08 25)"}`,
+              color: chip.outcome === "made" ? "oklch(0.42 0.13 145)" : "oklch(0.5 0.18 25)",
+              background: chip.outcome === "made" ? "oklch(0.96 0.04 145)" : "oklch(0.97 0.04 25)",
+              border: `1px solid ${chip.outcome === "made" ? "oklch(0.85 0.06 145)" : "oklch(0.87 0.08 25)"}`,
             }}>
               {chip.text}
             </span>

@@ -64,13 +64,22 @@ describe("calculateWrcKickerPoints with rawStats (XP scoring)", () => {
 });
 
 describe("groupKickerEventsForDisplay", () => {
-  it("styles a missed FG over 49 yards as neutral, not 'missed' (red) -- it costs no points", () => {
+  it("filters out a missed FG of 50+ yards entirely -- it costs no points and isn't listed at all", () => {
     const events = [
       { playerName: "K", type: "fg" as const, outcome: "missed" as const, yards: 55, text: "" },
     ];
     const chips = groupKickerEventsForDisplay(events);
-    expect(chips[0].outcome).toBe("neutral");
-    expect(chips[0].text).toBe("55 yd FG missed"); // no point penalty shown either
+    expect(chips).toHaveLength(0);
+  });
+
+  it("filters out a missed 50-yard FG exactly (the boundary) but keeps a missed 49-yard FG", () => {
+    const events = [
+      { playerName: "K", type: "fg" as const, outcome: "missed" as const, yards: 50, text: "" },
+      { playerName: "K", type: "fg" as const, outcome: "missed" as const, yards: 49, text: "" },
+    ];
+    const chips = groupKickerEventsForDisplay(events);
+    expect(chips).toHaveLength(1);
+    expect(chips[0].text).toBe("49 yd FG missed (-2)");
   });
 
   it("still styles a missed FG of 49 yards or less as 'missed' (red) -- it does cost points", () => {
@@ -84,7 +93,8 @@ describe("groupKickerEventsForDisplay", () => {
 
   it("combines multiple made FGs into one chip listing all yardages and their total points", () => {
     // Exact scenario from the E. Pineiro screenshot: 20yd made, 56yd
-    // made, 52yd missed (not penalized since >49yd), 3/3 XP made.
+    // made, 52yd missed (filtered out entirely, since 50+ yard misses
+    // cost no points and aren't listed), 3/3 XP made.
     const events = [
       { playerName: "E.Pineiro", type: "fg" as const, outcome: "made" as const, yards: 20, text: "20 yard field goal is GOOD" },
       { playerName: "E.Pineiro", type: "fg" as const, outcome: "made" as const, yards: 56, text: "56 yard field goal is GOOD" },
@@ -95,8 +105,8 @@ describe("groupKickerEventsForDisplay", () => {
     const madeChip = chips.find(c => c.key === "made-fgs-combined");
     expect(madeChip?.text).toBe("20, 56 yd FG made (+7.6)"); // 2.0 + 5.6
 
-    const missedChip = chips.find(c => c.text.includes("missed"));
-    expect(missedChip?.text).toBe("52 yd FG missed"); // no penalty shown, since 52 > 49
+    expect(chips.find(c => c.text.includes("missed"))).toBeUndefined();
+    expect(chips).toHaveLength(1); // only the combined made-FG chip
   });
 
   it("shows a single made FG the same as before (no comma-list needed for just one)", () => {
