@@ -1031,7 +1031,7 @@ function makeSlotPlayer(
     }
   }
   const rawStats = getLiveStats(liveStats, player.name, player.position, player.nfl_team ?? "");
-  const stats = rawStats ? buildStatChips(rawStats) : [];
+  const stats = rawStats ? buildStatChips(rawStats, player.position) : [];
   return {
     name: displayName(player.name, player.position, player.nfl_team ?? ""),
     fullName: player.name,

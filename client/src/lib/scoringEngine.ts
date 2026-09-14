@@ -127,7 +127,7 @@ export interface StatChipData {
  * single field Tank01 returns) so this fits a player's panel without
  * overflowing it.
  */
-export function buildStatChips(stats: Tank01Stats): StatChipData[] {
+export function buildStatChips(stats: Tank01Stats, pos?: string): StatChipData[] {
   const chips: StatChipData[] = [];
 
   const passYds = n(stats.Passing?.passYds);
@@ -163,7 +163,13 @@ export function buildStatChips(stats: Tank01Stats): StatChipData[] {
   // given player, and the scoring formula already accounts for that --
   // the chip display needs the same fallback or it can miss a fumble
   // that was still correctly deducted from the player's score.
-  const fumblesLost = n(stats.Fumbles?.fumblesLost ?? stats.Defense?.fumblesLost);
+  // IMPORTANT: this fallback must never apply to an actual DST's own
+  // stats.Defense object -- confirmed live, Detroit's DST incorrectly
+  // showed a red "FUM" chip (meant for an offensive fumble lost) built
+  // from stats.Defense.fumblesLost, when that DST's own fumble credit
+  // is already correctly and independently handled by fumblesRecovered
+  // below. Reusing the same field for both concepts double-counts.
+  const fumblesLost = pos === "DST" ? 0 : n(stats.Fumbles?.fumblesLost ?? stats.Defense?.fumblesLost);
   if (fumblesLost > 0) chips.push({ label: "FUM", value: fumblesLost, negative: true });
 
   const fgMade = stats.Kicking?.fgMade;
@@ -232,7 +238,17 @@ export function calcFantasyPoints(
   }
 
   // ── Fumbles lost (offense) ───────────────────────────────────────────────
-  const fumblesLost = n(stats.Fumbles?.fumblesLost ?? stats.Defense?.fumblesLost);
+  // Never applies to DST -- a DST's own fumble credit is handled
+  // entirely and correctly by fumblesRecovered in the DST branch below.
+  // Confirmed live: Detroit's DST was incorrectly hit with this -3
+  // penalty from stats.Defense.fumblesLost (a Tank01 field that doesn't
+  // represent a DST's own negative event), which the DST branch then
+  // tried to "undo" with a same-sized +3 -- but that undo was applied
+  // on top of the already-correct +3 from fumblesRecovered, silently
+  // netting to the DST's score depending on whether the two field
+  // values happened to match. Gating this to 0 for DST up front removes
+  // the bug and the need for that undo entirely.
+  const fumblesLost = pos === "DST" ? 0 : n(stats.Fumbles?.fumblesLost ?? stats.Defense?.fumblesLost);
   pts += fumblesLost * -3;
 
   // Individual return touchdowns score for non-D/ST players under WRC rules.
@@ -281,8 +297,6 @@ export function calcFantasyPoints(
     // tier exists. (A points-allowed category was briefly added here and
     // in the server-side final scoring, then removed once confirmed it
     // wasn't part of the real ruleset.)
-    // Reset fumbles lost penalty for DST (doesn't apply)
-    pts += fumblesLost * 3; // undo the offense fumble penalty applied above
   }
 
   return Math.round(pts * 10) / 10;

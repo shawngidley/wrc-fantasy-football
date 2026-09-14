@@ -46,6 +46,21 @@ describe("calcFantasyPoints", () => {
     expect(score("LAC")).toBe(161);
     expect(score("LAC") / DST_SEASON_STATS_2025.LAC.games).toBeCloseTo(9.5, 1);
   });
+
+  it("scores a DST's fumble recovery once, correctly (+3), even when Tank01 also reports Defense.fumblesLost -- confirmed against Detroit's live numbers", () => {
+    // Confirmed live: Detroit's DST (SACK 5 = 10, INT 2 = 6, FR 1 = 3)
+    // should score 19, but was scoring 16 -- exactly 3 short, from the
+    // fumblesLost/fumblesRecovered double-counting bug.
+    const pts = calcFantasyPoints({
+      Defense: {
+        sacksAndYardsLost: "5-30",
+        defensiveInterceptions: 2,
+        fumblesRecovered: 1,
+        fumblesLost: 1, // the Tank01 field that caused the bug
+      },
+    }, "DST");
+    expect(pts).toBe(19);
+  });
 });
 
 describe("buildStatChips", () => {
@@ -162,6 +177,18 @@ describe("buildStatChips negative-event flagging", () => {
     const chips = buildStatChips({ Defense: { defensiveInterceptions: 1 } });
     const intChip = chips.find(c => c.label === "INT");
     expect(intChip?.negative).toBeFalsy();
+  });
+
+  it("never applies the offensive FUM chip to a DST, even if Tank01's Defense.fumblesLost field happens to be populated", () => {
+    // Confirmed live: Detroit's DST (SACK 5, INT 2, FR 1) incorrectly
+    // showed a red "FUM 1" chip built from stats.Defense.fumblesLost,
+    // when that DST's own fumble credit is already correctly and
+    // independently handled by fumblesRecovered.
+    const chips = buildStatChips({ Defense: { fumblesLost: 1, fumblesRecovered: 1 } }, "DST");
+    expect(chips.find(c => c.label === "FUM")).toBeUndefined();
+    const frChip = chips.find(c => c.label === "FR");
+    expect(frChip?.value).toBe(1);
+    expect(frChip?.positive).toBe(true);
   });
 
   it("shows a FUM chip (previously missing entirely) for an offensive fumble lost, marked negative", () => {
