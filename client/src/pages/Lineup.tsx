@@ -1096,16 +1096,16 @@ export default function Lineup() {
               }}
               style={{
                 fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem",
-                letterSpacing: "0.08em", color: "oklch(0.35 0.1 150)",
-                background: "oklch(0.35 0.1 150 / 0.1)", border: "1px solid oklch(0.35 0.1 150 / 0.3)",
+                letterSpacing: "0.08em", color: "oklch(0.78 0.15 85)",
+                background: "oklch(0.78 0.15 85 / 0.15)", border: "1px solid oklch(0.78 0.15 85 / 0.3)",
                 borderRadius: 5, padding: "2px 22px 2px 8px", marginTop: "0.3rem", whiteSpace: "nowrap",
                 cursor: "pointer", appearance: "none",
-                backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23336' stroke-width='1.5' fill='none'/%3E%3C/svg%3E\")",
+                backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23ceb15a' stroke-width='1.5' fill='none'/%3E%3C/svg%3E\")",
                 backgroundRepeat: "no-repeat", backgroundPosition: "right 7px center",
               }}
             >
               {SCHEDULE_2026.map(({ week, label }) => (
-                <option key={week} value={week}>
+                <option key={week} value={week} style={{ background: "#1a2318", color: "white" }}>
                   {label}{week === actualCurrentWeek ? " (Current)" : ""}
                 </option>
               ))}
