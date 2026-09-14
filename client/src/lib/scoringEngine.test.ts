@@ -108,9 +108,9 @@ describe("buildStatChips", () => {
 
   it("builds defense chips, omitting zero categories", () => {
     expect(buildStatChips({ Defense: { sacks: "2", defensiveInterceptions: "1", fumblesRecovered: "0", safeties: "0", defTD: "1" } })).toEqual([
-      { label: "SACK", value: 2 },
-      { label: "INT", value: 1 },
-      { label: "TD", value: 1 },
+      { label: "SACK", value: 2, positive: true },
+      { label: "INT", value: 1, positive: true },
+      { label: "TD", value: 1, positive: true },
     ]);
   });
 
@@ -186,9 +186,25 @@ describe("buildStatChips negative-event flagging", () => {
     expect(fumChip?.negative).toBe(true);
   });
 
-  it("no longer shows a defensive fumble recovery (FR) as a chip at all, per request", () => {
+  it("shows a defensive fumble recovery (FR) chip, marked positive (green) like the other DST chips", () => {
     const chips = buildStatChips({ Defense: { fumblesRecovered: 1 } });
-    expect(chips.find(c => c.label === "FR")).toBeUndefined();
+    const frChip = chips.find(c => c.label === "FR");
+    expect(frChip).toBeDefined();
+    expect(frChip?.positive).toBe(true);
+  });
+
+  it("marks all defensive stat chips (SACK, INT, TD, SFTY, FR) as positive -- good events for the DST", () => {
+    const chips = buildStatChips({
+      Defense: {
+        sacksAndYardsLost: "2-10",
+        defensiveInterceptions: 1,
+        fumblesRecovered: 1,
+        safeties: 1,
+        defTD: 1,
+      },
+    });
+    expect(chips.every(c => c.positive === true)).toBe(true);
+    expect(chips).toHaveLength(5); // SACK, INT, FR, SFTY, TD
   });
 
   it("does not show a FUM chip at all when there's no fumble lost", () => {

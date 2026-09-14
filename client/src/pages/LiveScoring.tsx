@@ -37,7 +37,7 @@ const REFRESH_SECONDS = 300;
 const BENCH_POSITION_ORDER: Record<string, number> = { QB: 0, RB: 1, WR: 2, TE: 3, K: 4, DST: 5 };
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-type StatChip = { label: string; value: string | number; negative?: boolean };
+type StatChip = { label: string; value: string | number; negative?: boolean; positive?: boolean };
 
 type SlotPlayer = {
   name: string;          // "D. Prescott" (abbreviated first name)
@@ -405,18 +405,21 @@ function PlayerAvatar({ name, pos, size = 36 }: { name: string; pos: string; siz
 }
 
 // ── Stat chip ─────────────────────────────────────────────────────────────────
-function Chip({ label, value, negative }: StatChip) {
+function Chip({ label, value, negative, positive }: StatChip) {
+  const bg = negative ? "oklch(0.97 0.04 25)" : positive ? "oklch(0.96 0.04 145)" : "oklch(0.93 0.01 150)";
+  const border = negative ? "oklch(0.87 0.08 25)" : positive ? "oklch(0.85 0.06 145)" : "oklch(0.87 0.02 150)";
+  const textColor = negative ? "oklch(0.5 0.18 25)" : positive ? "oklch(0.42 0.13 145)" : undefined;
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", gap: 3,
-      background: negative ? "oklch(0.97 0.04 25)" : "oklch(0.93 0.01 150)",
-      border: `1px solid ${negative ? "oklch(0.87 0.08 25)" : "oklch(0.87 0.02 150)"}`,
+      background: bg,
+      border: `1px solid ${border}`,
       borderRadius: 4, padding: "1px 5px",
       fontSize: "0.62rem", fontFamily: "Barlow Condensed, sans-serif",
       letterSpacing: "0.04em",
     }}>
-      <span style={{ color: negative ? "oklch(0.5 0.18 25)" : "oklch(0.55 0.04 150)", fontWeight: 600 }}>{label}</span>
-      <span style={{ color: negative ? "oklch(0.5 0.18 25)" : "oklch(0.22 0.06 150)", fontWeight: 700 }}>{value}</span>
+      <span style={{ color: textColor ?? "oklch(0.55 0.04 150)", fontWeight: 600 }}>{label}</span>
+      <span style={{ color: textColor ?? "oklch(0.22 0.06 150)", fontWeight: 700 }}>{value}</span>
     </span>
   );
 }
@@ -528,7 +531,7 @@ function PlayerCell({ player, side, injuries = {} }: { player: SlotPlayer | null
           display: "flex", flexWrap: "wrap", gap: "0.2rem",
           justifyContent: isHome ? "flex-start" : "flex-end",
         }}>
-          {player.stats.map((s, i) => <Chip key={i} label={s.label} value={s.value} negative={s.negative} />)}
+          {player.stats.map((s, i) => <Chip key={i} label={s.label} value={s.value} negative={s.negative} positive={s.positive} />)}
         </div>
       )}
 

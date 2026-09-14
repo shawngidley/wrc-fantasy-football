@@ -114,6 +114,7 @@ export interface StatChipData {
   label: string;
   value: string | number;
   negative?: boolean;
+  positive?: boolean;
 }
 
 /**
@@ -179,11 +180,13 @@ export function buildStatChips(stats: Tank01Stats): StatChipData[] {
   const sacks = stats.Defense ? sacksFrom(stats.Defense) : 0;
   const defInt = n(stats.Defense?.defensiveInterceptions);
   const defTD = n(stats.Defense?.defTD) + n(stats.Defense?.defensiveOrSpecialTeamsTds);
+  const fumblesRecovered = n(stats.Defense?.fumblesRecovered);
   const safeties = n(stats.Defense?.safeties);
-  if (sacks > 0) chips.push({ label: "SACK", value: sacks });
-  if (defInt > 0) chips.push({ label: "INT", value: defInt });
-  if (safeties > 0) chips.push({ label: "SFTY", value: safeties });
-  if (defTD > 0) chips.push({ label: "TD", value: defTD });
+  if (sacks > 0) chips.push({ label: "SACK", value: sacks, positive: true });
+  if (defInt > 0) chips.push({ label: "INT", value: defInt, positive: true });
+  if (fumblesRecovered > 0) chips.push({ label: "FR", value: fumblesRecovered, positive: true });
+  if (safeties > 0) chips.push({ label: "SFTY", value: safeties, positive: true });
+  if (defTD > 0) chips.push({ label: "TD", value: defTD, positive: true });
 
   return chips;
 }
