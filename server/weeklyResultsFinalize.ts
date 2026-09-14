@@ -35,13 +35,28 @@ export function resolveTeamStatsKey(homeAway: string, game: { home?: string; awa
  * recovered, defensive TDs, safeties) are already correctly framed from
  * this team's own defensive perspective and don't need this swap.
  */
-export function attributeDefensiveSacks(
+/**
+ * Tank01's team-level fumblesLost (like sacksAndYardsLost above) is
+ * framed from the OFFENSE's side -- it's how many times THIS team's own
+ * offense lost a fumble, not how many fumbles this team's defense
+ * recovered. Confirmed live: Detroit's DST had no fumblesRecovered
+ * field in the raw data at all, only fumblesLost: "1" under Detroit's
+ * own entry, representing Detroit's own offense losing a fumble. A
+ * defense's fumble-recovery credit needs to come from the OPPONENT's
+ * fumblesLost value instead, exactly mirroring the sacks attribution.
+ */
+export function attributeOffenseFramedDefenseStats(
   homeAway: string,
   stats: Record<string, unknown>,
   teamStatsBody: Record<string, Record<string, unknown>>,
 ): Record<string, unknown> {
   const opponentStats = teamStatsBody[homeAway === "home" ? "away" : "home"];
-  return { ...stats, sacksAndYardsLost: opponentStats?.sacksAndYardsLost, sacks: opponentStats?.sacks };
+  return {
+    ...stats,
+    sacksAndYardsLost: opponentStats?.sacksAndYardsLost,
+    sacks: opponentStats?.sacks,
+    fumblesRecovered: opponentStats?.fumblesLost,
+  };
 }
 
 /**
@@ -124,8 +139,8 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
     Object.entries(teamStatsBody).forEach(([homeAway, stats]) => {
       const teamAbv = resolveTeamStatsKey(homeAway, game);
       if (!teamAbv) return;
-      const statsWithCorrectSacks = attributeDefensiveSacks(homeAway, stats, teamStatsBody);
-      dstScores[teamAbv] = defensePoints(statsWithCorrectSacks);
+      const attributedStats = attributeOffenseFramedDefenseStats(homeAway, stats, teamStatsBody);
+      dstScores[teamAbv] = defensePoints(attributedStats);
     });
   }
 

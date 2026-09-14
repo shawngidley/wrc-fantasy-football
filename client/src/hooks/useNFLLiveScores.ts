@@ -69,18 +69,32 @@ function calcDSTLive(d: Record<string, string>): number {
  * defensive TDs, safeties) are already correctly framed from this team's
  * own defensive perspective and don't need this swap.
  */
-export function attributeDefensiveSacks(
+/**
+ * Tank01's team-level fumblesLost (like sacksAndYardsLost above) is
+ * framed from the OFFENSE's side -- it's how many times THIS team's own
+ * offense lost a fumble, not how many fumbles this team's defense
+ * recovered. Confirmed live: Detroit's DST had no fumblesRecovered
+ * field in the raw data at all, only fumblesLost: "1" under Detroit's
+ * own entry -- which represented Detroit's own offense losing a
+ * fumble, unrelated to Detroit's defense. The actual box score
+ * confirmed New Orleans recovered one of their own two fumbles and
+ * lost the other to Detroit's defense, so Detroit's defensive fumble
+ * credit needed to come from New Orleans's (the opponent's)
+ * fumblesLost value, exactly mirroring the sacks attribution below.
+ */
+export function attributeOffenseFramedDefenseStats(
   homeAway: string,
   d: Record<string, string>,
   teamStats: Record<string, Record<string, string>>,
 ): Record<string, string> {
   const opponentHomeAway = homeAway === "home" ? "away" : "home";
   const opponentStats = teamStats[opponentHomeAway];
-  const { sacksAndYardsLost: _ownSacks, sacks: _ownSacksAlt, ...dWithoutOwnSacks } = d;
+  const { sacksAndYardsLost: _ownSacks, sacks: _ownSacksAlt, fumblesLost: _ownFumblesLost, ...dWithoutOwnStats } = d;
   return {
-    ...dWithoutOwnSacks,
+    ...dWithoutOwnStats,
     ...(opponentStats?.sacksAndYardsLost !== undefined ? { sacksAndYardsLost: opponentStats.sacksAndYardsLost } : {}),
     ...(opponentStats?.sacks !== undefined ? { sacks: opponentStats.sacks } : {}),
+    ...(opponentStats?.fumblesLost !== undefined ? { fumblesRecovered: opponentStats.fumblesLost } : {}),
   };
 }
 
@@ -315,13 +329,7 @@ export function useNFLLiveScores(
         for (const [homeAway, d] of Object.entries(teamStats) as [string, Record<string, string>][]) {
           const teamAbv = homeAway === "home" ? teams?.home : homeAway === "away" ? teams?.away : undefined;
           if (!teamAbv) continue;
-          if (teamAbv === "DET") {
-            console.log(`[DET DST DEBUG] game ${gameId}, homeAway=${homeAway}, raw d:`, JSON.stringify(d));
-          }
-          const dWithCorrectSacks = attributeDefensiveSacks(homeAway, d, teamStats as Record<string, Record<string, string>>);
-          if (teamAbv === "DET") {
-            console.log(`[DET DST DEBUG] after attributeDefensiveSacks:`, JSON.stringify(dWithCorrectSacks));
-          }
+          const dWithCorrectSacks = attributeOffenseFramedDefenseStats(homeAway, d, teamStats as Record<string, Record<string, string>>);
           const pts = calcDSTLive(dWithCorrectSacks);
           newScores[`dst:${teamAbv}`] = pts;
           newStats[`dst:${teamAbv}`] = { Defense: dWithCorrectSacks };

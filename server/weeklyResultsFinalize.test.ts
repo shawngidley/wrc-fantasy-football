@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moneyOwedIdForOwner, resolveTeamStatsKey, sacksFrom, defensePoints, attributeDefensiveSacks } from "./weeklyResultsFinalize";
+import { moneyOwedIdForOwner, resolveTeamStatsKey, sacksFrom, defensePoints, attributeOffenseFramedDefenseStats } from "./weeklyResultsFinalize";
 
 describe("moneyOwedIdForOwner", () => {
   it("matches every owner's actual money_owed.id (verified against Money.tsx's DEFAULT_OWNERS)", () => {
@@ -73,7 +73,7 @@ describe("defensePoints (confirmed rules: sack 2pts, fumble/interception 3pts ea
   });
 });
 
-describe("attributeDefensiveSacks", () => {
+describe("attributeOffenseFramedDefenseStats", () => {
   // Real, confirmed data from the actual box score (NE @ SEA, Sept 9 2026):
   // New England's defense genuinely had 2 sacks, Seattle's had 3 -- but
   // Tank01's own teamStats entries show the OPPOSITE numbers under each
@@ -85,24 +85,54 @@ describe("attributeDefensiveSacks", () => {
   };
 
   it("attributes the OPPONENT's sacksAndYardsLost to this team's defense (away entry)", () => {
-    const result = attributeDefensiveSacks("away", teamStatsBody.away, teamStatsBody);
+    const result = attributeOffenseFramedDefenseStats("away", teamStatsBody.away, teamStatsBody);
     // NE's defense credit should be SEA's "2-12" (2 sacks), not NE's own "3-10"
     expect(sacksFrom(result)).toBe(2);
   });
 
   it("attributes the OPPONENT's sacksAndYardsLost to this team's defense (home entry)", () => {
-    const result = attributeDefensiveSacks("home", teamStatsBody.home, teamStatsBody);
+    const result = attributeOffenseFramedDefenseStats("home", teamStatsBody.home, teamStatsBody);
     // SEA's defense credit should be NE's "3-10" (3 sacks), not SEA's own "2-12"
     expect(sacksFrom(result)).toBe(3);
   });
 
   it("preserves all other fields from the team's own stats, only overriding sack fields", () => {
-    const result = attributeDefensiveSacks("away", teamStatsBody.away, teamStatsBody);
+    const result = attributeOffenseFramedDefenseStats("away", teamStatsBody.away, teamStatsBody);
     expect(result.team).toBe("NE"); // unchanged, still this team's own field
   });
 
   it("full pipeline: defensePoints on the attributed stats gives the correct, confirmed sack total", () => {
-    const neDefenseStats = attributeDefensiveSacks("away", { defensiveInterceptions: 0, safeties: 0 }, teamStatsBody);
+    const neDefenseStats = attributeOffenseFramedDefenseStats("away", { defensiveInterceptions: 0, safeties: 0 }, teamStatsBody);
     expect(defensePoints(neDefenseStats)).toBe(4); // 2 sacks * 2 = 4, matching the real box score
+  });
+});
+
+describe("attributeOffenseFramedDefenseStats -- fumble recovery", () => {
+  // Real, confirmed data from the actual live game (NO @ DET): Detroit's
+  // DST had no fumblesRecovered field at all, only fumblesLost: "1"
+  // under Detroit's own entry -- representing Detroit's own offense
+  // losing a fumble. The box score confirmed New Orleans recovered one
+  // of their own two fumbles and lost the other to Detroit's defense.
+  const fumbleTeamStatsBody = {
+    home: { fumblesLost: "1", team: "DET" },
+    away: { fumblesLost: "1", team: "NO" },
+  };
+
+  it("attributes the OPPONENT's fumblesLost as this team's fumblesRecovered", () => {
+    const result = attributeOffenseFramedDefenseStats("home", fumbleTeamStatsBody.home, fumbleTeamStatsBody);
+    expect(result.fumblesRecovered).toBe("1");
+  });
+
+  it("full pipeline: defensePoints correctly credits Detroit's confirmed scenario (SACK 5, INT 2, FR 1 = 19)", () => {
+    const detTeamStatsBody = {
+      // NO's own entry: NO's offense was sacked 5 times and lost 1
+      // fumble -- both of which are exactly what DET's defense should
+      // be credited for.
+      home: { sacksAndYardsLost: "5-32", fumblesLost: "1", team: "NO" },
+      away: { team: "DET" }, // DET's own raw entry, unused for these two fields
+    };
+    const detAttributed = attributeOffenseFramedDefenseStats("away", detTeamStatsBody.away, detTeamStatsBody);
+    const detStats = { ...detAttributed, defensiveInterceptions: 2 };
+    expect(defensePoints(detStats)).toBe(19); // 5*2 + 2*3 + 1*3 = 19
   });
 });

@@ -89555,9 +89555,14 @@ function resolveTeamStatsKey(homeAway, game) {
   if (homeAway === "away") return game.away ? teamCode(game.away) : void 0;
   return void 0;
 }
-function attributeDefensiveSacks(homeAway, stats, teamStatsBody) {
+function attributeOffenseFramedDefenseStats(homeAway, stats, teamStatsBody) {
   const opponentStats = teamStatsBody[homeAway === "home" ? "away" : "home"];
-  return { ...stats, sacksAndYardsLost: opponentStats?.sacksAndYardsLost, sacks: opponentStats?.sacks };
+  return {
+    ...stats,
+    sacksAndYardsLost: opponentStats?.sacksAndYardsLost,
+    sacks: opponentStats?.sacks,
+    fumblesRecovered: opponentStats?.fumblesLost
+  };
 }
 function sacksFrom(stats) {
   if (stats.sacks !== void 0) return n(stats.sacks);
@@ -89620,8 +89625,8 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
     Object.entries(teamStatsBody).forEach(([homeAway, stats]) => {
       const teamAbv = resolveTeamStatsKey(homeAway, game);
       if (!teamAbv) return;
-      const statsWithCorrectSacks = attributeDefensiveSacks(homeAway, stats, teamStatsBody);
-      dstScores[teamAbv] = defensePoints(statsWithCorrectSacks);
+      const attributedStats = attributeOffenseFramedDefenseStats(homeAway, stats, teamStatsBody);
+      dstScores[teamAbv] = defensePoints(attributedStats);
     });
   }
   const playerMeta = new Map((players ?? []).map((player) => [String(player.name).toLowerCase(), { position: String(player.position), nflTeam: String(player.nfl_team) }]));

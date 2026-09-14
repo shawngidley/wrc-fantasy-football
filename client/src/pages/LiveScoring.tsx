@@ -51,7 +51,6 @@ type SlotPlayer = {
   kickerEvents?: KickerPlayEvent[];
   isTE?: boolean;
   status?: "active" | "bye" | "out" | "dnp";
-  _debugRawStats?: unknown; // TEMPORARY -- remove after debugging Detroit DST
 };
 
 type SlotRow = {
@@ -533,13 +532,6 @@ function PlayerCell({ player, side, injuries = {} }: { player: SlotPlayer | null
           justifyContent: isHome ? "flex-start" : "flex-end",
         }}>
           {player.stats.map((s, i) => <Chip key={i} label={s.label} value={s.value} negative={s.negative} positive={s.positive} />)}
-        </div>
-      )}
-
-      {/* TEMPORARY DEBUG -- remove after Detroit DST issue is resolved */}
-      {player.pos === "DST" && player.nflTeam === "DET" && (
-        <div style={{ fontSize: "0.55rem", fontFamily: "monospace", background: "oklch(0.95 0.02 85)", border: "1px solid oklch(0.8 0.05 85)", borderRadius: 4, padding: "0.3rem", marginTop: "0.2rem", wordBreak: "break-all", color: "black" }}>
-          DEBUG: {JSON.stringify(player._debugRawStats)}
         </div>
       )}
 
@@ -1052,7 +1044,6 @@ function makeSlotPlayer(
     kickerEvents: player.position === "K" ? getKickerEventsForPlayer(kickerEvents, player.name) : undefined,
     isTE: player.position === "TE",
     status: "active",
-    _debugRawStats: rawStats, // TEMPORARY -- remove after debugging Detroit DST
   };
 }
 
