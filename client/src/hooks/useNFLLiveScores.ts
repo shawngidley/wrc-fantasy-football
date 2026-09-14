@@ -211,6 +211,13 @@ export function useNFLLiveScores(
   // the same component instance) and is checked before any fetch at all.
   const stoppedForWeekRef = useRef<number | null>(null);
   const prevWeekRef = useRef<number | null>(null);
+  // Always reflects the most current week, updated synchronously
+  // whenever it changes -- used below to detect and discard a
+  // still-in-flight fetch that was started for a week the user has
+  // since switched away from (a plain state/closure check can't catch
+  // this, since the fetch's own week value is fixed in its closure from
+  // whenever it started).
+  const currentWeekRef = useRef(week);
 
   // Get list of gameIds that are currently active
   const getActiveGameIds = useCallback((): string[] => {
@@ -340,7 +347,7 @@ export function useNFLLiveScores(
       }
     }
 
-    if (mountedRef.current) {
+    if (mountedRef.current && currentWeekRef.current === week) {
       setLiveScores(newScores);
       setLiveStats(newStats);
       setKickerEvents(espnEvents);
@@ -367,6 +374,7 @@ export function useNFLLiveScores(
       setLiveStats({});
     }
     prevWeekRef.current = week;
+    currentWeekRef.current = week;
 
     const schedule = () => {
       if (stoppedForWeekRef.current === week) {

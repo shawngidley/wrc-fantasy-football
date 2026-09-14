@@ -1521,9 +1521,6 @@ export default function LiveScoring() {
             <p style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.6)", margin: 0 }}>
               Week {currentWeek} · Last updated {lastRefresh.toLocaleTimeString()}
             </p>
-            <p style={{ fontSize: "0.6rem", color: "yellow", margin: 0, fontFamily: "monospace", wordBreak: "break-all" }}>
-              DEBUG: currentWeek={currentWeek}, liveScores keys={Object.keys(liveScores).length}, isPolling={String(isPolling)}, sample keys=[{Object.keys(liveScores).slice(0, 5).join(", ")}], matchupMap teams={Object.keys(nflMatchupMap).length}, sample matchup={JSON.stringify(Object.values(nflMatchupMap)[0])}
-            </p>
           </div>
         </div>
 
