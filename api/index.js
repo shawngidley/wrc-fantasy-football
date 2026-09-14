@@ -98283,9 +98283,20 @@ var appRouter = router({
       return { success: true };
     }),
     lineups: publicProcedure.input(external_exports.object({ teamId: external_exports.string().min(1), week: external_exports.number().int().min(1).max(22), season: external_exports.number().int().min(2020).max(2100) })).query(async ({ input: input2 }) => {
-      const { data, error: error61 } = await supabaseAdmin.from("lineups").select("slot, player_name").eq("team_id", input2.teamId).eq("week", input2.week).eq("season", input2.season);
+      const { data, error: error61 } = await supabaseAdmin.from("lineups").select("slot, player_id, player_name").eq("team_id", input2.teamId).eq("week", input2.week).eq("season", input2.season);
       if (error61) throw new Error("Unable to load lineup");
-      return data ?? [];
+      if (data && data.length > 0) return data;
+      for (let priorWeek = input2.week - 1; priorWeek >= 1; priorWeek--) {
+        const { data: priorData, error: priorError } = await supabaseAdmin.from("lineups").select("slot, player_id, player_name").eq("team_id", input2.teamId).eq("week", priorWeek).eq("season", input2.season);
+        if (priorError) throw new Error("Unable to load lineup");
+        if (priorData && priorData.length > 0) {
+          const { data: currentRoster, error: rosterError } = await supabaseAdmin.from("players").select("id").eq("team_id", input2.teamId);
+          if (rosterError) throw new Error("Unable to validate carried-forward lineup");
+          const rosterIds = new Set((currentRoster ?? []).map((p) => p.id));
+          return priorData.filter((row) => rosterIds.has(row.player_id));
+        }
+      }
+      return [];
     }),
     saveLineup: teamProcedure.input(external_exports.object({
       week: external_exports.number().int().min(1).max(22),

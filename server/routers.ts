@@ -394,12 +394,41 @@ export const appRouter = router({
       .query(async ({ input }) => {
         const { data, error } = await supabaseAdmin
           .from("lineups")
-          .select("slot, player_name")
+          .select("slot, player_id, player_name")
           .eq("team_id", input.teamId)
           .eq("week", input.week)
           .eq("season", input.season);
         if (error) throw new Error("Unable to load lineup");
-        return data ?? [];
+        if (data && data.length > 0) return data;
+
+        // Carry-forward: no lineup was explicitly saved for this week --
+        // fall back to the most recent PRIOR week that does have a saved
+        // lineup, so a lineup set once (e.g. Week 1) is the default for
+        // every following week until the owner actually changes it,
+        // rather than every unsaved week showing empty/default starters.
+        for (let priorWeek = input.week - 1; priorWeek >= 1; priorWeek--) {
+          const { data: priorData, error: priorError } = await supabaseAdmin
+            .from("lineups")
+            .select("slot, player_id, player_name")
+            .eq("team_id", input.teamId)
+            .eq("week", priorWeek)
+            .eq("season", input.season);
+          if (priorError) throw new Error("Unable to load lineup");
+          if (priorData && priorData.length > 0) {
+            // A carried-forward player may have since been dropped or
+            // traded away -- only include players still actually on
+            // this team's current roster, so a stale, invalid lineup
+            // never gets displayed or used as-is.
+            const { data: currentRoster, error: rosterError } = await supabaseAdmin
+              .from("players")
+              .select("id")
+              .eq("team_id", input.teamId);
+            if (rosterError) throw new Error("Unable to validate carried-forward lineup");
+            const rosterIds = new Set((currentRoster ?? []).map(p => p.id));
+            return priorData.filter(row => rosterIds.has(row.player_id));
+          }
+        }
+        return [];
       }),
     saveLineup: teamProcedure
       .input(z.object({
