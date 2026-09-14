@@ -326,6 +326,12 @@ export function useNFLLiveScores(
           if (!name) continue;
           const kickerPlays = pos === "K" ? getKickerEventsForPlayer(espnEvents, name) : [];
           const pts = pos === "K" && kickerPlays.length > 0 ? calculateWrcKickerPoints(kickerPlays, p as Tank01Stats) : calcWRCLive(p, pos);
+          if (name.toLowerCase().includes("mcbride") || name.toLowerCase().includes("goedert")) {
+            (window as unknown as { __teDebug?: string[] }).__teDebug = [
+              ...((window as unknown as { __teDebug?: string[] }).__teDebug ?? []),
+              `${name}: raw pos="${pos}", pts=${pts}, receptions=${JSON.stringify((p as Record<string, unknown>).Receiving)}`,
+            ];
+          }
           const key = normalizePlayerName(name);
           newScores[key] = pts;
           newStats[key] = p as Tank01Stats;

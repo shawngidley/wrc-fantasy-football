@@ -1521,6 +1521,11 @@ export default function LiveScoring() {
             <p style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.6)", margin: 0 }}>
               Week {currentWeek} · Last updated {lastRefresh.toLocaleTimeString()}
             </p>
+            {((window as unknown as { __teDebug?: string[] }).__teDebug ?? []).length > 0 && (
+              <p style={{ fontSize: "0.55rem", color: "yellow", margin: 0, fontFamily: "monospace", wordBreak: "break-all" }}>
+                TE DEBUG: {((window as unknown as { __teDebug?: string[] }).__teDebug ?? []).join(" | ")}
+              </p>
+            )}
           </div>
         </div>
 
