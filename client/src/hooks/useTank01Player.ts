@@ -90,6 +90,40 @@ function cacheSet(key: string, data: unknown) {
   }
 }
 
+// ── Concurrency limiter for getNFLPlayerInfo requests ────────────────────────
+// Confirmed live: a full LiveScoring page load mounts 30+ PlayerAvatar
+// components at once, each independently calling fetchPlayerByName on
+// mount with no shared throttling between them -- whenever that many
+// players aren't yet cached (e.g. a browser's first visit of the day,
+// before the 24h cache above has anything in it), all 30+ fire their own
+// simultaneous network request at once. Also the likely cause of the
+// unusually slow (3.3-3.8s, vs ~150ms for other Tank01 endpoints)
+// response times observed in that exact burst -- Tank01 may be
+// throttling/queuing under the concurrent load rather than rejecting it
+// outright. Capping how many of these requests are actually in flight at
+// once, and queueing the rest, spreads the same total work out instead
+// of spiking it all in the same instant.
+const MAX_CONCURRENT_PLAYER_INFO_REQUESTS = 5;
+let activePlayerInfoRequests = 0;
+const playerInfoWaitQueue: Array<() => void> = [];
+
+export async function acquirePlayerInfoSlot(): Promise<void> {
+  if (activePlayerInfoRequests < MAX_CONCURRENT_PLAYER_INFO_REQUESTS) {
+    activePlayerInfoRequests++;
+    return;
+  }
+  return new Promise<void>(resolve => playerInfoWaitQueue.push(resolve));
+}
+
+export function releasePlayerInfoSlot(): void {
+  activePlayerInfoRequests--;
+  const next = playerInfoWaitQueue.shift();
+  if (next) {
+    activePlayerInfoRequests++;
+    next();
+  }
+}
+
 function normalizeTankPlayer(player: Tank01Player): Tank01Player {
   return { ...player, team: normalizeNFLTeamCode(player.team) };
 }
@@ -100,6 +134,7 @@ export async function fetchPlayerById(playerID: string): Promise<Tank01Player | 
   const cached = cacheGet<Tank01Player>(cacheKey);
   if (cached) return normalizeTankPlayer(cached);
 
+  await acquirePlayerInfoSlot();
   try {
     const res = await fetch(
       `${BASE_URL}/getNFLPlayerInfo?playerID=${playerID}&getStats=true`,
@@ -114,6 +149,8 @@ export async function fetchPlayerById(playerID: string): Promise<Tank01Player | 
     return normalizedPlayer;
   } catch {
     return null;
+  } finally {
+    releasePlayerInfoSlot();
   }
 }
 
@@ -125,13 +162,23 @@ export async function fetchPlayerByName(rawName: string): Promise<Tank01Player |
   const cached = cacheGet<Tank01Player>(cacheKey);
   if (cached) return normalizeTankPlayer(cached);
 
+  let res: Response;
+  let json: any;
+  await acquirePlayerInfoSlot();
   try {
-    const res = await fetch(
+    res = await fetch(
       `${BASE_URL}/getNFLPlayerInfo?playerName=${encodeURIComponent(canonicalName)}&getStats=true`,
       { headers: HEADERS }
     );
     if (!res.ok) return null;
-    const json = await res.json();
+    json = await res.json();
+  } catch {
+    return null;
+  } finally {
+    releasePlayerInfoSlot();
+  }
+
+  try {
     // getNFLPlayerInfo by name returns an array
     const list: Tank01Player[] = Array.isArray(json.body) ? json.body : [json.body];
     const normalizedName = normalizePlayerName(canonicalName);
