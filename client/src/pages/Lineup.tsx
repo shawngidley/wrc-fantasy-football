@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { Lock, CheckCircle2, ChevronDown, ArrowLeftRight, X, Zap, Eye, ArrowLeft, Wifi, WifiOff, Shield } from "lucide-react";
 import { TEAMS } from "@/lib/wrcData";
-import { getCurrentWeek } from "@/lib/scheduleData2026";
+import { getCurrentWeek, SCHEDULE_2026 } from "@/lib/scheduleData2026";
 import { useDraftedRoster } from "@/hooks/useDraftedRoster";
 import { useParams, Link, useLocation } from "wouter";
 import TeamLogo from "@/components/TeamLogo";
@@ -630,7 +630,23 @@ export default function Lineup() {
   const isCommissionerEditingOtherTeam = isCommissioner && !!teamId && franchise?.team_name !== viewTeamName;
 
   // Live NFL matchup + projection data from Tank01
-  const currentWeek = getCurrentWeek() || 1;
+  // Read ?week=N from the URL; fall back to the current real week.
+  // Same pattern as LiveScoring.tsx's week selector, using real state
+  // rather than a URL-derived useMemo, since wouter's useLocation()
+  // tracks pathname only, not query string changes.
+  function getWeekFromUrl(): number {
+    const search = typeof window !== "undefined" ? window.location.search : "";
+    const params = new URLSearchParams(search);
+    const weekParam = params.get("week");
+    if (weekParam) {
+      const parsed = parseInt(weekParam, 10);
+      if (!isNaN(parsed) && SCHEDULE_2026.some(w => w.week === parsed)) return parsed;
+    }
+    const w = getCurrentWeek();
+    return w > 0 ? w : 1;
+  }
+  const actualCurrentWeek = getCurrentWeek() || 1;
+  const [currentWeek, setCurrentWeek] = useState<number>(getWeekFromUrl);
   const { matchups: matchupMap } = useNFLMatchups(currentWeek);
   const { projections } = useNFLProjections(currentWeek);
 
@@ -1070,7 +1086,30 @@ export default function Lineup() {
               )}
               {(isReadOnly || isCommissionerEditingOtherTeam) ? viewTeamName : "My Lineup"}
             </h1>
-            <p>{isCommissionerEditingOtherTeam ? "Editing on behalf of this owner" : isReadOnly ? "Read-only view" : (franchise?.team_name || "Select a team")} — Week {currentWeek} · Lock: players lock at kickoff</p>
+            <p>{isCommissionerEditingOtherTeam ? "Editing on behalf of this owner" : isReadOnly ? "Read-only view" : (franchise?.team_name || "Select a team")} — Lock: players lock at kickoff</p>
+            <select
+              value={currentWeek}
+              onChange={e => {
+                const week = Number(e.target.value);
+                setCurrentWeek(week);
+                navigate(`${teamId ? `/lineup/${teamId}` : "/lineup"}?week=${week}`);
+              }}
+              style={{
+                fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem",
+                letterSpacing: "0.08em", color: "oklch(0.35 0.1 150)",
+                background: "oklch(0.35 0.1 150 / 0.1)", border: "1px solid oklch(0.35 0.1 150 / 0.3)",
+                borderRadius: 5, padding: "2px 22px 2px 8px", marginTop: "0.3rem", whiteSpace: "nowrap",
+                cursor: "pointer", appearance: "none",
+                backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23336' stroke-width='1.5' fill='none'/%3E%3C/svg%3E\")",
+                backgroundRepeat: "no-repeat", backgroundPosition: "right 7px center",
+              }}
+            >
+              {SCHEDULE_2026.map(({ week, label }) => (
+                <option key={week} value={week}>
+                  {label}{week === actualCurrentWeek ? " (Current)" : ""}
+                </option>
+              ))}
+            </select>
           </div>
           {/* Controls — shown to the owner of this lineup, or the commissioner editing on their behalf */}
           {!isReadOnly && (
