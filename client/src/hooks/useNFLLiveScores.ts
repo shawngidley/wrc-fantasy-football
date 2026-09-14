@@ -372,6 +372,7 @@ export function useNFLLiveScores(
     if (prevWeekRef.current !== null && prevWeekRef.current !== week) {
       setLiveScores({});
       setLiveStats({});
+      setKickerEvents([]);
     }
     prevWeekRef.current = week;
     currentWeekRef.current = week;
