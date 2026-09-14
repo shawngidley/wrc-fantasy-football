@@ -122,7 +122,7 @@ describe("buildStatChips", () => {
   });
 
   it("builds defense chips, omitting zero categories", () => {
-    expect(buildStatChips({ Defense: { sacks: "2", defensiveInterceptions: "1", fumblesRecovered: "0", safeties: "0", defTD: "1" } })).toEqual([
+    expect(buildStatChips({ Defense: { sacks: "2", defensiveInterceptions: "1", fumblesRecovered: "0", safeties: "0", defTD: "1" } }, "DST")).toEqual([
       { label: "SACK", value: 2, positive: true },
       { label: "INT", value: 1, positive: true },
       { label: "TD", value: 1, positive: true },
@@ -191,6 +191,26 @@ describe("buildStatChips negative-event flagging", () => {
     expect(frChip?.positive).toBe(true);
   });
 
+  it("never shows DST-specific chips (FR, SACK, INT, SFTY, TD) for an individual offensive player, even when their raw stats include a Defense sub-object", () => {
+    // Confirmed live: Travis Etienne Jr. (an RB) personally recovered
+    // his own team's fumble -- New Orleans's official box score showed
+    // him with REC 1 under Fumbles -- and Tank01 apparently tracks this
+    // under a Defense.fumblesRecovered field even for an offensive
+    // player who happens to recover one. He incorrectly showed a green
+    // "FR 1" chip alongside his RUSH/REC/YDS chips.
+    const chips = buildStatChips({
+      Rushing: { rushYds: 46, carries: 10 },
+      Receiving: { receptions: 7, recYds: 32 },
+      Defense: { fumblesRecovered: 1 },
+    }, "RB");
+    expect(chips.find(c => c.label === "FR")).toBeUndefined();
+    expect(chips.find(c => c.label === "SACK")).toBeUndefined();
+    expect(chips.find(c => c.label === "INT")).toBeUndefined();
+    // The player's own, legitimate offensive chips should still appear.
+    expect(chips.find(c => c.label === "RUSH")?.value).toBe(46);
+    expect(chips.find(c => c.label === "REC")?.value).toBe(7);
+  });
+
   it("shows a FUM chip (previously missing entirely) for an offensive fumble lost, marked negative", () => {
     const chips = buildStatChips({ Fumbles: { fumblesLost: 1 } });
     const fumChip = chips.find(c => c.label === "FUM");
@@ -214,7 +234,7 @@ describe("buildStatChips negative-event flagging", () => {
   });
 
   it("shows a defensive fumble recovery (FR) chip, marked positive (green) like the other DST chips", () => {
-    const chips = buildStatChips({ Defense: { fumblesRecovered: 1 } });
+    const chips = buildStatChips({ Defense: { fumblesRecovered: 1 } }, "DST");
     const frChip = chips.find(c => c.label === "FR");
     expect(frChip).toBeDefined();
     expect(frChip?.positive).toBe(true);
@@ -229,7 +249,7 @@ describe("buildStatChips negative-event flagging", () => {
         safeties: 1,
         defTD: 1,
       },
-    });
+    }, "DST");
     expect(chips.every(c => c.positive === true)).toBe(true);
     expect(chips).toHaveLength(5); // SACK, INT, FR, SFTY, TD
   });

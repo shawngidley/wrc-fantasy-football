@@ -183,16 +183,27 @@ export function buildStatChips(stats: Tank01Stats, pos?: string): StatChipData[]
     chips.push({ label: "XP", value: `${n(xpMade)}/${n(xpAttempts)}` });
   }
 
-  const sacks = stats.Defense ? sacksFrom(stats.Defense) : 0;
-  const defInt = n(stats.Defense?.defensiveInterceptions);
-  const defTD = n(stats.Defense?.defTD) + n(stats.Defense?.defensiveOrSpecialTeamsTds);
-  const fumblesRecovered = n(stats.Defense?.fumblesRecovered);
-  const safeties = n(stats.Defense?.safeties);
-  if (sacks > 0) chips.push({ label: "SACK", value: sacks, positive: true });
-  if (defInt > 0) chips.push({ label: "INT", value: defInt, positive: true });
-  if (fumblesRecovered > 0) chips.push({ label: "FR", value: fumblesRecovered, positive: true });
-  if (safeties > 0) chips.push({ label: "SFTY", value: safeties, positive: true });
-  if (defTD > 0) chips.push({ label: "TD", value: defTD, positive: true });
+  // DST-specific categories (sacks, interceptions, fumble recoveries,
+  // safeties, defensive/special-teams TDs) only ever apply to an actual
+  // DST entry. Confirmed live: an individual offensive player (Travis
+  // Etienne Jr., an RB) who personally recovered his own team's own
+  // fumble incorrectly showed an "FR" chip, since Tank01 apparently
+  // tracks fumble recovery under a Defense.fumblesRecovered field even
+  // for an offensive player who happens to recover one -- gating this
+  // whole block to pos === "DST" prevents any of these categories from
+  // leaking onto an individual offensive player's stat chips.
+  if (pos === "DST") {
+    const sacks = stats.Defense ? sacksFrom(stats.Defense) : 0;
+    const defInt = n(stats.Defense?.defensiveInterceptions);
+    const defTD = n(stats.Defense?.defTD) + n(stats.Defense?.defensiveOrSpecialTeamsTds);
+    const fumblesRecovered = n(stats.Defense?.fumblesRecovered);
+    const safeties = n(stats.Defense?.safeties);
+    if (sacks > 0) chips.push({ label: "SACK", value: sacks, positive: true });
+    if (defInt > 0) chips.push({ label: "INT", value: defInt, positive: true });
+    if (fumblesRecovered > 0) chips.push({ label: "FR", value: fumblesRecovered, positive: true });
+    if (safeties > 0) chips.push({ label: "SFTY", value: safeties, positive: true });
+    if (defTD > 0) chips.push({ label: "TD", value: defTD, positive: true });
+  }
 
   return chips;
 }
