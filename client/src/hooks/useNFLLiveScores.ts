@@ -315,7 +315,13 @@ export function useNFLLiveScores(
         for (const [homeAway, d] of Object.entries(teamStats) as [string, Record<string, string>][]) {
           const teamAbv = homeAway === "home" ? teams?.home : homeAway === "away" ? teams?.away : undefined;
           if (!teamAbv) continue;
+          if (teamAbv === "DET") {
+            console.log(`[DET DST DEBUG] game ${gameId}, homeAway=${homeAway}, raw d:`, JSON.stringify(d));
+          }
           const dWithCorrectSacks = attributeDefensiveSacks(homeAway, d, teamStats as Record<string, Record<string, string>>);
+          if (teamAbv === "DET") {
+            console.log(`[DET DST DEBUG] after attributeDefensiveSacks:`, JSON.stringify(dWithCorrectSacks));
+          }
           const pts = calcDSTLive(dWithCorrectSacks);
           newScores[`dst:${teamAbv}`] = pts;
           newStats[`dst:${teamAbv}`] = { Defense: dWithCorrectSacks };
