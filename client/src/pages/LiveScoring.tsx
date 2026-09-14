@@ -1521,6 +1521,9 @@ export default function LiveScoring() {
             <p style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.6)", margin: 0 }}>
               Week {currentWeek} · Last updated {lastRefresh.toLocaleTimeString()}
             </p>
+            <p style={{ fontSize: "0.6rem", color: "yellow", margin: 0, fontFamily: "monospace" }}>
+              DEBUG: currentWeek={currentWeek}, liveScores keys={Object.keys(liveScores).length}, isPolling={String(isPolling)}
+            </p>
           </div>
         </div>
 
