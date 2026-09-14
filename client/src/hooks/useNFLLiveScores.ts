@@ -210,6 +210,7 @@ export function useNFLLiveScores(
   // across those re-runs (useRef survives effect cleanup/re-setup within
   // the same component instance) and is checked before any fetch at all.
   const stoppedForWeekRef = useRef<number | null>(null);
+  const prevWeekRef = useRef<number | null>(null);
 
   // Get list of gameIds that are currently active
   const getActiveGameIds = useCallback((): string[] => {
@@ -350,6 +351,22 @@ export function useNFLLiveScores(
   // Start/stop polling based on active games
   useEffect(() => {
     mountedRef.current = true;
+
+    // Clear any stale data from a previously-viewed week immediately,
+    // before attempting to fetch this week's data. Without this, a
+    // future week with no games active yet (so the fetch below never
+    // runs at all) would keep showing whatever week was viewed last --
+    // confirmed live, switching to Week 2 before any Week 2 game had
+    // kicked off still showed Week 1's live scores and stat chips for
+    // any player who also appeared in Week 2's lineup. Gated to an
+    // actual week change (not just any re-run of this effect, which
+    // also depends on matchupMap/season) so a routine matchup refresh
+    // during normal polling doesn't cause the live scores to flicker.
+    if (prevWeekRef.current !== null && prevWeekRef.current !== week) {
+      setLiveScores({});
+      setLiveStats({});
+    }
+    prevWeekRef.current = week;
 
     const schedule = () => {
       if (stoppedForWeekRef.current === week) {
