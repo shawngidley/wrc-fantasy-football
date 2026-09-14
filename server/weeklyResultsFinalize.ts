@@ -1,5 +1,6 @@
 import { SCHEDULE_2026 } from "../client/src/lib/scheduleData2026";
 import { supabaseAdmin } from "./supabaseAdmin";
+import { normalizePlayerName } from "../shared/playerNameMatch";
 
 const HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
 const n = (value: unknown) => Number.parseFloat(String(value ?? "0")) || 0;
@@ -77,7 +78,7 @@ export function sacksFrom(stats: Record<string, unknown>): number {
   return 0;
 }
 
-function playerPoints(stats: Record<string, unknown>, position: string) {
+export function playerPoints(stats: Record<string, unknown>, position: string) {
   const pass = (stats.Passing as Record<string, unknown>) ?? {};
   const rush = (stats.Rushing as Record<string, unknown>) ?? {};
   const receive = (stats.Receiving as Record<string, unknown>) ?? {};
@@ -128,12 +129,26 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
 
   const individualScores: Record<string, number> = {};
   const dstScores: Record<string, number> = {};
+  // Tank01's player-level box score stats have an empty position field
+  // for every player (confirmed live for both T. McBride and D.
+  // Goedert: raw pos=""), so playerPoints' TE-reception check was
+  // always failing regardless of the player's real position -- silently
+  // dropping WRC's 1.5/reception TE bonus from every TE's official,
+  // recorded score. Use the roster's own, correct position instead,
+  // matched via the same suffix-aware normalizer used everywhere else
+  // in this codebase, since Tank01's longName can differ from the
+  // roster's stored name by a generational suffix (e.g. "James Cook"
+  // vs "James Cook III").
+  const positionByName = new Map((players ?? []).map(p => [normalizePlayerName(p.name), p.position]));
   for (const game of games) {
     const response = await fetch(`https://${HOST}/getNFLBoxScore?gameID=${game.gameID}&fantasyPoints=true&twoPointConversions=2&passYards=.04&passTD=4&passInterceptions=-3&pointsPerReception=1&carries=0&rushYards=.1&rushTD=6&fumbles=-3&receivingYards=.1&receivingTD=6&targets=0&defTD=6&fgMade=0&fgYards=.1&xpMade=1`, { headers, signal: AbortSignal.timeout(30_000) });
     if (!response.ok) throw new Error("Unable to load an NFL box score.");
     const body = (await response.json()).body ?? {};
     Object.values(body.playerStats ?? {}).forEach((entry: any) => {
-      if (entry.longName) individualScores[String(entry.longName).toLowerCase()] = playerPoints(entry, String(entry.pos ?? ""));
+      if (entry.longName) {
+        const rosterPosition = positionByName.get(normalizePlayerName(String(entry.longName))) ?? String(entry.pos ?? "");
+        individualScores[String(entry.longName).toLowerCase()] = playerPoints(entry, rosterPosition);
+      }
     });
     const teamStatsBody = (body.teamStats ?? {}) as Record<string, Record<string, unknown>>;
     Object.entries(teamStatsBody).forEach(([homeAway, stats]) => {

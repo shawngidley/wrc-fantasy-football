@@ -326,12 +326,6 @@ export function useNFLLiveScores(
           if (!name) continue;
           const kickerPlays = pos === "K" ? getKickerEventsForPlayer(espnEvents, name) : [];
           const pts = pos === "K" && kickerPlays.length > 0 ? calculateWrcKickerPoints(kickerPlays, p as Tank01Stats) : calcWRCLive(p, pos);
-          if (name.toLowerCase().includes("mcbride") || name.toLowerCase().includes("goedert")) {
-            (window as unknown as { __teDebug?: string[] }).__teDebug = [
-              ...((window as unknown as { __teDebug?: string[] }).__teDebug ?? []),
-              `${name}: raw pos="${pos}", pts=${pts}, receptions=${JSON.stringify((p as Record<string, unknown>).Receiving)}`,
-            ];
-          }
           const key = normalizePlayerName(name);
           newScores[key] = pts;
           newStats[key] = p as Tank01Stats;
@@ -452,7 +446,19 @@ export function getLivePoints(
     if (fromLiveScores !== undefined) return fromLiveScores;
     return null;
   }
-  const v = liveScores[normalizePlayerName(playerName)];
+  // Tank01's own position field is empty for player-level box score
+  // stats (confirmed live for both T. McBride and D. Goedert: raw
+  // pos=""), so the pre-computed liveScores value was always calculated
+  // with calcFantasyPoints' teReception check failing regardless of the
+  // player's actual position -- silently dropping WRC's 1.5/reception TE
+  // bonus for every TE, every time. Re-compute from the raw stats using
+  // the caller's correct, roster-known pos instead of trusting that
+  // write-time value. This is a no-op for every other position, since
+  // teReception is false there regardless of which pos string is used.
+  const key = normalizePlayerName(playerName);
+  const rawStats = liveStats[key];
+  if (rawStats) return calcFantasyPoints(rawStats, pos);
+  const v = liveScores[key];
   return v !== undefined ? v : null;
 }
 

@@ -66,6 +66,43 @@ describe("attributeOffenseFramedDefenseStats", () => {
   });
 });
 
+describe("getLivePoints TE reception bonus (Tank01 empty-position bug)", () => {
+  // Confirmed live: Tank01's own position field is empty ("") for
+  // player-level box score stats, for every player -- not just TEs.
+  // The pre-computed liveScores value was calculated with this empty
+  // pos, so calcFantasyPoints' teReception check ("TE" === "") always
+  // failed regardless of the player's real position, silently dropping
+  // WRC's 1.5/reception TE bonus for every TE, every time.
+  it("correctly applies the TE reception bonus by re-computing from raw stats with the caller's correct position (T. McBride: 9 rec, 95 yds, 1 TD)", () => {
+    const liveStats = { "treymcbride": { Receiving: { receptions: 9, recYds: 95, recTD: 1 } } };
+    const liveScores = { "treymcbride": 24.5 }; // the old, TE-blind pre-computed value (bug)
+    const points = getLivePoints(liveScores, "Trey McBride", "TE", "ARI", [], liveStats);
+    // 9*1.5 + 95*0.1 + 1*6 = 13.5 + 9.5 + 6.0 = 29.0
+    expect(points).toBe(29.0);
+  });
+
+  it("correctly applies the TE reception bonus (D. Goedert: 4 rec, 77 yds, 2 TD)", () => {
+    const liveStats = { "dallasgoedert": { Receiving: { receptions: 4, recYds: 77, recTD: 2 } } };
+    const liveScores = { "dallasgoedert": 23.7 }; // the old, TE-blind pre-computed value (bug)
+    const points = getLivePoints(liveScores, "Dallas Goedert", "TE", "PHI", [], liveStats);
+    // 4*1.5 + 77*0.1 + 2*6 = 6.0 + 7.7 + 12.0 = 25.7
+    expect(points).toBe(25.7);
+  });
+
+  it("does not change a non-TE player's score, since teReception is false either way", () => {
+    const liveStats = { "amonrastbrown": { Receiving: { receptions: 8, recYds: 68 } } };
+    const liveScores = { "amonrastbrown": 14.8 };
+    const points = getLivePoints(liveScores, "Amon-Ra St. Brown", "WR", "DET", [], liveStats);
+    // 8*1.0 + 68*0.1 = 8.0 + 6.8 = 14.8 -- same result whether TE-aware or not
+    expect(points).toBe(14.8);
+  });
+
+  it("falls back to the pre-computed liveScores value when no raw stats are available for this player", () => {
+    const points = getLivePoints({ "treymcbride": 24.5 }, "Trey McBride", "TE", "ARI", [], {});
+    expect(points).toBe(24.5);
+  });
+});
+
 describe("getLivePoints suffix mismatch (James Cook bug)", () => {
   // Confirmed live: Tank01 returns "James Cook III" (with the
   // generational suffix), but WRC's roster stores him as "James Cook"

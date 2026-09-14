@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moneyOwedIdForOwner, resolveTeamStatsKey, sacksFrom, defensePoints, attributeOffenseFramedDefenseStats } from "./weeklyResultsFinalize";
+import { moneyOwedIdForOwner, resolveTeamStatsKey, sacksFrom, defensePoints, attributeOffenseFramedDefenseStats, playerPoints } from "./weeklyResultsFinalize";
 
 describe("moneyOwedIdForOwner", () => {
   it("matches every owner's actual money_owed.id (verified against Money.tsx's DEFAULT_OWNERS)", () => {
@@ -134,5 +134,35 @@ describe("attributeOffenseFramedDefenseStats -- fumble recovery", () => {
     const detAttributed = attributeOffenseFramedDefenseStats("away", detTeamStatsBody.away, detTeamStatsBody);
     const detStats = { ...detAttributed, defensiveInterceptions: 2 };
     expect(defensePoints(detStats)).toBe(19); // 5*2 + 2*3 + 1*3 = 19
+  });
+});
+
+describe("playerPoints TE reception bonus", () => {
+  // Confirmed live: Tank01's own position field is empty ("") for
+  // player-level box score stats. finalizeWeeklyResultsFromTank was
+  // calling playerPoints(entry, entry.pos) directly, so this always
+  // failed the TE-reception check regardless of the player's real
+  // position -- silently dropping WRC's 1.5/reception TE bonus from
+  // every TE's official, recorded weekly score. Fixed by looking up
+  // each player's real position from the already-fetched roster data
+  // instead of trusting Tank01's empty field.
+  it("applies the 1.5/reception bonus when given the correct position (T. McBride: 9 rec, 95 yds, 1 TD)", () => {
+    const pts = playerPoints({ Receiving: { receptions: 9, recYds: 95, recTD: 1 } }, "TE");
+    expect(pts).toBe(29.0); // 9*1.5 + 95*0.1 + 1*6
+  });
+
+  it("applies the 1.5/reception bonus (D. Goedert: 4 rec, 77 yds, 2 TD)", () => {
+    const pts = playerPoints({ Receiving: { receptions: 4, recYds: 77, recTD: 2 } }, "TE");
+    expect(pts).toBe(25.7); // 4*1.5 + 77*0.1 + 2*6
+  });
+
+  it("does NOT apply the TE bonus when given Tank01's own empty position string -- demonstrates the exact bug being fixed", () => {
+    const pts = playerPoints({ Receiving: { receptions: 9, recYds: 95, recTD: 1 } }, "");
+    expect(pts).toBe(24.5); // 9*1.0 + 9.5 + 6.0 -- the old, buggy result
+  });
+
+  it("does not apply any reception bonus for a non-TE position", () => {
+    const pts = playerPoints({ Receiving: { receptions: 8, recYds: 68 } }, "WR");
+    expect(pts).toBe(14.8); // 8*1.0 + 6.8
   });
 });

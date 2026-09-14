@@ -89614,12 +89614,16 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
   if (lineupsError || playersError || teamsError || !teams) throw new Error("Unable to load saved lineups.");
   const individualScores = {};
   const dstScores = {};
+  const positionByName = new Map((players ?? []).map((p) => [normalizePlayerName(p.name), p.position]));
   for (const game of games) {
     const response = await fetch(`https://${HOST}/getNFLBoxScore?gameID=${game.gameID}&fantasyPoints=true&twoPointConversions=2&passYards=.04&passTD=4&passInterceptions=-3&pointsPerReception=1&carries=0&rushYards=.1&rushTD=6&fumbles=-3&receivingYards=.1&receivingTD=6&targets=0&defTD=6&fgMade=0&fgYards=.1&xpMade=1`, { headers, signal: AbortSignal.timeout(3e4) });
     if (!response.ok) throw new Error("Unable to load an NFL box score.");
     const body = (await response.json()).body ?? {};
     Object.values(body.playerStats ?? {}).forEach((entry) => {
-      if (entry.longName) individualScores[String(entry.longName).toLowerCase()] = playerPoints(entry, String(entry.pos ?? ""));
+      if (entry.longName) {
+        const rosterPosition = positionByName.get(normalizePlayerName(String(entry.longName))) ?? String(entry.pos ?? "");
+        individualScores[String(entry.longName).toLowerCase()] = playerPoints(entry, rosterPosition);
+      }
     });
     const teamStatsBody = body.teamStats ?? {};
     Object.entries(teamStatsBody).forEach(([homeAway, stats]) => {
