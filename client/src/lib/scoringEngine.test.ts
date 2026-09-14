@@ -172,10 +172,23 @@ describe("buildStatChips negative-event flagging", () => {
     expect(fumChip?.negative).toBe(true);
   });
 
-  it("does NOT mark a defensive fumble recovery (FR) as negative -- it's a positive event for DST", () => {
+  it("falls back to Defense.fumblesLost when Fumbles.fumblesLost isn't present -- matches calcFantasyPoints' existing fallback, since Tank01 sometimes reports it there instead", () => {
+    // Confirmed live: T. Shough's displayed score (20.2) already
+    // correctly reflected a -3 fumble-lost deduction (410yd*.04 +
+    // 3TD*4 - 2INT*3 + 8rush*.1 = 23.2, minus 3 for the lost fumble =
+    // 20.2), meaning calcFantasyPoints found the fumble -- but the FUM
+    // chip wasn't showing, because buildStatChips lacked this same
+    // fallback and Tank01 had reported it under Defense for this player.
+    const chips = buildStatChips({ Defense: { fumblesLost: 1 } });
+    const fumChip = chips.find(c => c.label === "FUM");
+    expect(fumChip).toBeDefined();
+    expect(fumChip?.value).toBe(1);
+    expect(fumChip?.negative).toBe(true);
+  });
+
+  it("no longer shows a defensive fumble recovery (FR) as a chip at all, per request", () => {
     const chips = buildStatChips({ Defense: { fumblesRecovered: 1 } });
-    const frChip = chips.find(c => c.label === "FR");
-    expect(frChip?.negative).toBeFalsy();
+    expect(chips.find(c => c.label === "FR")).toBeUndefined();
   });
 
   it("does not show a FUM chip at all when there's no fumble lost", () => {

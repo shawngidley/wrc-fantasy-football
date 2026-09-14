@@ -157,8 +157,12 @@ export function buildStatChips(stats: Tank01Stats): StatChipData[] {
 
   // Fumbles lost by the offensive player -- previously not shown as a
   // chip at all, despite costing points the same way a thrown
-  // interception does.
-  const fumblesLost = n(stats.Fumbles?.fumblesLost);
+  // interception does. Same fallback as calcFantasyPoints below: Tank01
+  // sometimes reports this under Defense rather than Fumbles for a
+  // given player, and the scoring formula already accounts for that --
+  // the chip display needs the same fallback or it can miss a fumble
+  // that was still correctly deducted from the player's score.
+  const fumblesLost = n(stats.Fumbles?.fumblesLost ?? stats.Defense?.fumblesLost);
   if (fumblesLost > 0) chips.push({ label: "FUM", value: fumblesLost, negative: true });
 
   const fgMade = stats.Kicking?.fgMade;
@@ -175,11 +179,9 @@ export function buildStatChips(stats: Tank01Stats): StatChipData[] {
   const sacks = stats.Defense ? sacksFrom(stats.Defense) : 0;
   const defInt = n(stats.Defense?.defensiveInterceptions);
   const defTD = n(stats.Defense?.defTD) + n(stats.Defense?.defensiveOrSpecialTeamsTds);
-  const fumblesRecovered = n(stats.Defense?.fumblesRecovered);
   const safeties = n(stats.Defense?.safeties);
   if (sacks > 0) chips.push({ label: "SACK", value: sacks });
   if (defInt > 0) chips.push({ label: "INT", value: defInt });
-  if (fumblesRecovered > 0) chips.push({ label: "FR", value: fumblesRecovered });
   if (safeties > 0) chips.push({ label: "SFTY", value: safeties });
   if (defTD > 0) chips.push({ label: "TD", value: defTD });
 
