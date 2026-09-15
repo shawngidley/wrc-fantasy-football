@@ -61,7 +61,6 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
   const [playerMetaMap, setPlayerMetaMap] = useState<Record<string, { age?: string; headshot?: string }>>({});
   const [loading, setLoading] = useState(false);
   const [loadedCount, setLoadedCount] = useState(0);
-  const [ejDebug, setEjDebug] = useState<string>("(effect hasn't run yet)");
 
   const requestKey = useMemo(
     () => players.map(player => `${player.name}:${player.pos}`).join("|") ,
@@ -102,15 +101,8 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
         nextMeta[player.name.toLowerCase()] = { age: cached.age, headshot: cached.headshot };
       }
       const needsIdentityRefresh = effectiveAllowProviderFallback && player.pos !== "DST" && (!cached?.age || !cached?.headshot);
-      const isUncached = !cached || ignoreCachedOffense || needsIdentityRefresh;
-      if (player.name.toLowerCase().includes("emmett johnson")) {
-        setEjDebug(`In players array: pos=${player.pos}, nflTeam=${player.nflTeam}. cacheGet result: ${cached ? JSON.stringify(cached) : "null"}. ignoreCachedOffense=${ignoreCachedOffense}, needsIdentityRefresh=${needsIdentityRefresh}, isUncached=${isUncached}`);
-      }
-      return isUncached;
+      return !cached || ignoreCachedOffense || needsIdentityRefresh;
     });
-    if (!players.some(p => p.name.toLowerCase().includes("emmett johnson"))) {
-      setEjDebug(`NOT in players array at all (${players.length} total players passed to this hook)`);
-    }
 
     setStatMap(next);
     setPlayerMetaMap(nextMeta);
@@ -243,10 +235,6 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
         }
 
         const tankPlayer = await fetchPlayerByName(player.name);
-        if (player.name.toLowerCase().includes("emmett johnson")) {
-          console.log("[useNFLSeasonStats DEBUG] Emmett Johnson fetchPlayerByName result:", JSON.stringify(tankPlayer));
-          setEjDebug(prev => `${prev} | worker() reached him, fetchPlayerByName returned: ${JSON.stringify(tankPlayer)}`);
-        }
         if (cancelled) return;
         const exactKickerSeason = (!season2026Underway && player.pos === "K") ? getCompletedKickerSeasonStats(player.name) : undefined;
         // Only fall back to a live Tank01 stats line when the caller
@@ -271,7 +259,14 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
           headshot: tankPlayer?.espnHeadshot ?? getEspnHeadshotUrl(universePlayer?.sourcePlayerId) ?? undefined,
         };
         if (stats) {
-          cacheSet(player.name, { stats, ...meta });
+          // Confirmed live: a fetched result showing 0 games played can
+          // reflect Tank01 not yet having finished processing a very
+          // recently completed game into its season aggregate (not the
+          // player genuinely having 0 games) -- caching that for the
+          // full 24-hour TTL would permanently lock in a stale, transient
+          // zero result even after Tank01 catches up. Skip caching in
+          // that case so the next load simply retries.
+          if (stats.gp > 0) cacheSet(player.name, { stats, ...meta });
           next[key] = stats;
           setStatMap({ ...next });
         }
@@ -304,5 +299,5 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
     return () => { cancelled = true; };
   }, [requestKey, enabled]);
 
-  return { statMap, playerMetaMap, loading, loadedCount, ejDebug };
+  return { statMap, playerMetaMap, loading, loadedCount };
 }
