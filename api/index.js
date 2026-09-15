@@ -89601,6 +89601,18 @@ function median(values) {
   const middle = Math.floor(sorted.length / 2);
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
+async function mapWithConcurrency(items, limit, mapper) {
+  const results = [];
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await mapper(items[index]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
 function moneyOwedIdForOwner(owner) {
   return owner.toLowerCase().replace(/[^a-z0-9]/g, "");
 }
@@ -89621,13 +89633,12 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
   const individualScores = {};
   const dstScores = {};
   const positionByName = new Map((players ?? []).map((p) => [normalizePlayerName(p.name), p.position]));
-  const boxScores = [];
-  for (const game of games) {
+  const boxScores = await mapWithConcurrency(games, 5, async (game) => {
     const response = await fetch(`https://${HOST}/getNFLBoxScore?gameID=${game.gameID}&fantasyPoints=true&twoPointConversions=2&passYards=.04&passTD=4&passInterceptions=-3&pointsPerReception=1&carries=0&rushYards=.1&rushTD=6&fumbles=-3&receivingYards=.1&receivingTD=6&targets=0&defTD=6&fgMade=0&fgYards=.1&xpMade=1`, { headers, signal: AbortSignal.timeout(3e4) });
     if (!response.ok) throw new Error("Unable to load an NFL box score.");
     const body = (await response.json()).body ?? {};
-    boxScores.push({ game, body });
-  }
+    return { game, body };
+  });
   const notYetFinal = boxScores.filter(({ body }) => !isGameFinal(body));
   if (notYetFinal.length > 0) {
     console.log(`[weeklyResultsFinalize] week=${week2} season=${season}: ${boxScores.length} games found, ${notYetFinal.length} not yet final:`, JSON.stringify(notYetFinal.map(({ game, body }) => ({ gameID: game.gameID, gameStatus: body?.gameStatus, gameStatusCode: body?.gameStatusCode }))));
@@ -98120,7 +98131,7 @@ function nextDraftState(currentRound, currentPick, protectedSlots = /* @__PURE__
   }
   return { current_round: round, current_pick: pick2, complete: true, paused: false, timer_seconds: WRC_DRAFT_TIMER_SECONDS };
 }
-async function mapWithConcurrency(items, limit, mapper) {
+async function mapWithConcurrency2(items, limit, mapper) {
   const results = [];
   let next = 0;
   const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
@@ -99550,7 +99561,7 @@ var appRouter = router({
       const rosterPlayersWithIds = input2.players.filter(
         (player) => playerIds.has(normalizePlayerKey(player.name)) && !playersAlreadyCovered.has(normalizePlayerKey(player.name))
       );
-      const playerSpecificGroups = await mapWithConcurrency(rosterPlayersWithIds, 4, async (player) => {
+      const playerSpecificGroups = await mapWithConcurrency2(rosterPlayersWithIds, 4, async (player) => {
         const news = await getFantasyProsNews(6, playerIds.get(normalizePlayerKey(player.name)));
         return news.map((item) => ({ ...item, playerName: item.playerName || player.name }));
       });
@@ -101591,6 +101602,7 @@ async function finalizeWeeklyResultsSchedule(_req, res) {
   try {
     res.json({ ok: true, ...await autoFinalizeCompletedWeeklyResults() });
   } catch (error61) {
+    console.error("[finalizeWeeklyResultsSchedule] failed:", error61);
     res.status(500).json({
       error: error61 instanceof Error ? error61.message : String(error61),
       timestamp: (/* @__PURE__ */ new Date()).toISOString(),

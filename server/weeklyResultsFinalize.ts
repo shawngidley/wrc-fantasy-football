@@ -120,6 +120,26 @@ function median(values: number[]) {
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
 }
 
+/** Runs an async mapper over items with at most `limit` in flight at once,
+ * rather than either fully sequential (slow, risks a function timeout for
+ * a full week's worth of games) or fully parallel (risks overwhelming the
+ * upstream API with a burst of simultaneous requests). Duplicated from the
+ * same pattern in routers.ts rather than imported, since routers.ts itself
+ * imports from this file and importing back would create a circular
+ * dependency. */
+async function mapWithConcurrency<T, R>(items: T[], limit: number, mapper: (item: T) => Promise<R>): Promise<R[]> {
+  const results: R[] = [];
+  let next = 0;
+  const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
+    while (next < items.length) {
+      const index = next++;
+      results[index] = await mapper(items[index]);
+    }
+  });
+  await Promise.all(workers);
+  return results;
+}
+
 /** money_owed.id is the owner's first name (plus last initial where
  * needed), lowercased with spaces/punctuation stripped -- e.g. "Scott M."
  * -> "scottm". Matches the DEFAULT_OWNERS format already used in
@@ -164,13 +184,12 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
   // roster's stored name by a generational suffix (e.g. "James Cook"
   // vs "James Cook III").
   const positionByName = new Map((players ?? []).map(p => [normalizePlayerName(p.name), p.position]));
-  const boxScores: Array<{ game: { gameID: string; home?: string; away?: string }; body: any }> = [];
-  for (const game of games) {
+  const boxScores = await mapWithConcurrency(games, 5, async game => {
     const response = await fetch(`https://${HOST}/getNFLBoxScore?gameID=${game.gameID}&fantasyPoints=true&twoPointConversions=2&passYards=.04&passTD=4&passInterceptions=-3&pointsPerReception=1&carries=0&rushYards=.1&rushTD=6&fumbles=-3&receivingYards=.1&receivingTD=6&targets=0&defTD=6&fgMade=0&fgYards=.1&xpMade=1`, { headers, signal: AbortSignal.timeout(30_000) });
     if (!response.ok) throw new Error("Unable to load an NFL box score.");
     const body = (await response.json()).body ?? {};
-    boxScores.push({ game, body });
-  }
+    return { game, body };
+  });
 
   const notYetFinal = boxScores.filter(({ body }) => !isGameFinal(body));
   if (notYetFinal.length > 0) {

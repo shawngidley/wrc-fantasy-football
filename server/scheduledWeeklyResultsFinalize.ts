@@ -42,6 +42,7 @@ export async function finalizeWeeklyResultsSchedule(_req: Request, res: Response
   try {
     res.json({ ok: true, ...(await autoFinalizeCompletedWeeklyResults()) });
   } catch (error) {
+    console.error("[finalizeWeeklyResultsSchedule] failed:", error);
     res.status(500).json({
       error: error instanceof Error ? error.message : String(error),
       timestamp: new Date().toISOString(),
