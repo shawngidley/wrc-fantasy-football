@@ -89693,21 +89693,24 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
     const homeTeamId = idByOwner.get(homeOwner);
     const awayTeamId = idByOwner.get(awayOwner);
     if (!homeTeamId || !awayTeamId) throw new Error("WRC team mapping is incomplete.");
-    const { error: error61 } = await supabaseAdmin.from("weekly_results").update({
-      home_score: teamScores.get(homeTeamId) ?? 0,
-      away_score: teamScores.get(awayTeamId) ?? 0,
+    const homeScore = teamScores.get(homeTeamId) ?? 0;
+    const awayScore = teamScores.get(awayTeamId) ?? 0;
+    const { data: updatedRows, error: error61 } = await supabaseAdmin.from("weekly_results").update({
+      home_score: homeScore,
+      away_score: awayScore,
       is_final: true,
       league_median: leagueMedian
-    }).eq("week", week2).eq("season", season).eq("home_owner", homeOwner).eq("away_owner", awayOwner);
+    }).eq("week", week2).eq("season", season).eq("home_owner", homeOwner).eq("away_owner", awayOwner).select("id");
+    console.log(`[weeklyResultsFinalize] week=${week2} ${homeOwner} vs ${awayOwner}: computed home=${homeScore} away=${awayScore}, rows updated=${(updatedRows ?? []).length}`);
     if (error61) throw new Error("Unable to save final weekly results.");
     const { data: rivalryRows, error: rivalryError } = await supabaseAdmin.from("rivalry_games").select("id").eq("week", week2).eq("season", season).eq("resolved", false).or(`and(team_id.eq.${homeTeamId},opponent_team_id.eq.${awayTeamId}),and(team_id.eq.${awayTeamId},opponent_team_id.eq.${homeTeamId})`);
     if (rivalryError) throw new Error("Unable to check rivalry game status for this matchup.");
     if (rivalryRows && rivalryRows.length > 0) {
-      const homeScore = teamScores.get(homeTeamId) ?? 0;
-      const awayScore = teamScores.get(awayTeamId) ?? 0;
-      if (homeScore !== awayScore) {
-        const winnerOwner = homeScore > awayScore ? homeOwner : awayOwner;
-        const loserOwner = homeScore > awayScore ? awayOwner : homeOwner;
+      const homeScore2 = teamScores.get(homeTeamId) ?? 0;
+      const awayScore2 = teamScores.get(awayTeamId) ?? 0;
+      if (homeScore2 !== awayScore2) {
+        const winnerOwner = homeScore2 > awayScore2 ? homeOwner : awayOwner;
+        const loserOwner = homeScore2 > awayScore2 ? awayOwner : homeOwner;
         const winnerId = moneyOwedIdForOwner(winnerOwner);
         const loserId = moneyOwedIdForOwner(loserOwner);
         const { data: moneyRows, error: moneyReadError } = await supabaseAdmin.from("money_owed").select("id, name, owed").in("id", [winnerId, loserId]);

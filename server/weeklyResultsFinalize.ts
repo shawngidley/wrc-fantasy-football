@@ -267,12 +267,21 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
     const homeTeamId = idByOwner.get(homeOwner);
     const awayTeamId = idByOwner.get(awayOwner);
     if (!homeTeamId || !awayTeamId) throw new Error("WRC team mapping is incomplete.");
-    const { error } = await supabaseAdmin.from("weekly_results").update({
-      home_score: teamScores.get(homeTeamId) ?? 0,
-      away_score: teamScores.get(awayTeamId) ?? 0,
+    const homeScore = teamScores.get(homeTeamId) ?? 0;
+    const awayScore = teamScores.get(awayTeamId) ?? 0;
+    const { data: updatedRows, error } = await supabaseAdmin.from("weekly_results").update({
+      home_score: homeScore,
+      away_score: awayScore,
       is_final: true,
       league_median: leagueMedian,
-    }).eq("week", week).eq("season", season).eq("home_owner", homeOwner).eq("away_owner", awayOwner);
+    }).eq("week", week).eq("season", season).eq("home_owner", homeOwner).eq("away_owner", awayOwner).select("id");
+    // Temporary diagnostic: Supabase's update() silently matches zero
+    // rows with no error if the filter doesn't find anything -- which
+    // would leave the old score untouched while still reporting
+    // success. Logging the computed score alongside how many rows
+    // actually got updated makes this distinguishable from an actual
+    // scoring-logic bug.
+    console.log(`[weeklyResultsFinalize] week=${week} ${homeOwner} vs ${awayOwner}: computed home=${homeScore} away=${awayScore}, rows updated=${(updatedRows ?? []).length}`);
     if (error) throw new Error("Unable to save final weekly results.");
 
     // Rivalry Game: either owner could have independently declared this
