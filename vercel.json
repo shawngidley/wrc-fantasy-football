@@ -15,6 +15,7 @@
     { "path": "/api/scheduled/fantasypros-archive", "schedule": "0 8 * * *" },
     { "path": "/api/scheduled/release-unprotected-players", "schedule": "0 9 * * *" },
     { "path": "/api/scheduled/weekly-results-finalize", "schedule": "0 10 * * *" },
+    { "path": "/api/scheduled/season-stats-precompute", "schedule": "0 11 * * *" },
     { "path": "/api/scheduled/weekly-results-finalize", "schedule": "*/15 2-6 * * 2" },
     { "path": "/api/scheduled/standings-recompute", "schedule": "0 0 1 1 *" },
     { "path": "/api/scheduled/faab-award", "schedule": "0 13,14 * * 0,4" }

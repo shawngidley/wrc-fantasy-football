@@ -228,26 +228,23 @@ export const appRouter = router({
   system: systemRouter,
 
   playerStats: router({
-    // Aggregates a set of players' season-to-date stats from
-    // player_weekly_stats -- the same, once-correctly-computed data
-    // already persisted during official weekly finalization, summed
-    // across every finalized week -- instead of the client
-    // independently recomputing this from Tank01/ESPN on every load.
+    // Reads a set of players' season-to-date stats from
+    // season_stats_current -- precomputed once each morning by
+    // /api/scheduled/season-stats-precompute from player_weekly_stats,
+    // rather than summed fresh on every request. That precompute job
+    // uses this same aggregateWeeklyStatRows function; calling it here
+    // on a single already-aggregated row is safe and just reshapes
+    // that row's snake_case fields into the camelCase shape the client
+    // expects, without re-summing anything.
     seasonStats: publicProcedure
       .input(z.object({ playerNames: z.array(z.string()), season: z.number().int() }))
       .query(async ({ input }) => {
         if (!input.playerNames.length) return {};
-        const { data, error } = await supabaseAdmin.from("player_weekly_stats")
+        const { data, error } = await supabaseAdmin.from("season_stats_current")
           .select("*").eq("season", input.season).in("player_name", input.playerNames);
         if (error) throw new Error("Unable to load player season stats.");
-        const byPlayer = new Map<string, typeof data>();
-        for (const row of data ?? []) {
-          const list = byPlayer.get(row.player_name) ?? [];
-          list.push(row);
-          byPlayer.set(row.player_name, list);
-        }
         const result: Record<string, ReturnType<typeof aggregateWeeklyStatRows>> = {};
-        for (const [playerName, rows] of Array.from(byPlayer.entries())) result[playerName] = aggregateWeeklyStatRows(rows);
+        for (const row of data ?? []) result[row.player_name] = aggregateWeeklyStatRows([row]);
         return result;
       }),
   }),

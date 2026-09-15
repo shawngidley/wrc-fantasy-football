@@ -98589,23 +98589,20 @@ var appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
   playerStats: router({
-    // Aggregates a set of players' season-to-date stats from
-    // player_weekly_stats -- the same, once-correctly-computed data
-    // already persisted during official weekly finalization, summed
-    // across every finalized week -- instead of the client
-    // independently recomputing this from Tank01/ESPN on every load.
+    // Reads a set of players' season-to-date stats from
+    // season_stats_current -- precomputed once each morning by
+    // /api/scheduled/season-stats-precompute from player_weekly_stats,
+    // rather than summed fresh on every request. That precompute job
+    // uses this same aggregateWeeklyStatRows function; calling it here
+    // on a single already-aggregated row is safe and just reshapes
+    // that row's snake_case fields into the camelCase shape the client
+    // expects, without re-summing anything.
     seasonStats: publicProcedure.input(external_exports.object({ playerNames: external_exports.array(external_exports.string()), season: external_exports.number().int() })).query(async ({ input: input2 }) => {
       if (!input2.playerNames.length) return {};
-      const { data, error: error61 } = await supabaseAdmin.from("player_weekly_stats").select("*").eq("season", input2.season).in("player_name", input2.playerNames);
+      const { data, error: error61 } = await supabaseAdmin.from("season_stats_current").select("*").eq("season", input2.season).in("player_name", input2.playerNames);
       if (error61) throw new Error("Unable to load player season stats.");
-      const byPlayer = /* @__PURE__ */ new Map();
-      for (const row of data ?? []) {
-        const list = byPlayer.get(row.player_name) ?? [];
-        list.push(row);
-        byPlayer.set(row.player_name, list);
-      }
       const result = {};
-      for (const [playerName, rows] of Array.from(byPlayer.entries())) result[playerName] = aggregateWeeklyStatRows(rows);
+      for (const row of data ?? []) result[row.player_name] = aggregateWeeklyStatRows([row]);
       return result;
     })
   }),
@@ -102093,6 +102090,83 @@ async function recomputeStandingsSchedule(_req, res) {
   }
 }
 
+// server/scheduledSeasonStatsPrecompute.ts
+init_supabaseAdmin();
+var SEASON3 = 2026;
+async function precomputeSeasonStatsSchedule(_req, res) {
+  try {
+    const { data, error: error61 } = await supabaseAdmin.from("player_weekly_stats").select("*").eq("season", SEASON3);
+    if (error61) throw new Error(`Unable to load player_weekly_stats: ${error61.message}`);
+    const rowsByPlayer = /* @__PURE__ */ new Map();
+    for (const row of data ?? []) {
+      const existing = rowsByPlayer.get(row.player_name);
+      if (existing) {
+        existing.rows.push(row);
+      } else {
+        rowsByPlayer.set(row.player_name, { position: row.position, nflTeam: row.nfl_team, rows: [row] });
+      }
+    }
+    const precomputedRows = Array.from(rowsByPlayer.entries()).map(([playerName, { position, nflTeam, rows }]) => {
+      const s = aggregateWeeklyStatRows(rows);
+      return {
+        season: SEASON3,
+        player_name: playerName,
+        position,
+        nfl_team: nflTeam,
+        gp: s.gp,
+        pass_cmp: s.passCmp,
+        pass_att: s.passAtt,
+        pass_yds: s.passYds,
+        pass_td: s.passTD,
+        pass_int: s.passInt,
+        pass_rating: s.passRating,
+        rush_att: s.rushAtt,
+        rush_yds: s.rushYds,
+        rush_td: s.rushTD,
+        receptions: s.receptions,
+        targets: s.targets,
+        rec_yds: s.recYds,
+        rec_td: s.recTD,
+        fg_made: s.fgMade,
+        fg_att: s.fgAtt,
+        fg_yds: s.fgYds,
+        fg_made_1_to_39: s.fgMade1To39,
+        fg_made_40_to_49: s.fgMade40To49,
+        fg_made_50_to_59: s.fgMade50To59,
+        fg_made_60_plus: s.fgMade60Plus,
+        xp_made: s.xpMade,
+        xp_att: s.xpAtt,
+        sacks: s.sacks,
+        def_int: s.defInt,
+        fumbles_recovered: s.fumblesRecovered,
+        takeaways: s.takeaways,
+        def_td: s.defTD,
+        dst_td: s.dstTD,
+        return_td: s.returnTD,
+        safeties: s.safeties,
+        block_kicks: s.blockKicks,
+        pts_against: s.ptsAgainst,
+        fumbles_lost: s.fumblesLost,
+        wrc_pts: s.wrcPts,
+        pts_per_game: s.ptsPerGame,
+        computed_at: (/* @__PURE__ */ new Date()).toISOString()
+      };
+    });
+    if (precomputedRows.length > 0) {
+      const { error: upsertError } = await supabaseAdmin.from("season_stats_current").upsert(precomputedRows, { onConflict: "season,player_name" });
+      if (upsertError) throw new Error(`Unable to upsert season_stats_current: ${upsertError.message}`);
+    }
+    res.json({ ok: true, playersUpdated: precomputedRows.length });
+  } catch (error61) {
+    console.error("[precomputeSeasonStatsSchedule] failed:", error61);
+    res.status(500).json({
+      error: error61 instanceof Error ? error61.message : String(error61),
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      context: { finalization: "season-stats-precompute" }
+    });
+  }
+}
+
 // server/scheduledFaabAward.ts
 init_supabaseAdmin();
 
@@ -102268,6 +102342,7 @@ function createApp() {
   app.get("/api/scheduled/release-unprotected-players", requireCronSecret, releasePostDeadlinePlayers);
   app.get("/api/scheduled/weekly-results-finalize", requireCronSecret, finalizeWeeklyResultsSchedule);
   app.get("/api/scheduled/standings-recompute", requireCronSecret, recomputeStandingsSchedule);
+  app.get("/api/scheduled/season-stats-precompute", requireCronSecret, precomputeSeasonStatsSchedule);
   app.get("/api/scheduled/faab-award", requireCronSecret, faabAwardSchedule);
   app.use(
     "/api/trpc",
