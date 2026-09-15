@@ -15,8 +15,40 @@ interface UseOwnerMatchupScoreResult {
   myScore: number;
   oppScore: number;
   loading: boolean;
-  _debugMyStarters?: Array<{ name: string; position: string; pts: number }>;
-  _debugOppStarters?: Array<{ name: string; position: string; pts: number }>;
+}
+
+type PlayerRow = { id: string; name: string; position: string; nfl_team: string; team_id: string };
+type LineupRow = { team_id: string; player_id: string | null; player_name: string; slot: string; is_bench: boolean };
+
+/**
+ * Resolves a saved lineup row to its actual player info (position,
+ * nflTeam), needed for scoring. Prefers the stable player_id lookup,
+ * falling back to matching by name, falling back again -- for a DST
+ * slot specifically -- to matching by team_id + position === "DST"
+ * directly.
+ *
+ * Confirmed live: a lineup row can reference a player_id/player_name
+ * that no longer matches the current players table row at all (e.g. a
+ * DST row saved with a draft-time player_id like "dp10172" and the
+ * short name "KC Chiefs", while the current players row has id
+ * "scottn-kansas-city-chiefs" and name "Kansas City Chiefs" -- neither
+ * id nor name matches). Since a team can only ever roster one DST, the
+ * team+position fallback sidesteps this entirely for that slot.
+ */
+export function resolveStarterPlayerInfo(
+  row: LineupRow,
+  teamId: string,
+  playerById: Map<string, PlayerRow>,
+  playerByName: Map<string, PlayerRow>,
+  allPlayerRows: PlayerRow[],
+): PlayerRow | undefined {
+  const byId = row.player_id ? playerById.get(row.player_id) : undefined;
+  const byName = byId ?? playerByName.get(row.player_name);
+  if (byName) return byName;
+  if (row.slot === "DST") {
+    return allPlayerRows.find(candidate => candidate.team_id === teamId && candidate.position === "DST");
+  }
+  return undefined;
 }
 
 /**
@@ -54,36 +86,17 @@ export function useOwnerMatchupScore(myTeamId: string, oppTeamId: string, week: 
 
     async function load() {
       const [{ data: lineupRows }, { data: playerRows }] = await Promise.all([
-        supabase.from("lineups").select("team_id, player_id, player_name, is_bench").eq("week", week).eq("season", 2026).in("team_id", [myTeamId, oppTeamId]),
+        supabase.from("lineups").select("team_id, player_id, player_name, slot, is_bench").eq("week", week).eq("season", 2026).in("team_id", [myTeamId, oppTeamId]),
         supabase.from("players").select("id, name, position, nfl_team, team_id").in("team_id", [myTeamId, oppTeamId]),
       ]);
 
       const playerById = new Map((playerRows ?? []).map(p => [p.id, p]));
       const playerByName = new Map((playerRows ?? []).map(p => [p.name, p]));
-      if (typeof window !== "undefined") {
-        const kcRow = (lineupRows ?? []).find(r => r.player_name?.includes("Chiefs") || r.player_name?.includes("KC"));
-        const allDstRows = (playerRows ?? []).filter(p => p.position === "DST");
-        const w = window as unknown as { __kcDebugByTeams?: Record<string, string> };
-        w.__kcDebugByTeams = w.__kcDebugByTeams ?? {};
-        w.__kcDebugByTeams[`${myTeamId}|${oppTeamId}`] =
-          `KC-ish lineup row: ${JSON.stringify(kcRow)} | ` +
-          `ALL DST players rows: ${JSON.stringify(allDstRows)} | ` +
-          `total playerRows=${(playerRows ?? []).length}, queried team_ids=[${myTeamId}, ${oppTeamId}]`;
-      }
       const buildStarters = (teamId: string): StarterInfo[] => {
         const savedLineup = (lineupRows ?? []).filter(row => row.team_id === teamId && !row.is_bench);
         if (savedLineup.length > 0) {
           return savedLineup.map(row => {
-            // Prefer the stable player_id lookup over matching by name --
-            // confirmed live: a DST's stat lookup depends entirely on its
-            // position/nflTeam being correctly resolved (DST scores are
-            // keyed by team code, not player name), and a name-based
-            // lookup can silently fail (e.g. if the stored lineup name
-            // and the current roster name have since diverged), leaving
-            // position/nflTeam empty and dropping that DST's score
-            // entirely. player_id is a stable identifier that doesn't
-            // have this problem.
-            const p = (row.player_id ? playerById.get(row.player_id) : undefined) ?? playerByName.get(row.player_name);
+            const p = resolveStarterPlayerInfo(row, teamId, playerById, playerByName, playerRows ?? []);
             return { name: row.player_name, position: p?.position ?? "", nflTeam: p?.nfl_team ?? "" };
           });
         }
@@ -116,9 +129,5 @@ export function useOwnerMatchupScore(myTeamId: string, oppTeamId: string, week: 
     [oppStarters, liveScores, kickerEvents, liveStats],
   );
 
-  // TEMPORARY DEBUG -- per-player breakdown to compare against Live Scoring
-  const _debugMyStarters = myStarters.map(s => ({ name: s.name, position: s.position, pts: getLivePoints(liveScores, s.name, s.position, s.nflTeam, kickerEvents, liveStats) ?? 0 }));
-  const _debugOppStarters = oppStarters.map(s => ({ name: s.name, position: s.position, pts: getLivePoints(liveScores, s.name, s.position, s.nflTeam, kickerEvents, liveStats) ?? 0 }));
-
-  return { myScore, oppScore, loading, _debugMyStarters, _debugOppStarters };
+  return { myScore, oppScore, loading };
 }

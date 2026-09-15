@@ -176,7 +176,7 @@ function MatchupWidget({ ownerKey, standings }: { ownerKey: string; standings: D
   // "not found" cases below return null only after this call, using "" for
   // oppTeam when there's genuinely no matchup this week rather than
   // skipping the hook call itself.
-  const { myScore, oppScore, _debugMyStarters, _debugOppStarters } = useOwnerMatchupScore(myTeamId, oppTeamId, currentWeek);
+  const { myScore, oppScore } = useOwnerMatchupScore(myTeamId, oppTeamId, currentWeek);
 
   if (!weekData || !matchup) return null;
 
@@ -196,16 +196,6 @@ function MatchupWidget({ ownerKey, standings }: { ownerKey: string; standings: D
       onMouseLeave={e => (e.currentTarget.style.boxShadow = "0 1px 4px rgba(0,0,0,0.08)")}
     >
       <div className="wrc-card-gold-stripe" />
-      {_debugOppStarters && (
-        <div style={{ fontSize: "0.55rem", fontFamily: "monospace", background: "oklch(0.95 0.02 85)", border: "1px solid oklch(0.8 0.05 85)", padding: "0.3rem", wordBreak: "break-all", color: "black" }}>
-          DEBUG oppStarters: {_debugOppStarters.map(s => `${s.name}(${s.position})=${s.pts}`).join(" | ")}
-        </div>
-      )}
-      {typeof window !== "undefined" && (window as unknown as { __kcDebugByTeams?: Record<string, string> }).__kcDebugByTeams?.[`${myTeamId}|${oppTeamId}`] && (
-        <div style={{ fontSize: "0.55rem", fontFamily: "monospace", background: "oklch(0.9 0.06 25)", border: "1px solid oklch(0.7 0.1 25)", padding: "0.3rem", wordBreak: "break-all", color: "black" }}>
-          DEBUG KC: {(window as unknown as { __kcDebugByTeams?: Record<string, string> }).__kcDebugByTeams?.[`${myTeamId}|${oppTeamId}`]}
-        </div>
-      )}
       <div style={{ padding: "0.875rem 1.25rem" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
           <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: "oklch(0.55 0.16 85)" }}>
