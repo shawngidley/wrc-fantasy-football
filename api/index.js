@@ -686,9 +686,9 @@ var require_statuses = __commonJS({
       if (typeof code !== "string") {
         throw new TypeError("code must be a number or string");
       }
-      var n2 = parseInt(code, 10);
-      if (!isNaN(n2)) {
-        return getStatusMessage(n2);
+      var n3 = parseInt(code, 10);
+      if (!isNaN(n3)) {
+        return getStatusMessage(n3);
       }
       return getStatusCode(code);
     }
@@ -949,7 +949,7 @@ var require_ms = __commonJS({
       if (!match) {
         return;
       }
-      var n2 = parseFloat(match[1]);
+      var n3 = parseFloat(match[1]);
       var type = (match[2] || "ms").toLowerCase();
       switch (type) {
         case "years":
@@ -957,35 +957,35 @@ var require_ms = __commonJS({
         case "yrs":
         case "yr":
         case "y":
-          return n2 * y;
+          return n3 * y;
         case "days":
         case "day":
         case "d":
-          return n2 * d;
+          return n3 * d;
         case "hours":
         case "hour":
         case "hrs":
         case "hr":
         case "h":
-          return n2 * h;
+          return n3 * h;
         case "minutes":
         case "minute":
         case "mins":
         case "min":
         case "m":
-          return n2 * m;
+          return n3 * m;
         case "seconds":
         case "second":
         case "secs":
         case "sec":
         case "s":
-          return n2 * s;
+          return n3 * s;
         case "milliseconds":
         case "millisecond":
         case "msecs":
         case "msec":
         case "ms":
-          return n2;
+          return n3;
         default:
           return void 0;
       }
@@ -1008,14 +1008,14 @@ var require_ms = __commonJS({
     function fmtLong(ms) {
       return plural(ms, d, "day") || plural(ms, h, "hour") || plural(ms, m, "minute") || plural(ms, s, "second") || ms + " ms";
     }
-    function plural(ms, n2, name) {
-      if (ms < n2) {
+    function plural(ms, n3, name) {
+      if (ms < n3) {
         return;
       }
-      if (ms < n2 * 1.5) {
-        return Math.floor(ms / n2) + " " + name;
+      if (ms < n3 * 1.5) {
+        return Math.floor(ms / n3) + " " + name;
       }
-      return Math.ceil(ms / n2) + " " + name + "s";
+      return Math.ceil(ms / n3) + " " + name + "s";
     }
   }
 });
@@ -14934,18 +14934,18 @@ var require_object_inspect = __commonJS({
       return wrapQuotes(s, "single", opts);
     }
     function lowbyte(c) {
-      var n2 = c.charCodeAt(0);
+      var n3 = c.charCodeAt(0);
       var x = {
         8: "b",
         9: "t",
         10: "n",
         12: "f",
         13: "r"
-      }[n2];
+      }[n3];
       if (x) {
         return "\\" + x;
       }
-      return "\\x" + (n2 < 16 ? "0" : "") + $toUpperCase.call(n2.toString(16));
+      return "\\x" + (n3 < 16 ? "0" : "") + $toUpperCase.call(n3.toString(16));
     }
     function markBoxed(str) {
       return "Object(" + str + ")";
@@ -16933,14 +16933,14 @@ var require_parse = __commonJS({
         }
         segments[segments.length] = parent;
       }
-      var n2 = key.length;
+      var n3 = key.length;
       var open2 = first;
       var collected = 0;
       while (open2 >= 0 && collected < options.depth) {
         var level = 1;
         var i = open2 + 1;
         var close = -1;
-        while (i < n2 && close < 0) {
+        while (i < n3 && close < 0) {
           var cu = key.charCodeAt(i);
           if (cu === 91) {
             level += 1;
@@ -17382,7 +17382,7 @@ var require_ms2 = __commonJS({
       if (!match) {
         return;
       }
-      var n2 = parseFloat(match[1]);
+      var n3 = parseFloat(match[1]);
       var type = (match[2] || "ms").toLowerCase();
       switch (type) {
         case "years":
@@ -17390,35 +17390,35 @@ var require_ms2 = __commonJS({
         case "yrs":
         case "yr":
         case "y":
-          return n2 * y;
+          return n3 * y;
         case "days":
         case "day":
         case "d":
-          return n2 * d;
+          return n3 * d;
         case "hours":
         case "hour":
         case "hrs":
         case "hr":
         case "h":
-          return n2 * h;
+          return n3 * h;
         case "minutes":
         case "minute":
         case "mins":
         case "min":
         case "m":
-          return n2 * m;
+          return n3 * m;
         case "seconds":
         case "second":
         case "secs":
         case "sec":
         case "s":
-          return n2 * s;
+          return n3 * s;
         case "milliseconds":
         case "millisecond":
         case "msecs":
         case "msec":
         case "ms":
-          return n2;
+          return n3;
         default:
           return void 0;
       }
@@ -17441,14 +17441,14 @@ var require_ms2 = __commonJS({
     function fmtLong(ms) {
       return plural(ms, d, "day") || plural(ms, h, "hour") || plural(ms, m, "minute") || plural(ms, s, "second") || ms + " ms";
     }
-    function plural(ms, n2, name) {
-      if (ms < n2) {
+    function plural(ms, n3, name) {
+      if (ms < n3) {
         return;
       }
-      if (ms < n2 * 1.5) {
-        return Math.floor(ms / n2) + " " + name;
+      if (ms < n3 * 1.5) {
+        return Math.floor(ms / n3) + " " + name;
       }
-      return Math.ceil(ms / n2) + " " + name + "s";
+      return Math.ceil(ms / n3) + " " + name + "s";
     }
   }
 });
@@ -18101,7 +18101,7 @@ var require_ms3 = __commonJS({
       if (!match) {
         return;
       }
-      var n2 = parseFloat(match[1]);
+      var n3 = parseFloat(match[1]);
       var type = (match[2] || "ms").toLowerCase();
       switch (type) {
         case "years":
@@ -18109,35 +18109,35 @@ var require_ms3 = __commonJS({
         case "yrs":
         case "yr":
         case "y":
-          return n2 * y;
+          return n3 * y;
         case "days":
         case "day":
         case "d":
-          return n2 * d;
+          return n3 * d;
         case "hours":
         case "hour":
         case "hrs":
         case "hr":
         case "h":
-          return n2 * h;
+          return n3 * h;
         case "minutes":
         case "minute":
         case "mins":
         case "min":
         case "m":
-          return n2 * m;
+          return n3 * m;
         case "seconds":
         case "second":
         case "secs":
         case "sec":
         case "s":
-          return n2 * s;
+          return n3 * s;
         case "milliseconds":
         case "millisecond":
         case "msecs":
         case "msec":
         case "ms":
-          return n2;
+          return n3;
         default:
           return void 0;
       }
@@ -18160,14 +18160,14 @@ var require_ms3 = __commonJS({
     function fmtLong(ms) {
       return plural(ms, d, "day") || plural(ms, h, "hour") || plural(ms, m, "minute") || plural(ms, s, "second") || ms + " ms";
     }
-    function plural(ms, n2, name) {
-      if (ms < n2) {
+    function plural(ms, n3, name) {
+      if (ms < n3) {
         return;
       }
-      if (ms < n2 * 1.5) {
-        return Math.floor(ms / n2) + " " + name;
+      if (ms < n3 * 1.5) {
+        return Math.floor(ms / n3) + " " + name;
       }
-      return Math.ceil(ms / n2) + " " + name + "s";
+      return Math.ceil(ms / n3) + " " + name + "s";
     }
   }
 });
@@ -19667,7 +19667,7 @@ var require_ms4 = __commonJS({
       if (!match) {
         return;
       }
-      var n2 = parseFloat(match[1]);
+      var n3 = parseFloat(match[1]);
       var type = (match[2] || "ms").toLowerCase();
       switch (type) {
         case "years":
@@ -19675,35 +19675,35 @@ var require_ms4 = __commonJS({
         case "yrs":
         case "yr":
         case "y":
-          return n2 * y;
+          return n3 * y;
         case "days":
         case "day":
         case "d":
-          return n2 * d;
+          return n3 * d;
         case "hours":
         case "hour":
         case "hrs":
         case "hr":
         case "h":
-          return n2 * h;
+          return n3 * h;
         case "minutes":
         case "minute":
         case "mins":
         case "min":
         case "m":
-          return n2 * m;
+          return n3 * m;
         case "seconds":
         case "second":
         case "secs":
         case "sec":
         case "s":
-          return n2 * s;
+          return n3 * s;
         case "milliseconds":
         case "millisecond":
         case "msecs":
         case "msec":
         case "ms":
-          return n2;
+          return n3;
         default:
           return void 0;
       }
@@ -19726,14 +19726,14 @@ var require_ms4 = __commonJS({
     function fmtLong(ms) {
       return plural(ms, d, "day") || plural(ms, h, "hour") || plural(ms, m, "minute") || plural(ms, s, "second") || ms + " ms";
     }
-    function plural(ms, n2, name) {
-      if (ms < n2) {
+    function plural(ms, n3, name) {
+      if (ms < n3) {
         return;
       }
-      if (ms < n2 * 1.5) {
-        return Math.floor(ms / n2) + " " + name;
+      if (ms < n3 * 1.5) {
+        return Math.floor(ms / n3) + " " + name;
       }
-      return Math.ceil(ms / n2) + " " + name + "s";
+      return Math.ceil(ms / n3) + " " + name + "s";
     }
   }
 });
@@ -20268,7 +20268,7 @@ var require_ms5 = __commonJS({
       if (!match) {
         return;
       }
-      var n2 = parseFloat(match[1]);
+      var n3 = parseFloat(match[1]);
       var type = (match[2] || "ms").toLowerCase();
       switch (type) {
         case "years":
@@ -20276,39 +20276,39 @@ var require_ms5 = __commonJS({
         case "yrs":
         case "yr":
         case "y":
-          return n2 * y;
+          return n3 * y;
         case "weeks":
         case "week":
         case "w":
-          return n2 * w;
+          return n3 * w;
         case "days":
         case "day":
         case "d":
-          return n2 * d;
+          return n3 * d;
         case "hours":
         case "hour":
         case "hrs":
         case "hr":
         case "h":
-          return n2 * h;
+          return n3 * h;
         case "minutes":
         case "minute":
         case "mins":
         case "min":
         case "m":
-          return n2 * m;
+          return n3 * m;
         case "seconds":
         case "second":
         case "secs":
         case "sec":
         case "s":
-          return n2 * s;
+          return n3 * s;
         case "milliseconds":
         case "millisecond":
         case "msecs":
         case "msec":
         case "ms":
-          return n2;
+          return n3;
         default:
           return void 0;
       }
@@ -20345,9 +20345,9 @@ var require_ms5 = __commonJS({
       }
       return ms + " ms";
     }
-    function plural(ms, msAbs, n2, name) {
-      var isPlural = msAbs >= n2 * 1.5;
-      return Math.round(ms / n2) + " " + name + (isPlural ? "s" : "");
+    function plural(ms, msAbs, n3, name) {
+      var isPlural = msAbs >= n3 * 1.5;
+      return Math.round(ms / n3) + " " + name + (isPlural ? "s" : "");
     }
   }
 });
@@ -24080,12 +24080,12 @@ var require_class_registry = __commonJS({
 var require_util = __commonJS({
   "node_modules/superjson/dist/util.js"(exports2) {
     "use strict";
-    var __read3 = exports2 && exports2.__read || function(o, n2) {
+    var __read3 = exports2 && exports2.__read || function(o, n3) {
       var m = typeof Symbol === "function" && o[Symbol.iterator];
       if (!m) return o;
       var i = m.call(o), r, ar = [], e;
       try {
-        while ((n2 === void 0 || n2-- > 0) && !(r = i.next()).done) ar.push(r.value);
+        while ((n3 === void 0 || n3-- > 0) && !(r = i.next()).done) ar.push(r.value);
       } catch (error61) {
         e = { error: error61 };
       } finally {
@@ -24326,7 +24326,7 @@ var require_transformer = __commonJS({
     "use strict";
     var __assign3 = exports2 && exports2.__assign || function() {
       __assign3 = Object.assign || function(t2) {
-        for (var s, i = 1, n2 = arguments.length; i < n2; i++) {
+        for (var s, i = 1, n3 = arguments.length; i < n3; i++) {
           s = arguments[i];
           for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
             t2[p] = s[p];
@@ -24335,12 +24335,12 @@ var require_transformer = __commonJS({
       };
       return __assign3.apply(this, arguments);
     };
-    var __read3 = exports2 && exports2.__read || function(o, n2) {
+    var __read3 = exports2 && exports2.__read || function(o, n3) {
       var m = typeof Symbol === "function" && o[Symbol.iterator];
       if (!m) return o;
       var i = m.call(o), r, ar = [], e;
       try {
-        while ((n2 === void 0 || n2-- > 0) && !(r = i.next()).done) ar.push(r.value);
+        while ((n3 === void 0 || n3-- > 0) && !(r = i.next()).done) ar.push(r.value);
       } catch (error61) {
         e = { error: error61 };
       } finally {
@@ -24609,11 +24609,11 @@ var require_accessDeep = __commonJS({
     exports2.setDeep = exports2.getDeep = void 0;
     var is_1 = require_is();
     var util_1 = require_util();
-    var getNthKey = function(value, n2) {
+    var getNthKey = function(value, n3) {
       var keys = value.keys();
-      while (n2 > 0) {
+      while (n3 > 0) {
         keys.next();
-        n2--;
+        n3--;
       }
       return keys.next().value;
     };
@@ -24730,12 +24730,12 @@ var require_accessDeep = __commonJS({
 var require_plainer = __commonJS({
   "node_modules/superjson/dist/plainer.js"(exports2) {
     "use strict";
-    var __read3 = exports2 && exports2.__read || function(o, n2) {
+    var __read3 = exports2 && exports2.__read || function(o, n3) {
       var m = typeof Symbol === "function" && o[Symbol.iterator];
       if (!m) return o;
       var i = m.call(o), r, ar = [], e;
       try {
-        while ((n2 === void 0 || n2-- > 0) && !(r = i.next()).done) ar.push(r.value);
+        while ((n3 === void 0 || n3-- > 0) && !(r = i.next()).done) ar.push(r.value);
       } catch (error61) {
         e = { error: error61 };
       } finally {
@@ -25152,7 +25152,7 @@ var require_dist = __commonJS({
     "use strict";
     var __assign3 = exports2 && exports2.__assign || function() {
       __assign3 = Object.assign || function(t2) {
-        for (var s, i = 1, n2 = arguments.length; i < n2; i++) {
+        for (var s, i = 1, n3 = arguments.length; i < n3; i++) {
           s = arguments[i];
           for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
             t2[p] = s[p];
@@ -25161,12 +25161,12 @@ var require_dist = __commonJS({
       };
       return __assign3.apply(this, arguments);
     };
-    var __read3 = exports2 && exports2.__read || function(o, n2) {
+    var __read3 = exports2 && exports2.__read || function(o, n3) {
       var m = typeof Symbol === "function" && o[Symbol.iterator];
       if (!m) return o;
       var i = m.call(o), r, ar = [], e;
       try {
-        while ((n2 === void 0 || n2-- > 0) && !(r = i.next()).done) ar.push(r.value);
+        while ((n3 === void 0 || n3-- > 0) && !(r = i.next()).done) ar.push(r.value);
       } catch (error61) {
         e = { error: error61 };
       } finally {
@@ -25441,9 +25441,9 @@ function __generator(thisArg, body) {
   return g.next = verb(0), g["throw"] = verb(1), g["return"] = verb(2), typeof Symbol === "function" && (g[Symbol.iterator] = function() {
     return this;
   }), g;
-  function verb(n2) {
+  function verb(n3) {
     return function(v) {
-      return step([n2, v]);
+      return step([n3, v]);
     };
   }
   function step(op) {
@@ -25516,12 +25516,12 @@ function __values(o) {
   };
   throw new TypeError(s ? "Object is not iterable." : "Symbol.iterator is not defined.");
 }
-function __read(o, n2) {
+function __read(o, n3) {
   var m = typeof Symbol === "function" && o[Symbol.iterator];
   if (!m) return o;
   var i = m.call(o), r, ar = [], e;
   try {
-    while ((n2 === void 0 || n2-- > 0) && !(r = i.next()).done) ar.push(r.value);
+    while ((n3 === void 0 || n3-- > 0) && !(r = i.next()).done) ar.push(r.value);
   } catch (error61) {
     e = { error: error61 };
   } finally {
@@ -25568,19 +25568,19 @@ function __asyncGenerator(thisArg, _arguments, generator) {
       return Promise.resolve(v).then(f, reject);
     };
   }
-  function verb(n2, f) {
-    if (g[n2]) {
-      i[n2] = function(v) {
+  function verb(n3, f) {
+    if (g[n3]) {
+      i[n3] = function(v) {
         return new Promise(function(a, b) {
-          q.push([n2, v, a, b]) > 1 || resume(n2, v);
+          q.push([n3, v, a, b]) > 1 || resume(n3, v);
         });
       };
-      if (f) i[n2] = f(i[n2]);
+      if (f) i[n3] = f(i[n3]);
     }
   }
-  function resume(n2, v) {
+  function resume(n3, v) {
     try {
-      step(g[n2](v));
+      step(g[n3](v));
     } catch (e) {
       settle(q[0][3], e);
     }
@@ -25605,9 +25605,9 @@ function __asyncDelegator(o) {
   }), verb("return"), i[Symbol.iterator] = function() {
     return this;
   }, i;
-  function verb(n2, f) {
-    i[n2] = o[n2] ? function(v) {
-      return (p = !p) ? { value: __await(o[n2](v)), done: false } : f ? f(v) : v;
+  function verb(n3, f) {
+    i[n3] = o[n3] ? function(v) {
+      return (p = !p) ? { value: __await(o[n3](v)), done: false } : f ? f(v) : v;
     } : f;
   }
 }
@@ -25617,10 +25617,10 @@ function __asyncValues(o) {
   return m ? m.call(o) : (o = typeof __values === "function" ? __values(o) : o[Symbol.iterator](), i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function() {
     return this;
   }, i);
-  function verb(n2) {
-    i[n2] = o[n2] && function(v) {
+  function verb(n3) {
+    i[n3] = o[n3] && function(v) {
       return new Promise(function(resolve, reject) {
-        v = o[n2](v), settle(resolve, reject, v.done, v.value);
+        v = o[n3](v), settle(resolve, reject, v.done, v.value);
       });
     };
   }
@@ -25739,7 +25739,7 @@ var init_tslib_es6 = __esm({
     };
     __assign = function() {
       __assign = Object.assign || function __assign3(t2) {
-        for (var s, i = 1, n2 = arguments.length; i < n2; i++) {
+        for (var s, i = 1, n3 = arguments.length; i < n3; i++) {
           s = arguments[i];
           for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p)) t2[p] = s[p];
         }
@@ -41230,8 +41230,8 @@ var require_GoTrueClient = __commonJS({
         const result = await this.initializePromise;
         const queue = (_a3 = this._pendingInitNotifications) !== null && _a3 !== void 0 ? _a3 : [];
         this._pendingInitNotifications = null;
-        for (const n2 of queue) {
-          await this._notifyAllSubscribers(n2.event, n2.session, n2.broadcast);
+        for (const n3 of queue) {
+          await this._notifyAllSubscribers(n3.event, n3.session, n3.broadcast);
         }
         return result;
       }
@@ -47775,12 +47775,12 @@ var require_build2 = __commonJS({
     var pvtsutils = require_build();
     var pvutils = require_utils3();
     function _interopNamespaceDefault(e) {
-      var n2 = /* @__PURE__ */ Object.create(null);
+      var n3 = /* @__PURE__ */ Object.create(null);
       if (e) {
         Object.keys(e).forEach(function(k) {
           if (k !== "default") {
             var d = Object.getOwnPropertyDescriptor(e, k);
-            Object.defineProperty(n2, k, d.get ? d : {
+            Object.defineProperty(n3, k, d.get ? d : {
               enumerable: true,
               get: function() {
                 return e[k];
@@ -47789,8 +47789,8 @@ var require_build2 = __commonJS({
           }
         });
       }
-      n2.default = e;
-      return Object.freeze(n2);
+      n3.default = e;
+      return Object.freeze(n3);
     }
     var pvtsutils__namespace = /* @__PURE__ */ _interopNamespaceDefault(pvtsutils);
     var pvutils__namespace = /* @__PURE__ */ _interopNamespaceDefault(pvutils);
@@ -49163,9 +49163,9 @@ ${values.join("\n")}` : `${blockName} :`;
         firstViewCopy = pvutils__namespace.utilConcatView(c, firstViewCopy);
       return firstViewCopy;
     }
-    function power2(n2) {
-      if (n2 >= powers2.length) {
-        for (let p = powers2.length; p <= n2; p++) {
+    function power2(n3) {
+      if (n3 >= powers2.length) {
+        for (let p = powers2.length; p <= n3; p++) {
           const c = new Uint8Array([0]);
           let digits = powers2[p - 1].slice(0);
           for (let i = digits.length - 1; i >= 0; i--) {
@@ -49178,7 +49178,7 @@ ${values.join("\n")}` : `${blockName} :`;
           powers2.push(digits);
         }
       }
-      return powers2[n2];
+      return powers2[n3];
     }
     function viewSub(first, second) {
       let b = 0;
@@ -59753,9 +59753,9 @@ function __generator2(thisArg, body) {
   return g = { next: verb(0), "throw": verb(1), "return": verb(2) }, typeof Symbol === "function" && (g[Symbol.iterator] = function() {
     return this;
   }), g;
-  function verb(n2) {
+  function verb(n3) {
     return function(v) {
-      return step([n2, v]);
+      return step([n3, v]);
     };
   }
   function step(op) {
@@ -59832,12 +59832,12 @@ function __values2(o) {
   };
   throw new TypeError(s ? "Object is not iterable." : "Symbol.iterator is not defined.");
 }
-function __read2(o, n2) {
+function __read2(o, n3) {
   var m = typeof Symbol === "function" && o[Symbol.iterator];
   if (!m) return o;
   var i = m.call(o), r, ar = [], e;
   try {
-    while ((n2 === void 0 || n2-- > 0) && !(r = i.next()).done) ar.push(r.value);
+    while ((n3 === void 0 || n3-- > 0) && !(r = i.next()).done) ar.push(r.value);
   } catch (error61) {
     e = { error: error61 };
   } finally {
@@ -59870,16 +59870,16 @@ function __asyncGenerator2(thisArg, _arguments, generator) {
   return i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function() {
     return this;
   }, i;
-  function verb(n2) {
-    if (g[n2]) i[n2] = function(v) {
+  function verb(n3) {
+    if (g[n3]) i[n3] = function(v) {
       return new Promise(function(a, b) {
-        q.push([n2, v, a, b]) > 1 || resume(n2, v);
+        q.push([n3, v, a, b]) > 1 || resume(n3, v);
       });
     };
   }
-  function resume(n2, v) {
+  function resume(n3, v) {
     try {
-      step(g[n2](v));
+      step(g[n3](v));
     } catch (e) {
       settle(q[0][3], e);
     }
@@ -59904,9 +59904,9 @@ function __asyncDelegator2(o) {
   }), verb("return"), i[Symbol.iterator] = function() {
     return this;
   }, i;
-  function verb(n2, f) {
-    i[n2] = o[n2] ? function(v) {
-      return (p = !p) ? { value: __await2(o[n2](v)), done: n2 === "return" } : f ? f(v) : v;
+  function verb(n3, f) {
+    i[n3] = o[n3] ? function(v) {
+      return (p = !p) ? { value: __await2(o[n3](v)), done: n3 === "return" } : f ? f(v) : v;
     } : f;
   }
 }
@@ -59916,10 +59916,10 @@ function __asyncValues2(o) {
   return m ? m.call(o) : (o = typeof __values2 === "function" ? __values2(o) : o[Symbol.iterator](), i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function() {
     return this;
   }, i);
-  function verb(n2) {
-    i[n2] = o[n2] && function(v) {
+  function verb(n3) {
+    i[n3] = o[n3] && function(v) {
       return new Promise(function(resolve, reject) {
-        v = o[n2](v), settle(resolve, reject, v.done, v.value);
+        v = o[n3](v), settle(resolve, reject, v.done, v.value);
       });
     };
   }
@@ -59975,7 +59975,7 @@ var init_tslib_es62 = __esm({
     };
     __assign2 = function() {
       __assign2 = Object.assign || function __assign3(t2) {
-        for (var s, i = 1, n2 = arguments.length; i < n2; i++) {
+        for (var s, i = 1, n3 = arguments.length; i < n3; i++) {
           s = arguments[i];
           for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p)) t2[p] = s[p];
         }
@@ -61948,12 +61948,12 @@ var require_x509_cjs = __commonJS({
     var asnPkcs9 = require_cjs13();
     var asn1Csr = require_cjs14();
     function _interopNamespaceDefault(e) {
-      var n2 = /* @__PURE__ */ Object.create(null);
+      var n3 = /* @__PURE__ */ Object.create(null);
       if (e) {
         Object.keys(e).forEach(function(k) {
           if (k !== "default") {
             var d = Object.getOwnPropertyDescriptor(e, k);
-            Object.defineProperty(n2, k, d.get ? d : {
+            Object.defineProperty(n3, k, d.get ? d : {
               enumerable: true,
               get: function() {
                 return e[k];
@@ -61962,8 +61962,8 @@ var require_x509_cjs = __commonJS({
           }
         });
       }
-      n2.default = e;
-      return Object.freeze(n2);
+      n3.default = e;
+      return Object.freeze(n3);
     }
     var asn1X509__namespace = /* @__PURE__ */ _interopNamespaceDefault(asn1X509);
     var asn1Cms__namespace = /* @__PURE__ */ _interopNamespaceDefault(asn1Cms);
@@ -65400,7 +65400,7 @@ var __commonJS2 = (cb, mod) => function() {
   return mod || (0, cb[__getOwnPropNames2(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
 };
 var __copyProps2 = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") for (var keys = __getOwnPropNames2(from), i = 0, n2 = keys.length, key; i < n2; i++) {
+  if (from && typeof from === "object" || typeof from === "function") for (var keys = __getOwnPropNames2(from), i = 0, n3 = keys.length, key; i < n3; i++) {
     key = keys[i];
     if (!__hasOwnProp2.call(to, key) && key !== except) __defProp2(to, key, {
       get: ((k) => from[k]).bind(null, key),
@@ -66357,7 +66357,7 @@ var require_usingCtx = __commonJS2({ "../../node_modules/.pnpm/@oxc-project+runt
     var r = "function" == typeof SuppressedError ? SuppressedError : function(r$1, e$1) {
       var n$1 = Error();
       return n$1.name = "SuppressedError", n$1.error = r$1, n$1.suppressed = e$1, n$1;
-    }, e = {}, n2 = [];
+    }, e = {}, n3 = [];
     function using(r$1, e$1) {
       if (null != e$1) {
         if (Object(e$1) !== e$1) throw new TypeError("using declarations can only be used with objects, functions, null, or undefined.");
@@ -66370,12 +66370,12 @@ var require_usingCtx = __commonJS2({ "../../node_modules/.pnpm/@oxc-project+runt
           } catch (r$2) {
             return Promise.reject(r$2);
           }
-        }), n2.push({
+        }), n3.push({
           v: e$1,
           d: o,
           a: r$1
         });
-      } else r$1 && n2.push({
+      } else r$1 && n3.push({
         d: e$1,
         a: r$1
       });
@@ -66388,8 +66388,8 @@ var require_usingCtx = __commonJS2({ "../../node_modules/.pnpm/@oxc-project+runt
       d: function d() {
         var o, t2 = this.e, s = 0;
         function next() {
-          for (; o = n2.pop(); ) try {
-            if (!o.a && 1 === s) return s = 0, n2.push(o), Promise.resolve().then(next);
+          for (; o = n3.pop(); ) try {
+            if (!o.a && 1 === s) return s = 0, n3.push(o), Promise.resolve().then(next);
             if (o.d) {
               var r$1 = o.d.call(o.v);
               if (o.a) return s |= 2, Promise.resolve(r$1).then(next, err);
@@ -66433,14 +66433,14 @@ var require_wrapAsyncGenerator = __commonJS2({ "../../node_modules/.pnpm/@oxc-pr
     var r, t2;
     function resume(r$1, t$1) {
       try {
-        var n2 = e[r$1](t$1), o = n2.value, u = o instanceof OverloadYield$1;
+        var n3 = e[r$1](t$1), o = n3.value, u = o instanceof OverloadYield$1;
         Promise.resolve(u ? o.v : o).then(function(t$2) {
           if (u) {
             var i = "return" === r$1 ? "return" : "next";
             if (!o.k || t$2.done) return resume(i, t$2);
             t$2 = e[i](t$2).value;
           }
-          settle(n2.done ? "return" : "normal", t$2);
+          settle(n3.done ? "return" : "normal", t$2);
         }, function(e$1) {
           resume("throw", e$1);
         });
@@ -66448,35 +66448,35 @@ var require_wrapAsyncGenerator = __commonJS2({ "../../node_modules/.pnpm/@oxc-pr
         settle("throw", e$1);
       }
     }
-    function settle(e$1, n2) {
+    function settle(e$1, n3) {
       switch (e$1) {
         case "return":
           r.resolve({
-            value: n2,
+            value: n3,
             done: true
           });
           break;
         case "throw":
-          r.reject(n2);
+          r.reject(n3);
           break;
         default:
           r.resolve({
-            value: n2,
+            value: n3,
             done: false
           });
       }
       (r = r.next) ? resume(r.key, r.arg) : t2 = null;
     }
-    this._invoke = function(e$1, n2) {
+    this._invoke = function(e$1, n3) {
       return new Promise(function(o, u) {
         var i = {
           key: e$1,
-          arg: n2,
+          arg: n3,
           resolve: o,
           reject: u,
           next: null
         };
-        t2 ? t2 = t2.next = i : (r = t2 = i, resume(e$1, n2));
+        t2 ? t2 = t2.next = i : (r = t2 = i, resume(e$1, n3));
       });
     }, "function" != typeof e["return"] && (this["return"] = void 0);
   }
@@ -66761,10 +66761,10 @@ function _withPing() {
 }
 var require_asyncIterator = __commonJS2({ "../../node_modules/.pnpm/@oxc-project+runtime@0.72.2/node_modules/@oxc-project/runtime/src/helpers/asyncIterator.js"(exports2, module2) {
   function _asyncIterator$2(r) {
-    var n2, t2, o, e = 2;
+    var n3, t2, o, e = 2;
     for ("undefined" != typeof Symbol && (t2 = Symbol.asyncIterator, o = Symbol.iterator); e--; ) {
-      if (t2 && null != (n2 = r[t2])) return n2.call(r);
-      if (o && null != (n2 = r[o])) return new AsyncFromSyncIterator(n2.call(r));
+      if (t2 && null != (n3 = r[t2])) return n3.call(r);
+      if (o && null != (n3 = r[o])) return new AsyncFromSyncIterator(n3.call(r));
       t2 = "@@asyncIterator", o = "@@iterator";
     }
     throw new TypeError("Object is not async iterable");
@@ -66772,11 +66772,11 @@ var require_asyncIterator = __commonJS2({ "../../node_modules/.pnpm/@oxc-project
   function AsyncFromSyncIterator(r) {
     function AsyncFromSyncIteratorContinuation(r$1) {
       if (Object(r$1) !== r$1) return Promise.reject(new TypeError(r$1 + " is not an object."));
-      var n2 = r$1.done;
+      var n3 = r$1.done;
       return Promise.resolve(r$1.value).then(function(r$2) {
         return {
           value: r$2,
-          done: n2
+          done: n3
         };
       });
     }
@@ -66789,15 +66789,15 @@ var require_asyncIterator = __commonJS2({ "../../node_modules/.pnpm/@oxc-project
         return AsyncFromSyncIteratorContinuation(this.n.apply(this.s, arguments));
       },
       "return": function _return(r$1) {
-        var n2 = this.s["return"];
-        return void 0 === n2 ? Promise.resolve({
+        var n3 = this.s["return"];
+        return void 0 === n3 ? Promise.resolve({
           value: r$1,
           done: true
-        }) : AsyncFromSyncIteratorContinuation(n2.apply(this.s, arguments));
+        }) : AsyncFromSyncIteratorContinuation(n3.apply(this.s, arguments));
       },
       "throw": function _throw(r$1) {
-        var n2 = this.s["return"];
-        return void 0 === n2 ? Promise.reject(r$1) : AsyncFromSyncIteratorContinuation(n2.apply(this.s, arguments));
+        var n3 = this.s["return"];
+        return void 0 === n3 ? Promise.reject(r$1) : AsyncFromSyncIteratorContinuation(n3.apply(this.s, arguments));
       }
     }, new AsyncFromSyncIterator(r);
   }
@@ -67002,9 +67002,9 @@ function jsonlStreamProducer(opts) {
 var require_asyncGeneratorDelegate = __commonJS2({ "../../node_modules/.pnpm/@oxc-project+runtime@0.72.2/node_modules/@oxc-project/runtime/src/helpers/asyncGeneratorDelegate.js"(exports2, module2) {
   var OverloadYield = require_OverloadYield();
   function _asyncGeneratorDelegate$1(t2) {
-    var e = {}, n2 = false;
+    var e = {}, n3 = false;
     function pump(e$1, r) {
-      return n2 = true, r = new Promise(function(n$1) {
+      return n3 = true, r = new Promise(function(n$1) {
         n$1(t2[e$1](r));
       }), {
         done: false,
@@ -67014,12 +67014,12 @@ var require_asyncGeneratorDelegate = __commonJS2({ "../../node_modules/.pnpm/@ox
     return e["undefined" != typeof Symbol && Symbol.iterator || "@@iterator"] = function() {
       return this;
     }, e.next = function(t$1) {
-      return n2 ? (n2 = false, t$1) : pump("next", t$1);
+      return n3 ? (n3 = false, t$1) : pump("next", t$1);
     }, "function" == typeof t2["throw"] && (e["throw"] = function(t$1) {
-      if (n2) throw n2 = false, t$1;
+      if (n3) throw n3 = false, t$1;
       return pump("throw", t$1);
     }), "function" == typeof t2["return"] && (e["return"] = function(t$1) {
-      return n2 ? (n2 = false, t$1) : pump("return", t$1);
+      return n3 ? (n3 = false, t$1) : pump("return", t$1);
     }), e;
   }
   module2.exports = _asyncGeneratorDelegate$1, module2.exports.__esModule = true, module2.exports["default"] = module2.exports;
@@ -67629,9 +67629,9 @@ var require_objectWithoutPropertiesLoose = __commonJS2({ "../../node_modules/.pn
   function _objectWithoutPropertiesLoose(r, e) {
     if (null == r) return {};
     var t2 = {};
-    for (var n2 in r) if ({}.hasOwnProperty.call(r, n2)) {
-      if (e.includes(n2)) continue;
-      t2[n2] = r[n2];
+    for (var n3 in r) if ({}.hasOwnProperty.call(r, n3)) {
+      if (e.includes(n3)) continue;
+      t2[n3] = r[n3];
     }
     return t2;
   }
@@ -85440,17 +85440,17 @@ var ZodArray = /* @__PURE__ */ $constructor("ZodArray", (inst, def) => {
   inst._zod.processJSONSchema = (ctx, json2, params) => arrayProcessor(inst, ctx, json2, params);
   inst.element = def.element;
 }, {
-  min(n2, params) {
-    return this.check(_minLength(n2, params));
+  min(n3, params) {
+    return this.check(_minLength(n3, params));
   },
   nonempty(params) {
     return this.check(_minLength(1, params));
   },
-  max(n2, params) {
-    return this.check(_maxLength(n2, params));
+  max(n3, params) {
+    return this.check(_maxLength(n3, params));
   },
-  length(n2, params) {
-    return this.check(_length(n2, params));
+  length(n3, params) {
+    return this.check(_length(n3, params));
   },
   unwrap() {
     return this.element;
@@ -89548,8 +89548,79 @@ init_storage();
 
 // server/weeklyResultsFinalize.ts
 init_supabaseAdmin();
+
+// shared/scoringEngine.ts
+function n(v) {
+  if (v === void 0 || v === null) return 0;
+  const parsed = typeof v === "string" ? parseFloat(v) : v;
+  return isNaN(parsed) ? 0 : parsed;
+}
+function sacksFrom(d) {
+  if (d.sacks !== void 0) return n(d.sacks);
+  const combined = d.sacksAndYardsLost;
+  if (typeof combined === "string") {
+    const first = parseFloat(combined.split("-")[0]);
+    return isNaN(first) ? 0 : first;
+  }
+  return 0;
+}
+function calcFantasyPoints(stats, pos, isTE = false) {
+  let pts = 0;
+  const teReception = pos === "TE" || isTE;
+  if (stats.Passing) {
+    const p = stats.Passing;
+    pts += n(p.passYds) * 0.04;
+    pts += n(p.passTD) * 4;
+    pts += n(p.int) * -3;
+    pts += n(p.passingTwoPointConversion) * 1;
+  }
+  if (stats.Rushing) {
+    const r = stats.Rushing;
+    pts += n(r.rushYds) * 0.1;
+    pts += n(r.rushTD) * 6;
+    pts += n(r.rushingTwoPointConversion) * 2;
+  }
+  if (stats.Receiving) {
+    const rec = stats.Receiving;
+    pts += n(rec.recYds) * 0.1;
+    pts += n(rec.recTD) * 6;
+    pts += n(rec.receptions) * (teReception ? 1.5 : 1);
+    pts += n(rec.receivingTwoPointConversion) * 2;
+  }
+  const fumblesLost = pos === "DST" ? 0 : n(stats.Fumbles?.fumblesLost ?? stats.Defense?.fumblesLost);
+  pts += fumblesLost * -3;
+  if (pos !== "DST") pts += n(stats.Defense?.returnTD) * 6;
+  if (stats.Kicking) {
+    const k = stats.Kicking;
+    const xpMade = n(k.xpMade);
+    const xpAtt = n(k.xpAttempts);
+    const fgMade = n(k.fgMade);
+    const fgAtt = n(k.fgAttempts);
+    const fgYds = n(k.fgYds);
+    pts += xpMade * 1;
+    const xpMissed = xpAtt - xpMade;
+    pts += xpMissed * -2;
+    if (fgYds > 0) {
+      pts += fgYds * 0.1;
+    }
+    const fgMissed = fgAtt - fgMade;
+    pts += fgMissed * -2;
+  }
+  if (pos === "DST" && stats.Defense) {
+    const d = stats.Defense;
+    pts += sacksFrom(d) * 2;
+    pts += n(d.defensiveInterceptions) * 3;
+    pts += n(d.fumblesRecovered) * 3;
+    const dstTouchdowns = d.defensiveOrSpecialTeamsTds !== void 0 ? n(d.defensiveOrSpecialTeamsTds) : n(d.defTD) + n(d.returnTD);
+    pts += dstTouchdowns * 6;
+    pts += n(d.safeties) * 2;
+  }
+  return Math.round(pts * 10) / 10;
+}
+
+// server/weeklyResultsFinalize.ts
 var HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
-var n = (value) => Number.parseFloat(String(value ?? "0")) || 0;
+var n2 = (value) => Number.parseFloat(String(value ?? "0")) || 0;
 var teamCode = (value) => ({ jax: "JAC", jac: "JAC", was: "WSH", wsh: "WSH", kan: "KC", kc: "KC", tam: "TB", tb: "TB", arz: "ARI", ari: "ARI" })[value.toLowerCase()] ?? value.toUpperCase();
 function isGameFinal(body) {
   const code = body?.gameStatusCode !== void 0 ? String(body.gameStatusCode) : void 0;
@@ -89579,31 +89650,11 @@ function attributeOffenseFramedDefenseStats(homeAway, stats, teamStatsBody) {
     fumblesRecovered: opponentStats?.fumblesLost
   };
 }
-function sacksFrom(stats) {
-  if (stats.sacks !== void 0) return n(stats.sacks);
-  const combined = stats.sacksAndYardsLost;
-  if (typeof combined === "string") {
-    const first = parseFloat(combined.split("-")[0]);
-    return isNaN(first) ? 0 : first;
-  }
-  return 0;
-}
 function playerPoints(stats, position) {
-  const pass = stats.Passing ?? {};
-  const rush = stats.Rushing ?? {};
-  const receive = stats.Receiving ?? {};
-  const kick = stats.Kicking ?? {};
-  const defense = stats.Defense ?? {};
-  let points = n(pass.passYds) * 0.04 + n(pass.passTD) * 4 - n(pass.int) * 3 + n(pass.passingTwoPointConversion ?? stats.twoPointConversion);
-  points += n(rush.rushYds) * 0.1 + n(rush.rushTD) * 6 + n(rush.rushingTwoPointConversion) * 2;
-  points += n(receive.receptions) * (position === "TE" ? 1.5 : 1) + n(receive.recYds) * 0.1 + n(receive.recTD) * 6 + n(receive.receivingTwoPointConversion) * 2;
-  points -= n(defense.fumblesLost) * 3;
-  if (position === "K" || position === "PK") points += n(kick.xpMade) + n(kick.fgYds) * 0.1 - n(kick.fgMissed) * 2 - n(kick.xpMissed) * 2;
-  return Math.round(Math.max(points, 0) * 10) / 10;
+  return calcFantasyPoints(stats, position);
 }
 function defensePoints(stats) {
-  const points = sacksFrom(stats) * 2 + n(stats.defensiveInterceptions) * 3 + n(stats.fumblesRecovered) * 3 + n(stats.defTD) * 6 + n(stats.returnTD) * 6 + n(stats.safeties) * 2;
-  return Math.round(Math.max(points, 0) * 10) / 10;
+  return calcFantasyPoints({ Defense: stats }, "DST");
 }
 function median(values) {
   const sorted = [...values].sort((a, b) => a - b);
@@ -89679,11 +89730,16 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
   }
   const playerMeta = new Map((players ?? []).map((player) => [String(player.name).toLowerCase(), { position: String(player.position), nflTeam: String(player.nfl_team) }]));
   const teamScores = /* @__PURE__ */ new Map();
+  const idByOwnerForLog = new Map(teams.map((team) => [team.id, team.owner]));
   for (const lineup of lineups ?? []) {
     if (lineup.is_bench) continue;
     const player = playerMeta.get(String(lineup.player_name).toLowerCase());
-    if (!player) continue;
+    if (!player) {
+      if (idByOwnerForLog.get(lineup.team_id) === "Shawn") console.log(`[weeklyResultsFinalize DEBUG] Vipers starter NOT FOUND in players table at all: "${lineup.player_name}"`);
+      continue;
+    }
     const score = player.position === "DST" ? dstScores[teamCode(player.nflTeam)] ?? 0 : individualScores[normalizePlayerName(String(lineup.player_name))] ?? 0;
+    if (idByOwnerForLog.get(lineup.team_id) === "Shawn") console.log(`[weeklyResultsFinalize DEBUG] Vipers starter "${lineup.player_name}" (${player.position}): score=${score}`);
     teamScores.set(lineup.team_id, Math.round(((teamScores.get(lineup.team_id) ?? 0) + score) * 10) / 10);
   }
   const schedule = SCHEDULE_2026.find((entry) => entry.week === week2);
@@ -89745,8 +89801,8 @@ async function recomputeStandingsFromFinalizedResults(season) {
     weekGroups.set(result.week, list);
   }
   Array.from(weekGroups.values()).forEach((rows) => {
-    const weekMedian = median(rows.flatMap((row) => [n(row.home_score), n(row.away_score)]));
-    rows.forEach((row) => [{ id: row.home_team_id, score: n(row.home_score), opp: n(row.away_score) }, { id: row.away_team_id, score: n(row.away_score), opp: n(row.home_score) }].forEach((entry) => {
+    const weekMedian = median(rows.flatMap((row) => [n2(row.home_score), n2(row.away_score)]));
+    rows.forEach((row) => [{ id: row.home_team_id, score: n2(row.home_score), opp: n2(row.away_score) }, { id: row.away_team_id, score: n2(row.away_score), opp: n2(row.home_score) }].forEach((entry) => {
       const total = totals.get(entry.id);
       if (!total) return;
       const outcome = entry.score > entry.opp ? "W" : entry.score < entry.opp ? "L" : "T";
@@ -89767,7 +89823,7 @@ async function recomputeStandingsFromFinalizedResults(season) {
       const { winsDelta, lossesDelta } = weeklyRecordDelta(outcome, beatMedian);
       total.wins += winsDelta;
       total.losses += lossesDelta;
-      total.streak = total.streak.startsWith(outcome) ? `${outcome}${n(total.streak.slice(1)) + 1}` : `${outcome}1`;
+      total.streak = total.streak.startsWith(outcome) ? `${outcome}${n2(total.streak.slice(1)) + 1}` : `${outcome}1`;
     }));
   });
   const updates = await Promise.all(Array.from(totals.entries()).map(([teamId, value]) => supabaseAdmin.from("team_standings").update({ ...value, streak: value.streak || "\u2014" }).eq("team_id", teamId)));
@@ -90645,7 +90701,7 @@ async function verifyRSA(opts) {
   const { cosePublicKey, signature, data, shaHashOverride } = opts;
   const WebCrypto = await getWebCrypto();
   const alg = cosePublicKey.get(COSEKEYS.alg);
-  const n2 = cosePublicKey.get(COSEKEYS.n);
+  const n3 = cosePublicKey.get(COSEKEYS.n);
   const e = cosePublicKey.get(COSEKEYS.e);
   if (!alg) {
     throw new Error("Public key was missing alg (RSA)");
@@ -90653,7 +90709,7 @@ async function verifyRSA(opts) {
   if (!isCOSEAlg(alg)) {
     throw new Error(`Public key had invalid alg ${alg} (RSA)`);
   }
-  if (!n2) {
+  if (!n3) {
     throw new Error("Public key was missing n (RSA)");
   }
   if (!e) {
@@ -90662,7 +90718,7 @@ async function verifyRSA(opts) {
   const keyData = {
     kty: "RSA",
     alg: "",
-    n: isoBase64URL_exports.fromBuffer(n2),
+    n: isoBase64URL_exports.fromBuffer(n3),
     e: isoBase64URL_exports.fromBuffer(e),
     ext: false
   };
@@ -96741,15 +96797,15 @@ async function verifyAttestationTPM(options) {
     if (!isCOSEPublicKeyRSA(cosePublicKey)) {
       throw new Error(`Credential public key with kty ${cosePublicKey.get(COSEKEYS.kty)} did not match ${pubType}`);
     }
-    const n2 = cosePublicKey.get(COSEKEYS.n);
+    const n3 = cosePublicKey.get(COSEKEYS.n);
     const e = cosePublicKey.get(COSEKEYS.e);
-    if (!n2) {
+    if (!n3) {
       throw new Error("COSE public key missing n (TPM|RSA)");
     }
     if (!e) {
       throw new Error("COSE public key missing e (TPM|RSA)");
     }
-    if (!isoUint8Array_exports.areEqual(unique, n2)) {
+    if (!isoUint8Array_exports.areEqual(unique, n3)) {
       throw new Error("PubArea unique is not same as credentialPublicKey (TPM|RSA)");
     }
     if (!parameters.rsa) {
@@ -100714,11 +100770,11 @@ var delimiter_discover = function(records, options) {
   return String.fromCharCode(result.char_code);
 };
 var std = function(array2) {
-  const n2 = array2.length;
-  if (n2 === 0) return 0;
-  const mean = array2.reduce((a, b) => a + b) / n2;
+  const n3 = array2.length;
+  if (n3 === 0) return 0;
+  const mean = array2.reduce((a, b) => a + b) / n3;
   return Math.sqrt(
-    array2.map((x) => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / n2
+    array2.map((x) => Math.pow(x - mean, 2)).reduce((a, b) => a + b) / n3
   );
 };
 

@@ -1,6 +1,7 @@
 import { SCHEDULE_2026 } from "../client/src/lib/scheduleData2026";
 import { supabaseAdmin } from "./supabaseAdmin";
 import { normalizePlayerName } from "../shared/playerNameMatch";
+import { calcFantasyPoints, type Tank01Stats } from "../shared/scoringEngine";
 
 const HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
 const n = (value: unknown) => Number.parseFloat(String(value ?? "0")) || 0;
@@ -97,41 +98,26 @@ export function attributeOffenseFramedDefenseStats(
   };
 }
 
-/**
- * Tank01's team defense stats have no plain "sacks" field -- confirmed
- * live: the actual field is "sacksAndYardsLost", a combined string like
- * "3-10" (3 sacks for 10 yards). n(stats.sacks) always silently returned
- * 0 regardless of the real sack count, since that field simply doesn't
- * exist under that name. Prefers a plain "sacks" field if one is ever
- * present, for robustness against a different response shape.
- */
-export function sacksFrom(stats: Record<string, unknown>): number {
-  if (stats.sacks !== undefined) return n(stats.sacks);
-  const combined = stats.sacksAndYardsLost;
-  if (typeof combined === "string") {
-    const first = parseFloat(combined.split("-")[0]);
-    return isNaN(first) ? 0 : first;
-  }
-  return 0;
-}
+// The actual scoring formula (including sacksFrom) now lives in
+// shared/scoringEngine.ts, used identically by both this server-side
+// official finalization path and the client's live-scoring display --
+// confirmed live that these two paths had drifted apart (a missing
+// return-TD credit, a narrower fumbles-lost field check, a different
+// DST touchdown field check, on top of the earlier name-normalization
+// bug), each independently causing the official score to differ from
+// what Live Scoring actually showed for the same roster. sacksFrom is
+// re-exported directly since it's still imported by this file's own
+// tests; playerPoints and defensePoints keep their existing names and
+// signatures (thin wrappers around the shared formula) so every other
+// call site in this file didn't need to change.
+export { sacksFrom } from "../shared/scoringEngine";
 
 export function playerPoints(stats: Record<string, unknown>, position: string) {
-  const pass = (stats.Passing as Record<string, unknown>) ?? {};
-  const rush = (stats.Rushing as Record<string, unknown>) ?? {};
-  const receive = (stats.Receiving as Record<string, unknown>) ?? {};
-  const kick = (stats.Kicking as Record<string, unknown>) ?? {};
-  const defense = (stats.Defense as Record<string, unknown>) ?? {};
-  let points = n(pass.passYds) * 0.04 + n(pass.passTD) * 4 - n(pass.int) * 3 + n(pass.passingTwoPointConversion ?? stats.twoPointConversion);
-  points += n(rush.rushYds) * 0.1 + n(rush.rushTD) * 6 + n(rush.rushingTwoPointConversion) * 2;
-  points += n(receive.receptions) * (position === "TE" ? 1.5 : 1) + n(receive.recYds) * 0.1 + n(receive.recTD) * 6 + n(receive.receivingTwoPointConversion) * 2;
-  points -= n(defense.fumblesLost) * 3;
-  if (position === "K" || position === "PK") points += n(kick.xpMade) + n(kick.fgYds) * 0.1 - n(kick.fgMissed) * 2 - n(kick.xpMissed) * 2;
-  return Math.round(Math.max(points, 0) * 10) / 10;
+  return calcFantasyPoints(stats as Tank01Stats, position);
 }
 
 export function defensePoints(stats: Record<string, unknown>) {
-  const points = sacksFrom(stats) * 2 + n(stats.defensiveInterceptions) * 3 + n(stats.fumblesRecovered) * 3 + n(stats.defTD) * 6 + n(stats.returnTD) * 6 + n(stats.safeties) * 2;
-  return Math.round(Math.max(points, 0) * 10) / 10;
+  return calcFantasyPoints({ Defense: stats } as Tank01Stats, "DST");
 }
 
 function median(values: number[]) {
@@ -252,11 +238,16 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
 
   const playerMeta = new Map((players ?? []).map(player => [String(player.name).toLowerCase(), { position: String(player.position), nflTeam: String(player.nfl_team) }]));
   const teamScores = new Map<string, number>();
+  const idByOwnerForLog = new Map(teams.map(team => [team.id, team.owner]));
   for (const lineup of lineups ?? []) {
     if (lineup.is_bench) continue;
     const player = playerMeta.get(String(lineup.player_name).toLowerCase());
-    if (!player) continue;
+    if (!player) {
+      if (idByOwnerForLog.get(lineup.team_id) === "Shawn") console.log(`[weeklyResultsFinalize DEBUG] Vipers starter NOT FOUND in players table at all: "${lineup.player_name}"`);
+      continue;
+    }
     const score = player.position === "DST" ? (dstScores[teamCode(player.nflTeam)] ?? 0) : (individualScores[normalizePlayerName(String(lineup.player_name))] ?? 0);
+    if (idByOwnerForLog.get(lineup.team_id) === "Shawn") console.log(`[weeklyResultsFinalize DEBUG] Vipers starter "${lineup.player_name}" (${player.position}): score=${score}`);
     teamScores.set(lineup.team_id, Math.round(((teamScores.get(lineup.team_id) ?? 0) + score) * 10) / 10);
   }
 
