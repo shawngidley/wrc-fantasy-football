@@ -4,6 +4,7 @@ import { normalizePlayerName } from "../shared/playerNameMatch";
 import { calcFantasyPoints, type Tank01Stats } from "../shared/scoringEngine";
 import { parseEspnKickerEvents, getKickerEventsForPlayer, calculateWrcKickerPoints, type KickerPlayEvent } from "../shared/espnKickerEvents";
 import { resolveRosterPlayerForLineupEntry, type RosterPlayerRow } from "../shared/rosterPlayerResolution";
+import { normalizeTankSeasonStats, type PlayerSeasonStats } from "../shared/playerSeasonStats";
 
 const HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
 const n = (value: unknown) => Number.parseFloat(String(value ?? "0")) || 0;
@@ -233,6 +234,8 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
 
   const individualScores: Record<string, number> = {};
   const dstScores: Record<string, number> = {};
+  const individualStatLines: Record<string, PlayerSeasonStats> = {};
+  const dstStatLines: Record<string, PlayerSeasonStats> = {};
   // Tank01's player-level box score stats have an empty position field
   // for every player (confirmed live for both T. McBride and D.
   // Goedert: raw pos=""), so playerPoints' TE-reception check was
@@ -268,13 +271,18 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
       if (entry.longName) {
         const normalizedName = normalizePlayerName(String(entry.longName));
         const rosterPosition = positionByName.get(normalizedName) ?? String(entry.pos ?? "");
+        const statLine = normalizeTankSeasonStats(entry as Tank01Stats, rosterPosition);
         if (rosterPosition === "K") {
           const playerEvents = getKickerEventsForPlayer(kickerEvents, String(entry.longName));
-          individualScores[normalizedName] = playerEvents.length > 0
+          const points = playerEvents.length > 0
             ? calculateWrcKickerPoints(playerEvents, entry as Tank01Stats)
             : playerPoints(entry, rosterPosition);
+          individualScores[normalizedName] = points;
+          individualStatLines[normalizedName] = { ...statLine, wrcPts: points };
         } else {
-          individualScores[normalizedName] = playerPoints(entry, rosterPosition);
+          const points = playerPoints(entry, rosterPosition);
+          individualScores[normalizedName] = points;
+          individualStatLines[normalizedName] = { ...statLine, wrcPts: points };
         }
       }
     });
@@ -283,7 +291,9 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
       const teamAbv = resolveTeamStatsKey(homeAway, game);
       if (!teamAbv) return;
       const attributedStats = attributeOffenseFramedDefenseStats(homeAway, stats, teamStatsBody);
-      dstScores[teamAbv] = defensePoints(attributedStats);
+      const points = defensePoints(attributedStats);
+      dstScores[teamAbv] = points;
+      dstStatLines[teamAbv] = { ...normalizeTankSeasonStats({ Defense: attributedStats } as Tank01Stats, "DST"), wrcPts: points };
     });
   }
 
@@ -302,6 +312,38 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
       ? (dstScores[teamCode(player.nfl_team)] ?? 0)
       : (individualScores[normalizePlayerName(String(lineup.player_name))] ?? 0);
     teamScores.set(lineup.team_id, Math.round(((teamScores.get(lineup.team_id) ?? 0) + score) * 10) / 10);
+  }
+
+  // Persist every rostered player's full weekly stat line -- not just
+  // this week's starters -- so the client can read season stats
+  // directly from this table (summed across every finalized week)
+  // instead of independently recomputing them from Tank01/ESPN on every
+  // page load. One row per rostered player per week; a player who
+  // didn't play this week still gets a row with zero stats.
+  const rosteredPlayers = (players ?? []).filter(player => player.team_id);
+  const weeklyStatRows = rosteredPlayers.map(player => {
+    const statLine = player.position === "DST"
+      ? dstStatLines[teamCode(player.nfl_team)]
+      : individualStatLines[normalizePlayerName(player.name)];
+    const zeroStatLine: PlayerSeasonStats = normalizeTankSeasonStats(undefined, player.position);
+    const s = statLine ? { ...statLine, gp: 1 } : { ...zeroStatLine, gp: 0 };
+    return {
+      week, season,
+      player_name: player.name, position: player.position, nfl_team: player.nfl_team,
+      pass_cmp: s.passCmp, pass_att: s.passAtt, pass_yds: s.passYds, pass_td: s.passTD, pass_int: s.passInt, pass_rating: s.passRating,
+      rush_att: s.rushAtt, rush_yds: s.rushYds, rush_td: s.rushTD,
+      receptions: s.receptions, targets: s.targets, rec_yds: s.recYds, rec_td: s.recTD,
+      fg_made: s.fgMade, fg_att: s.fgAtt, fg_yds: s.fgYds,
+      fg_made_1_to_39: s.fgMade1To39, fg_made_40_to_49: s.fgMade40To49, fg_made_50_to_59: s.fgMade50To59, fg_made_60_plus: s.fgMade60Plus,
+      xp_made: s.xpMade, xp_att: s.xpAtt,
+      sacks: s.sacks, def_int: s.defInt, fumbles_recovered: s.fumblesRecovered, takeaways: s.takeaways,
+      def_td: s.defTD, dst_td: s.dstTD, return_td: s.returnTD, safeties: s.safeties, block_kicks: s.blockKicks,
+      pts_against: s.ptsAgainst, fumbles_lost: s.fumblesLost, wrc_pts: s.wrcPts,
+    };
+  });
+  if (weeklyStatRows.length > 0) {
+    const { error: weeklyStatsError } = await supabaseAdmin.from("player_weekly_stats").upsert(weeklyStatRows, { onConflict: "week,season,player_name" });
+    if (weeklyStatsError) console.log(`[weeklyResultsFinalize] Unable to persist player_weekly_stats: ${weeklyStatsError.message}`);
   }
 
   const schedule = SCHEDULE_2026.find(entry => entry.week === week);

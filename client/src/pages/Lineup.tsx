@@ -21,6 +21,7 @@ import { useNFLLiveScores, getLivePoints } from "@/hooks/useNFLLiveScores";
 import { useWeeklyResultsWriter } from "@/hooks/useWeeklyResultsWriter";
 import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } from "@/hooks/useNFLInjuries";
 import { useNFLSeasonStats } from "@/hooks/useNFLSeasonStats";
+import { useDbSeasonStats } from "@/hooks/useDbSeasonStats";
 import { fetchSeasonStats, type SeasonStatRow } from "@/hooks/useESPNSeasonStats";
 import { formatSeasonStat, type PlayerSeasonStats } from "@/lib/playerSeasonStats";
 import { getNflTeamLogoUrl } from "@/lib/nflTeamLogo";
@@ -745,10 +746,27 @@ export default function Lineup() {
     () => [...starters, ...bench].map(player => ({ name: player.name, pos: player.pos, nflTeam: player.nflTeam })),
     [starters, bench],
   );
-  const { statMap: lineupStatMap, playerMetaMap: lineupMetaMap } = useNFLSeasonStats(
+  const { statMap: tankLineupStatMap, playerMetaMap: lineupMetaMap } = useNFLSeasonStats(
     lineupSeasonPlayers,
     Boolean(viewTeamName) && !draftLoading,
     false,
+  );
+  // Season stats read directly from WRC's own database (already-finalized
+  // weeks, computed once server-side during official weekly finalization)
+  // instead of independently recomputed client-side from Tank01/ESPN --
+  // confirmed live this avoids exactly the kind of drift (a kicker's FG
+  // score, a player's stats briefly showing empty before a provider's
+  // season-aggregate endpoint catches up) that the Tank01-based path is
+  // prone to. Falls back to that older path for a player with no rows
+  // yet in the table (the current, not-yet-finalized week).
+  const { statMap: dbLineupStatMap } = useDbSeasonStats(
+    lineupSeasonPlayers.map(p => p.name),
+    2026,
+    Boolean(viewTeamName) && !draftLoading,
+  );
+  const lineupStatMap = useMemo(
+    () => ({ ...tankLineupStatMap, ...dbLineupStatMap }),
+    [tankLineupStatMap, dbLineupStatMap],
   );
 
   // ── Season stats year tabs (2023/2024/2025/2026) ──

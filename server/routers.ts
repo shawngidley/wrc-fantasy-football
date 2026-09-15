@@ -184,9 +184,73 @@ async function mapWithConcurrency<T, R>(items: T[], limit: number, mapper: (item
   return results;
 }
 
+/** Sums a player's per-week stat rows (player_weekly_stats) into a
+ * single, season-to-date result. Most fields are straightforward sums;
+ * passRating is a simple average across weeks with pass attempts
+ * (matching how Tank01's own season passRating is typically presented,
+ * rather than a weighted recompute from raw completions/attempts/yards/
+ * TDs/INTs, which isn't worth the complexity for a display-only stat).
+ * ptsPerGame is wrcPts divided by games actually played (gp), not the
+ * number of weekly rows -- a bye week or a week the player didn't play
+ * still gets a row (with gp=0), which correctly doesn't count toward
+ * the games-played denominator. */
+export function aggregateWeeklyStatRows(rows: Array<Record<string, unknown>>) {
+  const n = (v: unknown) => Number(v ?? 0);
+  let gp = 0, passCmp = 0, passAtt = 0, passYds = 0, passTD = 0, passInt = 0, passRatingSum = 0, passRatingWeeks = 0;
+  let rushAtt = 0, rushYds = 0, rushTD = 0, receptions = 0, targets = 0, recYds = 0, recTD = 0;
+  let fgMade = 0, fgAtt = 0, fgYds = 0, fgMade1To39 = 0, fgMade40To49 = 0, fgMade50To59 = 0, fgMade60Plus = 0, xpMade = 0, xpAtt = 0;
+  let sacks = 0, defInt = 0, fumblesRecovered = 0, takeaways = 0, defTD = 0, dstTD = 0, returnTD = 0, safeties = 0, blockKicks = 0, ptsAgainst = 0, fumblesLost = 0, wrcPts = 0;
+  for (const row of rows) {
+    gp += n(row.gp);
+    passCmp += n(row.pass_cmp); passAtt += n(row.pass_att); passYds += n(row.pass_yds); passTD += n(row.pass_td); passInt += n(row.pass_int);
+    if (n(row.pass_att) > 0) { passRatingSum += n(row.pass_rating); passRatingWeeks++; }
+    rushAtt += n(row.rush_att); rushYds += n(row.rush_yds); rushTD += n(row.rush_td);
+    receptions += n(row.receptions); targets += n(row.targets); recYds += n(row.rec_yds); recTD += n(row.rec_td);
+    fgMade += n(row.fg_made); fgAtt += n(row.fg_att); fgYds += n(row.fg_yds);
+    fgMade1To39 += n(row.fg_made_1_to_39); fgMade40To49 += n(row.fg_made_40_to_49); fgMade50To59 += n(row.fg_made_50_to_59); fgMade60Plus += n(row.fg_made_60_plus);
+    xpMade += n(row.xp_made); xpAtt += n(row.xp_att);
+    sacks += n(row.sacks); defInt += n(row.def_int); fumblesRecovered += n(row.fumbles_recovered); takeaways += n(row.takeaways);
+    defTD += n(row.def_td); dstTD += n(row.dst_td); returnTD += n(row.return_td); safeties += n(row.safeties); blockKicks += n(row.block_kicks);
+    ptsAgainst += n(row.pts_against); fumblesLost += n(row.fumbles_lost); wrcPts += n(row.wrc_pts);
+  }
+  wrcPts = Math.round(wrcPts * 10) / 10;
+  return {
+    gp, passCmp, passAtt, passYds, passTD, passInt, passRating: passRatingWeeks > 0 ? Math.round((passRatingSum / passRatingWeeks) * 10) / 10 : 0,
+    rushAtt, rushYds, rushTD, receptions, targets, recYds, recTD,
+    fgMade, fgAtt, fgYds, fgMade1To39, fgMade40To49, fgMade50To59, fgMade60Plus, xpMade, xpAtt,
+    sacks, defInt, fumblesRecovered, takeaways, defTD, dstTD, returnTD, safeties, blockKicks,
+    ptsAgainst, fumblesLost, wrcPts, ptsPerGame: gp > 0 ? Math.round((wrcPts / gp) * 10) / 10 : 0,
+  };
+}
+
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
+
+  playerStats: router({
+    // Aggregates a set of players' season-to-date stats from
+    // player_weekly_stats -- the same, once-correctly-computed data
+    // already persisted during official weekly finalization, summed
+    // across every finalized week -- instead of the client
+    // independently recomputing this from Tank01/ESPN on every load.
+    seasonStats: publicProcedure
+      .input(z.object({ playerNames: z.array(z.string()), season: z.number().int() }))
+      .query(async ({ input }) => {
+        if (!input.playerNames.length) return {};
+        const { data, error } = await supabaseAdmin.from("player_weekly_stats")
+          .select("*").eq("season", input.season).in("player_name", input.playerNames);
+        if (error) throw new Error("Unable to load player season stats.");
+        const byPlayer = new Map<string, typeof data>();
+        for (const row of data ?? []) {
+          const list = byPlayer.get(row.player_name) ?? [];
+          list.push(row);
+          byPlayer.set(row.player_name, list);
+        }
+        const result: Record<string, ReturnType<typeof aggregateWeeklyStatRows>> = {};
+        for (const [playerName, rows] of Array.from(byPlayer.entries())) result[playerName] = aggregateWeeklyStatRows(rows);
+        return result;
+      }),
+  }),
 
   league: router({
     teams: publicProcedure.query(() => listPublicLeagueTeams()),

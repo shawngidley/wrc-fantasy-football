@@ -14538,14 +14538,14 @@ var require_object_inspect = __commonJS({
     var gPO = (typeof Reflect === "function" ? Reflect.getPrototypeOf : Object.getPrototypeOf) || ([].__proto__ === Array.prototype ? function(O) {
       return O.__proto__;
     } : null);
-    function addNumericSeparator(num, str) {
-      if (num === Infinity || num === -Infinity || num !== num || num && num > -1e3 && num < 1e3 || $test.call(/e/, str)) {
+    function addNumericSeparator(num2, str) {
+      if (num2 === Infinity || num2 === -Infinity || num2 !== num2 || num2 && num2 > -1e3 && num2 < 1e3 || $test.call(/e/, str)) {
         return str;
       }
       var sepRegex = /[0-9](?=(?:[0-9]{3})+(?![0-9]))/g;
-      if (typeof num === "number") {
-        var int2 = num < 0 ? -$floor(-num) : $floor(num);
-        if (int2 !== num) {
+      if (typeof num2 === "number") {
+        var int2 = num2 < 0 ? -$floor(-num2) : $floor(num2);
+        if (int2 !== num2) {
           var intStr = String(int2);
           var dec = $slice.call(str, intStr.length + 1);
           return $replace.call(intStr, sepRegex, "$&_") + "." + $replace.call($replace.call(dec, /([0-9]{3})/g, "$&_"), /_$/, "");
@@ -54778,11 +54778,11 @@ var require_ip_converter = __commonJS({
           throw new Error("Invalid IPv4 address");
         }
         return parts.map((part) => {
-          const num = parseInt(part, 10);
-          if (isNaN(num) || num < 0 || num > 255) {
+          const num2 = parseInt(part, 10);
+          if (isNaN(num2) || num2 < 0 || num2 > 255) {
             throw new Error("Invalid IPv4 address part");
           }
-          return num;
+          return num2;
         });
       }
       static parseIPv6(ip) {
@@ -54792,12 +54792,12 @@ var require_ip_converter = __commonJS({
           throw new Error("Invalid IPv6 address");
         }
         return parts.reduce((bytes, part) => {
-          const num = parseInt(part, 16);
-          if (isNaN(num) || num < 0 || num > 65535) {
+          const num2 = parseInt(part, 16);
+          if (isNaN(num2) || num2 < 0 || num2 > 65535) {
             throw new Error("Invalid IPv6 address part");
           }
-          bytes.push(num >> 8 & 255);
-          bytes.push(num & 255);
+          bytes.push(num2 >> 8 & 255);
+          bytes.push(num2 & 255);
           return bytes;
         }, []);
       }
@@ -88870,27 +88870,28 @@ var SCHEDULE_2026 = [
     ]
   }
 ];
+var WEEK_START_TIMESTAMPS = [
+  (/* @__PURE__ */ new Date("2026-09-09")).getTime(),
+  (/* @__PURE__ */ new Date("2026-09-17")).getTime(),
+  (/* @__PURE__ */ new Date("2026-09-24")).getTime(),
+  (/* @__PURE__ */ new Date("2026-10-01")).getTime(),
+  (/* @__PURE__ */ new Date("2026-10-08")).getTime(),
+  (/* @__PURE__ */ new Date("2026-10-15")).getTime(),
+  (/* @__PURE__ */ new Date("2026-10-22")).getTime(),
+  (/* @__PURE__ */ new Date("2026-10-29")).getTime(),
+  (/* @__PURE__ */ new Date("2026-11-05")).getTime(),
+  (/* @__PURE__ */ new Date("2026-11-12")).getTime(),
+  (/* @__PURE__ */ new Date("2026-11-19")).getTime(),
+  (/* @__PURE__ */ new Date("2026-11-25")).getTime(),
+  (/* @__PURE__ */ new Date("2026-12-03")).getTime(),
+  (/* @__PURE__ */ new Date("2026-12-10")).getTime(),
+  (/* @__PURE__ */ new Date("2026-12-17")).getTime(),
+  (/* @__PURE__ */ new Date("2026-12-24")).getTime(),
+  (/* @__PURE__ */ new Date("2026-12-31")).getTime()
+];
 function getCurrentWeek() {
   const now = Date.now();
-  const weekStarts = [
-    (/* @__PURE__ */ new Date("2026-09-09")).getTime(),
-    (/* @__PURE__ */ new Date("2026-09-17")).getTime(),
-    (/* @__PURE__ */ new Date("2026-09-24")).getTime(),
-    (/* @__PURE__ */ new Date("2026-10-01")).getTime(),
-    (/* @__PURE__ */ new Date("2026-10-08")).getTime(),
-    (/* @__PURE__ */ new Date("2026-10-15")).getTime(),
-    (/* @__PURE__ */ new Date("2026-10-22")).getTime(),
-    (/* @__PURE__ */ new Date("2026-10-29")).getTime(),
-    (/* @__PURE__ */ new Date("2026-11-05")).getTime(),
-    (/* @__PURE__ */ new Date("2026-11-12")).getTime(),
-    (/* @__PURE__ */ new Date("2026-11-19")).getTime(),
-    (/* @__PURE__ */ new Date("2026-11-25")).getTime(),
-    (/* @__PURE__ */ new Date("2026-12-03")).getTime(),
-    (/* @__PURE__ */ new Date("2026-12-10")).getTime(),
-    (/* @__PURE__ */ new Date("2026-12-17")).getTime(),
-    (/* @__PURE__ */ new Date("2026-12-24")).getTime(),
-    (/* @__PURE__ */ new Date("2026-12-31")).getTime()
-  ];
+  const weekStarts = WEEK_START_TIMESTAMPS;
   if (now < weekStarts[0]) return 1;
   let current = 1;
   for (let i = 0; i < weekStarts.length; i++) {
@@ -88898,6 +88899,7 @@ function getCurrentWeek() {
   }
   return current;
 }
+var DST_END_2026 = (/* @__PURE__ */ new Date("2026-11-01T06:00:00Z")).getTime();
 
 // shared/nflTeamCodes.ts
 var TEAM_CODE_ALIASES = {
@@ -89712,6 +89714,70 @@ function resolveRosterPlayerForLineupEntry(entry, playerById, playerByNormalized
   return void 0;
 }
 
+// shared/playerSeasonStats.ts
+var num = (value) => {
+  const result = typeof value === "number" ? value : parseFloat(value ?? "0");
+  return Number.isFinite(result) ? result : 0;
+};
+function normalizeTankSeasonStats(stats, pos) {
+  const passing = stats?.Passing ?? {};
+  const rushing = stats?.Rushing ?? {};
+  const receiving = stats?.Receiving ?? {};
+  const kicking = stats?.Kicking ?? {};
+  const kickingField = (...keys) => {
+    for (const key of keys) {
+      const value = kicking[key];
+      if (value !== void 0 && value !== null && String(value) !== "") return num(value);
+    }
+    return void 0;
+  };
+  const defense = stats?.Defense ?? {};
+  const defInt = num(defense.defensiveInterceptions);
+  const fumblesRecovered = num(defense.fumblesRecovered);
+  const defTD = num(defense.defTD);
+  const returnTD = num(defense.returnTD);
+  const gp = num(stats?.gamesPlayed);
+  const wrcPts = stats ? calcFantasyPoints(stats, pos) : 0;
+  return {
+    gp,
+    passCmp: num(passing.passCompletions),
+    passAtt: num(passing.passAttempts),
+    passYds: num(passing.passYds),
+    passTD: num(passing.passTD),
+    passInt: num(passing.int),
+    passRating: num(passing.rtg),
+    rushAtt: num(rushing.carries),
+    rushYds: num(rushing.rushYds),
+    rushTD: num(rushing.rushTD),
+    receptions: num(receiving.receptions),
+    targets: num(receiving.targets),
+    recYds: num(receiving.recYds),
+    recTD: num(receiving.recTD),
+    fgMade: num(kicking.fgMade),
+    fgAtt: num(kicking.fgAttempts),
+    fgYds: num(kicking.fgYds),
+    fgMade1To39: kickingField("fgMade1To39", "fgMade1_39", "fgMadeUnder40") ?? 0,
+    fgMade40To49: kickingField("fgMade40To49", "fgMade40_49") ?? 0,
+    fgMade50To59: kickingField("fgMade50To59", "fgMade50_59") ?? 0,
+    fgMade60Plus: kickingField("fgMade60Plus", "fgMade60_99", "fgMade60OrMore") ?? 0,
+    xpMade: num(kicking.xpMade),
+    xpAtt: num(kicking.xpAttempts),
+    sacks: num(defense.sacks),
+    defInt,
+    fumblesRecovered,
+    takeaways: defInt + fumblesRecovered,
+    defTD,
+    dstTD: num(defense.defensiveOrSpecialTeamsTds) || defTD + returnTD,
+    returnTD,
+    safeties: num(defense.safeties),
+    blockKicks: num(defense.blockKick),
+    ptsAgainst: num(defense.ptsAgainst),
+    fumblesLost: num(defense.fumblesLost),
+    wrcPts,
+    ptsPerGame: gp > 0 ? Math.round(wrcPts / gp * 10) / 10 : 0
+  };
+}
+
 // server/weeklyResultsFinalize.ts
 var HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
 var n2 = (value) => Number.parseFloat(String(value ?? "0")) || 0;
@@ -89815,6 +89881,8 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
   }
   const individualScores = {};
   const dstScores = {};
+  const individualStatLines = {};
+  const dstStatLines = {};
   const positionByName = new Map((players ?? []).map((p) => [normalizePlayerName(p.name), p.position]));
   const boxScores = await mapWithConcurrency(games, 5, async (game) => {
     const [response, kickerEvents] = await Promise.all([
@@ -89835,11 +89903,16 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
       if (entry.longName) {
         const normalizedName = normalizePlayerName(String(entry.longName));
         const rosterPosition = positionByName.get(normalizedName) ?? String(entry.pos ?? "");
+        const statLine = normalizeTankSeasonStats(entry, rosterPosition);
         if (rosterPosition === "K") {
           const playerEvents = getKickerEventsForPlayer(kickerEvents, String(entry.longName));
-          individualScores[normalizedName] = playerEvents.length > 0 ? calculateWrcKickerPoints(playerEvents, entry) : playerPoints(entry, rosterPosition);
+          const points = playerEvents.length > 0 ? calculateWrcKickerPoints(playerEvents, entry) : playerPoints(entry, rosterPosition);
+          individualScores[normalizedName] = points;
+          individualStatLines[normalizedName] = { ...statLine, wrcPts: points };
         } else {
-          individualScores[normalizedName] = playerPoints(entry, rosterPosition);
+          const points = playerPoints(entry, rosterPosition);
+          individualScores[normalizedName] = points;
+          individualStatLines[normalizedName] = { ...statLine, wrcPts: points };
         }
       }
     });
@@ -89848,7 +89921,9 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
       const teamAbv = resolveTeamStatsKey(homeAway, game);
       if (!teamAbv) return;
       const attributedStats = attributeOffenseFramedDefenseStats(homeAway, stats, teamStatsBody);
-      dstScores[teamAbv] = defensePoints(attributedStats);
+      const points = defensePoints(attributedStats);
+      dstScores[teamAbv] = points;
+      dstStatLines[teamAbv] = { ...normalizeTankSeasonStats({ Defense: attributedStats }, "DST"), wrcPts: points };
     });
   }
   const playerByNormalizedName = new Map((players ?? []).map((player) => [normalizePlayerName(player.name), player]));
@@ -89864,6 +89939,57 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
     }
     const score = player.position === "DST" ? dstScores[teamCode(player.nfl_team)] ?? 0 : individualScores[normalizePlayerName(String(lineup.player_name))] ?? 0;
     teamScores.set(lineup.team_id, Math.round(((teamScores.get(lineup.team_id) ?? 0) + score) * 10) / 10);
+  }
+  const rosteredPlayers = (players ?? []).filter((player) => player.team_id);
+  const weeklyStatRows = rosteredPlayers.map((player) => {
+    const statLine = player.position === "DST" ? dstStatLines[teamCode(player.nfl_team)] : individualStatLines[normalizePlayerName(player.name)];
+    const zeroStatLine = normalizeTankSeasonStats(void 0, player.position);
+    const s = statLine ? { ...statLine, gp: 1 } : { ...zeroStatLine, gp: 0 };
+    return {
+      week: week2,
+      season,
+      player_name: player.name,
+      position: player.position,
+      nfl_team: player.nfl_team,
+      pass_cmp: s.passCmp,
+      pass_att: s.passAtt,
+      pass_yds: s.passYds,
+      pass_td: s.passTD,
+      pass_int: s.passInt,
+      pass_rating: s.passRating,
+      rush_att: s.rushAtt,
+      rush_yds: s.rushYds,
+      rush_td: s.rushTD,
+      receptions: s.receptions,
+      targets: s.targets,
+      rec_yds: s.recYds,
+      rec_td: s.recTD,
+      fg_made: s.fgMade,
+      fg_att: s.fgAtt,
+      fg_yds: s.fgYds,
+      fg_made_1_to_39: s.fgMade1To39,
+      fg_made_40_to_49: s.fgMade40To49,
+      fg_made_50_to_59: s.fgMade50To59,
+      fg_made_60_plus: s.fgMade60Plus,
+      xp_made: s.xpMade,
+      xp_att: s.xpAtt,
+      sacks: s.sacks,
+      def_int: s.defInt,
+      fumbles_recovered: s.fumblesRecovered,
+      takeaways: s.takeaways,
+      def_td: s.defTD,
+      dst_td: s.dstTD,
+      return_td: s.returnTD,
+      safeties: s.safeties,
+      block_kicks: s.blockKicks,
+      pts_against: s.ptsAgainst,
+      fumbles_lost: s.fumblesLost,
+      wrc_pts: s.wrcPts
+    };
+  });
+  if (weeklyStatRows.length > 0) {
+    const { error: weeklyStatsError } = await supabaseAdmin.from("player_weekly_stats").upsert(weeklyStatRows, { onConflict: "week,season,player_name" });
+    if (weeklyStatsError) console.log(`[weeklyResultsFinalize] Unable to persist player_weekly_stats: ${weeklyStatsError.message}`);
   }
   const schedule = SCHEDULE_2026.find((entry) => entry.week === week2);
   if (!schedule) throw new Error(`No WRC schedule exists for week ${week2}.`);
@@ -92828,11 +92954,11 @@ var IpConverter = class {
       throw new Error("Invalid IPv4 address");
     }
     return parts.map((part) => {
-      const num = parseInt(part, 10);
-      if (isNaN(num) || num < 0 || num > 255) {
+      const num2 = parseInt(part, 10);
+      if (isNaN(num2) || num2 < 0 || num2 > 255) {
         throw new Error("Invalid IPv4 address part");
       }
-      return num;
+      return num2;
     });
   }
   static parseIPv6(ip) {
@@ -92842,12 +92968,12 @@ var IpConverter = class {
       throw new Error("Invalid IPv6 address");
     }
     return parts.reduce((bytes, part) => {
-      const num = parseInt(part, 16);
-      if (isNaN(num) || num < 0 || num > 65535) {
+      const num2 = parseInt(part, 16);
+      if (isNaN(num2) || num2 < 0 || num2 > 65535) {
         throw new Error("Invalid IPv6 address part");
       }
-      bytes.push(num >> 8 & 255);
-      bytes.push(num & 255);
+      bytes.push(num2 >> 8 & 255);
+      bytes.push(num2 & 255);
       return bytes;
     }, []);
   }
@@ -98349,9 +98475,116 @@ async function mapWithConcurrency2(items, limit, mapper) {
   await Promise.all(workers);
   return results;
 }
+function aggregateWeeklyStatRows(rows) {
+  const n3 = (v) => Number(v ?? 0);
+  let gp = 0, passCmp = 0, passAtt = 0, passYds = 0, passTD = 0, passInt = 0, passRatingSum = 0, passRatingWeeks = 0;
+  let rushAtt = 0, rushYds = 0, rushTD = 0, receptions = 0, targets = 0, recYds = 0, recTD = 0;
+  let fgMade = 0, fgAtt = 0, fgYds = 0, fgMade1To39 = 0, fgMade40To49 = 0, fgMade50To59 = 0, fgMade60Plus = 0, xpMade = 0, xpAtt = 0;
+  let sacks = 0, defInt = 0, fumblesRecovered = 0, takeaways = 0, defTD = 0, dstTD = 0, returnTD = 0, safeties = 0, blockKicks = 0, ptsAgainst = 0, fumblesLost = 0, wrcPts = 0;
+  for (const row of rows) {
+    gp += n3(row.gp);
+    passCmp += n3(row.pass_cmp);
+    passAtt += n3(row.pass_att);
+    passYds += n3(row.pass_yds);
+    passTD += n3(row.pass_td);
+    passInt += n3(row.pass_int);
+    if (n3(row.pass_att) > 0) {
+      passRatingSum += n3(row.pass_rating);
+      passRatingWeeks++;
+    }
+    rushAtt += n3(row.rush_att);
+    rushYds += n3(row.rush_yds);
+    rushTD += n3(row.rush_td);
+    receptions += n3(row.receptions);
+    targets += n3(row.targets);
+    recYds += n3(row.rec_yds);
+    recTD += n3(row.rec_td);
+    fgMade += n3(row.fg_made);
+    fgAtt += n3(row.fg_att);
+    fgYds += n3(row.fg_yds);
+    fgMade1To39 += n3(row.fg_made_1_to_39);
+    fgMade40To49 += n3(row.fg_made_40_to_49);
+    fgMade50To59 += n3(row.fg_made_50_to_59);
+    fgMade60Plus += n3(row.fg_made_60_plus);
+    xpMade += n3(row.xp_made);
+    xpAtt += n3(row.xp_att);
+    sacks += n3(row.sacks);
+    defInt += n3(row.def_int);
+    fumblesRecovered += n3(row.fumbles_recovered);
+    takeaways += n3(row.takeaways);
+    defTD += n3(row.def_td);
+    dstTD += n3(row.dst_td);
+    returnTD += n3(row.return_td);
+    safeties += n3(row.safeties);
+    blockKicks += n3(row.block_kicks);
+    ptsAgainst += n3(row.pts_against);
+    fumblesLost += n3(row.fumbles_lost);
+    wrcPts += n3(row.wrc_pts);
+  }
+  wrcPts = Math.round(wrcPts * 10) / 10;
+  return {
+    gp,
+    passCmp,
+    passAtt,
+    passYds,
+    passTD,
+    passInt,
+    passRating: passRatingWeeks > 0 ? Math.round(passRatingSum / passRatingWeeks * 10) / 10 : 0,
+    rushAtt,
+    rushYds,
+    rushTD,
+    receptions,
+    targets,
+    recYds,
+    recTD,
+    fgMade,
+    fgAtt,
+    fgYds,
+    fgMade1To39,
+    fgMade40To49,
+    fgMade50To59,
+    fgMade60Plus,
+    xpMade,
+    xpAtt,
+    sacks,
+    defInt,
+    fumblesRecovered,
+    takeaways,
+    defTD,
+    dstTD,
+    returnTD,
+    safeties,
+    blockKicks,
+    ptsAgainst,
+    fumblesLost,
+    wrcPts,
+    ptsPerGame: gp > 0 ? Math.round(wrcPts / gp * 10) / 10 : 0
+  };
+}
 var appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
+  playerStats: router({
+    // Aggregates a set of players' season-to-date stats from
+    // player_weekly_stats -- the same, once-correctly-computed data
+    // already persisted during official weekly finalization, summed
+    // across every finalized week -- instead of the client
+    // independently recomputing this from Tank01/ESPN on every load.
+    seasonStats: publicProcedure.input(external_exports.object({ playerNames: external_exports.array(external_exports.string()), season: external_exports.number().int() })).query(async ({ input: input2 }) => {
+      if (!input2.playerNames.length) return {};
+      const { data, error: error61 } = await supabaseAdmin.from("player_weekly_stats").select("*").eq("season", input2.season).in("player_name", input2.playerNames);
+      if (error61) throw new Error("Unable to load player season stats.");
+      const byPlayer = /* @__PURE__ */ new Map();
+      for (const row of data ?? []) {
+        const list = byPlayer.get(row.player_name) ?? [];
+        list.push(row);
+        byPlayer.set(row.player_name, list);
+      }
+      const result = {};
+      for (const [playerName, rows] of Array.from(byPlayer.entries())) result[playerName] = aggregateWeeklyStatRows(rows);
+      return result;
+    })
+  }),
   league: router({
     teams: publicProcedure.query(() => listPublicLeagueTeams()),
     teamThemeSongs: publicProcedure.query(async () => {
