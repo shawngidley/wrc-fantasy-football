@@ -54,16 +54,26 @@ export function useOwnerMatchupScore(myTeamId: string, oppTeamId: string, week: 
 
     async function load() {
       const [{ data: lineupRows }, { data: playerRows }] = await Promise.all([
-        supabase.from("lineups").select("team_id, player_name, is_bench").eq("week", week).eq("season", 2026).in("team_id", [myTeamId, oppTeamId]),
+        supabase.from("lineups").select("team_id, player_id, player_name, is_bench").eq("week", week).eq("season", 2026).in("team_id", [myTeamId, oppTeamId]),
         supabase.from("players").select("id, name, position, nfl_team, team_id").in("team_id", [myTeamId, oppTeamId]),
       ]);
 
+      const playerById = new Map((playerRows ?? []).map(p => [p.id, p]));
       const playerByName = new Map((playerRows ?? []).map(p => [p.name, p]));
       const buildStarters = (teamId: string): StarterInfo[] => {
         const savedLineup = (lineupRows ?? []).filter(row => row.team_id === teamId && !row.is_bench);
         if (savedLineup.length > 0) {
           return savedLineup.map(row => {
-            const p = playerByName.get(row.player_name);
+            // Prefer the stable player_id lookup over matching by name --
+            // confirmed live: a DST's stat lookup depends entirely on its
+            // position/nflTeam being correctly resolved (DST scores are
+            // keyed by team code, not player name), and a name-based
+            // lookup can silently fail (e.g. if the stored lineup name
+            // and the current roster name have since diverged), leaving
+            // position/nflTeam empty and dropping that DST's score
+            // entirely. player_id is a stable identifier that doesn't
+            // have this problem.
+            const p = (row.player_id ? playerById.get(row.player_id) : undefined) ?? playerByName.get(row.player_name);
             return { name: row.player_name, position: p?.position ?? "", nflTeam: p?.nfl_team ?? "" };
           });
         }
