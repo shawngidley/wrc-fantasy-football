@@ -34,6 +34,26 @@ export function isGameFinal(body: { gameStatus?: unknown; gameStatusCode?: unkno
   return /final|completed/i.test(String(body?.gameStatus ?? ""));
 }
 
+/**
+ * Confirmed with the commissioner: each week, a team's main win/loss
+ * record moves by up to 3 results total, combining two independent
+ * outcomes -- winning head-to-head is worth 2 wins (losing is 2
+ * losses), and beating the league median that week is worth 1
+ * additional win (below median is 1 additional loss). A tie
+ * head-to-head contributes neither wins nor losses from that
+ * component. So the full range across a week is 0-3 wins and 0-3
+ * losses, depending on the combination: win both (3-0), win
+ * head-to-head only (2-1), win median only (1-2), or lose both (0-3).
+ */
+export function weeklyRecordDelta(h2hOutcome: "W" | "L" | "T", beatMedian: boolean): { winsDelta: number; lossesDelta: number } {
+  let winsDelta = 0;
+  let lossesDelta = 0;
+  if (h2hOutcome === "W") winsDelta += 2;
+  if (h2hOutcome === "L") lossesDelta += 2;
+  if (beatMedian) winsDelta += 1; else lossesDelta += 1;
+  return { winsDelta, lossesDelta };
+}
+
 export function resolveTeamStatsKey(homeAway: string, game: { home?: string; away?: string }): string | undefined {
   if (homeAway === "home") return game.home ? teamCode(game.home) : undefined;
   if (homeAway === "away") return game.away ? teamCode(game.away) : undefined;
@@ -311,10 +331,14 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
       const total = totals.get(entry.id); if (!total) return;
       const outcome = entry.score > entry.opp ? "W" : entry.score < entry.opp ? "L" : "T";
       total.pts_for += entry.score; total.pts_against += entry.opp;
-      if (outcome === "W") { total.wins++; total.h2h_wins++; if (divisionByTeam.get(row.home_team_id) === divisionByTeam.get(row.away_team_id)) total.div_wins++; }
-      if (outcome === "L") { total.losses++; total.h2h_losses++; if (divisionByTeam.get(row.home_team_id) === divisionByTeam.get(row.away_team_id)) total.div_losses++; }
+      if (outcome === "W") { total.h2h_wins++; if (divisionByTeam.get(row.home_team_id) === divisionByTeam.get(row.away_team_id)) total.div_wins++; }
+      if (outcome === "L") { total.h2h_losses++; if (divisionByTeam.get(row.home_team_id) === divisionByTeam.get(row.away_team_id)) total.div_losses++; }
       if (outcome === "T") total.ties++;
-      if (entry.score > weekMedian) total.median_wins++; else total.median_losses++;
+      const beatMedian = entry.score > weekMedian;
+      if (beatMedian) total.median_wins++; else total.median_losses++;
+      const { winsDelta, lossesDelta } = weeklyRecordDelta(outcome, beatMedian);
+      total.wins += winsDelta;
+      total.losses += lossesDelta;
       total.streak = total.streak.startsWith(outcome) ? `${outcome}${n(total.streak.slice(1)) + 1}` : `${outcome}1`;
     }));
   });

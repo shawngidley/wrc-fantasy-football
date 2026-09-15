@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moneyOwedIdForOwner, resolveTeamStatsKey, sacksFrom, defensePoints, attributeOffenseFramedDefenseStats, playerPoints, isGameFinal } from "./weeklyResultsFinalize";
+import { moneyOwedIdForOwner, resolveTeamStatsKey, sacksFrom, defensePoints, attributeOffenseFramedDefenseStats, playerPoints, isGameFinal, weeklyRecordDelta } from "./weeklyResultsFinalize";
 
 describe("moneyOwedIdForOwner", () => {
   it("matches every owner's actual money_owed.id (verified against Money.tsx's DEFAULT_OWNERS)", () => {
@@ -200,5 +200,31 @@ describe("isGameFinal", () => {
     expect(isGameFinal(null)).toBe(false);
     expect(isGameFinal(undefined)).toBe(false);
     expect(isGameFinal({})).toBe(false);
+  });
+});
+
+describe("weeklyRecordDelta", () => {
+  // Confirmed with the commissioner: head-to-head win/loss is worth 2
+  // wins/losses, beating/missing the median is worth 1 more -- so a
+  // team's weekly record moves by 0-3 wins and 0-3 losses total.
+  it("wins both (head-to-head and median): 3 wins, 0 losses", () => {
+    expect(weeklyRecordDelta("W", true)).toEqual({ winsDelta: 3, lossesDelta: 0 });
+  });
+
+  it("wins head-to-head only (below median): 2 wins, 1 loss", () => {
+    expect(weeklyRecordDelta("W", false)).toEqual({ winsDelta: 2, lossesDelta: 1 });
+  });
+
+  it("wins median only (loses head-to-head): 1 win, 2 losses", () => {
+    expect(weeklyRecordDelta("L", true)).toEqual({ winsDelta: 1, lossesDelta: 2 });
+  });
+
+  it("loses both: 0 wins, 3 losses", () => {
+    expect(weeklyRecordDelta("L", false)).toEqual({ winsDelta: 0, lossesDelta: 3 });
+  });
+
+  it("a head-to-head tie contributes 0 wins/losses from that component -- only the median component applies", () => {
+    expect(weeklyRecordDelta("T", true)).toEqual({ winsDelta: 1, lossesDelta: 0 });
+    expect(weeklyRecordDelta("T", false)).toEqual({ winsDelta: 0, lossesDelta: 1 });
   });
 });

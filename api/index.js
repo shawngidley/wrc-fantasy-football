@@ -89556,6 +89556,15 @@ function isGameFinal(body) {
   if (code !== void 0) return code === "2";
   return /final|completed/i.test(String(body?.gameStatus ?? ""));
 }
+function weeklyRecordDelta(h2hOutcome, beatMedian) {
+  let winsDelta = 0;
+  let lossesDelta = 0;
+  if (h2hOutcome === "W") winsDelta += 2;
+  if (h2hOutcome === "L") lossesDelta += 2;
+  if (beatMedian) winsDelta += 1;
+  else lossesDelta += 1;
+  return { winsDelta, lossesDelta };
+}
 function resolveTeamStatsKey(homeAway, game) {
   if (homeAway === "home") return game.home ? teamCode(game.home) : void 0;
   if (homeAway === "away") return game.away ? teamCode(game.away) : void 0;
@@ -89736,18 +89745,20 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
       total.pts_for += entry.score;
       total.pts_against += entry.opp;
       if (outcome === "W") {
-        total.wins++;
         total.h2h_wins++;
         if (divisionByTeam.get(row.home_team_id) === divisionByTeam.get(row.away_team_id)) total.div_wins++;
       }
       if (outcome === "L") {
-        total.losses++;
         total.h2h_losses++;
         if (divisionByTeam.get(row.home_team_id) === divisionByTeam.get(row.away_team_id)) total.div_losses++;
       }
       if (outcome === "T") total.ties++;
-      if (entry.score > weekMedian) total.median_wins++;
+      const beatMedian = entry.score > weekMedian;
+      if (beatMedian) total.median_wins++;
       else total.median_losses++;
+      const { winsDelta, lossesDelta } = weeklyRecordDelta(outcome, beatMedian);
+      total.wins += winsDelta;
+      total.losses += lossesDelta;
       total.streak = total.streak.startsWith(outcome) ? `${outcome}${n(total.streak.slice(1)) + 1}` : `${outcome}1`;
     }));
   });
