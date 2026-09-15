@@ -89618,6 +89618,89 @@ function calcFantasyPoints(stats, pos, isTE = false) {
   return Math.round(pts * 10) / 10;
 }
 
+// shared/espnKickerEvents.ts
+function normalName(name) {
+  return name.toLowerCase().replace(/[^a-z]/g, "");
+}
+function parseKickerName(raw) {
+  return raw.trim().replace(/\./g, ". ").replace(/\s+/g, " ");
+}
+function parseEspnKickerEvents(summary) {
+  const root = summary;
+  const plays = [
+    ...root.plays ?? [],
+    ...(root.drives?.previous ?? []).flatMap((drive) => drive.plays ?? [])
+  ];
+  const seen = /* @__PURE__ */ new Set();
+  const events = [];
+  for (const play of plays) {
+    const text = play.text?.trim() ?? "";
+    const type = play.type?.text?.toLowerCase() ?? "";
+    const fgMatch = text.match(/^(.+?)\s+(\d+)\s+yard field goal is\s+(good|no good|missed)/i);
+    if (fgMatch && (type.includes("field goal") || /field goal/i.test(text))) {
+      const event = {
+        playerName: parseKickerName(fgMatch[1]),
+        type: "fg",
+        outcome: fgMatch[3].toLowerCase() === "good" ? "made" : "missed",
+        yards: Number(fgMatch[2]),
+        text
+      };
+      const key = `${event.playerName}|${event.type}|${event.outcome}|${event.yards}|${text}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        events.push(event);
+      }
+      continue;
+    }
+    const xpMatch = text.match(/^(.+?)\s+(?:extra point|pat)\s+is\s+(good|no good|missed)/i);
+    if (xpMatch && (type.includes("extra point") || /extra point|\bpat\b/i.test(text))) {
+      const event = {
+        playerName: parseKickerName(xpMatch[1]),
+        type: "xp",
+        outcome: xpMatch[2].toLowerCase() === "good" ? "made" : "missed",
+        yards: null,
+        text
+      };
+      const key = `${event.playerName}|${event.type}|${event.outcome}|${text}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        events.push(event);
+      }
+    }
+  }
+  return events;
+}
+function matchesKickerEvent(eventPlayerName, fullPlayerName) {
+  const event = normalName(eventPlayerName);
+  const full = normalName(fullPlayerName);
+  if (!event || !full) return false;
+  if (event === full) return true;
+  const fullParts = fullPlayerName.toLowerCase().replace(/\./g, "").split(/\s+/).filter(Boolean);
+  const surname = fullParts[fullParts.length - 1] ?? "";
+  return event.startsWith(fullParts[0]?.[0] ?? "") && event.endsWith(normalName(surname));
+}
+function getKickerEventsForPlayer(events, fullPlayerName) {
+  return events.filter((event) => matchesKickerEvent(event.playerName, fullPlayerName));
+}
+function calculateWrcKickerPoints(events, rawStats) {
+  const fgPoints = events.filter((event) => event.type === "fg").reduce((total, event) => {
+    if (event.outcome === "missed") return total + ((event.yards ?? 0) <= 49 ? -2 : 0);
+    const yards = event.yards ?? 0;
+    const bonus = yards >= 65 ? 2 : yards >= 60 ? 1 : 0;
+    return total + yards * 0.1 + bonus;
+  }, 0);
+  let xpPoints;
+  if (rawStats?.Kicking?.xpMade !== void 0 || rawStats?.Kicking?.xpAttempts !== void 0) {
+    const xpMade = Number(rawStats.Kicking.xpMade ?? 0);
+    const xpAttempts = Number(rawStats.Kicking.xpAttempts ?? 0);
+    const xpMissed = Math.max(0, xpAttempts - xpMade);
+    xpPoints = xpMade * 1 + xpMissed * -2;
+  } else {
+    xpPoints = events.filter((event) => event.type === "xp").reduce((total, event) => total + (event.outcome === "made" ? 1 : -2), 0);
+  }
+  return Math.round((fgPoints + xpPoints) * 10) / 10;
+}
+
 // server/weeklyResultsFinalize.ts
 var HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
 var n2 = (value) => Number.parseFloat(String(value ?? "0")) || 0;
@@ -89635,6 +89718,27 @@ function weeklyRecordDelta(h2hOutcome, beatMedian) {
   if (beatMedian) winsDelta += 1;
   else lossesDelta += 1;
   return { winsDelta, lossesDelta };
+}
+async function fetchEspnKickerEventsForGame(game) {
+  const date5 = game.gameID.split("_")[0];
+  if (!date5) return [];
+  try {
+    const scoreboardResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${date5}`, { signal: AbortSignal.timeout(15e3) });
+    if (!scoreboardResponse.ok) return [];
+    const scoreboard = await scoreboardResponse.json();
+    const event = scoreboard.events?.find((candidate) => {
+      const competitors = candidate.competitions?.[0]?.competitors ?? [];
+      const home = competitors.find((item) => item.homeAway === "home")?.team?.abbreviation;
+      const away = competitors.find((item) => item.homeAway === "away")?.team?.abbreviation;
+      return home && away && teamCode(home) === teamCode(game.home ?? "") && teamCode(away) === teamCode(game.away ?? "");
+    });
+    if (!event?.id) return [];
+    const summaryResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${event.id}`, { signal: AbortSignal.timeout(15e3) });
+    if (!summaryResponse.ok) return [];
+    return parseEspnKickerEvents(await summaryResponse.json());
+  } catch {
+    return [];
+  }
 }
 function resolveTeamStatsKey(homeAway, game) {
   if (homeAway === "home") return game.home ? teamCode(game.home) : void 0;
@@ -89702,22 +89806,30 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
   const dstScores = {};
   const positionByName = new Map((players ?? []).map((p) => [normalizePlayerName(p.name), p.position]));
   const boxScores = await mapWithConcurrency(games, 5, async (game) => {
-    const response = await fetch(`https://${HOST}/getNFLBoxScore?gameID=${game.gameID}&fantasyPoints=true&twoPointConversions=2&passYards=.04&passTD=4&passInterceptions=-3&pointsPerReception=1&carries=0&rushYards=.1&rushTD=6&fumbles=-3&receivingYards=.1&receivingTD=6&targets=0&defTD=6&fgMade=0&fgYards=.1&xpMade=1`, { headers, signal: AbortSignal.timeout(3e4) });
+    const [response, kickerEvents] = await Promise.all([
+      fetch(`https://${HOST}/getNFLBoxScore?gameID=${game.gameID}&fantasyPoints=true&twoPointConversions=2&passYards=.04&passTD=4&passInterceptions=-3&pointsPerReception=1&carries=0&rushYards=.1&rushTD=6&fumbles=-3&receivingYards=.1&receivingTD=6&targets=0&defTD=6&fgMade=0&fgYards=.1&xpMade=1`, { headers, signal: AbortSignal.timeout(3e4) }),
+      fetchEspnKickerEventsForGame(game)
+    ]);
     if (!response.ok) throw new Error("Unable to load an NFL box score.");
     const body = (await response.json()).body ?? {};
-    return { game, body };
+    return { game, body, kickerEvents };
   });
   const notYetFinal = boxScores.filter(({ body }) => !isGameFinal(body));
   if (notYetFinal.length > 0) {
     console.log(`[weeklyResultsFinalize] week=${week2} season=${season}: ${boxScores.length} games found, ${notYetFinal.length} not yet final:`, JSON.stringify(notYetFinal.map(({ game, body }) => ({ gameID: game.gameID, gameStatus: body?.gameStatus, gameStatusCode: body?.gameStatusCode }))));
     throw new Error("NFL games for this week are not all final yet.");
   }
-  for (const { game, body } of boxScores) {
+  for (const { game, body, kickerEvents } of boxScores) {
     Object.values(body.playerStats ?? {}).forEach((entry) => {
       if (entry.longName) {
         const normalizedName = normalizePlayerName(String(entry.longName));
         const rosterPosition = positionByName.get(normalizedName) ?? String(entry.pos ?? "");
-        individualScores[normalizedName] = playerPoints(entry, rosterPosition);
+        if (rosterPosition === "K") {
+          const playerEvents = getKickerEventsForPlayer(kickerEvents, String(entry.longName));
+          individualScores[normalizedName] = playerEvents.length > 0 ? calculateWrcKickerPoints(playerEvents, entry) : playerPoints(entry, rosterPosition);
+        } else {
+          individualScores[normalizedName] = playerPoints(entry, rosterPosition);
+        }
       }
     });
     const teamStatsBody = body.teamStats ?? {};

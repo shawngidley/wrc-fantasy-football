@@ -2,6 +2,7 @@ import { SCHEDULE_2026 } from "../client/src/lib/scheduleData2026";
 import { supabaseAdmin } from "./supabaseAdmin";
 import { normalizePlayerName } from "../shared/playerNameMatch";
 import { calcFantasyPoints, type Tank01Stats } from "../shared/scoringEngine";
+import { parseEspnKickerEvents, getKickerEventsForPlayer, calculateWrcKickerPoints, type KickerPlayEvent } from "../shared/espnKickerEvents";
 
 const HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
 const n = (value: unknown) => Number.parseFloat(String(value ?? "0")) || 0;
@@ -53,6 +54,45 @@ export function weeklyRecordDelta(h2hOutcome: "W" | "L" | "T", beatMedian: boole
   if (h2hOutcome === "L") lossesDelta += 2;
   if (beatMedian) winsDelta += 1; else lossesDelta += 1;
   return { winsDelta, lossesDelta };
+}
+
+/**
+ * Fetches this game's ESPN play-by-play and parses it for kicker events
+ * (made/missed FGs with exact yardage, made/missed XPs), mirroring the
+ * exact same flow the client's live-scoring display uses -- find this
+ * game on ESPN's scoreboard for its date by matching home/away team
+ * codes, then fetch its full summary. Needed because Tank01's box score
+ * only gives aggregate FG counts, not each kick's distance, and WRC's
+ * FG scoring is distance-based (0.1/yard + bonus for 60+/65+) --
+ * confirmed live that the previous Tank01-only fallback silently scored
+ * 0 for every made FG whenever Tank01's aggregate fgYds field came back
+ * empty, which is routinely the case.
+ *
+ * Returns an empty array (rather than throwing) if the game can't be
+ * found on ESPN's scoreboard or its summary can't be fetched, so a
+ * transient ESPN issue degrades to the old Tank01-based fallback for
+ * kicker scoring rather than blocking the whole week's finalization.
+ */
+async function fetchEspnKickerEventsForGame(game: { gameID: string; home?: string; away?: string }): Promise<KickerPlayEvent[]> {
+  const date = game.gameID.split("_")[0]; // gameID format: "20260914_DEN@KC" -- first segment is YYYYMMDD
+  if (!date) return [];
+  try {
+    const scoreboardResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${date}`, { signal: AbortSignal.timeout(15_000) });
+    if (!scoreboardResponse.ok) return [];
+    const scoreboard = await scoreboardResponse.json() as { events?: Array<{ id?: string; competitions?: Array<{ competitors?: Array<{ homeAway?: string; team?: { abbreviation?: string } }> }> }> };
+    const event = scoreboard.events?.find(candidate => {
+      const competitors = candidate.competitions?.[0]?.competitors ?? [];
+      const home = competitors.find(item => item.homeAway === "home")?.team?.abbreviation;
+      const away = competitors.find(item => item.homeAway === "away")?.team?.abbreviation;
+      return home && away && teamCode(home) === teamCode(game.home ?? "") && teamCode(away) === teamCode(game.away ?? "");
+    });
+    if (!event?.id) return [];
+    const summaryResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${event.id}`, { signal: AbortSignal.timeout(15_000) });
+    if (!summaryResponse.ok) return [];
+    return parseEspnKickerEvents(await summaryResponse.json());
+  } catch {
+    return [];
+  }
 }
 
 export function resolveTeamStatsKey(homeAway: string, game: { home?: string; away?: string }): string | undefined {
@@ -204,10 +244,13 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
   // vs "James Cook III").
   const positionByName = new Map((players ?? []).map(p => [normalizePlayerName(p.name), p.position]));
   const boxScores = await mapWithConcurrency(games, 5, async game => {
-    const response = await fetch(`https://${HOST}/getNFLBoxScore?gameID=${game.gameID}&fantasyPoints=true&twoPointConversions=2&passYards=.04&passTD=4&passInterceptions=-3&pointsPerReception=1&carries=0&rushYards=.1&rushTD=6&fumbles=-3&receivingYards=.1&receivingTD=6&targets=0&defTD=6&fgMade=0&fgYards=.1&xpMade=1`, { headers, signal: AbortSignal.timeout(30_000) });
+    const [response, kickerEvents] = await Promise.all([
+      fetch(`https://${HOST}/getNFLBoxScore?gameID=${game.gameID}&fantasyPoints=true&twoPointConversions=2&passYards=.04&passTD=4&passInterceptions=-3&pointsPerReception=1&carries=0&rushYards=.1&rushTD=6&fumbles=-3&receivingYards=.1&receivingTD=6&targets=0&defTD=6&fgMade=0&fgYards=.1&xpMade=1`, { headers, signal: AbortSignal.timeout(30_000) }),
+      fetchEspnKickerEventsForGame(game),
+    ]);
     if (!response.ok) throw new Error("Unable to load an NFL box score.");
     const body = (await response.json()).body ?? {};
-    return { game, body };
+    return { game, body, kickerEvents };
   });
 
   const notYetFinal = boxScores.filter(({ body }) => !isGameFinal(body));
@@ -219,12 +262,19 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
     throw new Error("NFL games for this week are not all final yet.");
   }
 
-  for (const { game, body } of boxScores) {
+  for (const { game, body, kickerEvents } of boxScores) {
     Object.values(body.playerStats ?? {}).forEach((entry: any) => {
       if (entry.longName) {
         const normalizedName = normalizePlayerName(String(entry.longName));
         const rosterPosition = positionByName.get(normalizedName) ?? String(entry.pos ?? "");
-        individualScores[normalizedName] = playerPoints(entry, rosterPosition);
+        if (rosterPosition === "K") {
+          const playerEvents = getKickerEventsForPlayer(kickerEvents, String(entry.longName));
+          individualScores[normalizedName] = playerEvents.length > 0
+            ? calculateWrcKickerPoints(playerEvents, entry as Tank01Stats)
+            : playerPoints(entry, rosterPosition);
+        } else {
+          individualScores[normalizedName] = playerPoints(entry, rosterPosition);
+        }
       }
     });
     const teamStatsBody = (body.teamStats ?? {}) as Record<string, Record<string, unknown>>;
