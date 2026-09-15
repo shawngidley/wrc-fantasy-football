@@ -235,6 +235,9 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
         }
 
         const tankPlayer = await fetchPlayerByName(player.name);
+        if (player.name.toLowerCase().includes("emmett johnson")) {
+          console.log("[useNFLSeasonStats DEBUG] Emmett Johnson fetchPlayerByName result:", JSON.stringify(tankPlayer));
+        }
         if (cancelled) return;
         const exactKickerSeason = (!season2026Underway && player.pos === "K") ? getCompletedKickerSeasonStats(player.name) : undefined;
         // Only fall back to a live Tank01 stats line when the caller
