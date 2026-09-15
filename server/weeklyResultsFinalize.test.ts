@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { moneyOwedIdForOwner, resolveTeamStatsKey, sacksFrom, defensePoints, attributeOffenseFramedDefenseStats, playerPoints, isGameFinal, weeklyRecordDelta } from "./weeklyResultsFinalize";
+import { moneyOwedIdForOwner, resolveTeamStatsKey, sacksFrom, defensePoints, attributeOffenseFramedDefenseStats, playerPoints, isGameFinal, weeklyRecordDelta, resolvePlayerMetaForLineupEntry } from "./weeklyResultsFinalize";
+import { normalizePlayerName } from "../shared/playerNameMatch";
 
 describe("moneyOwedIdForOwner", () => {
   it("matches every owner's actual money_owed.id (verified against Money.tsx's DEFAULT_OWNERS)", () => {
@@ -226,5 +227,78 @@ describe("weeklyRecordDelta", () => {
   it("a head-to-head tie contributes 0 wins/losses from that component -- only the median component applies", () => {
     expect(weeklyRecordDelta("T", true)).toEqual({ winsDelta: 1, lossesDelta: 0 });
     expect(weeklyRecordDelta("T", false)).toEqual({ winsDelta: 0, lossesDelta: 1 });
+  });
+});
+
+describe("resolvePlayerMetaForLineupEntry", () => {
+  const allPlayers = [
+    { name: "James Cook", position: "RB", nfl_team: "BUF", team_id: "team-scottm" },
+    { name: "Kyle Pitts", position: "TE", nfl_team: "ATL", team_id: "team-scottn" },
+    { name: "LA Rams DST", position: "DST", nfl_team: "LAR", team_id: "team-jason" },
+    { name: "LA Chargers DST", position: "DST", nfl_team: "LAC", team_id: "team-bill" },
+  ];
+  const playerMeta = new Map(allPlayers.map(p => [normalizePlayerName(p.name), { position: p.position, nflTeam: p.nfl_team }]));
+
+  it("resolves a normal, exact-matching lineup entry", () => {
+    const result = resolvePlayerMetaForLineupEntry(
+      { team_id: "team-scottn", player_name: "Kyle Pitts", slot: "TE" },
+      playerMeta, allPlayers,
+    );
+    expect(result?.position).toBe("TE");
+  });
+
+  // Confirmed live: exactly these two suffix mismatches caused the
+  // affected starter's score to be silently skipped entirely.
+  it("resolves 'James Cook III' against the roster's stored 'James Cook' (suffix mismatch)", () => {
+    const result = resolvePlayerMetaForLineupEntry(
+      { team_id: "team-scottm", player_name: "James Cook III", slot: "RB" },
+      playerMeta, allPlayers,
+    );
+    expect(result?.position).toBe("RB");
+    expect(result?.nflTeam).toBe("BUF");
+  });
+
+  it("resolves 'Kyle Pitts Sr.' against the roster's stored 'Kyle Pitts' (suffix mismatch)", () => {
+    const result = resolvePlayerMetaForLineupEntry(
+      { team_id: "team-scottn", player_name: "Kyle Pitts Sr.", slot: "TE" },
+      playerMeta, allPlayers,
+    );
+    expect(result?.position).toBe("TE");
+  });
+
+  // Confirmed live: "LA Rams" and "LA Chargers" (the lineup's saved
+  // name) matched neither roster's stored DST name at all -- an
+  // entirely different name, not just a suffix difference.
+  it("falls back to team_id + position for a DST whose lineup name doesn't match the roster's stored name at all", () => {
+    const result = resolvePlayerMetaForLineupEntry(
+      { team_id: "team-jason", player_name: "LA Rams", slot: "DST" },
+      playerMeta, allPlayers,
+    );
+    expect(result?.position).toBe("DST");
+    expect(result?.nflTeam).toBe("LAR");
+  });
+
+  it("resolves the correct DST for a different team, not a different team's DST", () => {
+    const result = resolvePlayerMetaForLineupEntry(
+      { team_id: "team-bill", player_name: "LA Chargers", slot: "DST" },
+      playerMeta, allPlayers,
+    );
+    expect(result?.nflTeam).toBe("LAC");
+  });
+
+  it("does NOT apply the DST fallback to a non-DST slot", () => {
+    const result = resolvePlayerMetaForLineupEntry(
+      { team_id: "team-scottm", player_name: "Some Unmatched Player", slot: "WR" },
+      playerMeta, allPlayers,
+    );
+    expect(result).toBeUndefined();
+  });
+
+  it("returns undefined when nothing matches by any method", () => {
+    const result = resolvePlayerMetaForLineupEntry(
+      { team_id: "team-nonexistent", player_name: "Nobody At All", slot: "DST" },
+      playerMeta, allPlayers,
+    );
+    expect(result).toBeUndefined();
   });
 });

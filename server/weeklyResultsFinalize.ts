@@ -95,6 +95,38 @@ async function fetchEspnKickerEventsForGame(game: { gameID: string; home?: strin
   }
 }
 
+type RosterPlayerMeta = { position: string; nflTeam: string };
+type PlayerRow = { name: string; position: string; nfl_team: string; team_id: string };
+
+/**
+ * Resolves a starter lineup entry to its roster player info (position,
+ * nflTeam), needed to look up that player's computed score. Confirmed
+ * live: a lineup's player_name can fail to exact-match the roster's own
+ * stored name for two different reasons -- a generational suffix
+ * difference (e.g. "James Cook III" vs "James Cook", "Kyle Pitts Sr."
+ * vs "Kyle Pitts"), handled by normalizing both sides; or, for a DST
+ * specifically, an entirely different name altogether (e.g. "LA Rams",
+ * "LA Chargers", "KC Chiefs" vs whatever the players table actually
+ * stores for that team) -- since a team can only ever roster one DST,
+ * that case falls back to matching by team_id + position directly,
+ * sidestepping the name mismatch entirely. Every one of these mismatches
+ * previously caused the affected starter's score to be silently skipped
+ * from that team's total altogether, not just computed incorrectly.
+ */
+export function resolvePlayerMetaForLineupEntry(
+  lineup: { team_id: string; player_name: string; slot: string },
+  playerMeta: Map<string, RosterPlayerMeta>,
+  allPlayers: PlayerRow[],
+): RosterPlayerMeta | undefined {
+  const byName = playerMeta.get(normalizePlayerName(lineup.player_name));
+  if (byName) return byName;
+  if (lineup.slot === "DST") {
+    const dstPlayer = allPlayers.find(p => p.team_id === lineup.team_id && p.position === "DST");
+    if (dstPlayer) return { position: dstPlayer.position, nflTeam: dstPlayer.nfl_team };
+  }
+  return undefined;
+}
+
 export function resolveTeamStatsKey(homeAway: string, game: { home?: string; away?: string }): string | undefined {
   if (homeAway === "home") return game.home ? teamCode(game.home) : undefined;
   if (homeAway === "away") return game.away ? teamCode(game.away) : undefined;
@@ -211,8 +243,8 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
   if (!games.length) throw new Error("No NFL games found for this week.");
 
   const [{ data: lineups, error: lineupsError }, { data: players, error: playersError }, { data: teams, error: teamsError }] = await Promise.all([
-    supabaseAdmin.from("lineups").select("team_id, player_name, is_bench").eq("week", week).eq("season", season),
-    supabaseAdmin.from("players").select("name, position, nfl_team"),
+    supabaseAdmin.from("lineups").select("team_id, player_name, slot, is_bench").eq("week", week).eq("season", season),
+    supabaseAdmin.from("players").select("name, position, nfl_team, team_id"),
     supabaseAdmin.from("teams").select("id, owner, name"),
   ]);
   if (lineupsError || playersError || teamsError || !teams) {
@@ -285,28 +317,20 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
       dstScores[teamAbv] = defensePoints(attributedStats);
     });
   }
-  console.log(`[weeklyResultsFinalize DEBUG] dstScores keys computed this week:`, JSON.stringify(dstScores));
 
-  const playerMeta = new Map((players ?? []).map(player => [String(player.name).toLowerCase(), { position: String(player.position), nflTeam: String(player.nfl_team) }]));
+  const playerMeta = new Map((players ?? []).map(player => [normalizePlayerName(player.name), { position: String(player.position), nflTeam: String(player.nfl_team) }]));
   const teamScores = new Map<string, number>();
   const idByOwnerForLog = new Map(teams.map(team => [team.id, team.owner]));
   for (const lineup of lineups ?? []) {
     if (lineup.is_bench) continue;
-    const player = playerMeta.get(String(lineup.player_name).toLowerCase());
+    const player = resolvePlayerMetaForLineupEntry(lineup, playerMeta, (players ?? []) as PlayerRow[]);
     if (!player) {
-      console.log(`[weeklyResultsFinalize DEBUG] ${idByOwnerForLog.get(lineup.team_id)}'s starter NOT FOUND in players table at all: "${lineup.player_name}"`);
+      console.log(`[weeklyResultsFinalize] ${idByOwnerForLog.get(lineup.team_id)}'s starter still not found in players table: "${lineup.player_name}" (slot=${lineup.slot})`);
       continue;
     }
-    let score: number;
-    if (player.position === "DST") {
-      const lookupKey = teamCode(player.nflTeam);
-      score = dstScores[lookupKey] ?? 0;
-      if (score === 0) console.log(`[weeklyResultsFinalize DEBUG] ${idByOwnerForLog.get(lineup.team_id)}'s DST "${lineup.player_name}" scored 0 -- player.nflTeam="${player.nflTeam}", looked up as "${lookupKey}", but dstScores only has keys: ${Object.keys(dstScores).join(", ")}`);
-    } else {
-      const lookupKey = normalizePlayerName(String(lineup.player_name));
-      score = individualScores[lookupKey] ?? 0;
-      if (score === 0) console.log(`[weeklyResultsFinalize DEBUG] ${idByOwnerForLog.get(lineup.team_id)}'s "${lineup.player_name}" (${player.position}) scored 0 -- looked up individualScores as "${lookupKey}"; individualScores has ${Object.keys(individualScores).length} entries, closest-looking keys: ${Object.keys(individualScores).filter(k => k.includes(lookupKey.split(" ")[0]) || lookupKey.includes(k.split(" ")[0])).join(", ") || "(none found)"}`);
-    }
+    const score = player.position === "DST"
+      ? (dstScores[teamCode(player.nflTeam)] ?? 0)
+      : (individualScores[normalizePlayerName(String(lineup.player_name))] ?? 0);
     teamScores.set(lineup.team_id, Math.round(((teamScores.get(lineup.team_id) ?? 0) + score) * 10) / 10);
   }
 
