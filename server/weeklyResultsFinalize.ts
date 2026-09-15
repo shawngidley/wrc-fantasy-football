@@ -118,8 +118,15 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
   const gamesResponse = await fetch(`https://${HOST}/getNFLGamesForWeek?week=${week}&seasonType=Regular%20Season&season=${season}`, { headers, signal: AbortSignal.timeout(30_000) });
   if (!gamesResponse.ok) throw new Error(`Unable to load NFL games (${gamesResponse.status}).`);
   const games = ((await gamesResponse.json()).body ?? []) as Array<{ gameID: string; gameStatus?: string; home?: string; away?: string }>;
-  if (!games.length || games.some(game => !/final/i.test(game.gameStatus ?? ""))) {
-    console.log(`[FINALIZE DEBUG] week=${week} season=${season}: games.length=${games.length}`, JSON.stringify(games.map(g => ({ gameID: g.gameID, home: g.home, away: g.away, gameStatus: g.gameStatus }))));
+  const notYetFinal = games.filter(g => !/final/i.test(g.gameStatus ?? ""));
+  if (!games.length || notYetFinal.length > 0) {
+    // Tank01's own gameStatus for a specific game can lag behind the
+    // real, actual game ending for a while -- confirmed live, one game
+    // still showed "Scheduled" here hours after it had genuinely ended.
+    // Logging just the pending game(s), not the whole week's games,
+    // makes it quick to see what's actually still holding up
+    // finalization the next time this comes up.
+    console.log(`[weeklyResultsFinalize] week=${week} season=${season}: ${games.length} games found, ${notYetFinal.length} not yet final:`, JSON.stringify(notYetFinal.map(g => ({ gameID: g.gameID, gameStatus: g.gameStatus }))));
     throw new Error("NFL games for this week are not all final yet.");
   }
 

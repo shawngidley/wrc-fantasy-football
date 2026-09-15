@@ -89606,8 +89606,9 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
   const gamesResponse = await fetch(`https://${HOST}/getNFLGamesForWeek?week=${week2}&seasonType=Regular%20Season&season=${season}`, { headers, signal: AbortSignal.timeout(3e4) });
   if (!gamesResponse.ok) throw new Error(`Unable to load NFL games (${gamesResponse.status}).`);
   const games = (await gamesResponse.json()).body ?? [];
-  if (!games.length || games.some((game) => !/final/i.test(game.gameStatus ?? ""))) {
-    console.log(`[FINALIZE DEBUG] week=${week2} season=${season}: games.length=${games.length}`, JSON.stringify(games.map((g) => ({ gameID: g.gameID, home: g.home, away: g.away, gameStatus: g.gameStatus }))));
+  const notYetFinal = games.filter((g) => !/final/i.test(g.gameStatus ?? ""));
+  if (!games.length || notYetFinal.length > 0) {
+    console.log(`[weeklyResultsFinalize] week=${week2} season=${season}: ${games.length} games found, ${notYetFinal.length} not yet final:`, JSON.stringify(notYetFinal.map((g) => ({ gameID: g.gameID, gameStatus: g.gameStatus }))));
     throw new Error("NFL games for this week are not all final yet.");
   }
   const [{ data: lineups, error: lineupsError }, { data: players, error: playersError }, { data: teams, error: teamsError }] = await Promise.all([
