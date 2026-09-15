@@ -89840,6 +89840,7 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
       dstScores[teamAbv] = defensePoints(attributedStats);
     });
   }
+  console.log(`[weeklyResultsFinalize DEBUG] dstScores keys computed this week:`, JSON.stringify(dstScores));
   const playerMeta = new Map((players ?? []).map((player) => [String(player.name).toLowerCase(), { position: String(player.position), nflTeam: String(player.nfl_team) }]));
   const teamScores = /* @__PURE__ */ new Map();
   const idByOwnerForLog = new Map(teams.map((team) => [team.id, team.owner]));
@@ -89847,11 +89848,19 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
     if (lineup.is_bench) continue;
     const player = playerMeta.get(String(lineup.player_name).toLowerCase());
     if (!player) {
-      if (idByOwnerForLog.get(lineup.team_id) === "Shawn") console.log(`[weeklyResultsFinalize DEBUG] Vipers starter NOT FOUND in players table at all: "${lineup.player_name}"`);
+      console.log(`[weeklyResultsFinalize DEBUG] ${idByOwnerForLog.get(lineup.team_id)}'s starter NOT FOUND in players table at all: "${lineup.player_name}"`);
       continue;
     }
-    const score = player.position === "DST" ? dstScores[teamCode(player.nflTeam)] ?? 0 : individualScores[normalizePlayerName(String(lineup.player_name))] ?? 0;
-    if (idByOwnerForLog.get(lineup.team_id) === "Shawn") console.log(`[weeklyResultsFinalize DEBUG] Vipers starter "${lineup.player_name}" (${player.position}): score=${score}`);
+    let score;
+    if (player.position === "DST") {
+      const lookupKey = teamCode(player.nflTeam);
+      score = dstScores[lookupKey] ?? 0;
+      if (score === 0) console.log(`[weeklyResultsFinalize DEBUG] ${idByOwnerForLog.get(lineup.team_id)}'s DST "${lineup.player_name}" scored 0 -- player.nflTeam="${player.nflTeam}", looked up as "${lookupKey}", but dstScores only has keys: ${Object.keys(dstScores).join(", ")}`);
+    } else {
+      const lookupKey = normalizePlayerName(String(lineup.player_name));
+      score = individualScores[lookupKey] ?? 0;
+      if (score === 0) console.log(`[weeklyResultsFinalize DEBUG] ${idByOwnerForLog.get(lineup.team_id)}'s "${lineup.player_name}" (${player.position}) scored 0 -- looked up individualScores as "${lookupKey}"; individualScores has ${Object.keys(individualScores).length} entries, closest-looking keys: ${Object.keys(individualScores).filter((k) => k.includes(lookupKey.split(" ")[0]) || lookupKey.includes(k.split(" ")[0])).join(", ") || "(none found)"}`);
+    }
     teamScores.set(lineup.team_id, Math.round(((teamScores.get(lineup.team_id) ?? 0) + score) * 10) / 10);
   }
   const schedule = SCHEDULE_2026.find((entry) => entry.week === week2);
