@@ -70,9 +70,10 @@ export interface Tank01TeamInfo {
 // TTL meant even a single long-running tab would re-fetch everyone again
 // after a short gap.
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const CACHE_PREFIX = "tank01_v2_";
 function cacheGet<T>(key: string): T | null {
   try {
-    const raw = localStorage.getItem(`tank01_${key}`);
+    const raw = localStorage.getItem(`${CACHE_PREFIX}${key}`);
     if (!raw) return null;
     const { data, ts } = JSON.parse(raw);
     if (Date.now() - ts > CACHE_TTL_MS) return null;
@@ -84,10 +85,22 @@ function cacheGet<T>(key: string): T | null {
 
 function cacheSet(key: string, data: unknown) {
   try {
-    localStorage.setItem(`tank01_${key}`, JSON.stringify({ data, ts: Date.now() }));
+    localStorage.setItem(`${CACHE_PREFIX}${key}`, JSON.stringify({ data, ts: Date.now() }));
   } catch {
     // localStorage full or unavailable — ignore
   }
+}
+
+/** Confirmed directly by Tank01 support: their season stats are
+ * intentionally computed only after a game is fully processed as
+ * complete on their end (an aggregation/averages endpoint, not a live
+ * one) -- a completely empty stats object shortly after a game ends
+ * reflects that processing lag, not a permanent gap. Caching that empty
+ * result for the full 24-hour TTL would lock it in even once Tank01
+ * catches up, so it's excluded from caching entirely; the next fetch
+ * simply retries instead. */
+function hasRealStats(player: Tank01Player): boolean {
+  return Object.keys(player.stats ?? {}).length > 0;
 }
 
 // ── Concurrency limiter for getNFLPlayerInfo requests ────────────────────────
@@ -145,7 +158,7 @@ export async function fetchPlayerById(playerID: string): Promise<Tank01Player | 
     const player: Tank01Player = json.body;
     if (!player || !player.playerID) return null;
     const normalizedPlayer = normalizeTankPlayer(player);
-    cacheSet(cacheKey, normalizedPlayer);
+    if (hasRealStats(normalizedPlayer)) cacheSet(cacheKey, normalizedPlayer);
     return normalizedPlayer;
   } catch {
     return null;
@@ -191,7 +204,7 @@ export async function fetchPlayerByName(rawName: string): Promise<Tank01Player |
       return universePlayer?.sourcePlayerId ? fetchPlayerById(universePlayer.sourcePlayerId) : null;
     }
     const normalizedPlayer = normalizeTankPlayer(player);
-    cacheSet(cacheKey, normalizedPlayer);
+    if (hasRealStats(normalizedPlayer)) cacheSet(cacheKey, normalizedPlayer);
     return normalizedPlayer;
   } catch {
     return null;
