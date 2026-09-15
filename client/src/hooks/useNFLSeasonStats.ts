@@ -4,16 +4,17 @@
  * and limit concurrency to protect the API and keep the browser responsive.
  */
 import { useEffect, useMemo, useState } from "react";
-import { fetchPlayerByName } from "@/hooks/useTank01Player";
+import { fetchPlayerByName, fetchNFLTeams } from "@/hooks/useTank01Player";
 import { normalizeNFLTeamCode } from "@shared/nflTeamCodes";
 import { DST_SEASON_STATS_2025 } from "@/lib/dstSeasonStats2025";
 import { getCompletedKickerSeasonStats } from "@/lib/kickerSeasonStats2025";
 import { getCompletedOffenseSeasonStats2025, normalizeCompletedOffenseSeasonStats } from "@/lib/completedOffenseSeasonStats2025";
-import { normalizeCompletedDstSeasonStats, normalizeCompletedKickerSeasonStats, normalizeTankSeasonStats, type PlayerSeasonStats } from "@/lib/playerSeasonStats";
+import { normalizeCompletedDstSeasonStats, normalizeCompletedKickerSeasonStats, normalizeTankSeasonStats, normalizeTankTeamSeasonStats, type PlayerSeasonStats } from "@/lib/playerSeasonStats";
 import { readSeasonStatsCache, writeSeasonStatsCache, type SeasonStatsCacheEntry } from "@/lib/seasonStatsCache";
 import { getDraftUniversePlayerByName } from "@shared/draftPlayerUniverse";
 import { normalizePlayerName } from "@shared/playerNameMatch";
 import { getEspnHeadshotUrl } from "@/lib/playerHeadshot";
+import { isSeason2026Underway } from "@/lib/scheduleData2026";
 
 export interface SeasonStatsPlayerInput {
   name: string;
@@ -76,18 +77,30 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
     let cancelled = false;
     const next: Record<string, PlayerSeasonStats> = {};
     const nextMeta: Record<string, { age?: string; headshot?: string }> = {};
+    // Once the 2026 season is actually underway, "current season" means
+    // 2026, not 2025's now-completed season -- confirmed live: this page
+    // was showing 2025's stats indefinitely, since the completed-season
+    // paths below ran unconditionally regardless of what season it
+    // actually was. allowProviderFallback's caller-supplied value (e.g.
+    // Lineup.tsx's false) was specifically about protecting the 2025
+    // completed snapshot from being overwritten by a live fetch -- once
+    // there's no 2025 snapshot being used at all, that protection no
+    // longer applies, so this override always allows live data through
+    // once 2026 has started, regardless of what the caller passed.
+    const season2026Underway = isSeason2026Underway();
+    const effectiveAllowProviderFallback = allowProviderFallback || season2026Underway;
     const uncached = players.filter((player) => {
       const cached = cacheGet(player.name);
       const completedOffenseSource = ["QB", "RB", "WR", "TE"].includes(player.pos);
       // Draft Players deliberately disables provider fallback. Its completed 2025
       // snapshot is authoritative, so a prior browser entry must not mask a
       // corrected WRC total or FP/G value.
-      const ignoreCachedOffense = !allowProviderFallback && completedOffenseSource;
+      const ignoreCachedOffense = !effectiveAllowProviderFallback && completedOffenseSource;
       if (cached && !ignoreCachedOffense) {
         next[player.name.toLowerCase()] = cached.stats;
         nextMeta[player.name.toLowerCase()] = { age: cached.age, headshot: cached.headshot };
       }
-      const needsIdentityRefresh = allowProviderFallback && player.pos !== "DST" && (!cached?.age || !cached?.headshot);
+      const needsIdentityRefresh = effectiveAllowProviderFallback && player.pos !== "DST" && (!cached?.age || !cached?.headshot);
       return !cached || ignoreCachedOffense || needsIdentityRefresh;
     });
 
@@ -95,13 +108,22 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
     setPlayerMetaMap(nextMeta);
     setLoadedCount(Object.keys(next).length);
     setLoading(uncached.length > 0);
-    const dstPlayers = uncached.filter(player => player.pos === "DST" && player.nflTeam);
-    const exactKickers = uncached.filter(player => player.pos === "K" && Boolean(getCompletedKickerSeasonStats(player.name)));
+    const dstPlayers = !season2026Underway ? uncached.filter(player => player.pos === "DST" && player.nflTeam) : [];
+    const liveDstPlayers = season2026Underway ? uncached.filter(player => player.pos === "DST" && player.nflTeam) : [];
+    const exactKickers = !season2026Underway ? uncached.filter(player => player.pos === "K" && Boolean(getCompletedKickerSeasonStats(player.name))) : [];
     // Kicker FPTS must come from exact completed kick events. Do not fall back to
     // Tank01's aggregate line: it cannot reproduce WRC distance scoring, and a
     // transient provider response should not hold up the entire K table.
-    const offensePlayers = uncached.filter(player => ["QB", "RB", "WR", "TE"].includes(player.pos));
-    const individualPlayers = uncached.filter(player => player.pos !== "K" && (player.pos !== "DST" || !player.nflTeam));
+    // (2025 only -- once 2026 is underway there's no "completed" kick-event
+    // snapshot to be exact about yet, so kickers fall through to worker()'s
+    // live Tank01 aggregate below, same as every other individual player.)
+    const offensePlayers = !season2026Underway ? uncached.filter(player => ["QB", "RB", "WR", "TE"].includes(player.pos)) : [];
+    const individualPlayers = uncached.filter(player => {
+      if (player.pos === "DST" && player.nflTeam) return false; // handled by loadDstStats or loadLiveDstStats above
+      if (!season2026Underway && player.pos === "K") return false; // handled by loadExactKickerStats
+      if (!season2026Underway && ["QB", "RB", "WR", "TE"].includes(player.pos)) return false; // handled by loadCompletedOffenseStats
+      return true;
+    });
 
     async function loadDstStats() {
       if (!dstPlayers.length) return;
@@ -111,6 +133,24 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
         const completedSeason = DST_SEASON_STATS_2025[teamCode];
         if (!completedSeason) continue;
         const stats = normalizeCompletedDstSeasonStats(completedSeason);
+        cacheSet(player.name, { stats });
+        next[player.name.toLowerCase()] = stats;
+        setStatMap({ ...next });
+        setLoadedCount(Object.keys(next).length);
+      }
+    }
+
+    async function loadLiveDstStats() {
+      if (!liveDstPlayers.length) return;
+      if (cancelled) return;
+      const teams = await fetchNFLTeams(true);
+      if (cancelled) return;
+      const teamsByAbv = new Map(teams.map(team => [normalizeNFLTeamCode(team.teamAbv), team]));
+      for (const player of liveDstPlayers) {
+        const teamCode = normalizeNFLTeamCode(player.nflTeam ?? "");
+        const team = teamsByAbv.get(teamCode);
+        if (!team) continue;
+        const stats = normalizeTankTeamSeasonStats(team);
         cacheSet(player.name, { stats });
         next[player.name.toLowerCase()] = stats;
         setStatMap({ ...next });
@@ -137,6 +177,7 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
     }
 
     async function loadCompletedOffenseStats() {
+      if (!offensePlayers.length) return new Set<string>();
       const completed = await getCompletedOffenseSeasonStats2025();
       // Build a normalized-key index once rather than re-scanning on every
       // lookup. Using the shared normalizePlayerName() here (instead of the
@@ -195,14 +236,17 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
 
         const tankPlayer = await fetchPlayerByName(player.name);
         if (cancelled) return;
-        const exactKickerSeason = player.pos === "K" ? getCompletedKickerSeasonStats(player.name) : undefined;
+        const exactKickerSeason = (!season2026Underway && player.pos === "K") ? getCompletedKickerSeasonStats(player.name) : undefined;
         // Only fall back to a live Tank01 stats line when the caller
         // actually allows it -- Lineup.tsx passes allowProviderFallback:
         // false specifically so a player missing from the completed-season
         // snapshot doesn't get a live/incomplete value substituted in. That
         // restriction is about which stats source is authoritative; it has
         // no bearing on age/headshot below, which should always be fetched.
-        const liveStats = allowProviderFallback
+        // (Once 2026 is underway, effectiveAllowProviderFallback is always
+        // true regardless of the caller's value -- there's no 2025 snapshot
+        // left to protect.)
+        const liveStats = effectiveAllowProviderFallback
           ? (exactKickerSeason
             ? normalizeCompletedKickerSeasonStats(exactKickerSeason)
             : normalizeTankSeasonStats(tankPlayer?.stats, player.pos))
@@ -226,7 +270,7 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
     }
 
     void (async () => {
-      await Promise.all([loadDstStats(), loadExactKickerStats()]);
+      await Promise.all([loadDstStats(), loadLiveDstStats(), loadExactKickerStats()]);
       await loadCompletedOffenseStats();
       // Previously individualPlayers was spliced down to empty whenever
       // allowProviderFallback was false (as Lineup.tsx always passes),

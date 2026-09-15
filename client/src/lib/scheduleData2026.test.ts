@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
-import { getCurrentWeek, resolveWeeklyOpponentTeamName } from "./scheduleData2026";
+import { getCurrentWeek, resolveWeeklyOpponentTeamName, isSeason2026Underway } from "./scheduleData2026";
 
 describe("getCurrentWeek", () => {
   afterEach(() => {
@@ -84,5 +84,19 @@ describe("resolveWeeklyOpponentTeamName", () => {
     const week2Opponent = resolveWeeklyOpponentTeamName("Vipers", 2);
     expect(week2Opponent).toBeDefined();
     expect(week2Opponent).not.toBe(week1Opponent);
+  });
+});
+
+describe("isSeason2026Underway", () => {
+  it("returns false before Week 1's kickoff", () => {
+    expect(isSeason2026Underway(new Date("2026-09-08T23:59:59-04:00"))).toBe(false);
+  });
+
+  it("returns true at the exact moment of Week 1's kickoff", () => {
+    expect(isSeason2026Underway(new Date("2026-09-09T00:00:00-04:00"))).toBe(true);
+  });
+
+  it("returns true well after the season has started", () => {
+    expect(isSeason2026Underway(new Date("2026-09-15T12:00:00-04:00"))).toBe(true);
   });
 });

@@ -400,3 +400,21 @@ export function resolveWeeklyOpponentTeamName(teamName: string | null | undefine
   const opponentOwnerKey = matchup[0] === ownerKey ? matchup[1] : matchup[0];
   return OWNER_TO_TEAM[opponentOwnerKey];
 }
+
+/**
+ * Week 1's actual kickoff -- the point at which the 2026 season has
+ * genuinely started and current-season stats exist to show. Single,
+ * shared source for this threshold: previously duplicated locally in
+ * Lineup.tsx (whose own comment claimed PlayerPage.tsx also had a copy,
+ * which turned out not to actually exist -- rather than add a second,
+ * real duplicate while fixing useNFLSeasonStats.ts's own need for this
+ * same check, moved the one existing copy here instead).
+ */
+export const SEASON_2026_START = new Date("2026-09-09T00:00:00-04:00");
+
+/** True once the 2026 season has actually started (Week 1's kickoff has
+ * passed) -- the point after which "current season" stats should mean
+ * 2026, not 2025's now-completed season. */
+export function isSeason2026Underway(now = new Date()): boolean {
+  return now >= SEASON_2026_START;
+}
