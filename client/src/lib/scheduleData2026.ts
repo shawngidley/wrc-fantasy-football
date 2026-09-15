@@ -349,36 +349,70 @@ export function ownerToTeam(owner: string): string {
 }
 
 /** Returns the current week number (1-17) based on today's date */
+// Each entry's start date is what actually matters for determining the
+// current fantasy week -- once a week's games have begun, that week
+// stays "current" through the gap before the next week's games start
+// (e.g. the Tuesday/Wednesday between Monday Night Football and
+// Thursday Night Football), not just during its own listed range.
+export const WEEK_START_TIMESTAMPS: number[] = [
+  new Date("2026-09-09").getTime(),
+  new Date("2026-09-17").getTime(),
+  new Date("2026-09-24").getTime(),
+  new Date("2026-10-01").getTime(),
+  new Date("2026-10-08").getTime(),
+  new Date("2026-10-15").getTime(),
+  new Date("2026-10-22").getTime(),
+  new Date("2026-10-29").getTime(),
+  new Date("2026-11-05").getTime(),
+  new Date("2026-11-12").getTime(),
+  new Date("2026-11-19").getTime(),
+  new Date("2026-11-25").getTime(),
+  new Date("2026-12-03").getTime(),
+  new Date("2026-12-10").getTime(),
+  new Date("2026-12-17").getTime(),
+  new Date("2026-12-24").getTime(),
+  new Date("2026-12-31").getTime(),
+];
+
 export function getCurrentWeek(): number {
   const now = Date.now();
-  // Each entry's start date is what actually matters for determining the
-  // current fantasy week -- once a week's games have begun, that week
-  // stays "current" through the gap before the next week's games start
-  // (e.g. the Tuesday/Wednesday between Monday Night Football and
-  // Thursday Night Football), not just during its own listed range.
-  const weekStarts: number[] = [
-    new Date("2026-09-09").getTime(),
-    new Date("2026-09-17").getTime(),
-    new Date("2026-09-24").getTime(),
-    new Date("2026-10-01").getTime(),
-    new Date("2026-10-08").getTime(),
-    new Date("2026-10-15").getTime(),
-    new Date("2026-10-22").getTime(),
-    new Date("2026-10-29").getTime(),
-    new Date("2026-11-05").getTime(),
-    new Date("2026-11-12").getTime(),
-    new Date("2026-11-19").getTime(),
-    new Date("2026-11-25").getTime(),
-    new Date("2026-12-03").getTime(),
-    new Date("2026-12-10").getTime(),
-    new Date("2026-12-17").getTime(),
-    new Date("2026-12-24").getTime(),
-    new Date("2026-12-31").getTime(),
-  ];
+  const weekStarts = WEEK_START_TIMESTAMPS;
   if (now < weekStarts[0]) return 1; // before the season starts
   let current = 1;
   for (let i = 0; i < weekStarts.length; i++) {
     if (now >= weekStarts[i]) current = i + 1;
+  }
+  return current;
+}
+
+// 2026's DST end date (EDT -> EST), the first Sunday in November --
+// needed to compute the correct UTC offset for "9am ET" on any given
+// Tuesday cutoff below, since the season spans both.
+const DST_END_2026 = new Date("2026-11-01T06:00:00Z").getTime(); // 2am ET Nov 1 2026, in UTC
+
+/**
+ * The Lineup page's own default week -- distinct from getCurrentWeek()
+ * (which Live Scoring and Standings use unchanged). Advances to the next
+ * week at 9am ET on the Tuesday before that week starts, not at the
+ * week's own start date/time the way getCurrentWeek() does. For each
+ * week's start date, finds the nearest Tuesday on or before it (handles
+ * the season's two Wednesday-starting weeks -- 1 and 12, both apparent
+ * holiday-schedule shifts -- correctly via day-of-week arithmetic,
+ * landing on the Monday before those specifically, one day early, rather
+ * than a fixed "always 2 days before" offset that would be wrong for
+ * those two).
+ */
+export function getLineupDefaultWeek(now = new Date()): number {
+  const nowMs = now.getTime();
+  let current = 1;
+  for (let i = 0; i < WEEK_START_TIMESTAMPS.length; i++) {
+    const weekStart = new Date(WEEK_START_TIMESTAMPS[i]);
+    const dayOfWeek = weekStart.getUTCDay(); // 0=Sun ... 2=Tue ... 6=Sat
+    const daysSinceTuesday = (dayOfWeek - 2 + 7) % 7;
+    const tuesdayMidnightUtc = WEEK_START_TIMESTAMPS[i] - daysSinceTuesday * 24 * 60 * 60 * 1000;
+    const offsetHours = tuesdayMidnightUtc < DST_END_2026 ? 4 : 5; // EDT vs EST
+    const cutoff = tuesdayMidnightUtc + (9 + offsetHours) * 60 * 60 * 1000; // 9am ET that Tuesday
+    if (nowMs >= cutoff) current = i + 1;
   }
   return current;
 }

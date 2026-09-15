@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
-import { getCurrentWeek, resolveWeeklyOpponentTeamName, isSeason2026Underway } from "./scheduleData2026";
+import { getCurrentWeek, resolveWeeklyOpponentTeamName, isSeason2026Underway, getLineupDefaultWeek } from "./scheduleData2026";
 
 describe("getCurrentWeek", () => {
   afterEach(() => {
@@ -98,5 +98,43 @@ describe("isSeason2026Underway", () => {
 
   it("returns true well after the season has started", () => {
     expect(isSeason2026Underway(new Date("2026-09-15T12:00:00-04:00"))).toBe(true);
+  });
+});
+
+describe("getLineupDefaultWeek", () => {
+  // Confirmed live requirement: advances to the next week at 9am ET on
+  // the Tuesday before that week starts -- distinct from getCurrentWeek(),
+  // which other pages (Live Scoring, Standings) still use unchanged.
+
+  it("stays on the prior week just before 9am ET on the Tuesday cutoff (EDT)", () => {
+    // Week 2 starts Thursday Sept 17; its Tuesday cutoff is Sept 15, 9am ET (EDT, UTC-4) = 13:00 UTC.
+    expect(getLineupDefaultWeek(new Date("2026-09-15T12:59:00Z"))).toBe(1);
+  });
+
+  it("advances to the next week at exactly 9am ET on the Tuesday cutoff (EDT)", () => {
+    expect(getLineupDefaultWeek(new Date("2026-09-15T13:00:00Z"))).toBe(2);
+  });
+
+  it("stays on the new week shortly after the cutoff", () => {
+    expect(getLineupDefaultWeek(new Date("2026-09-15T13:01:00Z"))).toBe(2);
+  });
+
+  it("correctly uses EST (not EDT) for a Tuesday cutoff after the 2026 DST transition", () => {
+    // Week 9 starts Thursday Nov 5; its Tuesday cutoff is Nov 3, 9am ET
+    // (EST by then, UTC-5) = 14:00 UTC, not 13:00 UTC as it would be under EDT.
+    expect(getLineupDefaultWeek(new Date("2026-11-03T13:59:00Z"))).toBe(8); // still EDT-style 13:59 UTC -- not yet 9am EST
+    expect(getLineupDefaultWeek(new Date("2026-11-03T14:00:00Z"))).toBe(9); // 9am EST
+  });
+
+  it("handles a Wednesday-starting week's cutoff correctly (the nearest prior Tuesday, not always 2 days before)", () => {
+    // Week 12 starts Wednesday Nov 25 (a holiday-schedule shift) -- its
+    // Tuesday cutoff is Nov 24 (one day before), not two days before as
+    // every other, Thursday-starting week would compute. EST by then (UTC-5).
+    expect(getLineupDefaultWeek(new Date("2026-11-24T13:59:00Z"))).toBe(11); // just before 9am EST
+    expect(getLineupDefaultWeek(new Date("2026-11-24T14:00:00Z"))).toBe(12); // 9am EST
+  });
+
+  it("returns week 1 before the season's own first cutoff has passed", () => {
+    expect(getLineupDefaultWeek(new Date("2026-08-01T12:00:00Z"))).toBe(1);
   });
 });

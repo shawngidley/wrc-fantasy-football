@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { Lock, CheckCircle2, ChevronDown, ArrowLeftRight, X, Zap, Eye, ArrowLeft, Wifi, WifiOff, Shield } from "lucide-react";
 import { TEAMS } from "@/lib/wrcData";
-import { getCurrentWeek, SCHEDULE_2026, resolveWeeklyOpponentTeamName, isSeason2026Underway } from "@/lib/scheduleData2026";
+import { getLineupDefaultWeek, SCHEDULE_2026, resolveWeeklyOpponentTeamName, isSeason2026Underway } from "@/lib/scheduleData2026";
 import { useDraftedRoster } from "@/hooks/useDraftedRoster";
 import { useParams, Link, useLocation } from "wouter";
 import TeamLogo from "@/components/TeamLogo";
@@ -638,10 +638,10 @@ export default function Lineup() {
       const parsed = parseInt(weekParam, 10);
       if (!isNaN(parsed) && SCHEDULE_2026.some(w => w.week === parsed)) return parsed;
     }
-    const w = getCurrentWeek();
+    const w = getLineupDefaultWeek();
     return w > 0 ? w : 1;
   }
-  const actualCurrentWeek = getCurrentWeek() || 1;
+  const actualCurrentWeek = getLineupDefaultWeek() || 1;
   const [currentWeek, setCurrentWeek] = useState<number>(getWeekFromUrl);
 
   // Who the viewed team is playing this week, for the header.
