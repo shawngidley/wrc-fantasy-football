@@ -61,11 +61,13 @@ export function useOwnerMatchupScore(myTeamId: string, oppTeamId: string, week: 
       const playerById = new Map((playerRows ?? []).map(p => [p.id, p]));
       const playerByName = new Map((playerRows ?? []).map(p => [p.name, p]));
       if (typeof window !== "undefined") {
-        const kcRow = (lineupRows ?? []).find(r => r.player_name === "KC Chiefs");
-        const kcInPlayerRows = (playerRows ?? []).filter(p => p.name.includes("KC") || p.name.includes("Chiefs"));
-        (window as unknown as { __kcDebug?: string }).__kcDebug =
-          `lineups row: player_id=${JSON.stringify(kcRow?.player_id)}, team_id=${JSON.stringify(kcRow?.team_id)} | ` +
-          `matching players rows: ${JSON.stringify(kcInPlayerRows)} | ` +
+        const kcRow = (lineupRows ?? []).find(r => r.player_name?.includes("Chiefs") || r.player_name?.includes("KC"));
+        const allDstRows = (playerRows ?? []).filter(p => p.position === "DST");
+        const w = window as unknown as { __kcDebugByTeams?: Record<string, string> };
+        w.__kcDebugByTeams = w.__kcDebugByTeams ?? {};
+        w.__kcDebugByTeams[`${myTeamId}|${oppTeamId}`] =
+          `KC-ish lineup row: ${JSON.stringify(kcRow)} | ` +
+          `ALL DST players rows: ${JSON.stringify(allDstRows)} | ` +
           `total playerRows=${(playerRows ?? []).length}, queried team_ids=[${myTeamId}, ${oppTeamId}]`;
       }
       const buildStarters = (teamId: string): StarterInfo[] => {

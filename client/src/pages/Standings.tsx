@@ -201,9 +201,9 @@ function MatchupWidget({ ownerKey, standings }: { ownerKey: string; standings: D
           DEBUG oppStarters: {_debugOppStarters.map(s => `${s.name}(${s.position})=${s.pts}`).join(" | ")}
         </div>
       )}
-      {typeof window !== "undefined" && (window as unknown as { __kcDebug?: string }).__kcDebug && (
+      {typeof window !== "undefined" && (window as unknown as { __kcDebugByTeams?: Record<string, string> }).__kcDebugByTeams?.[`${myTeamId}|${oppTeamId}`] && (
         <div style={{ fontSize: "0.55rem", fontFamily: "monospace", background: "oklch(0.9 0.06 25)", border: "1px solid oklch(0.7 0.1 25)", padding: "0.3rem", wordBreak: "break-all", color: "black" }}>
-          DEBUG KC: {(window as unknown as { __kcDebug?: string }).__kcDebug}
+          DEBUG KC: {(window as unknown as { __kcDebugByTeams?: Record<string, string> }).__kcDebugByTeams?.[`${myTeamId}|${oppTeamId}`]}
         </div>
       )}
       <div style={{ padding: "0.875rem 1.25rem" }}>
