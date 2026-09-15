@@ -89725,9 +89725,13 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
       if (resolveError) throw new Error("Rivalry game payout applied, but could not be marked resolved.");
     }
   }
+  await recomputeStandingsFromFinalizedResults(season);
+  return { finalized: true, week: week2, season, leagueMedian };
+}
+async function recomputeStandingsFromFinalizedResults(season) {
   const { data: results, error: resultsError } = await supabaseAdmin.from("weekly_results").select("week, home_team_id, away_team_id, home_score, away_score").eq("season", season).eq("is_final", true).order("week");
   const { data: standings, error: standingsError } = await supabaseAdmin.from("team_standings").select("team_id, division");
-  if (resultsError || standingsError || !standings) throw new Error("Scores saved, but standings could not be recalculated.");
+  if (resultsError || standingsError || !standings) throw new Error("Standings could not be recalculated.");
   const totals = new Map(standings.map((row) => [row.team_id, { wins: 0, losses: 0, ties: 0, pts_for: 0, pts_against: 0, h2h_wins: 0, h2h_losses: 0, median_wins: 0, median_losses: 0, div_wins: 0, div_losses: 0, streak: "" }]));
   const divisionByTeam = new Map(standings.map((row) => [row.team_id, row.division]));
   const weekGroups = /* @__PURE__ */ new Map();
@@ -89764,7 +89768,7 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
   });
   const updates = await Promise.all(Array.from(totals.entries()).map(([teamId, value]) => supabaseAdmin.from("team_standings").update({ ...value, streak: value.streak || "\u2014" }).eq("team_id", teamId)));
   if (updates.some((update) => update.error)) throw new Error("Unable to update standings.");
-  return { finalized: true, week: week2, season, leagueMedian };
+  return { season, teamsUpdated: totals.size };
 }
 
 // server/leagueLoginSecurity.ts
@@ -101633,6 +101637,22 @@ async function finalizeWeeklyResultsSchedule(_req, res) {
   }
 }
 
+// server/scheduledStandingsRecompute.ts
+var SEASON2 = 2026;
+async function recomputeStandingsSchedule(_req, res) {
+  try {
+    const result = await recomputeStandingsFromFinalizedResults(SEASON2);
+    res.json({ ok: true, ...result });
+  } catch (error61) {
+    console.error("[recomputeStandingsSchedule] failed:", error61);
+    res.status(500).json({
+      error: error61 instanceof Error ? error61.message : String(error61),
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      context: { finalization: "standings-recompute" }
+    });
+  }
+}
+
 // server/scheduledFaabAward.ts
 init_supabaseAdmin();
 
@@ -101807,6 +101827,7 @@ function createApp() {
   app.get("/api/scheduled/fantasypros-archive", requireCronSecret, collectFantasyProsArchive);
   app.get("/api/scheduled/release-unprotected-players", requireCronSecret, releasePostDeadlinePlayers);
   app.get("/api/scheduled/weekly-results-finalize", requireCronSecret, finalizeWeeklyResultsSchedule);
+  app.get("/api/scheduled/standings-recompute", requireCronSecret, recomputeStandingsSchedule);
   app.get("/api/scheduled/faab-award", requireCronSecret, faabAwardSchedule);
   app.use(
     "/api/trpc",

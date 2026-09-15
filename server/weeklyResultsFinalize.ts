@@ -317,10 +317,25 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
     }
   }
 
+  await recomputeStandingsFromFinalizedResults(season);
+  return { finalized: true, week, season, leagueMedian };
+}
+
+/**
+ * Recomputes every team's full-season wins/losses/points/streak from
+ * every finalized (is_final=true) weekly_results row, and writes the
+ * result to team_standings. Extracted as its own function so it can be
+ * re-run on demand -- e.g. after a division correction or a scoring
+ * rule change -- without needing a specific week to newly become
+ * final. finalizeWeeklyResultsFromTank calls this at the end of
+ * finalizing a given week; it can also be called directly to force a
+ * full recalculation of already-finalized weeks.
+ */
+export async function recomputeStandingsFromFinalizedResults(season: number) {
   const { data: results, error: resultsError } = await supabaseAdmin.from("weekly_results")
     .select("week, home_team_id, away_team_id, home_score, away_score").eq("season", season).eq("is_final", true).order("week");
   const { data: standings, error: standingsError } = await supabaseAdmin.from("team_standings").select("team_id, division");
-  if (resultsError || standingsError || !standings) throw new Error("Scores saved, but standings could not be recalculated.");
+  if (resultsError || standingsError || !standings) throw new Error("Standings could not be recalculated.");
   const totals = new Map(standings.map(row => [row.team_id, { wins: 0, losses: 0, ties: 0, pts_for: 0, pts_against: 0, h2h_wins: 0, h2h_losses: 0, median_wins: 0, median_losses: 0, div_wins: 0, div_losses: 0, streak: "" }]));
   const divisionByTeam = new Map(standings.map(row => [row.team_id, row.division]));
   const weekGroups = new Map<number, typeof results>();
@@ -344,5 +359,5 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
   });
   const updates = await Promise.all(Array.from(totals.entries()).map(([teamId, value]) => supabaseAdmin.from("team_standings").update({ ...value, streak: value.streak || "—" }).eq("team_id", teamId)));
   if (updates.some(update => update.error)) throw new Error("Unable to update standings.");
-  return { finalized: true, week, season, leagueMedian };
+  return { season, teamsUpdated: totals.size };
 }

@@ -10,6 +10,7 @@ import { serveCompletedOffenseSnapshot } from "../seasonStatsSnapshot";
 import { refreshSharedSeasonStatsSchedule } from "../seasonStatsRefresh";
 import { refreshNflTeamAssignmentsSchedule } from "../nflTeamRefresh";
 import { finalizeWeeklyResultsSchedule } from "../scheduledWeeklyResultsFinalize";
+import { recomputeStandingsSchedule } from "../scheduledStandingsRecompute";
 import { faabAwardSchedule } from "../scheduledFaabAward";
 
 function requireCronSecret(req: Request, res: Response, next: NextFunction) {
@@ -60,6 +61,7 @@ export function createApp(): Express {
   app.get("/api/scheduled/fantasypros-archive", requireCronSecret, collectFantasyProsArchive);
   app.get("/api/scheduled/release-unprotected-players", requireCronSecret, releasePostDeadlinePlayers);
   app.get("/api/scheduled/weekly-results-finalize", requireCronSecret, finalizeWeeklyResultsSchedule);
+  app.get("/api/scheduled/standings-recompute", requireCronSecret, recomputeStandingsSchedule);
   app.get("/api/scheduled/faab-award", requireCronSecret, faabAwardSchedule);
   // tRPC API
   app.use(
