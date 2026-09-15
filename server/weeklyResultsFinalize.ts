@@ -166,10 +166,23 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
 
   const [{ data: lineups, error: lineupsError }, { data: players, error: playersError }, { data: teams, error: teamsError }] = await Promise.all([
     supabaseAdmin.from("lineups").select("team_id, player_name, is_bench").eq("week", week).eq("season", season),
-    supabaseAdmin.from("players").select("name, position, nfl_team").eq("season", season),
+    supabaseAdmin.from("players").select("name, position, nfl_team"),
     supabaseAdmin.from("teams").select("id, owner, name"),
   ]);
-  if (lineupsError || playersError || teamsError || !teams) throw new Error("Unable to load saved lineups.");
+  if (lineupsError || playersError || teamsError || !teams) {
+    // The single, generic "Unable to load saved lineups." message this
+    // used to always throw doesn't distinguish which of these three
+    // queries actually failed or why -- confirmed live, that message
+    // fired with nothing else to go on. Surface the real underlying
+    // Supabase error(s) instead.
+    const details = [
+      lineupsError ? `lineups: ${lineupsError.message}` : null,
+      playersError ? `players: ${playersError.message}` : null,
+      teamsError ? `teams: ${teamsError.message}` : null,
+      !teams && !teamsError ? "teams: query returned no data" : null,
+    ].filter(Boolean).join(" | ");
+    throw new Error(`Unable to load saved lineups. ${details}`);
+  }
 
   const individualScores: Record<string, number> = {};
   const dstScores: Record<string, number> = {};

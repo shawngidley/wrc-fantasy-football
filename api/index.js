@@ -89626,10 +89626,18 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
   if (!games.length) throw new Error("No NFL games found for this week.");
   const [{ data: lineups, error: lineupsError }, { data: players, error: playersError }, { data: teams, error: teamsError }] = await Promise.all([
     supabaseAdmin.from("lineups").select("team_id, player_name, is_bench").eq("week", week2).eq("season", season),
-    supabaseAdmin.from("players").select("name, position, nfl_team").eq("season", season),
+    supabaseAdmin.from("players").select("name, position, nfl_team"),
     supabaseAdmin.from("teams").select("id, owner, name")
   ]);
-  if (lineupsError || playersError || teamsError || !teams) throw new Error("Unable to load saved lineups.");
+  if (lineupsError || playersError || teamsError || !teams) {
+    const details = [
+      lineupsError ? `lineups: ${lineupsError.message}` : null,
+      playersError ? `players: ${playersError.message}` : null,
+      teamsError ? `teams: ${teamsError.message}` : null,
+      !teams && !teamsError ? "teams: query returned no data" : null
+    ].filter(Boolean).join(" | ");
+    throw new Error(`Unable to load saved lineups. ${details}`);
+  }
   const individualScores = {};
   const dstScores = {};
   const positionByName = new Map((players ?? []).map((p) => [normalizePlayerName(p.name), p.position]));
