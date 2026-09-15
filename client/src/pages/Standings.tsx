@@ -201,6 +201,11 @@ function MatchupWidget({ ownerKey, standings }: { ownerKey: string; standings: D
           DEBUG oppStarters: {_debugOppStarters.map(s => `${s.name}(${s.position})=${s.pts}`).join(" | ")}
         </div>
       )}
+      {typeof window !== "undefined" && (window as unknown as { __kcDebug?: string }).__kcDebug && (
+        <div style={{ fontSize: "0.55rem", fontFamily: "monospace", background: "oklch(0.9 0.06 25)", border: "1px solid oklch(0.7 0.1 25)", padding: "0.3rem", wordBreak: "break-all", color: "black" }}>
+          DEBUG KC: {(window as unknown as { __kcDebug?: string }).__kcDebug}
+        </div>
+      )}
       <div style={{ padding: "0.875rem 1.25rem" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
           <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: "oklch(0.55 0.16 85)" }}>

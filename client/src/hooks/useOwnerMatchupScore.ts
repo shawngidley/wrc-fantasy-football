@@ -60,6 +60,14 @@ export function useOwnerMatchupScore(myTeamId: string, oppTeamId: string, week: 
 
       const playerById = new Map((playerRows ?? []).map(p => [p.id, p]));
       const playerByName = new Map((playerRows ?? []).map(p => [p.name, p]));
+      if (typeof window !== "undefined") {
+        const kcRow = (lineupRows ?? []).find(r => r.player_name === "KC Chiefs");
+        const kcInPlayerRows = (playerRows ?? []).filter(p => p.name.includes("KC") || p.name.includes("Chiefs"));
+        (window as unknown as { __kcDebug?: string }).__kcDebug =
+          `lineups row: player_id=${JSON.stringify(kcRow?.player_id)}, team_id=${JSON.stringify(kcRow?.team_id)} | ` +
+          `matching players rows: ${JSON.stringify(kcInPlayerRows)} | ` +
+          `total playerRows=${(playerRows ?? []).length}, queried team_ids=[${myTeamId}, ${oppTeamId}]`;
+      }
       const buildStarters = (teamId: string): StarterInfo[] => {
         const savedLineup = (lineupRows ?? []).filter(row => row.team_id === teamId && !row.is_bench);
         if (savedLineup.length > 0) {
