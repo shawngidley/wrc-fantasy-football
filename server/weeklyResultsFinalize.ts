@@ -5,6 +5,8 @@ import { calcFantasyPoints, type Tank01Stats } from "../shared/scoringEngine";
 import { parseEspnKickerEvents, getKickerEventsForPlayer, calculateWrcKickerPoints, type KickerPlayEvent } from "../shared/espnKickerEvents";
 import { resolveRosterPlayerForLineupEntry, type RosterPlayerRow } from "../shared/rosterPlayerResolution";
 import { normalizeTankSeasonStats, type PlayerSeasonStats } from "../shared/playerSeasonStats";
+import { getDraftUniversePlayerByName } from "../shared/draftPlayerUniverse";
+import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026 } from "../shared/currentDraftPlayerUniverse2026";
 
 const HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
 const n = (value: unknown) => Number.parseFloat(String(value ?? "0")) || 0;
@@ -101,6 +103,53 @@ export function resolveTeamStatsKey(homeAway: string, game: { home?: string; awa
   if (homeAway === "home") return game.home ? teamCode(game.home) : undefined;
   if (homeAway === "away") return game.away ? teamCode(game.away) : undefined;
   return undefined;
+}
+
+export interface WeeklyStatRowInput {
+  name: string;
+  position: string;
+  nflTeam: string;
+  statLine: PlayerSeasonStats | undefined;
+}
+
+/**
+ * Merges two sources of players into one set of weekly-stat rows to
+ * persist: every rostered player (from WRC's own players table,
+ * guaranteed a row even if they didn't play this week -- position/team
+ * come from WRC's own data) plus every free agent who actually played
+ * this week but isn't on any fantasy roster (position/team come from
+ * the shared draft player universe, since they have no players-table
+ * row of their own; skipped entirely if the universe doesn't recognize
+ * the name, rather than persisting a guessed position/team). A player
+ * covered by the first group is never duplicated by the second, even
+ * if they also appear in individualStatLines/dstStatLines.
+ */
+export function buildWeeklyStatRowInputs(
+  rosterPlayers: RosterPlayerRow[],
+  individualStatLines: Record<string, PlayerSeasonStats>,
+  dstStatLines: Record<string, PlayerSeasonStats>,
+): Map<string, WeeklyStatRowInput> {
+  const rowInputsByName = new Map<string, WeeklyStatRowInput>();
+  for (const player of rosterPlayers.filter(p => p.team_id)) {
+    const statLine = player.position === "DST"
+      ? dstStatLines[teamCode(player.nfl_team)]
+      : individualStatLines[normalizePlayerName(player.name)];
+    rowInputsByName.set(normalizePlayerName(player.name), { name: player.name, position: player.position, nflTeam: player.nfl_team, statLine });
+  }
+  for (const normalizedName of Object.keys(individualStatLines)) {
+    if (rowInputsByName.has(normalizedName)) continue; // already covered as a rostered player above
+    const universePlayer = getDraftUniversePlayerByName(normalizedName);
+    if (!universePlayer) continue; // no reliable position/team source for this name -- skip rather than persist a guess
+    rowInputsByName.set(normalizedName, { name: universePlayer.name, position: universePlayer.pos, nflTeam: universePlayer.nflTeam, statLine: individualStatLines[normalizedName] });
+  }
+  for (const teamAbv of Object.keys(dstStatLines)) {
+    const universePlayer = CURRENT_DRAFT_PLAYER_UNIVERSE_2026.find(p => p.pos === "DST" && p.nflTeam === teamAbv);
+    if (!universePlayer) continue;
+    const normalizedName = normalizePlayerName(universePlayer.name);
+    if (rowInputsByName.has(normalizedName)) continue; // already covered as a rostered DST above
+    rowInputsByName.set(normalizedName, { name: universePlayer.name, position: "DST", nflTeam: universePlayer.nflTeam, statLine: dstStatLines[teamAbv] });
+  }
+  return rowInputsByName;
 }
 
 /**
@@ -314,22 +363,22 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
     teamScores.set(lineup.team_id, Math.round(((teamScores.get(lineup.team_id) ?? 0) + score) * 10) / 10);
   }
 
-  // Persist every rostered player's full weekly stat line -- not just
-  // this week's starters -- so the client can read season stats
-  // directly from this table (summed across every finalized week)
-  // instead of independently recomputing them from Tank01/ESPN on every
-  // page load. One row per rostered player per week; a player who
-  // didn't play this week still gets a row with zero stats.
-  const rosteredPlayers = (players ?? []).filter(player => player.team_id);
-  const weeklyStatRows = rosteredPlayers.map(player => {
-    const statLine = player.position === "DST"
-      ? dstStatLines[teamCode(player.nfl_team)]
-      : individualStatLines[normalizePlayerName(player.name)];
-    const zeroStatLine: PlayerSeasonStats = normalizeTankSeasonStats(undefined, player.position);
+  // Persist every rostered player's full weekly stat line, plus every
+  // free agent who actually played this week -- so both the Lineup
+  // page (rostered players, including those who didn't play) and the
+  // Free Agents page (any player, rostered or not) can read season
+  // stats directly from this table instead of independently
+  // recomputing them from Tank01/ESPN on every page load. This costs
+  // zero additional API calls: box scores already contain every NFL
+  // player who played that week, rostered or not -- only the
+  // persistence step was previously scoped to rostered players.
+  const rowInputsByName = buildWeeklyStatRowInputs((players ?? []) as RosterPlayerRow[], individualStatLines, dstStatLines);
+  const weeklyStatRows = Array.from(rowInputsByName.values()).map(({ name, position, nflTeam, statLine }) => {
+    const zeroStatLine: PlayerSeasonStats = normalizeTankSeasonStats(undefined, position);
     const s = statLine ? { ...statLine, gp: 1 } : { ...zeroStatLine, gp: 0 };
     return {
       week, season,
-      player_name: player.name, position: player.position, nfl_team: player.nfl_team,
+      player_name: name, position, nfl_team: nflTeam,
       pass_cmp: s.passCmp, pass_att: s.passAtt, pass_yds: s.passYds, pass_td: s.passTD, pass_int: s.passInt, pass_rating: s.passRating,
       rush_att: s.rushAtt, rush_yds: s.rushYds, rush_td: s.rushTD,
       receptions: s.receptions, targets: s.targets, rec_yds: s.recYds, rec_td: s.recTD,

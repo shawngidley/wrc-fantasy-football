@@ -34,6 +34,7 @@ import { toast } from "sonner";
 import Navigation from "@/components/Navigation";
 import { useNFLDepthCharts } from "@/hooks/useNFLDepthCharts";
 import { useNFLSeasonStats } from "@/hooks/useNFLSeasonStats";
+import { useDbSeasonStats } from "@/hooks/useDbSeasonStats";
 import { formatSeasonStatColumn, type PlayerSeasonStats, type SeasonStatColumn, type SeasonStatKey } from "@/lib/playerSeasonStats";
 import { normalizeNFLTeamCode } from "@shared/nflTeamCodes";
 import { getCompletedKickerSeasonStats } from "@/lib/kickerSeasonStats2025";
@@ -431,7 +432,22 @@ export default function FreeAgents() {
     () => baseFiltered.map((player) => ({ name: player.name, pos: player.pos, nflTeam: player.nflTeam })),
     [baseFiltered]
   );
-  const { statMap: seasonStatMap, playerMetaMap, loading: seasonStatsLoading, loadedCount: seasonStatsLoaded } = useNFLSeasonStats(seasonStatPlayers, true, false);
+  const { statMap: tankSeasonStatMap, playerMetaMap, loading: seasonStatsLoading, loadedCount: seasonStatsLoaded } = useNFLSeasonStats(seasonStatPlayers, true, false);
+  // Season stats read directly from WRC's own database (already-finalized
+  // weeks, computed once server-side during official weekly finalization,
+  // now covering free agents too) instead of independently recomputed
+  // client-side from Tank01/ESPN -- same approach as Lineup.tsx. Falls
+  // back to the Tank01-based path for a player with no rows yet in the
+  // table (the current, not-yet-finalized week).
+  const { statMap: dbSeasonStatMap } = useDbSeasonStats(
+    seasonStatPlayers.map(p => p.name),
+    2026,
+    baseFiltered.length > 0,
+  );
+  const seasonStatMap = useMemo(
+    () => ({ ...tankSeasonStatMap, ...dbSeasonStatMap }),
+    [tankSeasonStatMap, dbSeasonStatMap],
+  );
   const seasonColumns = useMemo(
     () => getFreeAgentStatColumns(posFilter),
     [posFilter]

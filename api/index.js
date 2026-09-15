@@ -89194,6 +89194,10 @@ function findDraftUniversePlayer(input2) {
     (player) => canonical(player.name) === candidateName && player.pos === candidatePos && player.nflTeam === candidateTeam
   ) ?? null;
 }
+function getDraftUniversePlayerByName(name, pool2 = CURRENT_DRAFT_PLAYER_UNIVERSE_2026) {
+  const candidateName = canonical(name);
+  return pool2.find((player) => canonical(player.name) === candidateName) ?? null;
+}
 
 // shared/draftLottery.ts
 var DRAFT_LOTTERY_OWNERS = ["Greg", "Shawn", "Bill", "David R.", "Jason", "Scott N."];
@@ -89822,6 +89826,27 @@ function resolveTeamStatsKey(homeAway, game) {
   if (homeAway === "away") return game.away ? teamCode(game.away) : void 0;
   return void 0;
 }
+function buildWeeklyStatRowInputs(rosterPlayers, individualStatLines, dstStatLines) {
+  const rowInputsByName = /* @__PURE__ */ new Map();
+  for (const player of rosterPlayers.filter((p) => p.team_id)) {
+    const statLine = player.position === "DST" ? dstStatLines[teamCode(player.nfl_team)] : individualStatLines[normalizePlayerName(player.name)];
+    rowInputsByName.set(normalizePlayerName(player.name), { name: player.name, position: player.position, nflTeam: player.nfl_team, statLine });
+  }
+  for (const normalizedName of Object.keys(individualStatLines)) {
+    if (rowInputsByName.has(normalizedName)) continue;
+    const universePlayer = getDraftUniversePlayerByName(normalizedName);
+    if (!universePlayer) continue;
+    rowInputsByName.set(normalizedName, { name: universePlayer.name, position: universePlayer.pos, nflTeam: universePlayer.nflTeam, statLine: individualStatLines[normalizedName] });
+  }
+  for (const teamAbv of Object.keys(dstStatLines)) {
+    const universePlayer = CURRENT_DRAFT_PLAYER_UNIVERSE_2026.find((p) => p.pos === "DST" && p.nflTeam === teamAbv);
+    if (!universePlayer) continue;
+    const normalizedName = normalizePlayerName(universePlayer.name);
+    if (rowInputsByName.has(normalizedName)) continue;
+    rowInputsByName.set(normalizedName, { name: universePlayer.name, position: "DST", nflTeam: universePlayer.nflTeam, statLine: dstStatLines[teamAbv] });
+  }
+  return rowInputsByName;
+}
 function attributeOffenseFramedDefenseStats(homeAway, stats, teamStatsBody) {
   const opponentStats = teamStatsBody[homeAway === "home" ? "away" : "home"];
   return {
@@ -89940,17 +89965,16 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
     const score = player.position === "DST" ? dstScores[teamCode(player.nfl_team)] ?? 0 : individualScores[normalizePlayerName(String(lineup.player_name))] ?? 0;
     teamScores.set(lineup.team_id, Math.round(((teamScores.get(lineup.team_id) ?? 0) + score) * 10) / 10);
   }
-  const rosteredPlayers = (players ?? []).filter((player) => player.team_id);
-  const weeklyStatRows = rosteredPlayers.map((player) => {
-    const statLine = player.position === "DST" ? dstStatLines[teamCode(player.nfl_team)] : individualStatLines[normalizePlayerName(player.name)];
-    const zeroStatLine = normalizeTankSeasonStats(void 0, player.position);
+  const rowInputsByName = buildWeeklyStatRowInputs(players ?? [], individualStatLines, dstStatLines);
+  const weeklyStatRows = Array.from(rowInputsByName.values()).map(({ name, position, nflTeam, statLine }) => {
+    const zeroStatLine = normalizeTankSeasonStats(void 0, position);
     const s = statLine ? { ...statLine, gp: 1 } : { ...zeroStatLine, gp: 0 };
     return {
       week: week2,
       season,
-      player_name: player.name,
-      position: player.position,
-      nfl_team: player.nfl_team,
+      player_name: name,
+      position,
+      nfl_team: nflTeam,
       pass_cmp: s.passCmp,
       pass_att: s.passAtt,
       pass_yds: s.passYds,

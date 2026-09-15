@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { moneyOwedIdForOwner, resolveTeamStatsKey, sacksFrom, defensePoints, attributeOffenseFramedDefenseStats, playerPoints, isGameFinal, weeklyRecordDelta } from "./weeklyResultsFinalize";
+import { moneyOwedIdForOwner, resolveTeamStatsKey, sacksFrom, defensePoints, attributeOffenseFramedDefenseStats, playerPoints, isGameFinal, weeklyRecordDelta, buildWeeklyStatRowInputs, type WeeklyStatRowInput } from "./weeklyResultsFinalize";
+import type { RosterPlayerRow } from "../shared/rosterPlayerResolution";
+import type { PlayerSeasonStats } from "../shared/playerSeasonStats";
 
 describe("moneyOwedIdForOwner", () => {
   it("matches every owner's actual money_owed.id (verified against Money.tsx's DEFAULT_OWNERS)", () => {
@@ -226,5 +228,63 @@ describe("weeklyRecordDelta", () => {
   it("a head-to-head tie contributes 0 wins/losses from that component -- only the median component applies", () => {
     expect(weeklyRecordDelta("T", true)).toEqual({ winsDelta: 1, lossesDelta: 0 });
     expect(weeklyRecordDelta("T", false)).toEqual({ winsDelta: 0, lossesDelta: 1 });
+  });
+});
+
+describe("buildWeeklyStatRowInputs", () => {
+  const stat = (wrcPts: number): PlayerSeasonStats => ({
+    gp: 1, passCmp: 0, passAtt: 0, passYds: 0, passTD: 0, passInt: 0, passRating: 0,
+    rushAtt: 0, rushYds: 0, rushTD: 0, receptions: 0, targets: 0, recYds: 0, recTD: 0,
+    fgMade: 0, fgAtt: 0, fgYds: 0, fgMade1To39: 0, fgMade40To49: 0, fgMade50To59: 0, fgMade60Plus: 0,
+    xpMade: 0, xpAtt: 0, sacks: 0, defInt: 0, fumblesRecovered: 0, takeaways: 0, defTD: 0, dstTD: 0,
+    returnTD: 0, safeties: 0, blockKicks: 0, ptsAgainst: 0, fumblesLost: 0, wrcPts, ptsPerGame: wrcPts,
+  });
+
+  it("includes a rostered player who played, with their real stat line", () => {
+    const roster: RosterPlayerRow[] = [{ name: "Josh Allen", position: "QB", nfl_team: "BUF", team_id: "team-1" }];
+    const result = buildWeeklyStatRowInputs(roster, { "joshallen": stat(25) }, {});
+    expect(result.get("joshallen")).toEqual({ name: "Josh Allen", position: "QB", nflTeam: "BUF", statLine: stat(25) });
+  });
+
+  it("still includes a rostered player who did not play this week, with an undefined stat line", () => {
+    const roster: RosterPlayerRow[] = [{ name: "Josh Allen", position: "QB", nfl_team: "BUF", team_id: "team-1" }];
+    const result = buildWeeklyStatRowInputs(roster, {}, {});
+    expect(result.get("joshallen")).toEqual({ name: "Josh Allen", position: "QB", nflTeam: "BUF", statLine: undefined });
+  });
+
+  it("skips a players-table row with no team_id (not actually rostered)", () => {
+    const roster: RosterPlayerRow[] = [{ name: "Bench Guy", position: "RB", nfl_team: "BUF", team_id: "" }];
+    const result = buildWeeklyStatRowInputs(roster, {}, {});
+    expect(result.size).toBe(0);
+  });
+
+  it("includes a free agent who played, using the draft universe for position/team", () => {
+    // Patrick Mahomes is in the draft universe but not rostered here.
+    const result = buildWeeklyStatRowInputs([], { "patrickmahomes": stat(30) }, {});
+    const row = result.get("patrickmahomes");
+    expect(row?.name).toBe("Patrick Mahomes");
+    expect(row?.position).toBe("QB");
+    expect(row?.nflTeam).toBe("KC");
+    expect(row?.statLine).toEqual(stat(30));
+  });
+
+  it("does not duplicate a player who is both rostered and appears in individualStatLines", () => {
+    const roster: RosterPlayerRow[] = [{ name: "Josh Allen", position: "QB", nfl_team: "BUF", team_id: "team-1" }];
+    const result = buildWeeklyStatRowInputs(roster, { "joshallen": stat(25) }, {});
+    expect(result.size).toBe(1);
+  });
+
+  it("includes an unrostered DST that played, using the draft universe for the team name", () => {
+    const result = buildWeeklyStatRowInputs([], {}, { KC: stat(12) });
+    const row = result.get("kcchiefs");
+    expect(row?.position).toBe("DST");
+    expect(row?.nflTeam).toBe("KC");
+    expect(row?.statLine).toEqual(stat(12));
+  });
+
+  it("skips a free agent name the draft universe does not recognize, rather than guessing", () => {
+    const result = buildWeeklyStatRowInputs([], { "someunknownplayer": stat(5) }, {});
+    expect(result.has("someunknownplayer")).toBe(false);
+    expect(result.size).toBe(0);
   });
 });
