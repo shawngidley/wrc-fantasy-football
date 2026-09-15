@@ -3,6 +3,7 @@ import { supabaseAdmin } from "./supabaseAdmin";
 import { normalizePlayerName } from "../shared/playerNameMatch";
 import { calcFantasyPoints, type Tank01Stats } from "../shared/scoringEngine";
 import { parseEspnKickerEvents, getKickerEventsForPlayer, calculateWrcKickerPoints, type KickerPlayEvent } from "../shared/espnKickerEvents";
+import { resolveRosterPlayerForLineupEntry, type RosterPlayerRow } from "../shared/rosterPlayerResolution";
 
 const HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
 const n = (value: unknown) => Number.parseFloat(String(value ?? "0")) || 0;
@@ -93,38 +94,6 @@ async function fetchEspnKickerEventsForGame(game: { gameID: string; home?: strin
   } catch {
     return [];
   }
-}
-
-type RosterPlayerMeta = { position: string; nflTeam: string };
-type PlayerRow = { name: string; position: string; nfl_team: string; team_id: string };
-
-/**
- * Resolves a starter lineup entry to its roster player info (position,
- * nflTeam), needed to look up that player's computed score. Confirmed
- * live: a lineup's player_name can fail to exact-match the roster's own
- * stored name for two different reasons -- a generational suffix
- * difference (e.g. "James Cook III" vs "James Cook", "Kyle Pitts Sr."
- * vs "Kyle Pitts"), handled by normalizing both sides; or, for a DST
- * specifically, an entirely different name altogether (e.g. "LA Rams",
- * "LA Chargers", "KC Chiefs" vs whatever the players table actually
- * stores for that team) -- since a team can only ever roster one DST,
- * that case falls back to matching by team_id + position directly,
- * sidestepping the name mismatch entirely. Every one of these mismatches
- * previously caused the affected starter's score to be silently skipped
- * from that team's total altogether, not just computed incorrectly.
- */
-export function resolvePlayerMetaForLineupEntry(
-  lineup: { team_id: string; player_name: string; slot: string },
-  playerMeta: Map<string, RosterPlayerMeta>,
-  allPlayers: PlayerRow[],
-): RosterPlayerMeta | undefined {
-  const byName = playerMeta.get(normalizePlayerName(lineup.player_name));
-  if (byName) return byName;
-  if (lineup.slot === "DST") {
-    const dstPlayer = allPlayers.find(p => p.team_id === lineup.team_id && p.position === "DST");
-    if (dstPlayer) return { position: dstPlayer.position, nflTeam: dstPlayer.nfl_team };
-  }
-  return undefined;
 }
 
 export function resolveTeamStatsKey(homeAway: string, game: { home?: string; away?: string }): string | undefined {
@@ -318,18 +287,19 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
     });
   }
 
-  const playerMeta = new Map((players ?? []).map(player => [normalizePlayerName(player.name), { position: String(player.position), nflTeam: String(player.nfl_team) }]));
+  const playerByNormalizedName = new Map((players ?? []).map(player => [normalizePlayerName(player.name), player as RosterPlayerRow]));
+  const emptyPlayerById = new Map<string, RosterPlayerRow>();
   const teamScores = new Map<string, number>();
   const idByOwnerForLog = new Map(teams.map(team => [team.id, team.owner]));
   for (const lineup of lineups ?? []) {
     if (lineup.is_bench) continue;
-    const player = resolvePlayerMetaForLineupEntry(lineup, playerMeta, (players ?? []) as PlayerRow[]);
+    const player = resolveRosterPlayerForLineupEntry(lineup, emptyPlayerById, playerByNormalizedName, (players ?? []) as RosterPlayerRow[]);
     if (!player) {
       console.log(`[weeklyResultsFinalize] ${idByOwnerForLog.get(lineup.team_id)}'s starter still not found in players table: "${lineup.player_name}" (slot=${lineup.slot})`);
       continue;
     }
     const score = player.position === "DST"
-      ? (dstScores[teamCode(player.nflTeam)] ?? 0)
+      ? (dstScores[teamCode(player.nfl_team)] ?? 0)
       : (individualScores[normalizePlayerName(String(lineup.player_name))] ?? 0);
     teamScores.set(lineup.team_id, Math.round(((teamScores.get(lineup.team_id) ?? 0) + score) * 10) / 10);
   }

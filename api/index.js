@@ -89701,6 +89701,17 @@ function calculateWrcKickerPoints(events, rawStats) {
   return Math.round((fgPoints + xpPoints) * 10) / 10;
 }
 
+// shared/rosterPlayerResolution.ts
+function resolveRosterPlayerForLineupEntry(entry, playerById, playerByNormalizedName, allPlayers) {
+  const byId = entry.player_id ? playerById.get(entry.player_id) : void 0;
+  const byName = byId ?? playerByNormalizedName.get(normalizePlayerName(entry.player_name));
+  if (byName) return byName;
+  if (entry.slot === "DST") {
+    return allPlayers.find((candidate) => candidate.team_id === entry.team_id && candidate.position === "DST");
+  }
+  return void 0;
+}
+
 // server/weeklyResultsFinalize.ts
 var HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
 var n2 = (value) => Number.parseFloat(String(value ?? "0")) || 0;
@@ -89739,15 +89750,6 @@ async function fetchEspnKickerEventsForGame(game) {
   } catch {
     return [];
   }
-}
-function resolvePlayerMetaForLineupEntry(lineup, playerMeta, allPlayers) {
-  const byName = playerMeta.get(normalizePlayerName(lineup.player_name));
-  if (byName) return byName;
-  if (lineup.slot === "DST") {
-    const dstPlayer = allPlayers.find((p) => p.team_id === lineup.team_id && p.position === "DST");
-    if (dstPlayer) return { position: dstPlayer.position, nflTeam: dstPlayer.nfl_team };
-  }
-  return void 0;
 }
 function resolveTeamStatsKey(homeAway, game) {
   if (homeAway === "home") return game.home ? teamCode(game.home) : void 0;
@@ -89849,17 +89851,18 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
       dstScores[teamAbv] = defensePoints(attributedStats);
     });
   }
-  const playerMeta = new Map((players ?? []).map((player) => [normalizePlayerName(player.name), { position: String(player.position), nflTeam: String(player.nfl_team) }]));
+  const playerByNormalizedName = new Map((players ?? []).map((player) => [normalizePlayerName(player.name), player]));
+  const emptyPlayerById = /* @__PURE__ */ new Map();
   const teamScores = /* @__PURE__ */ new Map();
   const idByOwnerForLog = new Map(teams.map((team) => [team.id, team.owner]));
   for (const lineup of lineups ?? []) {
     if (lineup.is_bench) continue;
-    const player = resolvePlayerMetaForLineupEntry(lineup, playerMeta, players ?? []);
+    const player = resolveRosterPlayerForLineupEntry(lineup, emptyPlayerById, playerByNormalizedName, players ?? []);
     if (!player) {
       console.log(`[weeklyResultsFinalize] ${idByOwnerForLog.get(lineup.team_id)}'s starter still not found in players table: "${lineup.player_name}" (slot=${lineup.slot})`);
       continue;
     }
-    const score = player.position === "DST" ? dstScores[teamCode(player.nflTeam)] ?? 0 : individualScores[normalizePlayerName(String(lineup.player_name))] ?? 0;
+    const score = player.position === "DST" ? dstScores[teamCode(player.nfl_team)] ?? 0 : individualScores[normalizePlayerName(String(lineup.player_name))] ?? 0;
     teamScores.set(lineup.team_id, Math.round(((teamScores.get(lineup.team_id) ?? 0) + score) * 10) / 10);
   }
   const schedule = SCHEDULE_2026.find((entry) => entry.week === week2);

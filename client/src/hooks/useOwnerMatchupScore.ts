@@ -4,6 +4,8 @@ import { useNFLMatchups } from "@/hooks/useNFLMatchups";
 import { useNFLLiveScores, getLivePoints } from "@/hooks/useNFLLiveScores";
 import { buildDefaultStarters } from "@/lib/defaultLineup";
 import { useDraftPlayerUniverse } from "@/hooks/useDraftPlayerUniverse";
+import { resolveRosterPlayerForLineupEntry, type RosterPlayerRow } from "@shared/rosterPlayerResolution";
+import { normalizePlayerName } from "@shared/playerNameMatch";
 
 interface StarterInfo {
   name: string;
@@ -17,47 +19,6 @@ interface UseOwnerMatchupScoreResult {
   loading: boolean;
 }
 
-type PlayerRow = { id: string; name: string; position: string; nfl_team: string; team_id: string };
-type LineupRow = { team_id: string; player_id: string | null; player_name: string; slot: string; is_bench: boolean };
-
-/**
- * Resolves a saved lineup row to its actual player info (position,
- * nflTeam), needed for scoring. Prefers the stable player_id lookup,
- * falling back to matching by name, falling back again -- for a DST
- * slot specifically -- to matching by team_id + position === "DST"
- * directly.
- *
- * Confirmed live: a lineup row can reference a player_id/player_name
- * that no longer matches the current players table row at all (e.g. a
- * DST row saved with a draft-time player_id like "dp10172" and the
- * short name "KC Chiefs", while the current players row has id
- * "scottn-kansas-city-chiefs" and name "Kansas City Chiefs" -- neither
- * id nor name matches). Since a team can only ever roster one DST, the
- * team+position fallback sidesteps this entirely for that slot.
- */
-export function resolveStarterPlayerInfo(
-  row: LineupRow,
-  teamId: string,
-  playerById: Map<string, PlayerRow>,
-  playerByName: Map<string, PlayerRow>,
-  allPlayerRows: PlayerRow[],
-): PlayerRow | undefined {
-  const byId = row.player_id ? playerById.get(row.player_id) : undefined;
-  const byName = byId ?? playerByName.get(row.player_name);
-  if (byName) return byName;
-  if (row.slot === "DST") {
-    return allPlayerRows.find(candidate => candidate.team_id === teamId && candidate.position === "DST");
-  }
-  return undefined;
-}
-
-/**
- * Computes just the current live point total for a specific matchup (two
- * team names), for a compact score display -- e.g. the Standings page's
- * "Week N Matchup" card. Deliberately lighter than buildMatchupsFromLineups
- * on Live Scoring: no projections, no per-player display data, no game
- * status -- just the two numbers.
- */
 /**
  * Computes just the current live point total for a specific matchup (two
  * team IDs), for a compact score display -- e.g. the Standings page's
@@ -90,13 +51,13 @@ export function useOwnerMatchupScore(myTeamId: string, oppTeamId: string, week: 
         supabase.from("players").select("id, name, position, nfl_team, team_id").in("team_id", [myTeamId, oppTeamId]),
       ]);
 
-      const playerById = new Map((playerRows ?? []).map(p => [p.id, p]));
-      const playerByName = new Map((playerRows ?? []).map(p => [p.name, p]));
+      const playerById = new Map((playerRows ?? []).map(p => [p.id, p as RosterPlayerRow]));
+      const playerByNormalizedName = new Map((playerRows ?? []).map(p => [normalizePlayerName(p.name), p as RosterPlayerRow]));
       const buildStarters = (teamId: string): StarterInfo[] => {
         const savedLineup = (lineupRows ?? []).filter(row => row.team_id === teamId && !row.is_bench);
         if (savedLineup.length > 0) {
           return savedLineup.map(row => {
-            const p = resolveStarterPlayerInfo(row, teamId, playerById, playerByName, playerRows ?? []);
+            const p = resolveRosterPlayerForLineupEntry(row, playerById, playerByNormalizedName, (playerRows ?? []) as RosterPlayerRow[]);
             return { name: row.player_name, position: p?.position ?? "", nflTeam: p?.nfl_team ?? "" };
           });
         }
@@ -108,6 +69,7 @@ export function useOwnerMatchupScore(myTeamId: string, oppTeamId: string, week: 
           name: player.name, position: player.position, nflTeam: player.nfl_team,
         }));
       };
+
 
       if (!cancelled) {
         setMyStarters(buildStarters(myTeamId));
