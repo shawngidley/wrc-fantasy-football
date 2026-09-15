@@ -88872,30 +88872,31 @@ var SCHEDULE_2026 = [
 ];
 function getCurrentWeek() {
   const now = Date.now();
-  const weekDates = [
-    [(/* @__PURE__ */ new Date("2026-09-09")).getTime(), (/* @__PURE__ */ new Date("2026-09-15")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-09-17")).getTime(), (/* @__PURE__ */ new Date("2026-09-22")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-09-24")).getTime(), (/* @__PURE__ */ new Date("2026-09-29")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-10-01")).getTime(), (/* @__PURE__ */ new Date("2026-10-06")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-10-08")).getTime(), (/* @__PURE__ */ new Date("2026-10-13")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-10-15")).getTime(), (/* @__PURE__ */ new Date("2026-10-20")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-10-22")).getTime(), (/* @__PURE__ */ new Date("2026-10-27")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-10-29")).getTime(), (/* @__PURE__ */ new Date("2026-11-03")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-11-05")).getTime(), (/* @__PURE__ */ new Date("2026-11-10")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-11-12")).getTime(), (/* @__PURE__ */ new Date("2026-11-17")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-11-19")).getTime(), (/* @__PURE__ */ new Date("2026-11-24")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-11-25")).getTime(), (/* @__PURE__ */ new Date("2026-12-01")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-12-03")).getTime(), (/* @__PURE__ */ new Date("2026-12-08")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-12-10")).getTime(), (/* @__PURE__ */ new Date("2026-12-15")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-12-17")).getTime(), (/* @__PURE__ */ new Date("2026-12-22")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-12-24")).getTime(), (/* @__PURE__ */ new Date("2026-12-29")).getTime()],
-    [(/* @__PURE__ */ new Date("2026-12-31")).getTime(), (/* @__PURE__ */ new Date("2027-01-05")).getTime()]
+  const weekStarts = [
+    (/* @__PURE__ */ new Date("2026-09-09")).getTime(),
+    (/* @__PURE__ */ new Date("2026-09-17")).getTime(),
+    (/* @__PURE__ */ new Date("2026-09-24")).getTime(),
+    (/* @__PURE__ */ new Date("2026-10-01")).getTime(),
+    (/* @__PURE__ */ new Date("2026-10-08")).getTime(),
+    (/* @__PURE__ */ new Date("2026-10-15")).getTime(),
+    (/* @__PURE__ */ new Date("2026-10-22")).getTime(),
+    (/* @__PURE__ */ new Date("2026-10-29")).getTime(),
+    (/* @__PURE__ */ new Date("2026-11-05")).getTime(),
+    (/* @__PURE__ */ new Date("2026-11-12")).getTime(),
+    (/* @__PURE__ */ new Date("2026-11-19")).getTime(),
+    (/* @__PURE__ */ new Date("2026-11-25")).getTime(),
+    (/* @__PURE__ */ new Date("2026-12-03")).getTime(),
+    (/* @__PURE__ */ new Date("2026-12-10")).getTime(),
+    (/* @__PURE__ */ new Date("2026-12-17")).getTime(),
+    (/* @__PURE__ */ new Date("2026-12-24")).getTime(),
+    (/* @__PURE__ */ new Date("2026-12-31")).getTime()
   ];
-  for (let i = 0; i < weekDates.length; i++) {
-    if (now >= weekDates[i][0] && now <= weekDates[i][1]) return i + 1;
+  if (now < weekStarts[0]) return 1;
+  let current = 1;
+  for (let i = 0; i < weekStarts.length; i++) {
+    if (now >= weekStarts[i]) current = i + 1;
   }
-  if (now < weekDates[0][0]) return 1;
-  return 17;
+  return current;
 }
 
 // shared/nflTeamCodes.ts

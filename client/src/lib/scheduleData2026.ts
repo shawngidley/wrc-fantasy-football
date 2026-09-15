@@ -351,29 +351,34 @@ export function ownerToTeam(owner: string): string {
 /** Returns the current week number (1-17) based on today's date */
 export function getCurrentWeek(): number {
   const now = Date.now();
-  const weekDates: [number, number][] = [
-    [new Date("2026-09-09").getTime(), new Date("2026-09-15").getTime()],
-    [new Date("2026-09-17").getTime(), new Date("2026-09-22").getTime()],
-    [new Date("2026-09-24").getTime(), new Date("2026-09-29").getTime()],
-    [new Date("2026-10-01").getTime(), new Date("2026-10-06").getTime()],
-    [new Date("2026-10-08").getTime(), new Date("2026-10-13").getTime()],
-    [new Date("2026-10-15").getTime(), new Date("2026-10-20").getTime()],
-    [new Date("2026-10-22").getTime(), new Date("2026-10-27").getTime()],
-    [new Date("2026-10-29").getTime(), new Date("2026-11-03").getTime()],
-    [new Date("2026-11-05").getTime(), new Date("2026-11-10").getTime()],
-    [new Date("2026-11-12").getTime(), new Date("2026-11-17").getTime()],
-    [new Date("2026-11-19").getTime(), new Date("2026-11-24").getTime()],
-    [new Date("2026-11-25").getTime(), new Date("2026-12-01").getTime()],
-    [new Date("2026-12-03").getTime(), new Date("2026-12-08").getTime()],
-    [new Date("2026-12-10").getTime(), new Date("2026-12-15").getTime()],
-    [new Date("2026-12-17").getTime(), new Date("2026-12-22").getTime()],
-    [new Date("2026-12-24").getTime(), new Date("2026-12-29").getTime()],
-    [new Date("2026-12-31").getTime(), new Date("2027-01-05").getTime()],
+  // Each entry's start date is what actually matters for determining the
+  // current fantasy week -- once a week's games have begun, that week
+  // stays "current" through the gap before the next week's games start
+  // (e.g. the Tuesday/Wednesday between Monday Night Football and
+  // Thursday Night Football), not just during its own listed range.
+  const weekStarts: number[] = [
+    new Date("2026-09-09").getTime(),
+    new Date("2026-09-17").getTime(),
+    new Date("2026-09-24").getTime(),
+    new Date("2026-10-01").getTime(),
+    new Date("2026-10-08").getTime(),
+    new Date("2026-10-15").getTime(),
+    new Date("2026-10-22").getTime(),
+    new Date("2026-10-29").getTime(),
+    new Date("2026-11-05").getTime(),
+    new Date("2026-11-12").getTime(),
+    new Date("2026-11-19").getTime(),
+    new Date("2026-11-25").getTime(),
+    new Date("2026-12-03").getTime(),
+    new Date("2026-12-10").getTime(),
+    new Date("2026-12-17").getTime(),
+    new Date("2026-12-24").getTime(),
+    new Date("2026-12-31").getTime(),
   ];
-  for (let i = 0; i < weekDates.length; i++) {
-    if (now >= weekDates[i][0] && now <= weekDates[i][1]) return i + 1;
+  if (now < weekStarts[0]) return 1; // before the season starts
+  let current = 1;
+  for (let i = 0; i < weekStarts.length; i++) {
+    if (now >= weekStarts[i]) current = i + 1;
   }
-  // Before season starts → week 1; after season ends → week 17
-  if (now < weekDates[0][0]) return 1;
-  return 17;
+  return current;
 }
