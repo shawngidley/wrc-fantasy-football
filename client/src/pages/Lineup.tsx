@@ -745,7 +745,7 @@ export default function Lineup() {
     () => [...starters, ...bench].map(player => ({ name: player.name, pos: player.pos, nflTeam: player.nflTeam })),
     [starters, bench],
   );
-  const { statMap: lineupStatMap, playerMetaMap: lineupMetaMap } = useNFLSeasonStats(
+  const { statMap: lineupStatMap, playerMetaMap: lineupMetaMap, ejDebug } = useNFLSeasonStats(
     lineupSeasonPlayers,
     Boolean(viewTeamName) && !draftLoading,
     false,
@@ -1118,6 +1118,11 @@ export default function Lineup() {
               </Link>
             )}
           </div>
+          {ejDebug && (
+            <div style={{ fontSize: "0.6rem", fontFamily: "monospace", background: "oklch(0.95 0.02 85)", border: "1px solid oklch(0.8 0.05 85)", padding: "0.4rem", wordBreak: "break-all", color: "black", margin: "0.5rem 0" }}>
+              DEBUG Emmett Johnson: {ejDebug}
+            </div>
+          )}
           {/* Controls — shown to the owner of this lineup, or the commissioner editing on their behalf */}
           {!isReadOnly && (
             <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap" as const }}>

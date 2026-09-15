@@ -61,6 +61,7 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
   const [playerMetaMap, setPlayerMetaMap] = useState<Record<string, { age?: string; headshot?: string }>>({});
   const [loading, setLoading] = useState(false);
   const [loadedCount, setLoadedCount] = useState(0);
+  const [ejDebug, setEjDebug] = useState<string>("(effect hasn't run yet)");
 
   const requestKey = useMemo(
     () => players.map(player => `${player.name}:${player.pos}`).join("|") ,
@@ -101,8 +102,15 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
         nextMeta[player.name.toLowerCase()] = { age: cached.age, headshot: cached.headshot };
       }
       const needsIdentityRefresh = effectiveAllowProviderFallback && player.pos !== "DST" && (!cached?.age || !cached?.headshot);
-      return !cached || ignoreCachedOffense || needsIdentityRefresh;
+      const isUncached = !cached || ignoreCachedOffense || needsIdentityRefresh;
+      if (player.name.toLowerCase().includes("emmett johnson")) {
+        setEjDebug(`In players array: pos=${player.pos}, nflTeam=${player.nflTeam}. cacheGet result: ${cached ? JSON.stringify(cached) : "null"}. ignoreCachedOffense=${ignoreCachedOffense}, needsIdentityRefresh=${needsIdentityRefresh}, isUncached=${isUncached}`);
+      }
+      return isUncached;
     });
+    if (!players.some(p => p.name.toLowerCase().includes("emmett johnson"))) {
+      setEjDebug(`NOT in players array at all (${players.length} total players passed to this hook)`);
+    }
 
     setStatMap(next);
     setPlayerMetaMap(nextMeta);
@@ -237,6 +245,7 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
         const tankPlayer = await fetchPlayerByName(player.name);
         if (player.name.toLowerCase().includes("emmett johnson")) {
           console.log("[useNFLSeasonStats DEBUG] Emmett Johnson fetchPlayerByName result:", JSON.stringify(tankPlayer));
+          setEjDebug(prev => `${prev} | worker() reached him, fetchPlayerByName returned: ${JSON.stringify(tankPlayer)}`);
         }
         if (cancelled) return;
         const exactKickerSeason = (!season2026Underway && player.pos === "K") ? getCompletedKickerSeasonStats(player.name) : undefined;
@@ -295,5 +304,5 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
     return () => { cancelled = true; };
   }, [requestKey, enabled]);
 
-  return { statMap, playerMetaMap, loading, loadedCount };
+  return { statMap, playerMetaMap, loading, loadedCount, ejDebug };
 }
