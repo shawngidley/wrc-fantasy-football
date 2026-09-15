@@ -236,8 +236,9 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
   for (const { game, body } of boxScores) {
     Object.values(body.playerStats ?? {}).forEach((entry: any) => {
       if (entry.longName) {
-        const rosterPosition = positionByName.get(normalizePlayerName(String(entry.longName))) ?? String(entry.pos ?? "");
-        individualScores[String(entry.longName).toLowerCase()] = playerPoints(entry, rosterPosition);
+        const normalizedName = normalizePlayerName(String(entry.longName));
+        const rosterPosition = positionByName.get(normalizedName) ?? String(entry.pos ?? "");
+        individualScores[normalizedName] = playerPoints(entry, rosterPosition);
       }
     });
     const teamStatsBody = (body.teamStats ?? {}) as Record<string, Record<string, unknown>>;
@@ -255,7 +256,7 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
     if (lineup.is_bench) continue;
     const player = playerMeta.get(String(lineup.player_name).toLowerCase());
     if (!player) continue;
-    const score = player.position === "DST" ? (dstScores[teamCode(player.nflTeam)] ?? 0) : (individualScores[String(lineup.player_name).toLowerCase()] ?? 0);
+    const score = player.position === "DST" ? (dstScores[teamCode(player.nflTeam)] ?? 0) : (individualScores[normalizePlayerName(String(lineup.player_name))] ?? 0);
     teamScores.set(lineup.team_id, Math.round(((teamScores.get(lineup.team_id) ?? 0) + score) * 10) / 10);
   }
 
