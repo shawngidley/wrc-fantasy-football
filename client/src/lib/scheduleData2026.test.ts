@@ -1,5 +1,5 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
-import { getCurrentWeek } from "./scheduleData2026";
+import { getCurrentWeek, resolveWeeklyOpponentTeamName } from "./scheduleData2026";
 
 describe("getCurrentWeek", () => {
   afterEach(() => {
@@ -51,5 +51,38 @@ describe("getCurrentWeek", () => {
     expect(getCurrentWeek()).toBe(17);
     setNow("2027-06-01T00:00:00Z");
     expect(getCurrentWeek()).toBe(17);
+  });
+});
+
+describe("resolveWeeklyOpponentTeamName", () => {
+  it("resolves the correct opponent for Week 1 (Vipers vs Xavier Musketeers, the real confirmed matchup)", () => {
+    expect(resolveWeeklyOpponentTeamName("Vipers", 1)).toBe("Xavier Musketeers");
+  });
+
+  it("resolves correctly from the other side of the same matchup", () => {
+    expect(resolveWeeklyOpponentTeamName("Xavier Musketeers", 1)).toBe("Vipers");
+  });
+
+  it("returns undefined for a null/undefined team name", () => {
+    expect(resolveWeeklyOpponentTeamName(null, 1)).toBeUndefined();
+    expect(resolveWeeklyOpponentTeamName(undefined, 1)).toBeUndefined();
+  });
+
+  it("returns undefined for a team name that doesn't match any known owner's team", () => {
+    expect(resolveWeeklyOpponentTeamName("Not A Real Team", 1)).toBeUndefined();
+  });
+
+  it("returns undefined for a week number with no schedule data", () => {
+    expect(resolveWeeklyOpponentTeamName("Vipers", 999)).toBeUndefined();
+  });
+
+  it("resolves a different, correct opponent for a different week", () => {
+    // Week 2's actual matchups differ from Week 1's -- confirm the
+    // resolution is genuinely week-specific, not just returning Week 1's
+    // opponent regardless of the week argument.
+    const week1Opponent = resolveWeeklyOpponentTeamName("Vipers", 1);
+    const week2Opponent = resolveWeeklyOpponentTeamName("Vipers", 2);
+    expect(week2Opponent).toBeDefined();
+    expect(week2Opponent).not.toBe(week1Opponent);
   });
 });

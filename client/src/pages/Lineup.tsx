@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { Lock, CheckCircle2, ChevronDown, ArrowLeftRight, X, Zap, Eye, ArrowLeft, Wifi, WifiOff, Shield } from "lucide-react";
 import { TEAMS } from "@/lib/wrcData";
-import { getCurrentWeek, SCHEDULE_2026 } from "@/lib/scheduleData2026";
+import { getCurrentWeek, SCHEDULE_2026, resolveWeeklyOpponentTeamName } from "@/lib/scheduleData2026";
 import { useDraftedRoster } from "@/hooks/useDraftedRoster";
 import { useParams, Link, useLocation } from "wouter";
 import TeamLogo from "@/components/TeamLogo";
@@ -647,6 +647,10 @@ export default function Lineup() {
   }
   const actualCurrentWeek = getCurrentWeek() || 1;
   const [currentWeek, setCurrentWeek] = useState<number>(getWeekFromUrl);
+
+  // Who the viewed team is playing this week, for the header.
+  const opponentTeamName = resolveWeeklyOpponentTeamName(viewTeamName, currentWeek);
+
   const { matchups: matchupMap } = useNFLMatchups(currentWeek);
   const { projections } = useNFLProjections(currentWeek);
 
@@ -1110,6 +1114,13 @@ export default function Lineup() {
                 </option>
               ))}
             </select>
+            {opponentTeamName && (
+              <Link href={`/live?week=${currentWeek}`} style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginTop: "0.4rem", textDecoration: "none" }}>
+                <span style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.6)" }}>Playing:</span>
+                <TeamLogo teamName={opponentTeamName} size={20} round />
+                <span style={{ fontSize: "0.78rem", fontWeight: 700, color: "oklch(0.78 0.15 85)" }}>{opponentTeamName}</span>
+              </Link>
+            )}
           </div>
           {/* Controls — shown to the owner of this lineup, or the commissioner editing on their behalf */}
           {!isReadOnly && (

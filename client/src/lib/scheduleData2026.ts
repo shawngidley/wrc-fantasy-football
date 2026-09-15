@@ -382,3 +382,21 @@ export function getCurrentWeek(): number {
   }
   return current;
 }
+
+/**
+ * Resolves a team's opponent for a given week, by team name (since some
+ * pages, like Lineup.tsx, identify teams by name rather than owner key).
+ * Returns undefined when there's no matchup for this team that week
+ * (e.g. a bye week in an odd-team setup, or a playoff week this team
+ * isn't part of) -- callers should render nothing in that case, not an
+ * error.
+ */
+export function resolveWeeklyOpponentTeamName(teamName: string | null | undefined, week: number): string | undefined {
+  if (!teamName) return undefined;
+  const ownerKey = Object.entries(OWNER_TO_TEAM).find(([, name]) => name === teamName)?.[0];
+  if (!ownerKey) return undefined;
+  const matchup = SCHEDULE_2026.find(w => w.week === week)?.matchups.find(m => m[0] === ownerKey || m[1] === ownerKey);
+  if (!matchup) return undefined;
+  const opponentOwnerKey = matchup[0] === ownerKey ? matchup[1] : matchup[0];
+  return OWNER_TO_TEAM[opponentOwnerKey];
+}
