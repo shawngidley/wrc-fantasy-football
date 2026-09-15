@@ -118,7 +118,10 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
   const gamesResponse = await fetch(`https://${HOST}/getNFLGamesForWeek?week=${week}&seasonType=Regular%20Season&season=${season}`, { headers, signal: AbortSignal.timeout(30_000) });
   if (!gamesResponse.ok) throw new Error(`Unable to load NFL games (${gamesResponse.status}).`);
   const games = ((await gamesResponse.json()).body ?? []) as Array<{ gameID: string; gameStatus?: string; home?: string; away?: string }>;
-  if (!games.length || games.some(game => !/final/i.test(game.gameStatus ?? ""))) throw new Error("NFL games for this week are not all final yet.");
+  if (!games.length || games.some(game => !/final/i.test(game.gameStatus ?? ""))) {
+    console.log(`[FINALIZE DEBUG] week=${week} season=${season}: games.length=${games.length}`, JSON.stringify(games.map(g => ({ gameID: g.gameID, home: g.home, away: g.away, gameStatus: g.gameStatus }))));
+    throw new Error("NFL games for this week are not all final yet.");
+  }
 
   const [{ data: lineups, error: lineupsError }, { data: players, error: playersError }, { data: teams, error: teamsError }] = await Promise.all([
     supabaseAdmin.from("lineups").select("team_id, player_name, is_bench").eq("week", week).eq("season", season),
