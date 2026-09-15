@@ -15,6 +15,8 @@ interface UseOwnerMatchupScoreResult {
   myScore: number;
   oppScore: number;
   loading: boolean;
+  _debugMyStarters?: Array<{ name: string; position: string; pts: number }>;
+  _debugOppStarters?: Array<{ name: string; position: string; pts: number }>;
 }
 
 /**
@@ -94,5 +96,9 @@ export function useOwnerMatchupScore(myTeamId: string, oppTeamId: string, week: 
     [oppStarters, liveScores, kickerEvents, liveStats],
   );
 
-  return { myScore, oppScore, loading };
+  // TEMPORARY DEBUG -- per-player breakdown to compare against Live Scoring
+  const _debugMyStarters = myStarters.map(s => ({ name: s.name, position: s.position, pts: getLivePoints(liveScores, s.name, s.position, s.nflTeam, kickerEvents, liveStats) ?? 0 }));
+  const _debugOppStarters = oppStarters.map(s => ({ name: s.name, position: s.position, pts: getLivePoints(liveScores, s.name, s.position, s.nflTeam, kickerEvents, liveStats) ?? 0 }));
+
+  return { myScore, oppScore, loading, _debugMyStarters, _debugOppStarters };
 }
