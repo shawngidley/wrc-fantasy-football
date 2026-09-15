@@ -26,7 +26,7 @@ import { DRAFT_LOTTERY_OWNERS, isValidDraftLotteryResult } from "../shared/draft
 import { applyDraftLottery } from "../shared/draftLottery";
 import { DRAFT_PICKS_2026 } from "../client/src/lib/draftData2026";
 import { createTeamMediaSignedUploadUrl, TEAM_MEDIA_BUCKET_NAME } from "./storage";
-import { finalizeWeeklyResultsFromTank } from "./weeklyResultsFinalize";
+import { finalizeWeeklyResultsFromTank, weeklyRecordDelta } from "./weeklyResultsFinalize";
 import { assertLoginAllowed, assertStrongLeaguePin, clearLoginFailures, getClientIp, recordLoginFailure } from "./leagueLoginSecurity";
 import { nanoid } from "nanoid";
 import { randomInt } from "node:crypto";
@@ -1705,18 +1705,23 @@ export const appRouter = router({
           if (!row) return;
           row.pts_for += ownScore;
           row.pts_against += opponentScore;
-          if (ownScore > opponentScore) {
-            row.wins += 1; row.h2h_wins += 1; if (divisionGame) row.div_wins += 1;
+          const h2hOutcome = ownScore > opponentScore ? "W" : ownScore < opponentScore ? "L" : "T";
+          if (h2hOutcome === "W") {
+            row.h2h_wins += 1; if (divisionGame) row.div_wins += 1;
             row.streak = row.streak.startsWith("W") ? `W${Number(row.streak.slice(1)) + 1}` : "W1";
-          } else if (ownScore < opponentScore) {
-            row.losses += 1; row.h2h_losses += 1; if (divisionGame) row.div_losses += 1;
+          } else if (h2hOutcome === "L") {
+            row.h2h_losses += 1; if (divisionGame) row.div_losses += 1;
             row.streak = row.streak.startsWith("L") ? `L${Number(row.streak.slice(1)) + 1}` : "L1";
           } else {
             row.ties += 1;
             row.streak = row.streak.startsWith("T") ? `T${Number(row.streak.slice(1)) + 1}` : "T1";
           }
-          if (ownScore > median) row.median_wins += 1;
+          const beatMedian = ownScore > median;
+          if (beatMedian) row.median_wins += 1;
           else row.median_losses += 1;
+          const { winsDelta, lossesDelta } = weeklyRecordDelta(h2hOutcome, beatMedian);
+          row.wins += winsDelta;
+          row.losses += lossesDelta;
         };
         Array.from(resultsByWeek.values()).forEach(rows => {
           const scores: number[] = rows.flatMap(row => [Number(row.home_score), Number(row.away_score)]).sort((a: number, b: number) => a - b);
