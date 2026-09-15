@@ -58,7 +58,6 @@ function cacheSet(name: string, data: SeasonStatsCacheEntry) {
 
 export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: boolean, allowProviderFallback = true) {
   const [statMap, setStatMap] = useState<Record<string, PlayerSeasonStats>>({});
-  const [zeroGpDebug, setZeroGpDebug] = useState<string[]>([]);
   const [playerMetaMap, setPlayerMetaMap] = useState<Record<string, { age?: string; headshot?: string }>>({});
   const [loading, setLoading] = useState(false);
   const [loadedCount, setLoadedCount] = useState(0);
@@ -253,9 +252,6 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
             : normalizeTankSeasonStats(tankPlayer?.stats, player.pos))
           : undefined;
         const stats = next[key] ?? liveStats;
-        if (liveStats && liveStats.gp === 0 && tankPlayer && tankPlayer.isFreeAgent !== "True" && !tankPlayer.injury?.designation) {
-          setZeroGpDebug(prev => [...prev, `${player.name} (${player.pos}, ${player.nflTeam}): raw tankPlayer=${JSON.stringify(tankPlayer)}`]);
-        }
         const universePlayer = getDraftUniversePlayerByName(player.name);
         const espnAge = tankPlayer?.age || await fetchEspnAge(universePlayer?.sourcePlayerId ?? undefined);
         const meta = {
@@ -303,5 +299,5 @@ export function useNFLSeasonStats(players: SeasonStatsPlayerInput[], enabled: bo
     return () => { cancelled = true; };
   }, [requestKey, enabled]);
 
-  return { statMap, playerMetaMap, loading, loadedCount, zeroGpDebug };
+  return { statMap, playerMetaMap, loading, loadedCount };
 }
