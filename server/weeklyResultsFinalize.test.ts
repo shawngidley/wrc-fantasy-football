@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moneyOwedIdForOwner, resolveTeamStatsKey, sacksFrom, defensePoints, attributeOffenseFramedDefenseStats, playerPoints } from "./weeklyResultsFinalize";
+import { moneyOwedIdForOwner, resolveTeamStatsKey, sacksFrom, defensePoints, attributeOffenseFramedDefenseStats, playerPoints, isGameFinal } from "./weeklyResultsFinalize";
 
 describe("moneyOwedIdForOwner", () => {
   it("matches every owner's actual money_owed.id (verified against Money.tsx's DEFAULT_OWNERS)", () => {
@@ -164,5 +164,41 @@ describe("playerPoints TE reception bonus", () => {
   it("does not apply any reception bonus for a non-TE position", () => {
     const pts = playerPoints({ Receiving: { receptions: 8, recYds: 68 } }, "WR");
     expect(pts).toBe(14.8); // 8*1.0 + 6.8
+  });
+});
+
+describe("isGameFinal", () => {
+  // Confirmed directly with Tank01 support: gameStatusCode "2" means
+  // final/completed. "0"=not started, "1"=in progress, "3"=postponed,
+  // "4"=suspended -- none of those count as final.
+  it("returns true when gameStatusCode is 2 (final/completed)", () => {
+    expect(isGameFinal({ gameStatusCode: "2" })).toBe(true);
+    expect(isGameFinal({ gameStatusCode: 2 })).toBe(true); // also handles a numeric wire type
+  });
+
+  it("returns false for every other gameStatusCode value", () => {
+    expect(isGameFinal({ gameStatusCode: "0" })).toBe(false); // not started
+    expect(isGameFinal({ gameStatusCode: "1" })).toBe(false); // in progress
+    expect(isGameFinal({ gameStatusCode: "3" })).toBe(false); // postponed
+    expect(isGameFinal({ gameStatusCode: "4" })).toBe(false); // suspended
+  });
+
+  it("ignores gameStatus text when gameStatusCode is present -- confirmed live: getNFLGamesForWeek's stale gameStatus text ('Scheduled') was the exact bug this replaces trusting", () => {
+    // gameStatusCode wins even if gameStatus text looks stale/wrong.
+    expect(isGameFinal({ gameStatusCode: "2", gameStatus: "Scheduled" })).toBe(true);
+  });
+
+  it("falls back to gameStatus text when gameStatusCode is missing", () => {
+    expect(isGameFinal({ gameStatus: "Final" })).toBe(true);
+    expect(isGameFinal({ gameStatus: "Final/OT" })).toBe(true);
+    expect(isGameFinal({ gameStatus: "Completed" })).toBe(true);
+    expect(isGameFinal({ gameStatus: "Scheduled" })).toBe(false);
+    expect(isGameFinal({ gameStatus: "Live - In Progress" })).toBe(false);
+  });
+
+  it("returns false for null/undefined/empty input", () => {
+    expect(isGameFinal(null)).toBe(false);
+    expect(isGameFinal(undefined)).toBe(false);
+    expect(isGameFinal({})).toBe(false);
   });
 });

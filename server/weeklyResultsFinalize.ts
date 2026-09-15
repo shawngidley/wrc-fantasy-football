@@ -17,6 +17,23 @@ const teamCode = (value: string) => ({ jax: "JAC", jac: "JAC", was: "WSH", wsh: 
  * string "home"/"away" -- which was never found by anything looking up
  * a real team code, meaning every DST always computed as 0 here.
  */
+/**
+ * Confirmed directly with Tank01: getNFLBoxScore's own gameStatus/
+ * gameStatusCode fields ARE genuinely live (unlike getNFLGamesForWeek's
+ * stale, once-daily-refreshed version, which is why a game that had
+ * genuinely ended hours earlier once still showed "Scheduled" through
+ * that endpoint). gameStatusCode is a clean numeric enum (0=not started,
+ * 1=in progress, 2=final/completed, 3=postponed, 4=suspended), checked
+ * as a string here since its exact wire type isn't confirmed; falls back
+ * to the gameStatus text itself for defense-in-depth in case that field
+ * is ever missing or an unexpected type.
+ */
+export function isGameFinal(body: { gameStatus?: unknown; gameStatusCode?: unknown } | null | undefined): boolean {
+  const code = body?.gameStatusCode !== undefined ? String(body.gameStatusCode) : undefined;
+  if (code !== undefined) return code === "2";
+  return /final|completed/i.test(String(body?.gameStatus ?? ""));
+}
+
 export function resolveTeamStatsKey(homeAway: string, game: { home?: string; away?: string }): string | undefined {
   if (homeAway === "home") return game.home ? teamCode(game.home) : undefined;
   if (homeAway === "away") return game.away ? teamCode(game.away) : undefined;
@@ -115,20 +132,17 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
   const key = process.env.TANK01_API_KEY;
   if (!key) throw new Error("Tank01 API credential is unavailable.");
   const headers = { "x-rapidapi-key": key, "x-rapidapi-host": HOST };
+  // getNFLGamesForWeek is only used here for the list of which games belong
+  // to this week -- that part (the schedule) is fine on Tank01's own daily
+  // refresh cadence. Its own gameStatus field is NOT used for the
+  // "is this week done" check below -- confirmed directly with Tank01 that
+  // this specific endpoint is a reference/schedule endpoint only updated
+  // once each morning, not live, which is exactly why a game that had
+  // genuinely ended hours earlier still showed "Scheduled" here.
   const gamesResponse = await fetch(`https://${HOST}/getNFLGamesForWeek?week=${week}&seasonType=Regular%20Season&season=${season}`, { headers, signal: AbortSignal.timeout(30_000) });
   if (!gamesResponse.ok) throw new Error(`Unable to load NFL games (${gamesResponse.status}).`);
-  const games = ((await gamesResponse.json()).body ?? []) as Array<{ gameID: string; gameStatus?: string; home?: string; away?: string }>;
-  const notYetFinal = games.filter(g => !/final/i.test(g.gameStatus ?? ""));
-  if (!games.length || notYetFinal.length > 0) {
-    // Tank01's own gameStatus for a specific game can lag behind the
-    // real, actual game ending for a while -- confirmed live, one game
-    // still showed "Scheduled" here hours after it had genuinely ended.
-    // Logging just the pending game(s), not the whole week's games,
-    // makes it quick to see what's actually still holding up
-    // finalization the next time this comes up.
-    console.log(`[weeklyResultsFinalize] week=${week} season=${season}: ${games.length} games found, ${notYetFinal.length} not yet final:`, JSON.stringify(notYetFinal.map(g => ({ gameID: g.gameID, gameStatus: g.gameStatus }))));
-    throw new Error("NFL games for this week are not all final yet.");
-  }
+  const games = ((await gamesResponse.json()).body ?? []) as Array<{ gameID: string; home?: string; away?: string }>;
+  if (!games.length) throw new Error("No NFL games found for this week.");
 
   const [{ data: lineups, error: lineupsError }, { data: players, error: playersError }, { data: teams, error: teamsError }] = await Promise.all([
     supabaseAdmin.from("lineups").select("team_id, player_name, is_bench").eq("week", week).eq("season", season),
@@ -150,10 +164,24 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
   // roster's stored name by a generational suffix (e.g. "James Cook"
   // vs "James Cook III").
   const positionByName = new Map((players ?? []).map(p => [normalizePlayerName(p.name), p.position]));
+  const boxScores: Array<{ game: { gameID: string; home?: string; away?: string }; body: any }> = [];
   for (const game of games) {
     const response = await fetch(`https://${HOST}/getNFLBoxScore?gameID=${game.gameID}&fantasyPoints=true&twoPointConversions=2&passYards=.04&passTD=4&passInterceptions=-3&pointsPerReception=1&carries=0&rushYards=.1&rushTD=6&fumbles=-3&receivingYards=.1&receivingTD=6&targets=0&defTD=6&fgMade=0&fgYards=.1&xpMade=1`, { headers, signal: AbortSignal.timeout(30_000) });
     if (!response.ok) throw new Error("Unable to load an NFL box score.");
     const body = (await response.json()).body ?? {};
+    boxScores.push({ game, body });
+  }
+
+  const notYetFinal = boxScores.filter(({ body }) => !isGameFinal(body));
+  if (notYetFinal.length > 0) {
+    // Logging just the pending game(s), not the whole week's games, makes
+    // it quick to see what's actually still holding up finalization the
+    // next time this comes up.
+    console.log(`[weeklyResultsFinalize] week=${week} season=${season}: ${boxScores.length} games found, ${notYetFinal.length} not yet final:`, JSON.stringify(notYetFinal.map(({ game, body }) => ({ gameID: game.gameID, gameStatus: body?.gameStatus, gameStatusCode: body?.gameStatusCode }))));
+    throw new Error("NFL games for this week are not all final yet.");
+  }
+
+  for (const { game, body } of boxScores) {
     Object.values(body.playerStats ?? {}).forEach((entry: any) => {
       if (entry.longName) {
         const rosterPosition = positionByName.get(normalizePlayerName(String(entry.longName))) ?? String(entry.pos ?? "");

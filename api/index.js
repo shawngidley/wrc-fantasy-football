@@ -89551,6 +89551,11 @@ init_supabaseAdmin();
 var HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
 var n = (value) => Number.parseFloat(String(value ?? "0")) || 0;
 var teamCode = (value) => ({ jax: "JAC", jac: "JAC", was: "WSH", wsh: "WSH", kan: "KC", kc: "KC", tam: "TB", tb: "TB", arz: "ARI", ari: "ARI" })[value.toLowerCase()] ?? value.toUpperCase();
+function isGameFinal(body) {
+  const code = body?.gameStatusCode !== void 0 ? String(body.gameStatusCode) : void 0;
+  if (code !== void 0) return code === "2";
+  return /final|completed/i.test(String(body?.gameStatus ?? ""));
+}
 function resolveTeamStatsKey(homeAway, game) {
   if (homeAway === "home") return game.home ? teamCode(game.home) : void 0;
   if (homeAway === "away") return game.away ? teamCode(game.away) : void 0;
@@ -89606,11 +89611,7 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
   const gamesResponse = await fetch(`https://${HOST}/getNFLGamesForWeek?week=${week2}&seasonType=Regular%20Season&season=${season}`, { headers, signal: AbortSignal.timeout(3e4) });
   if (!gamesResponse.ok) throw new Error(`Unable to load NFL games (${gamesResponse.status}).`);
   const games = (await gamesResponse.json()).body ?? [];
-  const notYetFinal = games.filter((g) => !/final/i.test(g.gameStatus ?? ""));
-  if (!games.length || notYetFinal.length > 0) {
-    console.log(`[weeklyResultsFinalize] week=${week2} season=${season}: ${games.length} games found, ${notYetFinal.length} not yet final:`, JSON.stringify(notYetFinal.map((g) => ({ gameID: g.gameID, gameStatus: g.gameStatus }))));
-    throw new Error("NFL games for this week are not all final yet.");
-  }
+  if (!games.length) throw new Error("No NFL games found for this week.");
   const [{ data: lineups, error: lineupsError }, { data: players, error: playersError }, { data: teams, error: teamsError }] = await Promise.all([
     supabaseAdmin.from("lineups").select("team_id, player_name, is_bench").eq("week", week2).eq("season", season),
     supabaseAdmin.from("players").select("name, position, nfl_team").eq("season", season),
@@ -89620,10 +89621,19 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
   const individualScores = {};
   const dstScores = {};
   const positionByName = new Map((players ?? []).map((p) => [normalizePlayerName(p.name), p.position]));
+  const boxScores = [];
   for (const game of games) {
     const response = await fetch(`https://${HOST}/getNFLBoxScore?gameID=${game.gameID}&fantasyPoints=true&twoPointConversions=2&passYards=.04&passTD=4&passInterceptions=-3&pointsPerReception=1&carries=0&rushYards=.1&rushTD=6&fumbles=-3&receivingYards=.1&receivingTD=6&targets=0&defTD=6&fgMade=0&fgYards=.1&xpMade=1`, { headers, signal: AbortSignal.timeout(3e4) });
     if (!response.ok) throw new Error("Unable to load an NFL box score.");
     const body = (await response.json()).body ?? {};
+    boxScores.push({ game, body });
+  }
+  const notYetFinal = boxScores.filter(({ body }) => !isGameFinal(body));
+  if (notYetFinal.length > 0) {
+    console.log(`[weeklyResultsFinalize] week=${week2} season=${season}: ${boxScores.length} games found, ${notYetFinal.length} not yet final:`, JSON.stringify(notYetFinal.map(({ game, body }) => ({ gameID: game.gameID, gameStatus: body?.gameStatus, gameStatusCode: body?.gameStatusCode }))));
+    throw new Error("NFL games for this week are not all final yet.");
+  }
+  for (const { game, body } of boxScores) {
     Object.values(body.playerStats ?? {}).forEach((entry) => {
       if (entry.longName) {
         const rosterPosition = positionByName.get(normalizePlayerName(String(entry.longName))) ?? String(entry.pos ?? "");
