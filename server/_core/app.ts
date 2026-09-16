@@ -73,6 +73,12 @@ export function createApp(): Express {
     createExpressMiddleware({
       router: appRouter,
       createContext,
+      // The client forces POST for playerStats queries carrying large
+      // player-name arrays (methodOverride: 'POST' in main.tsx, to avoid
+      // a GET URL that's too long) -- the server needs this to accept
+      // that, since it otherwise rejects POST aimed at a query
+      // procedure with a 405 regardless of what the client intended.
+      allowMethodOverride: true,
     })
   );
   return app;
