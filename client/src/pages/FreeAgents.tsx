@@ -779,7 +779,14 @@ export default function FreeAgents() {
               <DollarSign size={11} style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} />
               My Bids
             </button>
-            {isCommissioner && (
+            {/* Manage Bids (manual award override) hidden from the commissioner's
+                own navigation per request -- bid resolution is now fully
+                automated (Thu/Sun 9am ET), so this isn't needed day to day.
+                The underlying capability (CommissionerBids component,
+                commissionerFaabBids/awardFaabBid procedures) is left fully
+                intact in case a manual override is ever needed again --
+                change `false` back to `isCommissioner` to restore the tab. */}
+            {false && isCommissioner && (
               <button
                 onClick={() => setActiveTab(activeTab === "bids" ? "pool" : "bids")}
                 style={{
