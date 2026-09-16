@@ -13,7 +13,7 @@ import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import TeamLogo from "@/components/TeamLogo";
 import { supabase } from "@/lib/supabase";
-import { SCHEDULE_2026, OWNER_TO_TEAM, getCurrentWeek } from "@/lib/scheduleData2026";
+import { SCHEDULE_2026, OWNER_TO_TEAM, getLineupDefaultWeek } from "@/lib/scheduleData2026";
 import { useNFLMatchups, formatGameTime } from "@/hooks/useNFLMatchups";
 import { useNFLGameStatus, minutesRemainingInGame, type NFLGameStatusMap } from "@/hooks/useNFLGameStatus";
 import { normalizeNFLTeamCode as normalizeNFLTeam } from "@shared/nflTeamCodes";
@@ -1307,7 +1307,7 @@ export default function LiveScoring() {
   // that one option in the dropdown so a person browsing an old week can
   // still tell where "now" is.
   const actualCurrentWeek = useMemo(() => {
-    const w = getCurrentWeek();
+    const w = getLineupDefaultWeek();
     return w > 0 ? w : 1;
   }, []);
 
@@ -1320,7 +1320,7 @@ export default function LiveScoring() {
       const parsed = parseInt(weekParam, 10);
       if (!isNaN(parsed) && SCHEDULE_2026.some(w => w.week === parsed)) return parsed;
     }
-    const w = getCurrentWeek();
+    const w = getLineupDefaultWeek();
     return w > 0 ? w : 1;
   }
   // Real state rather than a useMemo derived from `location`: wouter's

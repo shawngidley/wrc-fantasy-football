@@ -12,7 +12,7 @@ import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import {
-  SCHEDULE_2026, OWNER_TO_TEAM, ownerToTeam, getCurrentWeek,
+  SCHEDULE_2026, OWNER_TO_TEAM, ownerToTeam, getLineupDefaultWeek,
   derivePlayoffSeeds,
 } from "@/lib/scheduleData2026";
 import { getOwnerRegularSeasonWeeks } from "@/lib/scheduleOwnerView";
@@ -252,7 +252,7 @@ export default function ScheduleResults() {
   const myOwner = franchise?.owner ?? null;
   const myTeam = myOwner ? (ownerToTeam(myOwner) ?? myOwner) : null;
 
-  const currentWeek = getCurrentWeek() || 1;
+  const currentWeek = getLineupDefaultWeek() || 1;
   const { matchups: matchupMap } = useNFLMatchups(currentWeek);
   const { autoWriteStatus, autoWriteError, forceWriteResults } = useWeeklyResultsWriter(
     currentWeek, 2026, matchupMap, false

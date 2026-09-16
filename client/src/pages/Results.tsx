@@ -10,7 +10,7 @@ import { useState, useEffect, useCallback } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { SCHEDULE_2026, OWNER_TO_TEAM, getCurrentWeek } from "@/lib/scheduleData2026";
+import { SCHEDULE_2026, OWNER_TO_TEAM, getLineupDefaultWeek } from "@/lib/scheduleData2026";
 import { useNFLMatchups } from "@/hooks/useNFLMatchups";
 import { useWeeklyResultsWriter } from "@/hooks/useWeeklyResultsWriter";
 import { CheckCircle2, Clock, Edit3, Trophy, X, Zap, RefreshCw } from "lucide-react";
@@ -311,7 +311,7 @@ export default function Results() {
   const { franchise, authLoading } = useAuth();
   const isCommissioner = franchise?.is_commissioner === true;
 
-  const currentWeek = getCurrentWeek() || 1;
+  const currentWeek = getLineupDefaultWeek() || 1;
 
   const [allResults, setAllResults] = useState<WeeklyResult[]>([]);
   const [loading, setLoading] = useState(true);

@@ -7,7 +7,7 @@ import { useState, useEffect } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { SCHEDULE_2026, OWNER_TO_TEAM, getCurrentWeek } from "@/lib/scheduleData2026";
+import { SCHEDULE_2026, OWNER_TO_TEAM, getLineupDefaultWeek } from "@/lib/scheduleData2026";
 
 interface WeekResult {
   week: number;
@@ -20,7 +20,7 @@ interface WeekResult {
 
 export default function Rundown() {
   const { franchise } = useAuth();
-  const currentWeek = getCurrentWeek() || 1;
+  const currentWeek = getLineupDefaultWeek() || 1;
   const [selectedWeek, setSelectedWeek] = useState(currentWeek);
   const [results, setResults] = useState<WeekResult[]>([]);
   const [loading, setLoading] = useState(true);
