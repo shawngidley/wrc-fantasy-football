@@ -33,7 +33,6 @@ import { useWatchlist } from "@/hooks/useWatchlist";
 import { toast } from "sonner";
 import Navigation from "@/components/Navigation";
 import { useNFLDepthCharts } from "@/hooks/useNFLDepthCharts";
-import { useNFLSeasonStats } from "@/hooks/useNFLSeasonStats";
 import { useDbSeasonStats } from "@/hooks/useDbSeasonStats";
 import { useHistoricalSeasonStats } from "@/hooks/useHistoricalSeasonStats";
 import { formatSeasonStatColumn, type PlayerSeasonStats, type SeasonStatColumn, type SeasonStatKey } from "@/lib/playerSeasonStats";
@@ -435,21 +434,19 @@ export default function FreeAgents() {
   );
   const defaultStatsYear = useMemo(() => getDefaultStatsYear(), []);
   const [selectedStatsYear, setSelectedStatsYear] = useState<number>(defaultStatsYear);
-  const { statMap: tankSeasonStatMap, playerMetaMap, loading: seasonStatsLoading, loadedCount: seasonStatsLoaded } = useNFLSeasonStats(seasonStatPlayers, selectedStatsYear === defaultStatsYear, false);
   // Season stats read directly from WRC's own database (already-finalized
   // weeks, computed once server-side during official weekly finalization,
   // now covering free agents too) instead of independently recomputed
-  // client-side from Tank01/ESPN -- same approach as Lineup.tsx. Falls
-  // back to the Tank01-based path for a player with no rows yet in the
-  // table (the current, not-yet-finalized week).
-  const { statMap: dbSeasonStatMap } = useDbSeasonStats(
+  // client-side from Tank01 -- same source Lineup.tsx uses. At Free
+  // Agents' scale (hundreds of players, not one roster), a live
+  // per-player Tank01 fetch was needlessly slow (up to 743 individual
+  // requests) for data the database already has for every player who's
+  // played a finalized week -- removed entirely rather than kept as a
+  // fallback, since that fallback almost never actually needed to fire.
+  const { statMap: currentSeasonStatMap, loading: currentSeasonStatsLoading, loadedCount: seasonStatsLoaded } = useDbSeasonStats(
     seasonStatPlayers.map(p => p.name),
     2026,
     selectedStatsYear === defaultStatsYear && baseFiltered.length > 0,
-  );
-  const currentSeasonStatMap = useMemo(
-    () => ({ ...tankSeasonStatMap, ...dbSeasonStatMap }),
-    [tankSeasonStatMap, dbSeasonStatMap],
   );
   // Historical years (2023-2025) read from a precomputed, one-time
   // backfill (season_stats_historical) rather than a live per-player
@@ -462,7 +459,7 @@ export default function FreeAgents() {
     selectedStatsYear !== defaultStatsYear && baseFiltered.length > 0,
   );
   const seasonStatMap = selectedStatsYear === defaultStatsYear ? currentSeasonStatMap : historicalStatMap;
-  const activeSeasonStatsLoading = selectedStatsYear === defaultStatsYear ? seasonStatsLoading : historicalStatsLoading;
+  const activeSeasonStatsLoading = selectedStatsYear === defaultStatsYear ? currentSeasonStatsLoading : historicalStatsLoading;
   const seasonColumns = useMemo(
     () => getFreeAgentStatColumns(posFilter),
     [posFilter]
@@ -538,7 +535,7 @@ export default function FreeAgents() {
         : Number(aValue) - Number(bValue);
       return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [baseFiltered, projections, matchupMap, ownershipMap, playerMetaMap, seasonStatMap, sortDirection, sortKey]);
+  }, [baseFiltered, projections, matchupMap, ownershipMap, seasonStatMap, sortDirection, sortKey]);
 
   const handleSort = (nextKey: SortKey) => {
     if (nextKey === sortKey) {
