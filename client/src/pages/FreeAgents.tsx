@@ -218,6 +218,146 @@ function CommissionerBids({ week }: { week: number }) {
   );
 }
 
+// ── An owner's own bid management ───────────────────────────────────────────
+function MyBids({ week }: { week: number }) {
+  const bidsQuery = trpc.league.myFaabBids.useQuery({ week, season: 2026 });
+  const cancelMutation = trpc.league.cancelFaabBid.useMutation();
+  const updateMutation = trpc.league.updateFaabBidAmount.useMutation();
+  const bids = (bidsQuery.data ?? []) as FaabBid[];
+  const loading = bidsQuery.isLoading;
+  const [editingBidId, setEditingBidId] = useState<string | null>(null);
+  const [editAmount, setEditAmount] = useState("");
+
+  const handleCancel = async (bid: FaabBid) => {
+    try {
+      await cancelMutation.mutateAsync({ bidId: bid.id });
+      toast.success(`Bid on ${bid.player_name} cancelled.`);
+      await bidsQuery.refetch();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to cancel bid.");
+    }
+  };
+
+  const startEdit = (bid: FaabBid) => {
+    setEditingBidId(bid.id);
+    setEditAmount(String(bid.bid_amount));
+  };
+
+  const handleSaveEdit = async (bid: FaabBid) => {
+    const amount = Number(editAmount);
+    if (!Number.isInteger(amount) || amount < 0) {
+      toast.error("Enter a valid bid amount.");
+      return;
+    }
+    try {
+      await updateMutation.mutateAsync({ bidId: bid.id, bidAmount: amount });
+      toast.success(`Bid on ${bid.player_name} updated to $${amount}.`);
+      setEditingBidId(null);
+      await bidsQuery.refetch();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update bid.");
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="wrc-card" style={{ padding: "2rem", textAlign: "center" as const }}>
+        <div style={{ fontFamily: "Barlow Condensed, sans-serif", color: "oklch(0.55 0.08 150)" }}>Loading your bids...</div>
+      </div>
+    );
+  }
+
+  if (bids.length === 0) {
+    return (
+      <div className="wrc-card" style={{ padding: "3rem 2rem", textAlign: "center" as const }}>
+        <div className="wrc-card-gold-stripe" />
+        <Clock size={36} color="oklch(0.75 0.08 150)" style={{ margin: "0 auto 0.75rem" }} />
+        <p style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1rem", color: "oklch(0.35 0.08 150)" }}>You haven't placed any bids for Week {week}.</p>
+        <p style={{ fontSize: "0.8rem", color: "oklch(0.55 0.06 150)", marginTop: "0.25rem" }}>Bids you place on the Free Agents list will show up here.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column" as const, gap: "0.75rem" }}>
+      <div style={{ background: "oklch(0.96 0.04 85)", border: "1.5px solid oklch(0.82 0.12 85)", borderRadius: 10, padding: "0.75rem 1rem", fontSize: "0.8rem", color: "oklch(0.38 0.14 85)", fontFamily: "Barlow Condensed, sans-serif" }}>
+        <strong>YOUR BIDS</strong> — Cancel or change the amount on a pending bid any time before it's resolved (Thursday or Sunday, 9am ET).
+      </div>
+      {bids.map((bid) => (
+        <div key={bid.id} className="wrc-card" style={{ overflow: "hidden" }}>
+          <div className="wrc-card-gold-stripe" />
+          <div style={{
+            padding: "0.75rem 1rem", display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" as const,
+            background: bid.status === "won" ? "oklch(0.96 0.04 150)" : bid.status === "lost" || bid.status === "cancelled" ? "oklch(0.97 0.01 25)" : "white",
+            opacity: bid.status === "lost" || bid.status === "cancelled" ? 0.6 : 1,
+          }}>
+            <PosBadge pos={bid.player_pos} />
+            <div style={{ flex: 1, minWidth: 140 }}>
+              <p style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.95rem", color: "oklch(0.22 0.08 150)", margin: 0 }}>{bid.player_name} <span style={{ fontSize: "0.75rem", fontWeight: 400, color: "oklch(0.55 0.06 150)" }}>· {bid.player_nfl_team}</span></p>
+              {bid.drop_player_name && (
+                <p style={{ fontSize: "0.72rem", color: "oklch(0.55 0.06 150)", margin: 0 }}>Drops: {bid.drop_player_name}</p>
+              )}
+            </div>
+            {editingBidId === bid.id ? (
+              <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, color: "oklch(0.42 0.15 150)" }}>$</span>
+                <input
+                  type="number" min={0} value={editAmount}
+                  onChange={(e) => setEditAmount(e.target.value)}
+                  style={{ width: 70, padding: "0.3rem 0.5rem", borderRadius: 6, border: "1.5px solid oklch(0.8 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700 }}
+                />
+                <button
+                  onClick={() => handleSaveEdit(bid)}
+                  disabled={updateMutation.isPending}
+                  style={{ background: "oklch(0.42 0.15 150)", color: "white", border: "none", borderRadius: 7, padding: "0.3rem 0.7rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer" }}
+                >
+                  Save
+                </button>
+                <button
+                  onClick={() => setEditingBidId(null)}
+                  style={{ background: "white", color: "oklch(0.45 0.04 150)", border: "1.5px solid oklch(0.8 0.04 150)", borderRadius: 7, padding: "0.3rem 0.7rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer" }}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <>
+                <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "1.1rem", color: "oklch(0.42 0.15 150)" }}>${bid.bid_amount}</span>
+                {bid.status === "pending" ? (
+                  <div style={{ display: "flex", gap: "0.4rem" }}>
+                    <button
+                      onClick={() => startEdit(bid)}
+                      style={{ background: "white", color: "oklch(0.42 0.15 150)", border: "1.5px solid oklch(0.55 0.16 85)", borderRadius: 7, padding: "0.3rem 0.7rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer" }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={() => handleCancel(bid)}
+                      disabled={cancelMutation.isPending}
+                      style={{ background: "white", color: "oklch(0.5 0.15 25)", border: "1.5px solid oklch(0.7 0.1 25)", borderRadius: 7, padding: "0.3rem 0.7rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer" }}
+                    >
+                      Cancel Bid
+                    </button>
+                  </div>
+                ) : (
+                  <span style={{
+                    fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem",
+                    padding: "0.2rem 0.5rem", borderRadius: 5,
+                    background: bid.status === "won" ? "oklch(0.88 0.1 150)" : "oklch(0.92 0.04 25)",
+                    color: bid.status === "won" ? "oklch(0.35 0.12 150)" : "oklch(0.45 0.1 25)",
+                  }}>
+                    {bid.status === "won" ? "WON" : bid.status === "cancelled" ? "CANCELLED" : "LOST"}
+                  </span>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // ── Sort options ─────────────────────────────────────────────────────────────
 type FreeAgentStatKey = SeasonStatKey | "turnovers" | "fgPct" | "xpPct";
 type FreeAgentStatColumn = Omit<SeasonStatColumn, "key"> & { key: FreeAgentStatKey };
@@ -353,7 +493,7 @@ export default function FreeAgents() {
   const [instantAddPlayer, setInstantAddPlayer] = useState<NFLPlayer | null>(null);
   const marketStateQuery = trpc.league.freeAgentMarketState.useQuery(undefined, { refetchInterval: 60_000 });
   const marketState = marketStateQuery.data?.state ?? "bidding";
-  const [activeTab, setActiveTab] = useState<"pool" | "bids">("pool");
+  const [activeTab, setActiveTab] = useState<"pool" | "bids" | "myBids">("pool");
   const [ownedNames, setOwnedNames] = useState<Set<string>>(new Set());
   const [loadingOwned, setLoadingOwned] = useState(true);
   const [playerScope, setPlayerScope] = useState<"fa" | "all">("fa");
@@ -625,6 +765,20 @@ export default function FreeAgents() {
                 {icon}{label}
               </button>
             ))}
+            <button
+              onClick={() => setActiveTab(activeTab === "myBids" ? "pool" : "myBids")}
+              style={{
+                padding: "0.4rem 0.875rem", borderRadius: 8,
+                border: activeTab === "myBids" ? "2px solid oklch(0.55 0.16 85)" : "2px solid oklch(0.88 0.04 150)",
+                background: activeTab === "myBids" ? "oklch(0.22 0.08 150)" : "white",
+                color: activeTab === "myBids" ? "white" : "oklch(0.4 0.04 150)",
+                fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700,
+                letterSpacing: "0.04em", cursor: "pointer",
+              }}
+            >
+              <DollarSign size={11} style={{ display: "inline", marginRight: 4, verticalAlign: "middle" }} />
+              My Bids
+            </button>
             {isCommissioner && (
               <button
                 onClick={() => setActiveTab(activeTab === "bids" ? "pool" : "bids")}
@@ -646,6 +800,8 @@ export default function FreeAgents() {
 
         {activeTab === "bids" && isCommissioner ? (
           <CommissionerBids week={week} />
+        ) : activeTab === "myBids" ? (
+          <MyBids week={week} />
         ) : (
           activeView === "watchlist" ? (
             /* ── Watchlist Tab ── */

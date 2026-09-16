@@ -99038,6 +99038,42 @@ var appRouter = router({
       if (error61) throw new Error(`Unable to submit FAAB bid: ${error61.message}`);
       return { submitted: true, bidAmount: input2.bidAmount };
     }),
+    // An owner's own bids -- unlike commissionerFaabBids (every team's
+    // bids, commissioner-only), this is scoped to the calling team only,
+    // so any owner can see and manage their own bids without needing
+    // commissioner access.
+    myFaabBids: teamProcedure.input(external_exports.object({ week: external_exports.number().int().min(1).max(22), season: external_exports.number().int().min(2020).max(2100) })).query(async ({ input: input2, ctx }) => {
+      const { data, error: error61 } = await supabaseAdmin.from("faab_bids").select("id, team_id, team_name, player_id, player_name, player_pos, player_nfl_team, bid_amount, drop_player_id, drop_player_name, status, week, season, created_at").eq("team_id", ctx.teamSession.teamId).eq("week", input2.week).eq("season", input2.season).order("created_at", { ascending: false });
+      if (error61) throw new Error("Unable to load your FAAB bids.");
+      return data ?? [];
+    }),
+    cancelFaabBid: teamProcedure.input(external_exports.object({ bidId: external_exports.string().min(1).max(128) })).mutation(async ({ input: input2, ctx }) => {
+      const { data, error: error61 } = await supabaseAdmin.from("faab_bids").update({ status: "cancelled" }).eq("id", input2.bidId).eq("team_id", ctx.teamSession.teamId).eq("status", "pending").select("player_name").maybeSingle();
+      if (error61) throw new Error(`Unable to cancel this bid: ${error61.message}`);
+      if (!data) throw new Error("This bid can't be cancelled -- it may have already been resolved or doesn't belong to your team.");
+      return { cancelled: true, playerName: data.player_name };
+    }),
+    updateFaabBidAmount: teamProcedure.input(external_exports.object({ bidId: external_exports.string().min(1).max(128), bidAmount: external_exports.number().int().min(0).max(1e4) })).mutation(async ({ input: input2, ctx }) => {
+      const teamId = ctx.teamSession.teamId;
+      const [{ data: team, error: teamError }, { data: existingBid, error: existingBidError }, { data: otherPendingBids, error: otherPendingBidsError }] = await Promise.all([
+        supabaseAdmin.from("teams").select("faab").eq("id", teamId).single(),
+        supabaseAdmin.from("faab_bids").select("id, player_name, status, team_id").eq("id", input2.bidId).maybeSingle(),
+        supabaseAdmin.from("faab_bids").select("bid_amount").eq("team_id", teamId).eq("status", "pending").neq("id", input2.bidId)
+      ]);
+      if (teamError || !team) throw new Error(`Unable to load your team: ${teamError?.message ?? "team not found"}`);
+      if (existingBidError) throw new Error(`Unable to load this bid: ${existingBidError.message}`);
+      if (!existingBid || existingBid.team_id !== teamId) throw new Error("This bid doesn't belong to your team.");
+      if (existingBid.status !== "pending") throw new Error("This bid has already been resolved and can no longer be changed.");
+      if (otherPendingBidsError) throw new Error(`Unable to load your other pending bids: ${otherPendingBidsError.message}`);
+      const committedElsewhere = (otherPendingBids ?? []).reduce((sum, bid) => sum + Number(bid.bid_amount ?? 0), 0);
+      const trueAvailable = Number(team.faab ?? 0) - committedElsewhere;
+      if (input2.bidAmount > trueAvailable) {
+        throw new Error(`You only have $${trueAvailable} available (${committedElsewhere > 0 ? `$${committedElsewhere} committed to other pending bids` : "after your FAAB balance"}).`);
+      }
+      const { error: updateError } = await supabaseAdmin.from("faab_bids").update({ bid_amount: input2.bidAmount }).eq("id", input2.bidId).eq("team_id", teamId).eq("status", "pending");
+      if (updateError) throw new Error(`Unable to update your bid: ${updateError.message}`);
+      return { updated: true, playerName: existingBid.player_name, bidAmount: input2.bidAmount };
+    }),
     instantAddFreeAgent: teamProcedure.input(external_exports.object({
       playerName: external_exports.string().min(1).max(128),
       playerPos: external_exports.string().min(1).max(8),
