@@ -516,25 +516,6 @@ export default function ScheduleResults() {
             </div>
           )
         )}
-
-        {/* ── Season summary ── */}
-        {!loading && finalGames > 0 && (
-          <div className="wrc-card" style={{ padding: "1rem 1.25rem" }}>
-            <div className="wrc-card-gold-stripe" />
-            <div style={{ display: "flex", gap: "1.5rem", flexWrap: "wrap" as const, padding: "0.5rem 0" }}>
-              {[
-                { label: "Weeks Complete", value: `${allWeeks.filter(w => { const wr = allResults.filter(r => r.week === w.week); return wr.length > 0 && wr.every(r => r.is_final); }).length} / 14` },
-                { label: "Games Final", value: `${finalGames} / ${totalGames}` },
-                { label: "Season", value: "2026" },
-              ].map(stat => (
-                <div key={stat.label}>
-                  <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" as const, color: "oklch(0.55 0.08 85)", marginBottom: 2 }}>{stat.label}</div>
-                  <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1.1rem", fontWeight: 800, color: "oklch(0.22 0.08 150)" }}>{stat.value}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
 
       {editTarget && (
