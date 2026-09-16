@@ -171,7 +171,7 @@ function nextDraftState(currentRound: number, currentPick: number, protectedSlot
   return { current_round: round, current_pick: pick, complete: true, paused: false, timer_seconds: WRC_DRAFT_TIMER_SECONDS };
 }
 
-async function mapWithConcurrency<T, R>(items: T[], limit: number, mapper: (item: T) => Promise<R>): Promise<R[]> {
+export async function mapWithConcurrency<T, R>(items: T[], limit: number, mapper: (item: T) => Promise<R>): Promise<R[]> {
   const results: R[] = [];
   let next = 0;
   const workers = Array.from({ length: Math.min(limit, items.length) }, async () => {
@@ -245,6 +245,22 @@ export const appRouter = router({
         if (error) throw new Error("Unable to load player season stats.");
         const result: Record<string, ReturnType<typeof aggregateWeeklyStatRows>> = {};
         for (const row of data ?? []) result[row.player_name] = aggregateWeeklyStatRows([row]);
+        return result;
+      }),
+    // Reads a set of players' stats for a completed historical season
+    // (2023-2025) from season_stats_historical -- populated once by the
+    // manually-triggered /api/scheduled/historical-season-stats-backfill,
+    // never refreshed further since these seasons are permanently
+    // finished.
+    historicalSeasonStats: publicProcedure
+      .input(z.object({ playerNames: z.array(z.string()), season: z.number().int() }))
+      .query(async ({ input }) => {
+        if (!input.playerNames.length) return {};
+        const { data, error } = await supabaseAdmin.from("season_stats_historical")
+          .select("*").eq("season", input.season).in("player_name", input.playerNames);
+        if (error) throw new Error("Unable to load historical player season stats.");
+        const result: Record<string, ReturnType<typeof aggregateWeeklyStatRows>> = {};
+        for (const row of data ?? []) result[row.player_name] = aggregateWeeklyStatRows([{ ...row, fg_yds: 0, fg_made_1_to_39: 0, fg_made_40_to_49: 0, fg_made_50_to_59: 0, fg_made_60_plus: 0, dst_td: row.def_td, takeaways: row.def_int + row.fumbles_recovered, return_td: 0, safeties: 0, block_kicks: 0, pts_against: 0 }]);
         return result;
       }),
   }),

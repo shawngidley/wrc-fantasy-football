@@ -452,3 +452,12 @@ export const SEASON_2026_START = new Date("2026-09-09T00:00:00-04:00");
 export function isSeason2026Underway(now = new Date()): boolean {
   return now >= SEASON_2026_START;
 }
+
+/** The season stat pages (Lineup, Free Agents) default to: 2026 once
+ * underway, otherwise 2025 (the last completed season, since 2026 has
+ * no stats yet). */
+export function getDefaultStatsYear(now = new Date()): number {
+  return isSeason2026Underway(now) ? 2026 : 2025;
+}
+
+export const AVAILABLE_STATS_YEARS = [2023, 2024, 2025, 2026];

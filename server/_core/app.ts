@@ -12,6 +12,7 @@ import { refreshNflTeamAssignmentsSchedule } from "../nflTeamRefresh";
 import { finalizeWeeklyResultsSchedule } from "../scheduledWeeklyResultsFinalize";
 import { recomputeStandingsSchedule } from "../scheduledStandingsRecompute";
 import { precomputeSeasonStatsSchedule } from "../scheduledSeasonStatsPrecompute";
+import { backfillHistoricalSeasonStats } from "../historicalSeasonStatsBackfill";
 import { faabAwardSchedule } from "../scheduledFaabAward";
 
 function requireCronSecret(req: Request, res: Response, next: NextFunction) {
@@ -64,6 +65,7 @@ export function createApp(): Express {
   app.get("/api/scheduled/weekly-results-finalize", requireCronSecret, finalizeWeeklyResultsSchedule);
   app.get("/api/scheduled/standings-recompute", requireCronSecret, recomputeStandingsSchedule);
   app.get("/api/scheduled/season-stats-precompute", requireCronSecret, precomputeSeasonStatsSchedule);
+  app.get("/api/scheduled/historical-season-stats-backfill", requireCronSecret, backfillHistoricalSeasonStats);
   app.get("/api/scheduled/faab-award", requireCronSecret, faabAwardSchedule);
   // tRPC API
   app.use(

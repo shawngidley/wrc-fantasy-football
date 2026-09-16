@@ -17,7 +17,7 @@ import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026 } from "@shared/currentDraftPlayerUn
 import { CURRENT_TANK01_KICKERS_2026 } from "@/lib/currentKickers2026";
 import { getTeamLogoUrl } from "@/hooks/useTank01Player";
 import { useAuth } from "@/contexts/AuthContext";
-import { getCurrentWeek } from "@/lib/scheduleData2026";
+import { getCurrentWeek, getDefaultStatsYear, AVAILABLE_STATS_YEARS } from "@/lib/scheduleData2026";
 import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections";
 import { useNFLMatchups, formatGameTime } from "@/hooks/useNFLMatchups";
 import { hasTeamGameStarted } from "@/lib/playerGameLock";
@@ -35,6 +35,7 @@ import Navigation from "@/components/Navigation";
 import { useNFLDepthCharts } from "@/hooks/useNFLDepthCharts";
 import { useNFLSeasonStats } from "@/hooks/useNFLSeasonStats";
 import { useDbSeasonStats } from "@/hooks/useDbSeasonStats";
+import { useHistoricalSeasonStats } from "@/hooks/useHistoricalSeasonStats";
 import { formatSeasonStatColumn, type PlayerSeasonStats, type SeasonStatColumn, type SeasonStatKey } from "@/lib/playerSeasonStats";
 import { normalizeNFLTeamCode } from "@shared/nflTeamCodes";
 import { getCompletedKickerSeasonStats } from "@/lib/kickerSeasonStats2025";
@@ -432,7 +433,9 @@ export default function FreeAgents() {
     () => baseFiltered.map((player) => ({ name: player.name, pos: player.pos, nflTeam: player.nflTeam })),
     [baseFiltered]
   );
-  const { statMap: tankSeasonStatMap, playerMetaMap, loading: seasonStatsLoading, loadedCount: seasonStatsLoaded } = useNFLSeasonStats(seasonStatPlayers, true, false);
+  const defaultStatsYear = useMemo(() => getDefaultStatsYear(), []);
+  const [selectedStatsYear, setSelectedStatsYear] = useState<number>(defaultStatsYear);
+  const { statMap: tankSeasonStatMap, playerMetaMap, loading: seasonStatsLoading, loadedCount: seasonStatsLoaded } = useNFLSeasonStats(seasonStatPlayers, selectedStatsYear === defaultStatsYear, false);
   // Season stats read directly from WRC's own database (already-finalized
   // weeks, computed once server-side during official weekly finalization,
   // now covering free agents too) instead of independently recomputed
@@ -442,12 +445,24 @@ export default function FreeAgents() {
   const { statMap: dbSeasonStatMap } = useDbSeasonStats(
     seasonStatPlayers.map(p => p.name),
     2026,
-    baseFiltered.length > 0,
+    selectedStatsYear === defaultStatsYear && baseFiltered.length > 0,
   );
-  const seasonStatMap = useMemo(
+  const currentSeasonStatMap = useMemo(
     () => ({ ...tankSeasonStatMap, ...dbSeasonStatMap }),
     [tankSeasonStatMap, dbSeasonStatMap],
   );
+  // Historical years (2023-2025) read from a precomputed, one-time
+  // backfill (season_stats_historical) rather than a live per-player
+  // fetch -- at Free Agents' scale (potentially hundreds of players),
+  // fetching each one live from ESPN on every year-tab switch would be
+  // far more expensive than Lineup's small, single-roster case.
+  const { statMap: historicalStatMap, loading: historicalStatsLoading } = useHistoricalSeasonStats(
+    seasonStatPlayers.map(p => p.name),
+    selectedStatsYear,
+    selectedStatsYear !== defaultStatsYear && baseFiltered.length > 0,
+  );
+  const seasonStatMap = selectedStatsYear === defaultStatsYear ? currentSeasonStatMap : historicalStatMap;
+  const activeSeasonStatsLoading = selectedStatsYear === defaultStatsYear ? seasonStatsLoading : historicalStatsLoading;
   const seasonColumns = useMemo(
     () => getFreeAgentStatColumns(posFilter),
     [posFilter]
@@ -812,9 +827,38 @@ export default function FreeAgents() {
               {search ? ` matching "${search}"` : ""}
             </p>
 
+            {/* ── SEASON STATS YEAR TABS ── */}
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.65rem", flexWrap: "wrap" }}>
+              <span style={{ fontSize: "0.72rem", fontWeight: 700, color: "rgba(255,255,255,0.6)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.04em", textTransform: "uppercase" }}>
+                Stats:
+              </span>
+              {AVAILABLE_STATS_YEARS.filter(year => year <= defaultStatsYear).map(year => {
+                const isActive = year === selectedStatsYear;
+                return (
+                  <button
+                    key={year}
+                    onClick={() => setSelectedStatsYear(year)}
+                    style={{
+                      padding: "0.35rem 0.9rem",
+                      borderRadius: 20,
+                      border: isActive ? "none" : "1.5px solid rgba(255,255,255,0.3)",
+                      background: isActive ? "oklch(0.78 0.15 85)" : "transparent",
+                      color: isActive ? "oklch(0.2 0.05 85)" : "rgba(255,255,255,0.8)",
+                      fontFamily: "Barlow Condensed, sans-serif",
+                      fontWeight: 700,
+                      fontSize: "0.8rem",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {year}{year === defaultStatsYear ? (year === 2026 ? " (current)" : "") : ""}
+                  </button>
+                );
+              })}
+            </div>
+
             <p style={{ fontSize: "0.72rem", color: "rgba(255,255,255,0.7)", margin: "-0.1rem 0 0.65rem" }}>
               <strong style={{ color: "oklch(0.78 0.15 85)" }}>FULL STATS:</strong> Use the scroll rail below or swipe the table to see every stat column.
-              {seasonStatsLoading ? ` Loading season totals (${seasonStatsLoaded}/${filtered.length})…` : ""}
+              {activeSeasonStatsLoading ? (selectedStatsYear === defaultStatsYear ? ` Loading season totals (${seasonStatsLoaded}/${filtered.length})…` : ` Loading ${selectedStatsYear} season totals…`) : ""}
             </p>
             <p style={{ fontSize: "0.62rem", color: "rgba(255,255,255,0.52)", margin: "-0.4rem 0 0.6rem" }}>
               ECR column and injury designations powered by FantasyPros.
@@ -995,14 +1039,14 @@ export default function FreeAgents() {
 
                         {displaySeasonColumns.filter((column) => column.key === "wrcPts" || column.key === "ptsPerGame").map((column) => (
                           <span key={`fantasy-${column.key}`} style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.84rem", color: "oklch(0.48 0.15 85)", textAlign: "center" as const, whiteSpace: "nowrap" as const }}>
-                            {seasonStats ? formatKickerFantasyStat(player, seasonStats, column) : seasonStatsLoading ? "…" : "—"}
+                            {seasonStats ? formatKickerFantasyStat(player, seasonStats, column) : activeSeasonStatsLoading ? "…" : "—"}
                           </span>
                         ))}
 
                         {/* Position-specific Lineup-equivalent season totals. */}
                         {detailColumns.map((column: FreeAgentStatColumn) => (
                           <span key={`${column.label}-${column.key}`} style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: column.gold || column.highlight ? 800 : 600, fontSize: "0.84rem", color: column.gold ? "oklch(0.48 0.15 85)" : column.highlight ? "oklch(0.28 0.11 150)" : "oklch(0.38 0.05 150)", textAlign: "center" as const, whiteSpace: "nowrap" as const }}>
-                            {seasonStats ? formatKickerFantasyStat(player, seasonStats, column) : seasonStatsLoading ? "…" : "—"}
+                            {seasonStats ? formatKickerFantasyStat(player, seasonStats, column) : activeSeasonStatsLoading ? "…" : "—"}
                           </span>
                         ))}
 

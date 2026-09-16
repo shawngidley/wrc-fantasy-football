@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { Lock, CheckCircle2, ChevronDown, ArrowLeftRight, X, Zap, Eye, ArrowLeft, Wifi, WifiOff, Shield } from "lucide-react";
 import { TEAMS } from "@/lib/wrcData";
-import { getLineupDefaultWeek, SCHEDULE_2026, resolveWeeklyOpponentTeamName, isSeason2026Underway } from "@/lib/scheduleData2026";
+import { getLineupDefaultWeek, SCHEDULE_2026, resolveWeeklyOpponentTeamName, isSeason2026Underway, getDefaultStatsYear, AVAILABLE_STATS_YEARS } from "@/lib/scheduleData2026";
 import { useDraftedRoster } from "@/hooks/useDraftedRoster";
 import { useParams, Link, useLocation } from "wouter";
 import TeamLogo from "@/components/TeamLogo";
@@ -68,10 +68,6 @@ function sortBenchByPosition<T extends { pos: string }>(players: T[]): T[] {
   return [...players].sort((a, b) => (BENCH_POSITION_ORDER[a.pos] ?? 99) - (BENCH_POSITION_ORDER[b.pos] ?? 99));
 }
 
-function getDefaultStatsYear(now = new Date()): number {
-  return isSeason2026Underway(now) ? 2026 : 2025;
-}
-const AVAILABLE_STATS_YEARS = [2023, 2024, 2025, 2026];
 
 /**
  * Maps the historical-years shape (SeasonStatRow, from ESPN's gamelog API,
