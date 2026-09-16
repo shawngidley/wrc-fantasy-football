@@ -99035,7 +99035,7 @@ var appRouter = router({
         week: input2.week,
         season: input2.season
       });
-      if (error61) throw new Error("Unable to submit FAAB bid");
+      if (error61) throw new Error(`Unable to submit FAAB bid: ${error61.message}`);
       return { submitted: true, bidAmount: input2.bidAmount };
     }),
     instantAddFreeAgent: teamProcedure.input(external_exports.object({
