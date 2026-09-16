@@ -45,6 +45,13 @@ const trpcClient = trpc.createClient({
     httpBatchLink({
       url: "/api/trpc",
       transformer: superjson,
+      // Queries carrying large arrays (e.g. playerStats.seasonStats /
+      // historicalSeasonStats with hundreds of player names for Free
+      // Agents) can get batched together into a GET request whose URL
+      // exceeds infrastructure limits, returning a 414. This threshold
+      // makes httpBatchLink fall back to POST (body, not URL) for any
+      // batch that would exceed it, well before hitting a real limit.
+      maxURLLength: 2000,
       fetch(input, init) {
         return globalThis.fetch(input, {
           ...(init ?? {}),
