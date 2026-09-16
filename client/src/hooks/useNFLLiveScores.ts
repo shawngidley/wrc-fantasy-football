@@ -117,7 +117,7 @@ export function attributeOffenseFramedDefenseStats(
  * dozen already-final games get harmlessly re-fetched each poll for the
  * rest of the week rather than none.
  */
-function isGameActive(gameDate: string, gameTime: string): boolean {
+export function isGameActive(gameDate: string, gameTime: string): boolean {
   if (!gameDate || !gameTime) return false;
   const d = gameDate;
   const year = parseInt(d.slice(0,4), 10);
@@ -140,7 +140,7 @@ function isGameActive(gameDate: string, gameTime: string): boolean {
   // never register as active, so live scores were never fetched for
   // them at all.
   const kickoffUTC = new Date(Date.UTC(year, month, day, hours + offsetHours, mins, 0));
-  const windowEndUTC = new Date(kickoffUTC.getTime() + 6 * 24 * 60 * 60 * 1000); // +6 days
+  const windowEndUTC = new Date(kickoffUTC.getTime() + 10 * 24 * 60 * 60 * 1000); // +10 days
   const now = Date.now();
   return now >= kickoffUTC.getTime() && now <= windowEndUTC.getTime();
 }
@@ -148,13 +148,13 @@ function isGameActive(gameDate: string, gameTime: string): boolean {
 /**
  * Narrower than isGameActive -- used specifically to decide whether the
  * recurring 30-second poll should keep re-scheduling itself, as opposed
- * to isGameActive's much wider 6-day window (which decides which games
+ * to isGameActive's much wider 10-day window (which decides which games
  * are eligible to be fetched AT ALL, including on a fresh page load well
  * after a game has finished, so its final stats still populate).
  *
  * Without this distinction, the scheduling loop below -- which stops
  * polling once getActiveGameIds() returns empty -- never actually
- * stopped for the entire 6-day window once any game kicked off, since
+ * stopped for the entire 10-day window once any game kicked off, since
  * isGameActive alone stayed true that whole time. That meant every open
  * Live Scoring tab kept re-fetching Tank01's box score every 30 seconds,
  * continuously, for days after a game had already finished -- confirmed
@@ -205,7 +205,7 @@ export function useNFLLiveScores(
   // live: something is causing this effect to re-run roughly every 5
   // minutes well after a game had finished, and each re-run's
   // unconditional "initial fetch" was still hitting Tank01 for every
-  // game in the wide 6-day window every time, even though the recurring
+  // game in the wide 10-day window every time, even though the recurring
   // 30s timer itself correctly stopped in between. This ref persists
   // across those re-runs (useRef survives effect cleanup/re-setup within
   // the same component instance) and is checked before any fetch at all.
@@ -245,7 +245,7 @@ export function useNFLLiveScores(
 
   // Used by the scheduling loop below to decide whether to keep
   // rescheduling the recurring poll -- deliberately the narrower
-  // isLikelyStillInProgress window, not isGameActive's wide 6-day
+  // isLikelyStillInProgress window, not isGameActive's wide 10-day
   // fetch-eligibility window. See isLikelyStillInProgress's comment for
   // why this distinction is what actually stops runaway polling.
   const hasAnyGameLikelyInProgress = useCallback((): boolean => {

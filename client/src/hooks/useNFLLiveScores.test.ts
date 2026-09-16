@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { attributeOffenseFramedDefenseStats, getLivePoints, getLiveStats } from "./useNFLLiveScores";
+import { describe, expect, it, vi, afterEach } from "vitest";
+import { attributeOffenseFramedDefenseStats, getLivePoints, getLiveStats, isGameActive } from "./useNFLLiveScores";
 
 describe("attributeOffenseFramedDefenseStats", () => {
   // Real, confirmed data from the actual box score (NE @ SEA, Sept 9 2026):
@@ -135,5 +135,46 @@ describe("getLiveStats suffix mismatch", () => {
     const liveStats = { "jamescook": { Rushing: { rushYds: 87, rushTD: 1, carries: 18 } } };
     const stats = getLiveStats(liveStats, "James Cook", "RB", "BUF");
     expect(stats?.Rushing?.rushYds).toBe(87);
+  });
+});
+
+describe("isGameActive", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("regression: a Wednesday-night kickoff (a holiday-schedule shift) stays active 7 days later, which the old 6-day window would have missed", () => {
+    // Confirmed live: Week 1's early Wednesday 8:20pm ET game
+    // (20260909_NE@SEA) fell outside the old 6-day window a full day
+    // before the rest of that same week's games would, since
+    // getCurrentWeek() doesn't advance to the next week until that next
+    // week's own earliest game actually kicks off -- up to 8 days after
+    // a Wednesday-starting week's own kickoff.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-17T00:20:00Z")); // 7 days after the 00:20 UTC kickoff instant
+    expect(isGameActive("20260909", "8:20p")).toBe(true);
+  });
+
+  it("is no longer active well beyond the 10-day window", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-25T00:00:00Z")); // 16 days later
+    expect(isGameActive("20260909", "8:20p")).toBe(false);
+  });
+
+  it("is active immediately at kickoff", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-10T00:20:00Z")); // exactly 8:20pm ET Sept 9
+    expect(isGameActive("20260909", "8:20p")).toBe(true);
+  });
+
+  it("is not active before kickoff", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-09T20:00:00Z")); // a few hours before kickoff
+    expect(isGameActive("20260909", "8:20p")).toBe(false);
+  });
+
+  it("returns false when gameDate or gameTime is missing", () => {
+    expect(isGameActive("", "8:20p")).toBe(false);
+    expect(isGameActive("20260909", "")).toBe(false);
   });
 });
