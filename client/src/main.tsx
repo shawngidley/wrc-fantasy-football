@@ -1,6 +1,6 @@
 import { trpc } from "@/lib/trpc";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { httpBatchLink } from "@trpc/client";
+import { httpBatchLink, httpLink, splitLink } from "@trpc/client";
 import { createRoot } from "react-dom/client";
 import superjson from "superjson";
 import App from "./App";
@@ -40,24 +40,38 @@ queryClient.getMutationCache().subscribe(event => {
   }
 });
 
+const commonLinkOptions = {
+  url: "/api/trpc",
+  transformer: superjson,
+  fetch(input: RequestInfo | URL, init?: RequestInit) {
+    return globalThis.fetch(input, {
+      ...(init ?? {}),
+      credentials: "include",
+    });
+  },
+};
+
 const trpcClient = trpc.createClient({
   links: [
-    httpBatchLink({
-      url: "/api/trpc",
-      transformer: superjson,
-      // Queries carrying large arrays (e.g. playerStats.seasonStats /
-      // historicalSeasonStats with hundreds of player names for Free
-      // Agents) can get batched together into a GET request whose URL
-      // exceeds infrastructure limits, returning a 414. This threshold
-      // makes httpBatchLink fall back to POST (body, not URL) for any
-      // batch that would exceed it, well before hitting a real limit.
-      maxURLLength: 2000,
-      fetch(input, init) {
-        return globalThis.fetch(input, {
-          ...(init ?? {}),
-          credentials: "include",
-        });
-      },
+    splitLink({
+      // playerStats queries carry a playerNames array that can run into
+      // the hundreds (Free Agents) -- large enough that even a single
+      // one of these queries, on its own, can exceed a GET URL's usable
+      // length. httpBatchLink's maxURLLength only splits a batch into
+      // smaller GET requests; it has nothing left to split once it's
+      // down to one oversized query, and throws rather than falling
+      // back to POST. Routing these specific queries through a
+      // dedicated, always-POST link sidesteps URL length entirely,
+      // since POST puts the input in the request body, not the URL.
+      condition: (op) => op.path.startsWith("playerStats."),
+      true: httpLink({ ...commonLinkOptions, methodOverride: "POST" }),
+      false: httpBatchLink({
+        ...commonLinkOptions,
+        // Safety net for any other query that happens to batch large
+        // with others -- splits into smaller GET requests rather than
+        // exceeding a URL length limit.
+        maxURLLength: 2000,
+      }),
     }),
   ],
 });
