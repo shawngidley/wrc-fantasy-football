@@ -98613,7 +98613,7 @@ var appRouter = router({
     historicalSeasonStats: publicProcedure.input(external_exports.object({ playerNames: external_exports.array(external_exports.string()), season: external_exports.number().int() })).query(async ({ input: input2 }) => {
       if (!input2.playerNames.length) return {};
       const { data, error: error61 } = await supabaseAdmin.from("season_stats_historical").select("*").eq("season", input2.season).in("player_name", input2.playerNames);
-      if (error61) throw new Error("Unable to load historical player season stats.");
+      if (error61) throw new Error(`Unable to load historical player season stats: ${error61.message}`);
       const result = {};
       for (const row of data ?? []) result[row.player_name] = aggregateWeeklyStatRows([{ ...row, fg_yds: 0, fg_made_1_to_39: 0, fg_made_40_to_49: 0, fg_made_50_to_59: 0, fg_made_60_plus: 0, dst_td: row.def_td, takeaways: row.def_int + row.fumbles_recovered, return_td: 0, safeties: 0, block_kicks: 0, pts_against: 0 }]);
       return result;

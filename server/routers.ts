@@ -258,7 +258,7 @@ export const appRouter = router({
         if (!input.playerNames.length) return {};
         const { data, error } = await supabaseAdmin.from("season_stats_historical")
           .select("*").eq("season", input.season).in("player_name", input.playerNames);
-        if (error) throw new Error("Unable to load historical player season stats.");
+        if (error) throw new Error(`Unable to load historical player season stats: ${error.message}`);
         const result: Record<string, ReturnType<typeof aggregateWeeklyStatRows>> = {};
         for (const row of data ?? []) result[row.player_name] = aggregateWeeklyStatRows([{ ...row, fg_yds: 0, fg_made_1_to_39: 0, fg_made_40_to_49: 0, fg_made_50_to_59: 0, fg_made_60_plus: 0, dst_td: row.def_td, takeaways: row.def_int + row.fumbles_recovered, return_td: 0, safeties: 0, block_kicks: 0, pts_against: 0 }]);
         return result;
