@@ -98998,7 +98998,10 @@ var appRouter = router({
         supabaseAdmin.from("players").select("team_id, dropped_at").eq("name", input2.playerName).maybeSingle(),
         supabaseAdmin.from("faab_bids").select("bid_amount, player_name").eq("team_id", teamId).eq("status", "pending")
       ]);
-      if (teamError || !team || rosterError || targetPlayerError || pendingBidsError) throw new Error("Unable to validate this FAAB bid");
+      if (teamError || !team) throw new Error(`Unable to load your team for this bid: ${teamError?.message ?? "team not found"}`);
+      if (rosterError) throw new Error(`Unable to load your roster for this bid: ${rosterError.message}`);
+      if (targetPlayerError) throw new Error(`Unable to look up ${input2.playerName}: ${targetPlayerError.message}`);
+      if (pendingBidsError) throw new Error(`Unable to load your other pending bids: ${pendingBidsError.message}`);
       if (!isEligibleAfterCut(targetPlayer?.dropped_at ?? null)) {
         throw new Error(`${input2.playerName} was recently dropped and isn't eligible to be picked up yet.`);
       }

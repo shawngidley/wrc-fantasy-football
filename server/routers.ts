@@ -809,7 +809,10 @@ export const appRouter = router({
           supabaseAdmin.from("players").select("team_id, dropped_at").eq("name", input.playerName).maybeSingle(),
           supabaseAdmin.from("faab_bids").select("bid_amount, player_name").eq("team_id", teamId).eq("status", "pending"),
         ]);
-        if (teamError || !team || rosterError || targetPlayerError || pendingBidsError) throw new Error("Unable to validate this FAAB bid");
+        if (teamError || !team) throw new Error(`Unable to load your team for this bid: ${teamError?.message ?? "team not found"}`);
+        if (rosterError) throw new Error(`Unable to load your roster for this bid: ${rosterError.message}`);
+        if (targetPlayerError) throw new Error(`Unable to look up ${input.playerName}: ${targetPlayerError.message}`);
+        if (pendingBidsError) throw new Error(`Unable to load your other pending bids: ${pendingBidsError.message}`);
         // A player who was cut has to wait at least 48 hours, becoming
         // eligible at the next Sunday 9am ET or Tuesday 9am ET market
         // boundary after that -- see freeAgentCutRestriction.ts.
