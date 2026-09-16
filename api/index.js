@@ -88900,6 +88900,20 @@ function getCurrentWeek() {
   return current;
 }
 var DST_END_2026 = (/* @__PURE__ */ new Date("2026-11-01T06:00:00Z")).getTime();
+function getLineupDefaultWeek(now = /* @__PURE__ */ new Date()) {
+  const nowMs = now.getTime();
+  let current = 1;
+  for (let i = 0; i < WEEK_START_TIMESTAMPS.length; i++) {
+    const weekStart = new Date(WEEK_START_TIMESTAMPS[i]);
+    const dayOfWeek = weekStart.getUTCDay();
+    const daysSinceTuesday = (dayOfWeek - 2 + 7) % 7;
+    const tuesdayMidnightUtc = WEEK_START_TIMESTAMPS[i] - daysSinceTuesday * 24 * 60 * 60 * 1e3;
+    const offsetHours = tuesdayMidnightUtc < DST_END_2026 ? 4 : 5;
+    const cutoff = tuesdayMidnightUtc + (9 + offsetHours) * 60 * 60 * 1e3;
+    if (nowMs >= cutoff) current = i + 1;
+  }
+  return current;
+}
 
 // shared/nflTeamCodes.ts
 var TEAM_CODE_ALIASES = {
@@ -99032,7 +99046,7 @@ var appRouter = router({
       }
       let playerGameStarted;
       try {
-        playerGameStarted = await hasPlayerTeamGameStarted(input2.playerNflTeam, getCurrentWeek(), 2026);
+        playerGameStarted = await hasPlayerTeamGameStarted(input2.playerNflTeam, getLineupDefaultWeek(), 2026);
       } catch {
         playerGameStarted = true;
       }
@@ -99136,7 +99150,7 @@ var appRouter = router({
     myRivalryGame: teamProcedure.query(async ({ ctx }) => {
       const teamId = ctx.teamSession.teamId;
       const season = 2026;
-      const currentWeek = getCurrentWeek();
+      const currentWeek = getLineupDefaultWeek();
       const { data: existing, error: error61 } = await supabaseAdmin.from("rivalry_games").select("id, opponent_team_id, week, declared_at").eq("team_id", teamId).eq("season", season).maybeSingle();
       if (error61) throw new Error("Unable to load rivalry game status");
       let opponentName = null;
@@ -99177,7 +99191,7 @@ var appRouter = router({
     declareRivalryGame: teamProcedure.mutation(async ({ ctx }) => {
       const teamId = ctx.teamSession.teamId;
       const season = 2026;
-      const currentWeek = getCurrentWeek();
+      const currentWeek = getLineupDefaultWeek();
       const { data: existing, error: existingError } = await supabaseAdmin.from("rivalry_games").select("id").eq("team_id", teamId).eq("season", season).maybeSingle();
       if (existingError) throw new Error("Unable to check rivalry game status");
       if (existing) throw new Error("You've already used your rivalry game for this season.");

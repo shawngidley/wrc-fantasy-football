@@ -14,7 +14,7 @@ import { calcFantasyPoints, injuryColor, injuryLabel } from "@/lib/scoringEngine
 import type { Tank01Stats } from "@/lib/scoringEngine";
 import { formatSeasonStatColumn, getSeasonStatColumns, normalizeTankSeasonStats } from "@/lib/playerSeasonStats";
 import { siteAssetUrl } from "@/lib/siteAssetUrl";
-import { getCurrentWeek } from "@/lib/scheduleData2026";
+import { getLineupDefaultWeek } from "@/lib/scheduleData2026";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -494,7 +494,7 @@ export default function PlayerPage() {
   const isFreeAgent = !ownership;
 
   // Live NFL matchup data for the current week
-  const currentWeek = getCurrentWeek();
+  const currentWeek = getLineupDefaultWeek();
   const nflWeek = currentWeek > 0 ? currentWeek : 1; // default to week 1 pre-season
   const { matchups: matchupMap, loading: matchupLoading } = useNFLMatchups(nflWeek);
   // Tank01-based fallback for FantasyPros' week projection, since

@@ -12,7 +12,7 @@ import { archiveFantasyProsNews, getArchivedFantasyProsNews, mergeFantasyProsNew
 import { getPublicLeagueTeam, listPublicLeagueTeams, verifyLeagueTeamPin } from "./leagueAuth";
 import { clearWrcTeamSession, readWrcTeamSession, writeWrcTeamSession } from "./wrcTeamSession";
 import { supabaseAdmin } from "./supabaseAdmin";
-import { getCurrentWeek, SCHEDULE_2026 } from "../client/src/lib/scheduleData2026";
+import { getLineupDefaultWeek, SCHEDULE_2026 } from "../client/src/lib/scheduleData2026";
 import { hasWeekKickedOff, hasPlayerTeamGameStarted } from "./nflWeekKickoffCheck";
 import { isEligibleAfterCut } from "../shared/freeAgentCutRestriction";
 import { getFreeAgentMarketState } from "./faabMarketState";
@@ -879,7 +879,7 @@ export const appRouter = router({
         // off this week, they're locked for the rest of the week.
         let playerGameStarted: boolean;
         try {
-          playerGameStarted = await hasPlayerTeamGameStarted(input.playerNflTeam, getCurrentWeek(), 2026);
+          playerGameStarted = await hasPlayerTeamGameStarted(input.playerNflTeam, getLineupDefaultWeek(), 2026);
         } catch {
           playerGameStarted = true; // fail safe, same reasoning as submitFaabBid
         }
@@ -1028,7 +1028,7 @@ export const appRouter = router({
     myRivalryGame: teamProcedure.query(async ({ ctx }) => {
       const teamId = ctx.teamSession.teamId;
       const season = 2026;
-      const currentWeek = getCurrentWeek();
+      const currentWeek = getLineupDefaultWeek();
       const { data: existing, error } = await supabaseAdmin
         .from("rivalry_games")
         .select("id, opponent_team_id, week, declared_at")
@@ -1084,7 +1084,7 @@ export const appRouter = router({
     declareRivalryGame: teamProcedure.mutation(async ({ ctx }) => {
       const teamId = ctx.teamSession.teamId;
       const season = 2026;
-      const currentWeek = getCurrentWeek();
+      const currentWeek = getLineupDefaultWeek();
 
       // One per season -- locks immediately on selection, no changing later.
       const { data: existing, error: existingError } = await supabaseAdmin

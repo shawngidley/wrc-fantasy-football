@@ -17,7 +17,7 @@ import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026 } from "@shared/currentDraftPlayerUn
 import { CURRENT_TANK01_KICKERS_2026 } from "@/lib/currentKickers2026";
 import { getTeamLogoUrl } from "@/hooks/useTank01Player";
 import { useAuth } from "@/contexts/AuthContext";
-import { getCurrentWeek, getDefaultStatsYear, AVAILABLE_STATS_YEARS } from "@/lib/scheduleData2026";
+import { getLineupDefaultWeek, getDefaultStatsYear, AVAILABLE_STATS_YEARS } from "@/lib/scheduleData2026";
 import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections";
 import { useNFLMatchups, formatGameTime } from "@/hooks/useNFLMatchups";
 import { hasTeamGameStarted } from "@/lib/playerGameLock";
@@ -377,7 +377,7 @@ export default function FreeAgents() {
     setVisibleColumns(normalizeFreeAgentVisibleColumns(columnPreferencesQuery.data.visibleColumns));
   }, [franchise, columnPreferencesQuery.data]);
 
-  const currentWeek = getCurrentWeek();
+  const currentWeek = getLineupDefaultWeek();
   const week = currentWeek > 0 ? currentWeek : 1;
   const rosteredPlayersQuery = trpc.league.rosteredPlayers.useQuery(undefined, { staleTime: 60_000 });
   const recentlyDroppedQuery = trpc.league.recentlyDroppedPlayers.useQuery(undefined, { staleTime: 60_000, refetchInterval: 60_000 });

@@ -15,7 +15,7 @@ import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Trophy, Calendar, User, ChevronDown, ChevronUp } from "lucide-react";
 import {
-  SCHEDULE_2026, OWNER_TO_TEAM, ownerToTeam, getCurrentWeek,
+  SCHEDULE_2026, OWNER_TO_TEAM, ownerToTeam, getLineupDefaultWeek,
   getResult, derivePlayoffSeeds,
   type ScheduleWeek, type StandingsTeam,
 } from "@/lib/scheduleData2026";
@@ -430,7 +430,7 @@ function MyScheduleSummary({ myTeam }: { myTeam: string | undefined }) {
 export default function Schedule() {
   const { franchise } = useAuth();
   const myTeam = franchise?.team_name;
-  const currentWeek = getCurrentWeek();
+  const currentWeek = getLineupDefaultWeek();
 
   const [activeWeek, setActiveWeek] = useState<number | "all">("all");
   const [myOnly, setMyOnly] = useState(false);

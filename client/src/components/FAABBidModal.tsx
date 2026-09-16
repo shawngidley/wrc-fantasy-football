@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { trpc } from "@/lib/trpc";
-import { getCurrentWeek } from "@/lib/scheduleData2026";
+import { getLineupDefaultWeek } from "@/lib/scheduleData2026";
 import { toast } from "sonner";
 import { DollarSign, X, Loader2 } from "lucide-react";
 
@@ -46,7 +46,7 @@ export default function FAABBidModal({ player, onClose }: FAABBidModalProps) {
   const bidDetailsQuery = trpc.league.faabBidRoster.useQuery(undefined, { enabled: Boolean(franchise?.id) });
   const submitBidMutation = trpc.league.submitFaabBid.useMutation();
 
-  const currentWeek = getCurrentWeek();
+  const currentWeek = getLineupDefaultWeek();
   const week = currentWeek > 0 ? currentWeek : 1;
 
   // FAAB balance and roster are session-scoped server data.

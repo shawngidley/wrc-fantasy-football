@@ -13,7 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { TrendingUp, TrendingDown, AlertTriangle, Newspaper, RefreshCw, ChevronDown } from "lucide-react";
 import { PlayerNewsRow, type PlayerNewsItem } from "@/components/PlayerNewsRow";
 import { supabase } from "@/lib/supabase";
-import { SCHEDULE_2026, OWNER_TO_TEAM, getCurrentWeek } from "@/lib/scheduleData2026";
+import { SCHEDULE_2026, OWNER_TO_TEAM, getLineupDefaultWeek } from "@/lib/scheduleData2026";
 import { Link } from "wouter";
 import { TEAM_NAME_TO_ID } from "@/pages/Lineup";
 import TeamLogo from "@/components/TeamLogo";
@@ -162,7 +162,7 @@ function RivalryTickerMessage({ teamId, opponentTeamId, teamName, opponentName, 
 }
 
 function MatchupWidget({ ownerKey, standings }: { ownerKey: string; standings: DbStanding[] }) {
-  const currentWeek = getCurrentWeek();
+  const currentWeek = getLineupDefaultWeek();
   const weekData = SCHEDULE_2026.find(w => w.week === currentWeek);
   const matchup = weekData?.matchups.find(m => m[0] === ownerKey || m[1] === ownerKey);
 
@@ -270,7 +270,7 @@ function InjuryReport({ ownerKey }: { ownerKey: string }) {
 
   const teamId = OWNER_TO_TEAM_ID[ownerKey] ?? `team-${ownerKey.toLowerCase().replace(/[^a-z0-9]/g, "")}`;
   const [myPlayers, setMyPlayers] = useState<{ name: string; pos: string; nflTeam: string }[]>([]);
-  const fantasyProsInjuries = trpc.fantasyPros.injuries.useQuery({ year: 2026, week: getCurrentWeek() || 1 }, { staleTime: 20 * 60_000 });
+  const fantasyProsInjuries = trpc.fantasyPros.injuries.useQuery({ year: 2026, week: getLineupDefaultWeek() || 1 }, { staleTime: 20 * 60_000 });
   useEffect(() => {
     supabase.from("players").select("name,position,nfl_team").eq("team_id", teamId).then(({ data }) => {
       if (data) setMyPlayers(data.map((p: { name: string; position: string; nfl_team: string }) => ({ name: p.name, pos: p.position, nflTeam: p.nfl_team })));
@@ -520,7 +520,7 @@ export default function Standings() {
   // Derive the schedule owner key from franchise owner name
   const ownerKey = franchise?.owner ?? null;
 
-  const currentWeek = getCurrentWeek();
+  const currentWeek = getLineupDefaultWeek();
   const allRivalryGamesQuery = trpc.league.allRivalryGames.useQuery();
   const rivalryGamesThisWeek = (allRivalryGamesQuery.data ?? []).filter(g => g.week === currentWeek && !g.resolved);
 
