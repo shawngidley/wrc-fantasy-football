@@ -18,6 +18,9 @@
     { "path": "/api/scheduled/season-stats-precompute", "schedule": "0 11 * * *" },
     { "path": "/api/scheduled/weekly-results-finalize", "schedule": "*/15 2-6 * * 2" },
     { "path": "/api/scheduled/standings-recompute", "schedule": "0 0 1 1 *" },
+    { "path": "/api/scheduled/historical-season-stats-backfill?year=2023", "schedule": "0 0 1 1 *" },
+    { "path": "/api/scheduled/historical-season-stats-backfill?year=2024", "schedule": "0 0 1 1 *" },
+    { "path": "/api/scheduled/historical-season-stats-backfill?year=2025", "schedule": "0 0 1 1 *" },
     { "path": "/api/scheduled/faab-award", "schedule": "0 13,14 * * 0,4" }
   ],
   "headers": [
