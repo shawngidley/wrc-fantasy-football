@@ -87,7 +87,7 @@ export default function FAABBidModal({ player, onClose }: FAABBidModalProps) {
         season: 2026,
       });
 
-      toast.success(`Bid of $${amount} submitted for ${player.name}! The commissioner will process bids after the waiver deadline.`);
+      toast.success(`Bid of $${amount} submitted for ${player.name}! Bids are resolved automatically at 9am ET Thursday and Sunday.`);
       onClose();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to submit bid. Please try again.");
