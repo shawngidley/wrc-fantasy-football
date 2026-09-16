@@ -89847,6 +89847,52 @@ function buildWeeklyStatRowInputs(rosterPlayers, individualStatLines, dstStatLin
   }
   return rowInputsByName;
 }
+function buildWeeklyStatRow(week2, season, name, position, nflTeam, statLine) {
+  const zeroStatLine = normalizeTankSeasonStats(void 0, position);
+  const s = statLine ? { ...statLine, gp: 1 } : { ...zeroStatLine, gp: 0 };
+  return {
+    week: week2,
+    season,
+    player_name: name,
+    position,
+    nfl_team: nflTeam,
+    gp: s.gp,
+    pass_cmp: s.passCmp,
+    pass_att: s.passAtt,
+    pass_yds: s.passYds,
+    pass_td: s.passTD,
+    pass_int: s.passInt,
+    pass_rating: s.passRating,
+    rush_att: s.rushAtt,
+    rush_yds: s.rushYds,
+    rush_td: s.rushTD,
+    receptions: s.receptions,
+    targets: s.targets,
+    rec_yds: s.recYds,
+    rec_td: s.recTD,
+    fg_made: s.fgMade,
+    fg_att: s.fgAtt,
+    fg_yds: s.fgYds,
+    fg_made_1_to_39: s.fgMade1To39,
+    fg_made_40_to_49: s.fgMade40To49,
+    fg_made_50_to_59: s.fgMade50To59,
+    fg_made_60_plus: s.fgMade60Plus,
+    xp_made: s.xpMade,
+    xp_att: s.xpAtt,
+    sacks: s.sacks,
+    def_int: s.defInt,
+    fumbles_recovered: s.fumblesRecovered,
+    takeaways: s.takeaways,
+    def_td: s.defTD,
+    dst_td: s.dstTD,
+    return_td: s.returnTD,
+    safeties: s.safeties,
+    block_kicks: s.blockKicks,
+    pts_against: s.ptsAgainst,
+    fumbles_lost: s.fumblesLost,
+    wrc_pts: s.wrcPts
+  };
+}
 function attributeOffenseFramedDefenseStats(homeAway, stats, teamStatsBody) {
   const opponentStats = teamStatsBody[homeAway === "home" ? "away" : "home"];
   return {
@@ -89966,51 +90012,9 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
     teamScores.set(lineup.team_id, Math.round(((teamScores.get(lineup.team_id) ?? 0) + score) * 10) / 10);
   }
   const rowInputsByName = buildWeeklyStatRowInputs(players ?? [], individualStatLines, dstStatLines);
-  const weeklyStatRows = Array.from(rowInputsByName.values()).map(({ name, position, nflTeam, statLine }) => {
-    const zeroStatLine = normalizeTankSeasonStats(void 0, position);
-    const s = statLine ? { ...statLine, gp: 1 } : { ...zeroStatLine, gp: 0 };
-    return {
-      week: week2,
-      season,
-      player_name: name,
-      position,
-      nfl_team: nflTeam,
-      pass_cmp: s.passCmp,
-      pass_att: s.passAtt,
-      pass_yds: s.passYds,
-      pass_td: s.passTD,
-      pass_int: s.passInt,
-      pass_rating: s.passRating,
-      rush_att: s.rushAtt,
-      rush_yds: s.rushYds,
-      rush_td: s.rushTD,
-      receptions: s.receptions,
-      targets: s.targets,
-      rec_yds: s.recYds,
-      rec_td: s.recTD,
-      fg_made: s.fgMade,
-      fg_att: s.fgAtt,
-      fg_yds: s.fgYds,
-      fg_made_1_to_39: s.fgMade1To39,
-      fg_made_40_to_49: s.fgMade40To49,
-      fg_made_50_to_59: s.fgMade50To59,
-      fg_made_60_plus: s.fgMade60Plus,
-      xp_made: s.xpMade,
-      xp_att: s.xpAtt,
-      sacks: s.sacks,
-      def_int: s.defInt,
-      fumbles_recovered: s.fumblesRecovered,
-      takeaways: s.takeaways,
-      def_td: s.defTD,
-      dst_td: s.dstTD,
-      return_td: s.returnTD,
-      safeties: s.safeties,
-      block_kicks: s.blockKicks,
-      pts_against: s.ptsAgainst,
-      fumbles_lost: s.fumblesLost,
-      wrc_pts: s.wrcPts
-    };
-  });
+  const weeklyStatRows = Array.from(rowInputsByName.values()).map(
+    ({ name, position, nflTeam, statLine }) => buildWeeklyStatRow(week2, season, name, position, nflTeam, statLine)
+  );
   if (weeklyStatRows.length > 0) {
     const { error: weeklyStatsError } = await supabaseAdmin.from("player_weekly_stats").upsert(weeklyStatRows, { onConflict: "week,season,player_name" });
     if (weeklyStatsError) console.log(`[weeklyResultsFinalize] Unable to persist player_weekly_stats: ${weeklyStatsError.message}`);

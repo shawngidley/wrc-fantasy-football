@@ -153,6 +153,39 @@ export function buildWeeklyStatRowInputs(
 }
 
 /**
+ * Builds one player's full row to upsert into player_weekly_stats.
+ * gp is set explicitly here -- 1 if the player has a real statLine
+ * (they had an actual box score entry this week), 0 otherwise -- since
+ * a single game's raw Tank01 entry has no reliably-populated
+ * games-played field of its own to trust.
+ */
+export function buildWeeklyStatRow(
+  week: number,
+  season: number,
+  name: string,
+  position: string,
+  nflTeam: string,
+  statLine: PlayerSeasonStats | undefined,
+) {
+  const zeroStatLine: PlayerSeasonStats = normalizeTankSeasonStats(undefined, position);
+  const s = statLine ? { ...statLine, gp: 1 } : { ...zeroStatLine, gp: 0 };
+  return {
+    week, season,
+    player_name: name, position, nfl_team: nflTeam,
+    gp: s.gp,
+    pass_cmp: s.passCmp, pass_att: s.passAtt, pass_yds: s.passYds, pass_td: s.passTD, pass_int: s.passInt, pass_rating: s.passRating,
+    rush_att: s.rushAtt, rush_yds: s.rushYds, rush_td: s.rushTD,
+    receptions: s.receptions, targets: s.targets, rec_yds: s.recYds, rec_td: s.recTD,
+    fg_made: s.fgMade, fg_att: s.fgAtt, fg_yds: s.fgYds,
+    fg_made_1_to_39: s.fgMade1To39, fg_made_40_to_49: s.fgMade40To49, fg_made_50_to_59: s.fgMade50To59, fg_made_60_plus: s.fgMade60Plus,
+    xp_made: s.xpMade, xp_att: s.xpAtt,
+    sacks: s.sacks, def_int: s.defInt, fumbles_recovered: s.fumblesRecovered, takeaways: s.takeaways,
+    def_td: s.defTD, dst_td: s.dstTD, return_td: s.returnTD, safeties: s.safeties, block_kicks: s.blockKicks,
+    pts_against: s.ptsAgainst, fumbles_lost: s.fumblesLost, wrc_pts: s.wrcPts,
+  };
+}
+
+/**
  * Tank01's sacksAndYardsLost is framed from the OFFENSE's side -- it's
  * how many times THIS team's own offense was sacked, not how many sacks
  * this team's defense made. Confirmed against the actual box score: a
@@ -373,23 +406,9 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
   // player who played that week, rostered or not -- only the
   // persistence step was previously scoped to rostered players.
   const rowInputsByName = buildWeeklyStatRowInputs((players ?? []) as RosterPlayerRow[], individualStatLines, dstStatLines);
-  const weeklyStatRows = Array.from(rowInputsByName.values()).map(({ name, position, nflTeam, statLine }) => {
-    const zeroStatLine: PlayerSeasonStats = normalizeTankSeasonStats(undefined, position);
-    const s = statLine ? { ...statLine, gp: 1 } : { ...zeroStatLine, gp: 0 };
-    return {
-      week, season,
-      player_name: name, position, nfl_team: nflTeam,
-      pass_cmp: s.passCmp, pass_att: s.passAtt, pass_yds: s.passYds, pass_td: s.passTD, pass_int: s.passInt, pass_rating: s.passRating,
-      rush_att: s.rushAtt, rush_yds: s.rushYds, rush_td: s.rushTD,
-      receptions: s.receptions, targets: s.targets, rec_yds: s.recYds, rec_td: s.recTD,
-      fg_made: s.fgMade, fg_att: s.fgAtt, fg_yds: s.fgYds,
-      fg_made_1_to_39: s.fgMade1To39, fg_made_40_to_49: s.fgMade40To49, fg_made_50_to_59: s.fgMade50To59, fg_made_60_plus: s.fgMade60Plus,
-      xp_made: s.xpMade, xp_att: s.xpAtt,
-      sacks: s.sacks, def_int: s.defInt, fumbles_recovered: s.fumblesRecovered, takeaways: s.takeaways,
-      def_td: s.defTD, dst_td: s.dstTD, return_td: s.returnTD, safeties: s.safeties, block_kicks: s.blockKicks,
-      pts_against: s.ptsAgainst, fumbles_lost: s.fumblesLost, wrc_pts: s.wrcPts,
-    };
-  });
+  const weeklyStatRows = Array.from(rowInputsByName.values()).map(({ name, position, nflTeam, statLine }) =>
+    buildWeeklyStatRow(week, season, name, position, nflTeam, statLine)
+  );
   if (weeklyStatRows.length > 0) {
     const { error: weeklyStatsError } = await supabaseAdmin.from("player_weekly_stats").upsert(weeklyStatRows, { onConflict: "week,season,player_name" });
     if (weeklyStatsError) console.log(`[weeklyResultsFinalize] Unable to persist player_weekly_stats: ${weeklyStatsError.message}`);

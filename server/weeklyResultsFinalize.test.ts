@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moneyOwedIdForOwner, resolveTeamStatsKey, sacksFrom, defensePoints, attributeOffenseFramedDefenseStats, playerPoints, isGameFinal, weeklyRecordDelta, buildWeeklyStatRowInputs, type WeeklyStatRowInput } from "./weeklyResultsFinalize";
+import { moneyOwedIdForOwner, resolveTeamStatsKey, sacksFrom, defensePoints, attributeOffenseFramedDefenseStats, playerPoints, isGameFinal, weeklyRecordDelta, buildWeeklyStatRowInputs, buildWeeklyStatRow, type WeeklyStatRowInput } from "./weeklyResultsFinalize";
 import type { RosterPlayerRow } from "../shared/rosterPlayerResolution";
 import type { PlayerSeasonStats } from "../shared/playerSeasonStats";
 
@@ -286,5 +286,36 @@ describe("buildWeeklyStatRowInputs", () => {
     const result = buildWeeklyStatRowInputs([], { "someunknownplayer": stat(5) }, {});
     expect(result.has("someunknownplayer")).toBe(false);
     expect(result.size).toBe(0);
+  });
+});
+
+describe("buildWeeklyStatRow", () => {
+  const stat = (wrcPts: number): PlayerSeasonStats => ({
+    gp: 1, passCmp: 0, passAtt: 0, passYds: 0, passTD: 0, passInt: 0, passRating: 0,
+    rushAtt: 0, rushYds: 0, rushTD: 0, receptions: 0, targets: 0, recYds: 0, recTD: 0,
+    fgMade: 0, fgAtt: 0, fgYds: 0, fgMade1To39: 0, fgMade40To49: 0, fgMade50To59: 0, fgMade60Plus: 0,
+    xpMade: 0, xpAtt: 0, sacks: 0, defInt: 0, fumblesRecovered: 0, takeaways: 0, defTD: 0, dstTD: 0,
+    returnTD: 0, safeties: 0, blockKicks: 0, ptsAgainst: 0, fumblesLost: 0, wrcPts, ptsPerGame: wrcPts,
+  });
+
+  it("sets gp to 1 when the player has a real stat line -- regression test: this field was previously computed but silently missing from the returned row", () => {
+    const row = buildWeeklyStatRow(1, 2026, "Josh Allen", "QB", "BUF", stat(25));
+    expect(row.gp).toBe(1);
+    expect(row.wrc_pts).toBe(25);
+  });
+
+  it("sets gp to 0 when the player has no stat line (did not play), with a zeroed-out row", () => {
+    const row = buildWeeklyStatRow(1, 2026, "Josh Allen", "QB", "BUF", undefined);
+    expect(row.gp).toBe(0);
+    expect(row.wrc_pts).toBe(0);
+  });
+
+  it("includes week, season, player_name, position, and nfl_team correctly", () => {
+    const row = buildWeeklyStatRow(3, 2026, "Josh Allen", "QB", "BUF", stat(18));
+    expect(row.week).toBe(3);
+    expect(row.season).toBe(2026);
+    expect(row.player_name).toBe("Josh Allen");
+    expect(row.position).toBe("QB");
+    expect(row.nfl_team).toBe("BUF");
   });
 });
