@@ -304,7 +304,7 @@ function MyBids({ week }: { week: number }) {
                 <input
                   type="number" min={0} value={editAmount}
                   onChange={(e) => setEditAmount(e.target.value)}
-                  style={{ width: 70, padding: "0.3rem 0.5rem", borderRadius: 6, border: "1.5px solid oklch(0.8 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700 }}
+                  style={{ width: 70, padding: "0.3rem 0.5rem", borderRadius: 6, border: "1.5px solid oklch(0.8 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, background: "white", color: "oklch(0.22 0.08 150)" }}
                 />
                 <button
                   onClick={() => handleSaveEdit(bid)}
