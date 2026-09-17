@@ -84,7 +84,7 @@ export default function PlayerNews() {
     { players: rosterNewsPlayers, feedVersion: 2 },
     {
       enabled: myTeamOnly && rosterNewsPlayers.length > 0,
-      staleTime: 5 * 60_000,
+      staleTime: 15 * 60_000,
       retry: (failureCount, error) => {
         const message = error instanceof Error ? error.message : String(error);
         if (message.includes("429") || /rate limit/i.test(message)) return false;
