@@ -20688,7 +20688,7 @@ var require_application = __commonJS({
     };
     app.del = deprecate.function(app.delete, "app.del: Use app.delete instead");
     app.render = function render(name, options, callback) {
-      var cache3 = this.cache;
+      var cache2 = this.cache;
       var done = callback;
       var engines = this.engines;
       var opts = options;
@@ -20707,7 +20707,7 @@ var require_application = __commonJS({
         renderOptions.cache = this.enabled("view cache");
       }
       if (renderOptions.cache) {
-        view = cache3[name];
+        view = cache2[name];
       }
       if (!view) {
         var View2 = this.get("view");
@@ -20723,7 +20723,7 @@ var require_application = __commonJS({
           return done(err);
         }
         if (renderOptions.cache) {
-          cache3[name] = view;
+          cache2[name] = view;
         }
       }
       tryRender(view, renderOptions, done);
@@ -21197,11 +21197,11 @@ var require_negotiator = __commonJS({
     var preferredMediaTypes = require_mediaType();
     module2.exports = Negotiator;
     module2.exports.Negotiator = Negotiator;
-    function Negotiator(request2) {
+    function Negotiator(request) {
       if (!(this instanceof Negotiator)) {
-        return new Negotiator(request2);
+        return new Negotiator(request);
       }
-      this.request = request2;
+      this.request = request;
     }
     Negotiator.prototype.charset = function charset(available) {
       var set2 = this.charsets(available);
@@ -32934,14 +32934,14 @@ var init_dist2 = __esm({
         return response.data.namespaces.map((ns) => ({ namespace: ns }));
       }
       async createNamespace(id, metadata) {
-        const request2 = {
+        const request = {
           namespace: id.namespace,
           properties: metadata?.properties
         };
         const response = await this.client.request({
           method: "POST",
           path: `${this.prefix}/namespaces`,
-          body: request2
+          body: request
         });
         return response.data;
       }
@@ -32998,7 +32998,7 @@ var init_dist2 = __esm({
         });
         return response.data.identifiers;
       }
-      async createTable(namespace, request2) {
+      async createTable(namespace, request) {
         const headers = {};
         if (this.accessDelegation) {
           headers["X-Iceberg-Access-Delegation"] = this.accessDelegation;
@@ -33006,16 +33006,16 @@ var init_dist2 = __esm({
         const response = await this.client.request({
           method: "POST",
           path: `${this.prefix}/namespaces/${namespaceToPath2(namespace.namespace)}/tables`,
-          body: request2,
+          body: request,
           headers
         });
         return response.data.metadata;
       }
-      async updateTable(id, request2) {
+      async updateTable(id, request) {
         const response = await this.client.request({
           method: "POST",
           path: `${this.prefix}/namespaces/${namespaceToPath2(id.namespace)}/tables/${id.name}`,
-          body: request2
+          body: request
         });
         return {
           "metadata-location": response.data["metadata-location"],
@@ -33060,12 +33060,12 @@ var init_dist2 = __esm({
           throw error46;
         }
       }
-      async createTableIfNotExists(namespace, request2) {
+      async createTableIfNotExists(namespace, request) {
         try {
-          return await this.createTable(namespace, request2);
+          return await this.createTable(namespace, request);
         } catch (error46) {
           if (error46 instanceof IcebergError && error46.status === 409) {
-            return await this.loadTable({ namespace: namespace.namespace, name: request2.name });
+            return await this.loadTable({ namespace: namespace.namespace, name: request.name });
           }
           throw error46;
         }
@@ -33206,8 +33206,8 @@ var init_dist2 = __esm({
        * );
        * ```
        */
-      async createTable(namespace, request2) {
-        return this.tableOps.createTable(namespace, request2);
+      async createTable(namespace, request) {
+        return this.tableOps.createTable(namespace, request);
       }
       /**
        * Updates an existing table's metadata.
@@ -33230,8 +33230,8 @@ var init_dist2 = __esm({
        * console.log(response.metadata); // TableMetadata object
        * ```
        */
-      async updateTable(id, request2) {
-        return this.tableOps.updateTable(id, request2);
+      async updateTable(id, request) {
+        return this.tableOps.updateTable(id, request);
       }
       /**
        * Drops a table from the catalog.
@@ -33344,8 +33344,8 @@ var init_dist2 = __esm({
        * );
        * ```
        */
-      async createTableIfNotExists(namespace, request2) {
-        return this.tableOps.createTableIfNotExists(namespace, request2);
+      async createTableIfNotExists(namespace, request) {
+        return this.tableOps.createTableIfNotExists(namespace, request);
       }
     };
   }
@@ -59242,12 +59242,12 @@ var require_instance_per_container_caching_factory = __commonJS({
     "use strict";
     Object.defineProperty(exports2, "__esModule", { value: true });
     function instancePerContainerCachingFactory(factoryFunc) {
-      const cache3 = /* @__PURE__ */ new WeakMap();
+      const cache2 = /* @__PURE__ */ new WeakMap();
       return (dependencyContainer) => {
-        let instance = cache3.get(dependencyContainer);
+        let instance = cache2.get(dependencyContainer);
         if (instance == void 0) {
           instance = factoryFunc(dependencyContainer);
-          cache3.set(dependencyContainer, instance);
+          cache2.set(dependencyContainer, instance);
         }
         return instance;
       };
@@ -66221,8 +66221,8 @@ function incomingMessageToRequest(req, res, opts) {
     init.body = createBody(req, opts);
     init.duplex = "half";
   }
-  const request2 = new Request(url2, init);
-  return request2;
+  const request = new Request(url2, init);
+  return request;
 }
 async function writeResponseBodyChunk(res, chunk) {
   if (res.write(chunk) === false) await new Promise((resolve, reject) => {
@@ -66310,13 +66310,13 @@ async function nodeHTTPRequestHandler(opts) {
     return handleViaMiddleware(opts.req, opts.res, (err) => {
       run(async () => {
         var _opts$maxBodySize;
-        const request2 = incomingMessageToRequest(opts.req, opts.res, { maxBodySize: (_opts$maxBodySize = opts.maxBodySize) !== null && _opts$maxBodySize !== void 0 ? _opts$maxBodySize : null });
+        const request = incomingMessageToRequest(opts.req, opts.res, { maxBodySize: (_opts$maxBodySize = opts.maxBodySize) !== null && _opts$maxBodySize !== void 0 ? _opts$maxBodySize : null });
         const createContext2 = async (innerOpts) => {
           var _opts$createContext;
           return await ((_opts$createContext = opts.createContext) === null || _opts$createContext === void 0 ? void 0 : _opts$createContext.call(opts, (0, import_objectSpread25.default)((0, import_objectSpread25.default)({}, opts), innerOpts)));
         };
         const response = await resolveResponse((0, import_objectSpread25.default)((0, import_objectSpread25.default)({}, opts), {}, {
-          req: request2,
+          req: request,
           error: err ? getTRPCErrorFromUnknown(err) : null,
           createContext: createContext2,
           onError(o) {
@@ -66325,7 +66325,7 @@ async function nodeHTTPRequestHandler(opts) {
           }
         }));
         await writeResponse({
-          request: request2,
+          request,
           response,
           rawResponse: opts.res
         });
@@ -80330,47 +80330,13 @@ var systemRouter = router({
 });
 
 // server/fantasypros.ts
+init_supabaseAdmin();
+
+// server/fantasyprosFetcher.ts
+init_supabaseAdmin();
 var API_BASE = "https://api.fantasypros.com/public/v2/json";
-var cache2 = /* @__PURE__ */ new Map();
-function asRecord(value) {
-  return value && typeof value === "object" ? value : {};
-}
-function asString(value) {
-  return typeof value === "string" ? value : value == null ? "" : String(value);
-}
-function asNumber(value) {
-  const number4 = Number(value);
-  return Number.isFinite(number4) ? number4 : null;
-}
-function asArray(value) {
-  return Array.isArray(value) ? value : [];
-}
-async function request(path, cacheTtlMs) {
-  const cacheKey = path;
-  const existing = cache2.get(cacheKey);
-  if (existing && existing.expiresAt > Date.now()) return existing.value;
-  const apiKey = process.env.FANTASYPROS_API_KEY;
-  if (!apiKey) throw new Error("FantasyPros API is not configured");
-  const response = await fetch(`${API_BASE}${path}`, {
-    headers: { "x-api-key": apiKey },
-    signal: AbortSignal.timeout(15e3)
-  });
-  if (!response.ok) {
-    if (response.status === 429) {
-      const rateLimitHeaders = Object.fromEntries(
-        Array.from(response.headers.entries()).filter(([key]) => /rate.?limit|retry.?after/i.test(key))
-      );
-      console.error(`[fantasypros] 429 on ${path}`, Object.keys(rateLimitHeaders).length ? rateLimitHeaders : "(no rate-limit headers present in response)");
-      throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: "FantasyPros request failed with status 429" });
-    }
-    throw new Error(`FantasyPros request failed with status ${response.status}`);
-  }
-  const value = await response.json();
-  cache2.set(cacheKey, { value, expiresAt: Date.now() + cacheTtlMs });
-  return value;
-}
-var RANKINGS_CACHE_TTL_MS = 4 * 60 * 6e4;
-var PROJECTIONS_CACHE_TTL_MS = 3 * 60 * 6e4;
+var DAILY_CALL_CAP = 480;
+var MIN_CALL_SPACING_MS = 300;
 function isLikelyNflGameWindow(now = /* @__PURE__ */ new Date()) {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/New_York",
@@ -80385,38 +80351,153 @@ function isLikelyNflGameWindow(now = /* @__PURE__ */ new Date()) {
   if (weekday === "Mon") return hour2 >= 18 && hour2 <= 23;
   return false;
 }
-function newsAndInjuriesCacheTtlMs() {
-  return isLikelyNflGameWindow() ? 15 * 6e4 : 2 * 60 * 6e4;
+function newsThresholdMs(inGameWindow) {
+  return inGameWindow ? 15 * 6e4 : 30 * 6e4;
+}
+function injuriesThresholdMs(inGameWindow) {
+  return inGameWindow ? 15 * 6e4 : 2 * 60 * 6e4;
+}
+var RANKINGS_PROJECTIONS_THRESHOLD_MS = 8 * 60 * 6e4;
+var CACHE_KEYS = {
+  news: () => "news",
+  injuries: (season, week2) => `injuries:${season}:week:${week2}`,
+  ranks: (position, week2) => `ranks:${position}:week:${week2}`,
+  projections: (position, week2) => `projections:${position}:week:${week2}`
+};
+function isDue(fetchedAt, thresholdMs, now = Date.now()) {
+  if (!fetchedAt) return true;
+  const fetchedMs = new Date(fetchedAt).getTime();
+  if (!Number.isFinite(fetchedMs)) return true;
+  return now - fetchedMs >= thresholdMs;
+}
+function shouldSkipForBudget(kind, callsToday, inGameWindow) {
+  if (callsToday >= DAILY_CALL_CAP) {
+    if (kind === "injuries" && inGameWindow) return { skip: false };
+    return { skip: true, reason: `budget at ${callsToday}/500 -- only injuries-in-game-window run at or above ${DAILY_CALL_CAP}` };
+  }
+  if (callsToday >= 450 && (kind === "ranks" || kind === "projections")) {
+    return { skip: true, reason: `budget at ${callsToday}/500 -- rankings/projections pause at 450+` };
+  }
+  return { skip: false };
+}
+function nyDateString(now = /* @__PURE__ */ new Date()) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(now);
+  const year2 = parts.find((p) => p.type === "year")?.value;
+  const month = parts.find((p) => p.type === "month")?.value;
+  const day2 = parts.find((p) => p.type === "day")?.value;
+  return `${year2}-${month}-${day2}`;
+}
+async function readTodayUsage(day2) {
+  const { data, error: error46 } = await supabaseAdmin.from("fantasypros_usage").select("calls").eq("day", day2).maybeSingle();
+  if (error46) throw new Error(`Unable to read FantasyPros usage: ${error46.message}`);
+  return data?.calls ?? 0;
+}
+async function incrementUsage(day2, note) {
+  const { data, error: error46 } = await supabaseAdmin.rpc("fantasypros_usage_increment", { p_day: day2, p_note: note ?? null });
+  if (error46) throw new Error(`Unable to increment FantasyPros usage: ${error46.message}`);
+  return data;
+}
+var lastCallAt = 0;
+async function respectRateLimit() {
+  const wait = lastCallAt + MIN_CALL_SPACING_MS - Date.now();
+  if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+  lastCallAt = Date.now();
+}
+async function fetchAndStore(key, path, ttlMs) {
+  const day2 = nyDateString();
+  const callsToday = await readTodayUsage(day2);
+  if (callsToday >= DAILY_CALL_CAP) {
+    const reason = `daily cap reached (${callsToday}/500)`;
+    console.warn(`[fantasypros-fetcher] skipping ${key}: ${reason}`);
+    return { key, status: "skipped-budget", reason };
+  }
+  const apiKey = process.env.FANTASYPROS_API_KEY;
+  if (!apiKey) throw new Error("FantasyPros API is not configured");
+  await respectRateLimit();
+  const response = await fetch(`${API_BASE}${path}`, {
+    headers: { "x-api-key": apiKey },
+    signal: AbortSignal.timeout(15e3)
+  });
+  if (response.status === 429) {
+    const rateLimitHeaders = Object.fromEntries(
+      Array.from(response.headers.entries()).filter(([headerKey]) => /rate.?limit|retry.?after/i.test(headerKey))
+    );
+    console.error(`[fantasypros-fetcher] 429 on ${path}`, Object.keys(rateLimitHeaders).length ? rateLimitHeaders : "(no rate-limit headers present in response)");
+    await incrementUsage(day2, { key, path, status: 429, headers: rateLimitHeaders });
+    return { key, status: "rate-limited", reason: "429" };
+  }
+  if (!response.ok) {
+    await incrementUsage(day2, { key, path, status: response.status });
+    throw new Error(`FantasyPros request failed with status ${response.status} for ${path}`);
+  }
+  const payload = await response.json();
+  const now = /* @__PURE__ */ new Date();
+  const { error: upsertError } = await supabaseAdmin.from("fantasypros_cache").upsert({
+    key,
+    payload,
+    fetched_at: now.toISOString(),
+    expires_at: new Date(now.getTime() + ttlMs).toISOString()
+  }, { onConflict: "key" });
+  if (upsertError) throw new Error(`Unable to store FantasyPros cache for ${key}: ${upsertError.message}`);
+  await incrementUsage(day2);
+  return { key, status: "fetched" };
+}
+
+// server/fantasypros.ts
+function asRecord(value) {
+  return value && typeof value === "object" ? value : {};
+}
+function asString(value) {
+  return typeof value === "string" ? value : value == null ? "" : String(value);
+}
+function asNumber(value) {
+  const number4 = Number(value);
+  return Number.isFinite(number4) ? number4 : null;
+}
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+async function readCache(key) {
+  const { data, error: error46 } = await supabaseAdmin.from("fantasypros_cache").select("payload").eq("key", key).maybeSingle();
+  if (error46) {
+    console.error(`[fantasypros] cache read failed for "${key}": ${error46.message}`);
+    return {};
+  }
+  if (!data) {
+    console.warn(`[fantasypros] cache miss for "${key}"`);
+    return {};
+  }
+  return asRecord(data.payload);
+}
+function parseNewsItem(item) {
+  const row = asRecord(item);
+  return {
+    id: asNumber(row.id) ?? 0,
+    playerId: asNumber(row.player_id),
+    playerName: asString(row.player_name ?? row.name),
+    team: asString(row.team_id),
+    title: asString(row.title),
+    description: asString(row.desc),
+    impact: asString(row.impact),
+    author: asString(row.author),
+    published: asString(row.created),
+    link: asString(row.link),
+    categories: asArray(row.categories).map(asString).filter(Boolean)
+  };
 }
 async function getFantasyProsNews(limit = 50, fpid) {
-  const query = new URLSearchParams({
-    limit: String(Math.min(Math.max(limit, 1), 100)),
-    order_by: "updated"
-  });
-  if (fpid != null) query.set("fpid", String(fpid));
-  const data = asRecord(await request(`/nfl/news?${query.toString()}`, newsAndInjuriesCacheTtlMs()));
-  return asArray(data.items).map((item) => {
-    const row = asRecord(item);
-    return {
-      id: asNumber(row.id) ?? 0,
-      playerId: asNumber(row.player_id),
-      playerName: asString(row.player_name ?? row.name),
-      team: asString(row.team_id),
-      title: asString(row.title),
-      description: asString(row.desc),
-      impact: asString(row.impact),
-      author: asString(row.author),
-      published: asString(row.created),
-      link: asString(row.link),
-      categories: asArray(row.categories).map(asString).filter(Boolean)
-    };
-  }).filter((item) => item.title);
+  const data = await readCache(CACHE_KEYS.news());
+  const items = asArray(data.items).map(parseNewsItem).filter((item) => item.title);
+  const filtered = fpid != null ? items.filter((item) => item.playerId === fpid) : items;
+  return filtered.slice(0, Math.min(Math.max(limit, 1), 100));
 }
 async function getFantasyProsInjuries(year2, week2) {
-  const data = asRecord(await request(
-    `/nfl/injuries?year=${year2}&week=${week2}&include_probabilities=true`,
-    newsAndInjuriesCacheTtlMs()
-  ));
+  const data = await readCache(CACHE_KEYS.injuries(year2, week2));
   return asArray(data.injuries).map((item) => {
     const row = asRecord(item);
     return {
@@ -80436,8 +80517,7 @@ async function getFantasyProsInjuries(year2, week2) {
   }).filter((item) => item.name && item.status);
 }
 async function getFantasyProsRanks(position, week2) {
-  const query = new URLSearchParams({ position, scoring: "PPR", type: week2 > 0 ? "WEEKLY" : "DRAFT", week: String(week2) });
-  const data = asRecord(await request(`/nfl/2026/consensus-rankings?${query.toString()}`, RANKINGS_CACHE_TTL_MS));
+  const data = await readCache(CACHE_KEYS.ranks(position, week2));
   return asArray(data.players).map((item) => {
     const row = asRecord(item);
     return {
@@ -80453,8 +80533,7 @@ async function getFantasyProsRanks(position, week2) {
   }).filter((item) => item.name);
 }
 async function getFantasyProsProjections(position, week2) {
-  const query = new URLSearchParams({ position, week: String(week2) });
-  const data = asRecord(await request(`/nfl/2026/projections?${query.toString()}`, PROJECTIONS_CACHE_TTL_MS));
+  const data = await readCache(CACHE_KEYS.projections(position, week2));
   return asArray(data.players).map((item) => {
     const row = asRecord(item);
     const stats = asRecord(asArray(row.stats)[0]);
@@ -92062,18 +92141,11 @@ var appRouter = router({
         getFantasyProsNews(100),
         ...positions.map((position) => getFantasyProsRanks(position, 1))
       ]);
-      const playerIds = new Map(rankGroups.flat().map((rank) => [normalizePlayerKey(rank.name), rank.playerId]));
-      const recentLeagueMatches = leagueNews.filter((item) => rosterKeys.has(normalizePlayerKey(item.playerName)));
-      const playersAlreadyCovered = new Set(recentLeagueMatches.map((item) => normalizePlayerKey(item.playerName)));
-      const rosterPlayersWithIds = input.players.filter(
-        (player) => playerIds.has(normalizePlayerKey(player.name)) && !playersAlreadyCovered.has(normalizePlayerKey(player.name))
+      const myRosterIds = new Set(
+        rankGroups.flat().filter((rank) => rosterKeys.has(normalizePlayerKey(rank.name))).map((rank) => rank.playerId)
       );
-      const playerSpecificGroups = await mapWithConcurrency2(rosterPlayersWithIds, 4, async (player) => {
-        const news = await getFantasyProsNews(6, playerIds.get(normalizePlayerKey(player.name)));
-        return news.map((item) => ({ ...item, playerName: item.playerName || player.name }));
-      });
       const seen = /* @__PURE__ */ new Set();
-      return [...recentLeagueMatches, ...playerSpecificGroups.flat()].filter((item) => rosterKeys.has(normalizePlayerKey(item.playerName))).filter((item) => {
+      return leagueNews.filter((item) => rosterKeys.has(normalizePlayerKey(item.playerName)) || item.playerId != null && myRosterIds.has(item.playerId)).filter((item) => {
         const key = item.id || `${item.playerName}-${item.title}-${item.published}`;
         if (seen.has(key)) return false;
         seen.add(key);
@@ -92110,6 +92182,142 @@ async function collectFantasyProsArchive(_req, res) {
       context: { collector: "fantasypros-rolling-archive" }
     });
   }
+}
+
+// server/scheduledFantasyProsRefresh.ts
+init_supabaseAdmin();
+var SEASON = 2026;
+var RANK_POSITIONS = ["QB", "RB", "WR", "TE", "K", "DST", "ALL"];
+var PROJECTION_POSITIONS = ["QB", "RB", "WR", "TE", "K", "DST"];
+function buildPlan(week2, inGameWindow) {
+  return [
+    {
+      kind: "news",
+      key: CACHE_KEYS.news(),
+      path: `/nfl/news?${new URLSearchParams({ limit: "100", order_by: "updated" })}`,
+      ttlMs: newsThresholdMs(inGameWindow)
+    },
+    {
+      kind: "injuries",
+      key: CACHE_KEYS.injuries(SEASON, week2),
+      path: `/nfl/injuries?year=${SEASON}&week=${week2}&include_probabilities=true`,
+      ttlMs: injuriesThresholdMs(inGameWindow)
+    },
+    ...RANK_POSITIONS.map((position) => ({
+      kind: "ranks",
+      key: CACHE_KEYS.ranks(position, week2),
+      path: `/nfl/${SEASON}/consensus-rankings?${new URLSearchParams({ position, scoring: "PPR", type: week2 > 0 ? "WEEKLY" : "DRAFT", week: String(week2) })}`,
+      ttlMs: RANKINGS_PROJECTIONS_THRESHOLD_MS
+    })),
+    ...PROJECTION_POSITIONS.map((position) => ({
+      kind: "projections",
+      key: CACHE_KEYS.projections(position, week2),
+      path: `/nfl/${SEASON}/projections?${new URLSearchParams({ position, week: String(week2) })}`,
+      ttlMs: RANKINGS_PROJECTIONS_THRESHOLD_MS
+    }))
+  ];
+}
+async function loadFetchedAtByKey(keys) {
+  const { data, error: error46 } = await supabaseAdmin.from("fantasypros_cache").select("key, fetched_at").in("key", keys);
+  if (error46) throw new Error(`Unable to read FantasyPros cache metadata: ${error46.message}`);
+  const map2 = /* @__PURE__ */ new Map();
+  for (const row of data ?? []) map2.set(row.key, row.fetched_at);
+  return map2;
+}
+async function processFantasyProsRefresh() {
+  const week2 = getLineupDefaultWeek() || 1;
+  const inGameWindow = isLikelyNflGameWindow();
+  const plan = buildPlan(week2, inGameWindow);
+  const [{ data: usageRow }, fetchedAtByKey] = await Promise.all([
+    supabaseAdmin.from("fantasypros_usage").select("calls").eq("day", nyDateString()).maybeSingle(),
+    loadFetchedAtByKey(plan.map((item) => item.key))
+  ]);
+  let callsToday = usageRow?.calls ?? 0;
+  const fetched = [];
+  const skipped = [];
+  for (const item of plan) {
+    if (!isDue(fetchedAtByKey.get(item.key) ?? null, item.ttlMs)) {
+      skipped.push({ key: item.key, reason: "not due" });
+      continue;
+    }
+    const budgetDecision = shouldSkipForBudget(item.kind, callsToday, inGameWindow);
+    if (budgetDecision.skip) {
+      skipped.push({ key: item.key, reason: budgetDecision.reason });
+      continue;
+    }
+    try {
+      const result = await fetchAndStore(item.key, item.path, item.ttlMs);
+      if (result.status === "fetched") {
+        fetched.push(item.key);
+        callsToday += 1;
+      } else if (result.status === "rate-limited") {
+        skipped.push({ key: item.key, reason: "429 from FantasyPros" });
+        callsToday += 1;
+      } else {
+        skipped.push({ key: item.key, reason: result.reason ?? "skipped" });
+      }
+    } catch (error46) {
+      skipped.push({ key: item.key, reason: `error: ${error46 instanceof Error ? error46.message : String(error46)}` });
+    }
+  }
+  return { fetched, skipped, callsToday };
+}
+async function fantasyProsRefreshSchedule(_req, res) {
+  try {
+    const result = await processFantasyProsRefresh();
+    console.log(
+      `[fantasypros-refresh] fetched: ${result.fetched.join(", ") || "(none)"} | skipped: ${result.skipped.map((s) => `${s.key} (${s.reason})`).join(", ") || "(none)"} | calls today: ${result.callsToday}/500`
+    );
+    res.json({ ok: true, ...result });
+  } catch (error46) {
+    res.status(500).json({
+      error: error46 instanceof Error ? error46.message : String(error46),
+      timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+      context: { collector: "fantasypros-refresh" }
+    });
+  }
+}
+
+// server/fantasyprosFeed.ts
+init_supabaseAdmin();
+function isAuthorized(req) {
+  const secret = process.env.FANTASYPROS_FEED_SECRET;
+  return Boolean(secret) && req.headers["x-feed-secret"] === secret;
+}
+async function serveFantasyProsFeed(req, res) {
+  if (!isAuthorized(req)) {
+    res.status(401).json({ error: "unauthorized" });
+    return;
+  }
+  const key = typeof req.query.key === "string" ? req.query.key : "";
+  if (!key) {
+    res.status(400).json({ error: "missing required query param: key" });
+    return;
+  }
+  const { data, error: error46 } = await supabaseAdmin.from("fantasypros_cache").select("key, payload, fetched_at, expires_at").eq("key", key).maybeSingle();
+  if (error46) {
+    res.status(500).json({ error: error46.message });
+    return;
+  }
+  if (!data) {
+    res.status(404).json({ error: `no cached data for key "${key}"` });
+    return;
+  }
+  res.setHeader("Cache-Control", "s-maxage=60");
+  res.json(data);
+}
+async function serveFantasyProsFeedKeys(req, res) {
+  if (!isAuthorized(req)) {
+    res.status(401).json({ error: "unauthorized" });
+    return;
+  }
+  const { data, error: error46 } = await supabaseAdmin.from("fantasypros_cache").select("key, fetched_at, expires_at").order("key");
+  if (error46) {
+    res.status(500).json({ error: error46.message });
+    return;
+  }
+  res.setHeader("Cache-Control", "s-maxage=60");
+  res.json({ keys: data ?? [] });
 }
 
 // server/scheduledProtectionRelease.ts
@@ -94082,17 +94290,17 @@ async function refreshNflTeamAssignmentsSchedule(_req, res) {
 
 // server/scheduledWeeklyResultsFinalize.ts
 init_supabaseAdmin();
-var SEASON = 2026;
+var SEASON2 = 2026;
 async function autoFinalizeCompletedWeeklyResults() {
   const currentWeek = getCurrentWeek();
-  const { data: unsettledRows, error: error46 } = await supabaseAdmin.from("weekly_results").select("week").eq("season", SEASON).eq("is_final", false).lte("week", currentWeek);
+  const { data: unsettledRows, error: error46 } = await supabaseAdmin.from("weekly_results").select("week").eq("season", SEASON2).eq("is_final", false).lte("week", currentWeek);
   if (error46) throw new Error("Unable to find unsettled weekly results.");
   const candidateWeeks = Array.from(new Set((unsettledRows ?? []).map((row) => Number(row.week)))).filter((week2) => Number.isInteger(week2) && week2 >= 1 && week2 <= 17).sort((a, b) => a - b);
   const finalizedWeeks = [];
   const pendingWeeks = [];
   for (const week2 of candidateWeeks) {
     try {
-      await finalizeWeeklyResultsFromTank(week2, SEASON);
+      await finalizeWeeklyResultsFromTank(week2, SEASON2);
       finalizedWeeks.push(week2);
     } catch (error47) {
       const message2 = error47 instanceof Error ? error47.message : String(error47);
@@ -94103,7 +94311,7 @@ async function autoFinalizeCompletedWeeklyResults() {
       throw error47;
     }
   }
-  return { season: SEASON, currentWeek, finalizedWeeks, pendingWeeks };
+  return { season: SEASON2, currentWeek, finalizedWeeks, pendingWeeks };
 }
 async function finalizeWeeklyResultsSchedule(_req, res) {
   try {
@@ -94119,10 +94327,10 @@ async function finalizeWeeklyResultsSchedule(_req, res) {
 }
 
 // server/scheduledStandingsRecompute.ts
-var SEASON2 = 2026;
+var SEASON3 = 2026;
 async function recomputeStandingsSchedule(_req, res) {
   try {
-    const result = await recomputeStandingsFromFinalizedResults(SEASON2);
+    const result = await recomputeStandingsFromFinalizedResults(SEASON3);
     res.json({ ok: true, ...result });
   } catch (error46) {
     console.error("[recomputeStandingsSchedule] failed:", error46);
@@ -94136,10 +94344,10 @@ async function recomputeStandingsSchedule(_req, res) {
 
 // server/scheduledSeasonStatsPrecompute.ts
 init_supabaseAdmin();
-var SEASON3 = 2026;
+var SEASON4 = 2026;
 async function precomputeSeasonStatsSchedule(_req, res) {
   try {
-    const { data, error: error46 } = await supabaseAdmin.from("player_weekly_stats").select("*").eq("season", SEASON3);
+    const { data, error: error46 } = await supabaseAdmin.from("player_weekly_stats").select("*").eq("season", SEASON4);
     if (error46) throw new Error(`Unable to load player_weekly_stats: ${error46.message}`);
     const rowsByPlayer = /* @__PURE__ */ new Map();
     for (const row of data ?? []) {
@@ -94153,7 +94361,7 @@ async function precomputeSeasonStatsSchedule(_req, res) {
     const precomputedRows = Array.from(rowsByPlayer.entries()).map(([playerName, { position, nflTeam, rows }]) => {
       const s = aggregateWeeklyStatRows(rows);
       return {
-        season: SEASON3,
+        season: SEASON4,
         player_name: playerName,
         position,
         nfl_team: nflTeam,
@@ -94687,9 +94895,12 @@ function createApp() {
   app.get("/api/espn/scoreboard", proxyEspnScoreboard);
   app.get("/api/espn/summary", proxyEspnSummary);
   app.get("/api/season-stats-2025", serveCompletedOffenseSnapshot);
+  app.get("/api/fantasypros/feed/keys", serveFantasyProsFeedKeys);
+  app.get("/api/fantasypros/feed", serveFantasyProsFeed);
   app.get("/api/scheduled/season-stats-refresh", requireCronSecret, refreshSharedSeasonStatsSchedule);
   app.get("/api/scheduled/nfl-team-refresh", requireCronSecret, refreshNflTeamAssignmentsSchedule);
   app.get("/api/scheduled/fantasypros-archive", requireCronSecret, collectFantasyProsArchive);
+  app.get("/api/scheduled/fantasypros-refresh", requireCronSecret, fantasyProsRefreshSchedule);
   app.get("/api/scheduled/release-unprotected-players", requireCronSecret, releasePostDeadlinePlayers);
   app.get("/api/scheduled/weekly-results-finalize", requireCronSecret, finalizeWeeklyResultsSchedule);
   app.get("/api/scheduled/standings-recompute", requireCronSecret, recomputeStandingsSchedule);
