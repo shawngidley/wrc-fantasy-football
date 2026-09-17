@@ -81586,6 +81586,37 @@ init_storage();
 // server/weeklyResultsFinalize.ts
 init_supabaseAdmin();
 
+// server/prizeEarnings.ts
+init_supabaseAdmin();
+var PRIZE_AMOUNTS = {
+  gow: 30,
+  wild_card: 50,
+  divisional: 100,
+  super_bowl: 300,
+  champ: 600
+};
+function earningsIdForOwner(owner) {
+  return owner.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+async function creditPrizeEarnings(owner, column, season, amount = PRIZE_AMOUNTS[column]) {
+  const id = earningsIdForOwner(owner);
+  const { data: existing, error: readError } = await supabaseAdmin.from("earnings").select("id, name, season, gow, wild_card, divisional, super_bowl, champ").eq("id", id).maybeSingle();
+  if (readError) throw new Error(`Unable to read earnings for ${owner}: ${readError.message}`);
+  const row = {
+    id,
+    name: existing?.name ?? owner,
+    season: existing?.season ?? season,
+    gow: existing?.gow ?? null,
+    wild_card: existing?.wild_card ?? null,
+    divisional: existing?.divisional ?? null,
+    super_bowl: existing?.super_bowl ?? null,
+    champ: existing?.champ ?? null
+  };
+  row[column] = Number(row[column] ?? 0) + amount;
+  const { error: writeError } = await supabaseAdmin.from("earnings").upsert(row, { onConflict: "id" });
+  if (writeError) throw new Error(`Unable to credit ${owner}'s ${column} earnings: ${writeError.message}`);
+}
+
 // shared/scoringEngine.ts
 function n(v) {
   if (v === void 0 || v === null) return 0;
@@ -81956,9 +81987,6 @@ async function mapWithConcurrency(items, limit, mapper) {
   await Promise.all(workers);
   return results;
 }
-function moneyOwedIdForOwner(owner) {
-  return owner.toLowerCase().replace(/[^a-z0-9]/g, "");
-}
 async function finalizeWeeklyResultsFromTank(week2, season) {
   const key = process.env.TANK01_API_KEY;
   if (!key) throw new Error("Tank01 API credential is unavailable.");
@@ -82075,19 +82103,7 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
       const awayScore2 = teamScores.get(awayTeamId) ?? 0;
       if (homeScore2 !== awayScore2) {
         const winnerOwner = homeScore2 > awayScore2 ? homeOwner : awayOwner;
-        const loserOwner = homeScore2 > awayScore2 ? awayOwner : homeOwner;
-        const winnerId = moneyOwedIdForOwner(winnerOwner);
-        const loserId = moneyOwedIdForOwner(loserOwner);
-        const { data: moneyRows, error: moneyReadError } = await supabaseAdmin.from("money_owed").select("id, name, owed").in("id", [winnerId, loserId]);
-        if (moneyReadError) throw new Error("Rivalry game resolved, but money_owed could not be read.");
-        const existingById = new Map((moneyRows ?? []).map((row) => [row.id, row]));
-        const winnerRow = existingById.get(winnerId) ?? { id: winnerId, name: winnerOwner, owed: 0 };
-        const loserRow = existingById.get(loserId) ?? { id: loserId, name: loserOwner, owed: 0 };
-        const { error: moneyWriteError } = await supabaseAdmin.from("money_owed").upsert([
-          { ...winnerRow, owed: Number(winnerRow.owed ?? 0) - 30 },
-          { ...loserRow, owed: Number(loserRow.owed ?? 0) + 30 }
-        ], { onConflict: "id" });
-        if (moneyWriteError) throw new Error("Rivalry game resolved, but money_owed could not be updated.");
+        await creditPrizeEarnings(winnerOwner, "gow", season);
       }
       const { error: resolveError } = await supabaseAdmin.from("rivalry_games").update({ resolved: true }).in("id", rivalryRows.map((row) => row.id));
       if (resolveError) throw new Error("Rivalry game payout applied, but could not be marked resolved.");
@@ -91116,15 +91132,19 @@ var appRouter = router({
       const weeks = Array.from(new Set(rows.map((r) => r.week)));
       const { data: results, error: resultsError } = await supabaseAdmin.from("weekly_results").select("week, home_team_id, away_team_id, home_score, away_score").eq("season", season).in("week", weeks);
       if (resultsError) throw new Error("Unable to load weekly results for rivalry games");
+      const bare = (id) => (id ?? "").replace(/^team-/, "");
       return rows.map((row) => {
+        const me = bare(row.team_id);
+        const opp = bare(row.opponent_team_id);
         const matchupResult = (results ?? []).find(
-          (r) => r.week === row.week && (r.home_team_id === row.team_id && r.away_team_id === row.opponent_team_id || r.away_team_id === row.team_id && r.home_team_id === row.opponent_team_id)
+          (r) => r.week === row.week && (bare(r.home_team_id) === me && bare(r.away_team_id) === opp || bare(r.away_team_id) === me && bare(r.home_team_id) === opp)
         );
         let outcome = null;
         if (row.resolved && matchupResult) {
-          const myScore = matchupResult.home_team_id === row.team_id ? matchupResult.home_score : matchupResult.away_score;
-          const oppScore = matchupResult.home_team_id === row.team_id ? matchupResult.away_score : matchupResult.home_score;
-          outcome = myScore > oppScore ? "won" : "lost";
+          const iAmHome = bare(matchupResult.home_team_id) === me;
+          const myScore = Number(iAmHome ? matchupResult.home_score : matchupResult.away_score);
+          const oppScore = Number(iAmHome ? matchupResult.away_score : matchupResult.home_score);
+          outcome = myScore > oppScore ? "won" : myScore < oppScore ? "lost" : "tie";
         }
         return {
           teamId: row.team_id,

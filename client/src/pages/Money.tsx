@@ -154,7 +154,11 @@ function RivalryGameSection() {
                     ? <span style={{ color: "oklch(0.55 0.04 150)" }}>Pending</span>
                     : r.outcome === "won"
                       ? <span style={{ color: "oklch(0.4 0.15 150)", fontWeight: 700 }}>Won +$30</span>
-                      : <span style={{ color: "oklch(0.45 0.18 25)", fontWeight: 700 }}>Lost -$30</span>}
+                      : r.outcome === "lost"
+                        ? <span style={{ color: "oklch(0.45 0.18 25)", fontWeight: 700 }}>Lost</span>
+                        : r.outcome === "tie"
+                          ? <span style={{ color: "oklch(0.55 0.04 150)", fontWeight: 700 }}>Tie</span>
+                          : <span style={{ color: "oklch(0.55 0.04 150)" }}>Final</span>}
                 </td>
               </tr>
             ))}
@@ -194,14 +198,21 @@ export default function Money() {
     // Earnings — columns: id, name, gow, wild_card, divisional, super_bowl, champ, season
     const { data: earnData } = await supabase.from("earnings").select("*");
     if (earnData && earnData.length > 0) {
-      setEarnings(earnData.map((r: { id: string; name: string; gow: number | null; wild_card: number | null; divisional: number | null; super_bowl: number | null; champ: number | null }) => ({
-        name: r.name,
-        gow: r.gow ?? null,
-        wildCard: r.wild_card ?? null,
-        divisional: r.divisional ?? null,
-        superBowl: r.super_bowl ?? null,
-        champ: r.champ ?? null,
-      })));
+      // Keep the fixed owner order and show every owner even if only some
+      // have an earnings row yet (rows are created as prizes are won).
+      const byName = new Map((earnData as { id: string; name: string; gow: number | null; wild_card: number | null; divisional: number | null; super_bowl: number | null; champ: number | null }[])
+        .map(r => [r.name, r]));
+      setEarnings(DEFAULT_EARNINGS.map(d => {
+        const r = byName.get(d.name);
+        return r ? {
+          name: d.name,
+          gow: r.gow ?? null,
+          wildCard: r.wild_card ?? null,
+          divisional: r.divisional ?? null,
+          superBowl: r.super_bowl ?? null,
+          champ: r.champ ?? null,
+        } : d;
+      }));
     }
   }, []);
 

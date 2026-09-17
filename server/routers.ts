@@ -1076,17 +1076,25 @@ export const appRouter = router({
         .in("week", weeks);
       if (resultsError) throw new Error("Unable to load weekly results for rivalry games");
 
+      // weekly_results stores team ids without the "team-" prefix
+      // ("davids") while rivalry_games stores teams.id ("team-davids").
+      // Compare both sides stripped, or no matchup ever matches and every
+      // resolved game shows as lost (week 1, 2026: Greg won, page said Lost).
+      const bare = (id: string | null | undefined) => (id ?? "").replace(/^team-/, "");
       return rows.map(row => {
+        const me = bare(row.team_id);
+        const opp = bare(row.opponent_team_id);
         const matchupResult = (results ?? []).find(r =>
           r.week === row.week &&
-          ((r.home_team_id === row.team_id && r.away_team_id === row.opponent_team_id) ||
-           (r.away_team_id === row.team_id && r.home_team_id === row.opponent_team_id)),
+          ((bare(r.home_team_id) === me && bare(r.away_team_id) === opp) ||
+           (bare(r.away_team_id) === me && bare(r.home_team_id) === opp)),
         );
-        let outcome: "won" | "lost" | null = null;
+        let outcome: "won" | "lost" | "tie" | null = null;
         if (row.resolved && matchupResult) {
-          const myScore = matchupResult.home_team_id === row.team_id ? matchupResult.home_score : matchupResult.away_score;
-          const oppScore = matchupResult.home_team_id === row.team_id ? matchupResult.away_score : matchupResult.home_score;
-          outcome = myScore > oppScore ? "won" : "lost";
+          const iAmHome = bare(matchupResult.home_team_id) === me;
+          const myScore = Number(iAmHome ? matchupResult.home_score : matchupResult.away_score);
+          const oppScore = Number(iAmHome ? matchupResult.away_score : matchupResult.home_score);
+          outcome = myScore > oppScore ? "won" : myScore < oppScore ? "lost" : "tie";
         }
         return {
           teamId: row.team_id,

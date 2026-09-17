@@ -1,5 +1,6 @@
 import { SCHEDULE_2026 } from "../client/src/lib/scheduleData2026";
 import { supabaseAdmin } from "./supabaseAdmin";
+import { creditPrizeEarnings } from "./prizeEarnings";
 import { normalizePlayerName } from "../shared/playerNameMatch";
 import { calcFantasyPoints, type Tank01Stats } from "../shared/scoringEngine";
 import { parseEspnKickerEvents, getKickerEventsForPlayer, calculateWrcKickerPoints, type KickerPlayEvent } from "../shared/espnKickerEvents";
@@ -441,8 +442,12 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
 
     // Rivalry Game: either owner could have independently declared this
     // specific matchup as their one rivalry game for the season -- if
-    // either did, the $30 swing applies once to this game's actual
-    // winner/loser, regardless of whether one or both sides declared it.
+    // either did, the winner is paid $30 from the prize pool once,
+    // regardless of whether one or both sides declared it. The credit
+    // goes to the Rivalry Game column of the 2026 Earnings table. It
+    // must never touch money_owed: that table is league fees only
+    // (week 1, 2026 originally did a +/-30 fee swing there and had to be
+    // reversed by hand).
     const { data: rivalryRows, error: rivalryError } = await supabaseAdmin
       .from("rivalry_games")
       .select("id")
@@ -456,20 +461,7 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
       const awayScore = teamScores.get(awayTeamId) ?? 0;
       if (homeScore !== awayScore) { // no payout on an exact tie
         const winnerOwner = homeScore > awayScore ? homeOwner : awayOwner;
-        const loserOwner = homeScore > awayScore ? awayOwner : homeOwner;
-        const winnerId = moneyOwedIdForOwner(winnerOwner);
-        const loserId = moneyOwedIdForOwner(loserOwner);
-        const { data: moneyRows, error: moneyReadError } = await supabaseAdmin
-          .from("money_owed").select("id, name, owed").in("id", [winnerId, loserId]);
-        if (moneyReadError) throw new Error("Rivalry game resolved, but money_owed could not be read.");
-        const existingById = new Map((moneyRows ?? []).map(row => [row.id, row]));
-        const winnerRow = existingById.get(winnerId) ?? { id: winnerId, name: winnerOwner, owed: 0 };
-        const loserRow = existingById.get(loserId) ?? { id: loserId, name: loserOwner, owed: 0 };
-        const { error: moneyWriteError } = await supabaseAdmin.from("money_owed").upsert([
-          { ...winnerRow, owed: Number(winnerRow.owed ?? 0) - 30 },
-          { ...loserRow, owed: Number(loserRow.owed ?? 0) + 30 },
-        ], { onConflict: "id" });
-        if (moneyWriteError) throw new Error("Rivalry game resolved, but money_owed could not be updated.");
+        await creditPrizeEarnings(winnerOwner, "gow", season);
       }
       // Mark resolved regardless of whether a payout was actually applied
       // (e.g. an exact tie) -- either way this matchup's rivalry
