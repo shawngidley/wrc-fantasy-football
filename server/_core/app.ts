@@ -3,6 +3,7 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { collectFantasyProsArchive } from "../scheduledFantasyProsArchive";
+import { fantasyProsRefreshSchedule } from "../scheduledFantasyProsRefresh";
 import { releasePostDeadlinePlayers } from "../scheduledProtectionRelease";
 import { proxyTank01Request } from "../tank01Proxy";
 import { proxyEspnAthlete, proxyEspnAthleteSubresource, proxyEspnNews, proxyEspnScoreboard, proxyEspnSummary } from "../espnProxy";
@@ -61,6 +62,7 @@ export function createApp(): Express {
   app.get("/api/scheduled/season-stats-refresh", requireCronSecret, refreshSharedSeasonStatsSchedule);
   app.get("/api/scheduled/nfl-team-refresh", requireCronSecret, refreshNflTeamAssignmentsSchedule);
   app.get("/api/scheduled/fantasypros-archive", requireCronSecret, collectFantasyProsArchive);
+  app.get("/api/scheduled/fantasypros-refresh", requireCronSecret, fantasyProsRefreshSchedule);
   app.get("/api/scheduled/release-unprotected-players", requireCronSecret, releasePostDeadlinePlayers);
   app.get("/api/scheduled/weekly-results-finalize", requireCronSecret, finalizeWeeklyResultsSchedule);
   app.get("/api/scheduled/standings-recompute", requireCronSecret, recomputeStandingsSchedule);
