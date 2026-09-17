@@ -4,6 +4,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { collectFantasyProsArchive } from "../scheduledFantasyProsArchive";
 import { fantasyProsRefreshSchedule } from "../scheduledFantasyProsRefresh";
+import { serveFantasyProsFeed, serveFantasyProsFeedKeys } from "../fantasyprosFeed";
 import { releasePostDeadlinePlayers } from "../scheduledProtectionRelease";
 import { proxyTank01Request } from "../tank01Proxy";
 import { proxyEspnAthlete, proxyEspnAthleteSubresource, proxyEspnNews, proxyEspnScoreboard, proxyEspnSummary } from "../espnProxy";
@@ -57,6 +58,10 @@ export function createApp(): Express {
   app.get("/api/espn/scoreboard", proxyEspnScoreboard);
   app.get("/api/espn/summary", proxyEspnSummary);
   app.get("/api/season-stats-2025", serveCompletedOffenseSnapshot);
+  // Server-to-server only (CVC football site), gated on x-feed-secret --
+  // not requireCronSecret, since this isn't Vercel Cron calling in.
+  app.get("/api/fantasypros/feed/keys", serveFantasyProsFeedKeys);
+  app.get("/api/fantasypros/feed", serveFantasyProsFeed);
   // Vercel Cron only sends GET; these are gated by CRON_SECRET, not by the
   // caller's identity.
   app.get("/api/scheduled/season-stats-refresh", requireCronSecret, refreshSharedSeasonStatsSchedule);
