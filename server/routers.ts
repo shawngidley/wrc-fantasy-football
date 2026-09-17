@@ -12,6 +12,7 @@ import { archiveFantasyProsNews, getArchivedFantasyProsNews, mergeFantasyProsNew
 import { getPublicLeagueTeam, listPublicLeagueTeams, verifyLeagueTeamPin } from "./leagueAuth";
 import { clearWrcTeamSession, readWrcTeamSession, writeWrcTeamSession } from "./wrcTeamSession";
 import { supabaseAdmin } from "./supabaseAdmin";
+import { loadPlayerRows, makePlayerId, rosterPlayerForTeam } from "./rosterPlayerForTeam";
 import { getLineupDefaultWeek, SCHEDULE_2026 } from "../client/src/lib/scheduleData2026";
 import { hasWeekKickedOff, hasPlayerTeamGameStarted } from "./nflWeekKickoffCheck";
 import { isEligibleAfterCut } from "../shared/freeAgentCutRestriction";
@@ -113,11 +114,6 @@ const WRC_TEAM_ID_TO_OWNER: Record<string, string> = Object.fromEntries(
 // the NOT NULL constraint on that column. This generates an id matching
 // the same convention for any newly-drafted player who isn't already in
 // the table.
-function makePlayerId(teamId: string, playerName: string): string {
-  const teamSlug = teamId.replace(/^team-/, "");
-  const nameSlug = playerName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  return `${teamSlug}-${nameSlug}`;
-}
 
 function getMediaRules(kind: "logo" | "theme") {
   return kind === "logo"
@@ -807,7 +803,7 @@ export const appRouter = router({
           supabaseAdmin.from("teams").select("name, faab").eq("id", teamId).single(),
           supabaseAdmin.from("players").select("id").eq("team_id", teamId),
           supabaseAdmin.from("players").select("team_id, dropped_at").eq("name", input.playerName).maybeSingle(),
-          supabaseAdmin.from("faab_bids").select("bid_amount, player_name").eq("team_id", teamId).eq("status", "pending"),
+          supabaseAdmin.from("faab_bids").select("bid_amount, player_name, drop_player_id").eq("team_id", teamId).eq("status", "pending"),
         ]);
         if (teamError || !team) throw new Error(`Unable to load your team for this bid: ${teamError?.message ?? "team not found"}`);
         if (rosterError) throw new Error(`Unable to load your roster for this bid: ${rosterError.message}`);
@@ -848,6 +844,15 @@ export const appRouter = router({
             .maybeSingle();
           if (error || !data) throw new Error("The selected drop player is not on your roster.");
           dropPlayer = data;
+          // One roster spot can only be vacated once. If this drop player
+          // is already pledged to another pending bid, both bids could win
+          // and the second award would have nothing to drop (Sep 17, 2026:
+          // two winning bids named the same drop, and the $1 one had to be
+          // reversed by hand).
+          const alreadyPledgedTo = (pendingBids ?? []).find(b => b.drop_player_id === dropPlayer!.id);
+          if (alreadyPledgedTo) {
+            throw new Error(`${dropPlayer.name.trim()} is already the drop for your pending bid on ${alreadyPledgedTo.player_name}. Pick a different player to drop, or cancel that bid first.`);
+          }
         }
 
         const { error } = await supabaseAdmin.from("faab_bids").insert({
@@ -1255,10 +1260,14 @@ export const appRouter = router({
         const { error: faabError } = await supabaseAdmin.from("teams").update({ faab: remainingFaab }).eq("id", bid.team_id);
         if (faabError) throw new Error("Unable to deduct the winning FAAB bid");
 
-        const { error: addError } = await supabaseAdmin.from("players")
-          .update({ team_id: bid.team_id, acquisition: "FA" })
-          .eq("name", bid.player_name);
-        if (addError) throw new Error("Unable to add the awarded player to the roster");
+        // Creates the players row if this free agent has never been
+        // rostered in WRC (a name-only UPDATE silently did nothing for
+        // those, and for DSTs stored under a different name).
+        await rosterPlayerForTeam(await loadPlayerRows(), bid.team_id, {
+          name: bid.player_name,
+          position: bid.player_pos,
+          nflTeam: bid.player_nfl_team,
+        });
         if (bid.drop_player_id) {
           const { error: dropError } = await supabaseAdmin.from("players")
             .update({ team_id: null, acquisition: "FA", dropped_at: new Date().toISOString() })

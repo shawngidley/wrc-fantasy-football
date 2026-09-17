@@ -1,6 +1,10 @@
 import type { Request, Response } from "express";
 import { supabaseAdmin } from "./supabaseAdmin";
 import { resolveFaabWinner, type FaabBidCandidate, type TeamStandingForTiebreak } from "./faabResolution";
+import { loadPlayerRows, rosterPlayerForTeam } from "./rosterPlayerForTeam";
+import { normalizePlayerName } from "../shared/playerNameMatch";
+
+const ROSTER_LIMIT = 18;
 
 // First automated award run: Sunday, September 13, 2026 at 9am ET.
 // Before this date, this endpoint deliberately does nothing -- the
@@ -58,21 +62,58 @@ export async function processAllPendingFaabBids(): Promise<{ awarded: AwardResul
     }]),
   );
 
+  // Group by the normalized name so two bids on the same person under
+  // slightly different spellings still compete with each other.
   const byPlayer = new Map<string, typeof pendingBids>();
   for (const bid of pendingBids) {
-    const list = byPlayer.get(bid.player_name) ?? [];
+    const key = normalizePlayerName(bid.player_name);
+    const list = byPlayer.get(key) ?? [];
     list.push(bid);
-    byPlayer.set(bid.player_name, list);
+    byPlayer.set(key, list);
+  }
+
+  // One snapshot of the players table for the whole run: used to add the
+  // won player (creating the row when they've never been rostered), to
+  // verify a pledged drop player is still on the bidder's roster, and to
+  // keep per-team roster counts current as awards land.
+  const playerRows = await loadPlayerRows();
+  const rosterCount = new Map<string, number>();
+  for (const row of playerRows) {
+    if (row.team_id) rosterCount.set(row.team_id, (rosterCount.get(row.team_id) ?? 0) + 1);
   }
 
   const resolvedAt = new Date().toISOString();
   const awarded: AwardResult[] = [];
 
-  for (const [playerName, bids] of Array.from(byPlayer.entries())) {
-    const candidates: FaabBidCandidate[] = bids.map(b => ({ id: b.id, teamId: b.team_id, bidAmount: Number(b.bid_amount ?? 0) }));
+  for (const [, bids] of Array.from(byPlayer.entries())) {
+    const playerName = bids[0].player_name;
+
+    // A bid is only awardable if the roster move it describes can still
+    // happen: either its pledged drop player is still on the bidder's
+    // roster, or the bidder has an open spot. A drop player who has
+    // already been cut (typically by this same run awarding that team's
+    // other bid that pledged the same player) can't be dropped twice, and
+    // silently adding without a drop would push the roster past 18.
+    // Such bids are voided rather than awarded; the next-best bid wins.
+    const awardable: typeof bids = [];
+    const voidedIds: string[] = [];
+    for (const bid of bids) {
+      const dropRow = bid.drop_player_id ? playerRows.find(r => r.id === bid.drop_player_id) : null;
+      const dropStillOnTeam = Boolean(dropRow && dropRow.team_id === bid.team_id);
+      const hasOpenSpot = (rosterCount.get(bid.team_id) ?? 0) < ROSTER_LIMIT;
+      if (dropStillOnTeam || hasOpenSpot) awardable.push(bid);
+      else voidedIds.push(bid.id);
+    }
+    if (voidedIds.length) {
+      const { error } = await supabaseAdmin.from("faab_bids").update({ status: "cancelled", resolved_at: resolvedAt }).in("id", voidedIds);
+      if (error) throw new Error(`Unable to void unfillable FAAB bids for ${playerName}`);
+    }
+    if (!awardable.length) continue;
+
+    const candidates: FaabBidCandidate[] = awardable.map(b => ({ id: b.id, teamId: b.team_id, bidAmount: Number(b.bid_amount ?? 0) }));
     const winnerCandidate = resolveFaabWinner(candidates, standingsByTeamId);
-    const winningBid = bids.find(b => b.id === winnerCandidate.id)!;
-    const losingBidIds = bids.filter(b => b.id !== winningBid.id).map(b => b.id);
+    const winningBid = awardable.find(b => b.id === winnerCandidate.id)!;
+    const losingBidIds = awardable.filter(b => b.id !== winningBid.id).map(b => b.id);
 
     const [{ error: winError }, { error: loseError }, { data: winningTeam, error: teamError }] = await Promise.all([
       supabaseAdmin.from("faab_bids").update({ status: "won", resolved_at: resolvedAt }).eq("id", winningBid.id),
@@ -87,17 +128,27 @@ export async function processAllPendingFaabBids(): Promise<{ awarded: AwardResul
     const { error: faabError } = await supabaseAdmin.from("teams").update({ faab: remainingFaab }).eq("id", winningBid.team_id);
     if (faabError) throw new Error(`Unable to deduct winning FAAB bid for ${playerName}`);
 
-    const { error: addError } = await supabaseAdmin.from("players")
-      .update({ team_id: winningBid.team_id, acquisition: "FA" })
-      .eq("name", winningBid.player_name);
-    if (addError) throw new Error(`Unable to add ${playerName} to the winning roster`);
+    await rosterPlayerForTeam(playerRows, winningBid.team_id, {
+      name: winningBid.player_name,
+      position: winningBid.player_pos,
+      nflTeam: winningBid.player_nfl_team,
+    });
+    rosterCount.set(winningBid.team_id, (rosterCount.get(winningBid.team_id) ?? 0) + 1);
 
-    if (winningBid.drop_player_id) {
+    // Only drop if the pledged player is actually still here. (If the
+    // bidder had an open spot and their drop player was already gone,
+    // the bid was still awardable above, but there's nothing to drop and
+    // no DROP history line should be written.)
+    const dropRow = winningBid.drop_player_id ? playerRows.find(r => r.id === winningBid.drop_player_id) : null;
+    const dropping = Boolean(winningBid.drop_player_id && dropRow && dropRow.team_id === winningBid.team_id);
+    if (dropping && dropRow) {
       const { error: dropError } = await supabaseAdmin.from("players")
         .update({ team_id: null, acquisition: "FA", dropped_at: new Date().toISOString() })
         .eq("id", winningBid.drop_player_id)
         .eq("team_id", winningBid.team_id);
       if (dropError) throw new Error(`Unable to drop the selected player for ${playerName}'s winning team`);
+      dropRow.team_id = null;
+      rosterCount.set(winningBid.team_id, (rosterCount.get(winningBid.team_id) ?? 1) - 1);
     }
 
     const moves = [{
@@ -110,11 +161,11 @@ export async function processAllPendingFaabBids(): Promise<{ awarded: AwardResul
       faab_spent: winningBid.bid_amount,
       note: `FAAB $${winningBid.bid_amount} — automated award`,
     }];
-    if (winningBid.drop_player_name) moves.push({
+    if (dropping && winningBid.drop_player_name) moves.push({
       move_type: "DROP",
       team_name: winningBid.team_name,
       owner: winningBid.team_name,
-      player_name: winningBid.drop_player_name,
+      player_name: winningBid.drop_player_name.trim(),
       player_pos: "—",
       player_nfl_team: "FA",
       faab_spent: null,

@@ -75,7 +75,7 @@ export default function Rosters() {
   }
 
   // Secondary: if draft has started, live draft picks override the players table
-  const { rostersByTeam, hasPicks, loading: draftLoading } = useDraftedRoster();
+  const { rostersByTeam, hasPicks, draftComplete, loading: draftLoading } = useDraftedRoster();
 
   const loading = sbLoading || draftLoading;
 
@@ -90,7 +90,7 @@ export default function Rosters() {
           <p style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
             2026 Season — All 12 Franchises
             {loading && <span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.08em" }}>Loading…</span>}
-            {!loading && hasPicks && (
+            {!loading && hasPicks && !draftComplete && (
               <span style={{ display: "inline-flex", alignItems: "center", gap: "0.3rem", background: "oklch(0.93 0.06 85)", color: "oklch(0.35 0.14 85)", borderRadius: 6, padding: "2px 8px", fontSize: "0.7rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.08em" }}>
                 ⚡ LIVE DRAFT ROSTERS
               </span>

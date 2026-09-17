@@ -135,29 +135,51 @@ export function useDraftedRoster(): DraftedRosterResult {
 
       if (!mounted) return;
 
+      const buildFromPlayersTable = (): Record<string, RosterPlayer[]> => {
+        const map: Record<string, RosterPlayer[]> = {};
+        for (const p of (dbPlayers ?? []) as DbPlayer[]) {
+          const teamName = TEAM_ID_TO_NAME[p.team_id];
+          if (!teamName) continue;
+          if (!map[teamName]) map[teamName] = [];
+          const poolPlayer = draftPlayerPool.find(
+            candidate => normalizePlayerName(candidate.name) === normalizePlayerName(p.name)
+          );
+          map[teamName].push({
+            id: p.id,
+            name: poolPlayer?.name ?? p.name,
+            pos: p.position as RosterPlayer["pos"],
+            nflTeam: poolPlayer?.nflTeam ?? p.nfl_team,
+            byeWeek: p.bye_week || null,
+            acquisition: p.draft_round ? "Draft" : "FA",
+            round: p.draft_round ?? undefined,
+          } as RosterPlayer & { round?: number });
+        }
+        return map;
+      };
+
+      // Once the draft is complete, the players table is the only roster
+      // source. Every roster change since the draft (FAAB awards, open
+      // waiver adds, drops, trades, commissioner edits) writes team_id
+      // there, and the server validates lineups, bids and trades against
+      // it. Replaying draft_picks + roster_moves on top of it was a
+      // pre-draft convenience that drifts from reality as soon as anything
+      // it doesn't model happens: trades were never applied at all (so a
+      // traded player showed on both teams), and an ADD history row put a
+      // player on a roster even when the award never actually landed.
+      if (stateData?.complete && dbPlayers && !playersError) {
+        setRostersByTeam(buildFromPlayersTable());
+        setHasPicks(Boolean(picks && picks.length > 0));
+        setDraftComplete(true);
+        setLoading(false);
+        return;
+      }
+
       if (!picks || picks.length === 0) {
         // No draft picks yet — use Supabase players table as base
-        const baseMap: Record<string, RosterPlayer[]> = {};
+        let baseMap: Record<string, RosterPlayer[]> = {};
 
         if (dbPlayers && !playersError) {
-          // Build from Supabase players table
-          for (const p of dbPlayers as DbPlayer[]) {
-            const teamName = TEAM_ID_TO_NAME[p.team_id];
-            if (!teamName) continue;
-            if (!baseMap[teamName]) baseMap[teamName] = [];
-            const poolPlayer = draftPlayerPool.find(
-              candidate => normalizePlayerName(candidate.name) === normalizePlayerName(p.name)
-            );
-            baseMap[teamName].push({
-              id: p.id,
-              name: poolPlayer?.name ?? p.name,
-              pos: p.position as RosterPlayer["pos"],
-              nflTeam: poolPlayer?.nflTeam ?? p.nfl_team,
-              byeWeek: p.bye_week || null,
-              acquisition: p.draft_round ? "Draft" : "FA",
-              round: p.draft_round ?? undefined,
-            } as RosterPlayer & { round?: number });
-          }
+          baseMap = buildFromPlayersTable();
         } else {
           // Hard fallback to static wrcData if Supabase unreachable
           for (const team of TEAMS) {
