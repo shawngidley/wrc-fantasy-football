@@ -153,7 +153,7 @@ function RivalryGameSection() {
                   {!r.resolved
                     ? <span style={{ color: "oklch(0.55 0.04 150)" }}>Pending</span>
                     : r.outcome === "won"
-                      ? <span style={{ color: "oklch(0.4 0.15 150)", fontWeight: 700 }}>Won +$30</span>
+                      ? <span style={{ color: "oklch(0.4 0.15 150)", fontWeight: 700 }}>Won</span>
                       : r.outcome === "lost"
                         ? <span style={{ color: "oklch(0.45 0.18 25)", fontWeight: 700 }}>Lost</span>
                         : r.outcome === "tie"
