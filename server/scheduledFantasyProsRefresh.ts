@@ -59,24 +59,34 @@ function buildPlan(week: number, inGameWindow: boolean): PlannedFetch[] {
 
 /**
  * The circuit breaker's pause state lives in a sentinel row of
- * fantasypros_usage (day = CIRCUIT_BREAKER_ROW_KEY, notes = { pausedUntil })
- * rather than a dedicated table.
+ * fantasypros_cache (key = CIRCUIT_BREAKER_ROW_KEY, payload = { pausedUntil })
+ * rather than a dedicated table. It must NOT live in fantasypros_usage:
+ * that table's primary key `day` is a Postgres date, so a sentinel string
+ * there is rejected by the database, and because reading the pause state
+ * is the first thing every tick does, that made every tick fail before
+ * fetching anything (Sep 18, 2026: zero calls all morning).
  */
 async function readCircuitBreakerPausedUntil(): Promise<string | null> {
   const { data, error } = await supabaseAdmin
-    .from("fantasypros_usage")
-    .select("notes")
-    .eq("day", CIRCUIT_BREAKER_ROW_KEY)
+    .from("fantasypros_cache")
+    .select("payload")
+    .eq("key", CIRCUIT_BREAKER_ROW_KEY)
     .maybeSingle();
   if (error) throw new Error(`Unable to read FantasyPros circuit breaker state: ${error.message}`);
-  const notes = data?.notes as { pausedUntil?: string } | null;
-  return notes?.pausedUntil ?? null;
+  const payload = data?.payload as { pausedUntil?: string } | null;
+  return payload?.pausedUntil ?? null;
 }
 
 async function writeCircuitBreakerPausedUntil(pausedUntil: string | null): Promise<void> {
+  const now = new Date().toISOString();
   const { error } = await supabaseAdmin
-    .from("fantasypros_usage")
-    .upsert({ day: CIRCUIT_BREAKER_ROW_KEY, calls: 0, notes: pausedUntil ? { pausedUntil } : null }, { onConflict: "day" });
+    .from("fantasypros_cache")
+    .upsert({
+      key: CIRCUIT_BREAKER_ROW_KEY,
+      payload: { pausedUntil },
+      fetched_at: now,
+      expires_at: pausedUntil ?? now,
+    }, { onConflict: "key" });
   if (error) throw new Error(`Unable to write FantasyPros circuit breaker state: ${error.message}`);
 }
 

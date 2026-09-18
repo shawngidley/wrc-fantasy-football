@@ -92274,13 +92274,19 @@ function buildPlan(week2, inGameWindow) {
   ];
 }
 async function readCircuitBreakerPausedUntil() {
-  const { data, error: error46 } = await supabaseAdmin.from("fantasypros_usage").select("notes").eq("day", CIRCUIT_BREAKER_ROW_KEY).maybeSingle();
+  const { data, error: error46 } = await supabaseAdmin.from("fantasypros_cache").select("payload").eq("key", CIRCUIT_BREAKER_ROW_KEY).maybeSingle();
   if (error46) throw new Error(`Unable to read FantasyPros circuit breaker state: ${error46.message}`);
-  const notes = data?.notes;
-  return notes?.pausedUntil ?? null;
+  const payload = data?.payload;
+  return payload?.pausedUntil ?? null;
 }
 async function writeCircuitBreakerPausedUntil(pausedUntil) {
-  const { error: error46 } = await supabaseAdmin.from("fantasypros_usage").upsert({ day: CIRCUIT_BREAKER_ROW_KEY, calls: 0, notes: pausedUntil ? { pausedUntil } : null }, { onConflict: "day" });
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  const { error: error46 } = await supabaseAdmin.from("fantasypros_cache").upsert({
+    key: CIRCUIT_BREAKER_ROW_KEY,
+    payload: { pausedUntil },
+    fetched_at: now,
+    expires_at: pausedUntil ?? now
+  }, { onConflict: "key" });
   if (error46) throw new Error(`Unable to write FantasyPros circuit breaker state: ${error46.message}`);
 }
 async function loadFetchedAtByKey(keys) {
@@ -92399,7 +92405,7 @@ async function serveFantasyProsFeedKeys(req, res) {
     return;
   }
   res.setHeader("Cache-Control", "s-maxage=60");
-  res.json({ keys: data ?? [] });
+  res.json({ keys: (data ?? []).filter((row) => row.key !== CIRCUIT_BREAKER_ROW_KEY) });
 }
 
 // server/scheduledProtectionRelease.ts

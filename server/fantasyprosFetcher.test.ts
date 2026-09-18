@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CIRCUIT_BREAKER_PAUSE_MS,
+  CIRCUIT_BREAKER_ROW_KEY,
   injuriesThresholdMs,
   isCircuitBreakerPaused,
   isDue,
@@ -167,5 +168,17 @@ describe("nyDateString", () => {
     // 2026-09-14T02:00:00Z is still 2026-09-13 (10pm) in America/New_York.
     expect(nyDateString(new Date("2026-09-14T02:00:00Z"))).toBe("2026-09-13");
     expect(nyDateString(new Date("2026-09-14T18:00:00Z"))).toBe("2026-09-14");
+  });
+});
+
+describe("CIRCUIT_BREAKER_ROW_KEY", () => {
+  it("is not a valid date string", () => {
+    // This key must only ever be used against fantasypros_cache's text
+    // `key` column, never fantasypros_usage's `day` column: `day` is a
+    // Postgres date, so a sentinel row keyed by this string is rejected
+    // by the database, silently breaking every refresh tick that reads
+    // it before the pause check (regression: circuit breaker landed in
+    // fantasypros_usage in 21010dc, moved to fantasypros_cache 2026-09-18).
+    expect(Number.isNaN(new Date(CIRCUIT_BREAKER_ROW_KEY).getTime())).toBe(true);
   });
 });

@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { supabaseAdmin } from "./supabaseAdmin";
+import { CIRCUIT_BREAKER_ROW_KEY } from "./fantasyprosFetcher";
 
 /**
  * Server-to-server only: the CVC football site reads FantasyPros data
@@ -53,5 +54,6 @@ export async function serveFantasyProsFeedKeys(req: Request, res: Response): Pro
     return;
   }
   res.setHeader("Cache-Control", "s-maxage=60");
-  res.json({ keys: data ?? [] });
+  // The circuit breaker's sentinel row shares this table; it isn't a dataset.
+  res.json({ keys: (data ?? []).filter(row => row.key !== CIRCUIT_BREAKER_ROW_KEY) });
 }
