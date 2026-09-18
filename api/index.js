@@ -92197,16 +92197,17 @@ var appRouter = router({
         getFantasyProsNews(100),
         ...positions.map((position) => getFantasyProsRanks(position, 1))
       ]);
+      const current = attachFantasyProsPlayerNames(leagueNews, rankGroups.flat());
       const myRosterIds = new Set(
         rankGroups.flat().filter((rank) => rosterKeys.has(normalizePlayerKey(rank.name))).map((rank) => rank.playerId)
       );
-      const seen = /* @__PURE__ */ new Set();
-      return leagueNews.filter((item) => rosterKeys.has(normalizePlayerKey(item.playerName)) || item.playerId != null && myRosterIds.has(item.playerId)).filter((item) => {
-        const key = item.id || `${item.playerName}-${item.title}-${item.published}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      }).sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime());
+      const [archived] = await Promise.all([
+        getArchivedFantasyProsNews(),
+        archiveFantasyProsNews(current).catch((error46) => console.warn("[FantasyPros archive] rosterNews archive failed:", error46))
+      ]);
+      return mergeFantasyProsNews(current, archived).filter(
+        (item) => rosterKeys.has(normalizePlayerKey(item.playerName)) || item.playerId != null && myRosterIds.has(item.playerId)
+      );
     }),
     injuries: publicProcedure.input(external_exports.object({ year: external_exports.number().int(), week: external_exports.number().int().min(0).max(18) })).query(({ input }) => getFantasyProsInjuries(input.year, input.week)),
     ranks: publicProcedure.input(external_exports.object({ position: external_exports.enum(["ALL", "QB", "RB", "WR", "TE", "K", "DST", "OP"]), week: external_exports.number().int().min(0).max(18) })).query(({ input }) => getFantasyProsRanks(input.position, input.week)),

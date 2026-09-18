@@ -2277,28 +2277,38 @@ export const appRouter = router({
         ]);
         // Both calls above are now pure fantasypros_cache reads (see
         // fantasypros.ts) -- this procedure makes zero calls to
-        // FantasyPros itself, so there's no rate-limit budget to protect
-        // by limiting per-player lookups the way this used to.
+        // FantasyPros itself.
         //
         // A news item's own playerName can be blank or spelled differently
-        // from the roster's stored name (see fantasyprosNewsNames.ts); a
-        // roster player's FantasyPros id, cross-referenced from the
-        // (already-cached) rankings, catches those too.
+        // from the roster's stored name (see fantasyprosNewsNames.ts), so
+        // enrich each item's name from the (already-cached) rankings, and
+        // also keep each roster player's FantasyPros id to catch items
+        // whose name still doesn't match.
+        const current = attachFantasyProsPlayerNames(leagueNews, rankGroups.flat());
         const myRosterIds = new Set(
           rankGroups.flat()
             .filter(rank => rosterKeys.has(normalizePlayerKey(rank.name)))
             .map(rank => rank.playerId),
         );
-        const seen = new Set<number | string>();
-        return leagueNews
-          .filter(item => rosterKeys.has(normalizePlayerKey(item.playerName)) || (item.playerId != null && myRosterIds.has(item.playerId)))
-          .filter(item => {
-            const key = item.id || `${item.playerName}-${item.title}-${item.published}`;
-            if (seen.has(key)) return false;
-            seen.add(key);
-            return true;
-          })
-          .sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime());
+        // The live FantasyPros feed only ever returns its most recent ~100
+        // items league-wide, so a rostered player's news falls off the
+        // window during a busy news cycle and this panel would show almost
+        // nothing (exactly what happened -- one Tank01 item on a Friday).
+        // Merge in the 30-day rolling archive, the same one the general
+        // fantasyPros.news feed uses, so each rostered player keeps at
+        // least daily-granularity coverage for 30 days. Archiving the
+        // current feed here is fire-and-forget -- keeps the archive fresh
+        // even for an owner who only ever opens this panel, and a failure
+        // must not break the live response.
+        const [archived] = await Promise.all([
+          getArchivedFantasyProsNews(),
+          archiveFantasyProsNews(current).catch(error => console.warn("[FantasyPros archive] rosterNews archive failed:", error)),
+        ]);
+        // mergeFantasyProsNews already dedupes by a stable key and sorts
+        // newest-first, so this just needs to keep the roster's items.
+        return mergeFantasyProsNews(current, archived).filter(item =>
+          rosterKeys.has(normalizePlayerKey(item.playerName)) || (item.playerId != null && myRosterIds.has(item.playerId)),
+        );
       }),
     injuries: publicProcedure
       .input(z.object({ year: z.number().int(), week: z.number().int().min(0).max(18) }))
