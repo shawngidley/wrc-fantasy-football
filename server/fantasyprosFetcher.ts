@@ -84,6 +84,48 @@ export function shouldSkipForBudget(kind: FantasyProsDatasetKind, callsToday: nu
   return { skip: false };
 }
 
+export const CIRCUIT_BREAKER_PAUSE_MS = 60 * 60_000;
+
+/**
+ * Sentinel `day` value for the circuit breaker's pause state. Stored as a
+ * row in the same fantasypros_usage table (day/calls/notes) rather than a
+ * dedicated table -- it never collides with a real nyDateString() value, so
+ * it can't be mistaken for a day's call count.
+ */
+export const CIRCUIT_BREAKER_ROW_KEY = "circuit-breaker";
+
+/** Pure: is the circuit breaker currently open (should this tick do nothing)? */
+export function isCircuitBreakerPaused(pausedUntil: string | null | undefined, now = Date.now()): boolean {
+  if (!pausedUntil) return false;
+  const pausedUntilMs = new Date(pausedUntil).getTime();
+  if (!Number.isFinite(pausedUntilMs)) return false;
+  return now < pausedUntilMs;
+}
+
+export interface CircuitBreakerTickOutcome {
+  hadSuccess: boolean;
+  hadRateLimited: boolean;
+}
+
+/**
+ * Decide the circuit breaker's next paused-until value from how a tick
+ * went. A success proves FantasyPros is reachable again and clears the
+ * pause, even if the same tick also hit a 429 earlier (a 429 followed by a
+ * success within one tick means the outage already ended). A tick with a
+ * 429 and zero successes opens (or extends) the pause by
+ * CIRCUIT_BREAKER_PAUSE_MS. A tick with neither (nothing due, everything
+ * budget-skipped) leaves the existing state untouched. Pure -- no network.
+ */
+export function nextCircuitBreakerPausedUntil(
+  current: string | null,
+  outcome: CircuitBreakerTickOutcome,
+  now = Date.now(),
+): string | null {
+  if (outcome.hadSuccess) return null;
+  if (outcome.hadRateLimited) return new Date(now + CIRCUIT_BREAKER_PAUSE_MS).toISOString();
+  return current;
+}
+
 /** "Day" for the usage counter is the America/New_York calendar day, per FantasyPros' own billing clock. */
 export function nyDateString(now = new Date()): string {
   const parts = new Intl.DateTimeFormat("en-CA", {

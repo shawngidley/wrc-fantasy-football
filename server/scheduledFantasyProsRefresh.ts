@@ -3,11 +3,14 @@ import { supabaseAdmin } from "./supabaseAdmin";
 import { getLineupDefaultWeek } from "../client/src/lib/scheduleData2026";
 import {
   CACHE_KEYS,
+  CIRCUIT_BREAKER_ROW_KEY,
   fetchAndStore,
   injuriesThresholdMs,
+  isCircuitBreakerPaused,
   isDue,
   isLikelyNflGameWindow,
   newsThresholdMs,
+  nextCircuitBreakerPausedUntil,
   nyDateString,
   RANKINGS_PROJECTIONS_THRESHOLD_MS,
   shouldSkipForBudget,
@@ -54,6 +57,29 @@ function buildPlan(week: number, inGameWindow: boolean): PlannedFetch[] {
   ];
 }
 
+/**
+ * The circuit breaker's pause state lives in a sentinel row of
+ * fantasypros_usage (day = CIRCUIT_BREAKER_ROW_KEY, notes = { pausedUntil })
+ * rather than a dedicated table.
+ */
+async function readCircuitBreakerPausedUntil(): Promise<string | null> {
+  const { data, error } = await supabaseAdmin
+    .from("fantasypros_usage")
+    .select("notes")
+    .eq("day", CIRCUIT_BREAKER_ROW_KEY)
+    .maybeSingle();
+  if (error) throw new Error(`Unable to read FantasyPros circuit breaker state: ${error.message}`);
+  const notes = data?.notes as { pausedUntil?: string } | null;
+  return notes?.pausedUntil ?? null;
+}
+
+async function writeCircuitBreakerPausedUntil(pausedUntil: string | null): Promise<void> {
+  const { error } = await supabaseAdmin
+    .from("fantasypros_usage")
+    .upsert({ day: CIRCUIT_BREAKER_ROW_KEY, calls: 0, notes: pausedUntil ? { pausedUntil } : null }, { onConflict: "day" });
+  if (error) throw new Error(`Unable to write FantasyPros circuit breaker state: ${error.message}`);
+}
+
 async function loadFetchedAtByKey(keys: string[]): Promise<Map<string, string | null>> {
   const { data, error } = await supabaseAdmin.from("fantasypros_cache").select("key, fetched_at").in("key", keys);
   if (error) throw new Error(`Unable to read FantasyPros cache metadata: ${error.message}`);
@@ -69,6 +95,13 @@ export interface FantasyProsRefreshResult {
 }
 
 export async function processFantasyProsRefresh(): Promise<FantasyProsRefreshResult> {
+  const pausedUntil = await readCircuitBreakerPausedUntil();
+  if (isCircuitBreakerPaused(pausedUntil)) {
+    console.log(`[fantasypros-refresh] circuit breaker paused until ${pausedUntil} -- skipping this tick`);
+    const { data: usageRow } = await supabaseAdmin.from("fantasypros_usage").select("calls").eq("day", nyDateString()).maybeSingle();
+    return { fetched: [], skipped: [], callsToday: usageRow?.calls ?? 0 };
+  }
+
   const week = getLineupDefaultWeek() || 1;
   const inGameWindow = isLikelyNflGameWindow();
   const plan = buildPlan(week, inGameWindow);
@@ -81,8 +114,16 @@ export async function processFantasyProsRefresh(): Promise<FantasyProsRefreshRes
 
   const fetched: string[] = [];
   const skipped: { key: string; reason: string }[] = [];
+  let hadRateLimited = false;
 
   for (const item of plan) {
+    if (hadRateLimited) {
+      // The first 429 this tick aborts everything remaining -- FantasyPros
+      // has already told us to back off, so there's no point spending more
+      // of the daily budget hitting the same wall.
+      skipped.push({ key: item.key, reason: "skipped: aborted after a 429 earlier this tick" });
+      continue;
+    }
     if (!isDue(fetchedAtByKey.get(item.key) ?? null, item.ttlMs)) {
       skipped.push({ key: item.key, reason: "not due" });
       continue;
@@ -100,6 +141,7 @@ export async function processFantasyProsRefresh(): Promise<FantasyProsRefreshRes
       } else if (result.status === "rate-limited") {
         skipped.push({ key: item.key, reason: "429 from FantasyPros" });
         callsToday += 1;
+        hadRateLimited = true;
       } else {
         skipped.push({ key: item.key, reason: result.reason ?? "skipped" });
       }
@@ -109,6 +151,11 @@ export async function processFantasyProsRefresh(): Promise<FantasyProsRefreshRes
       // from being attempted.
       skipped.push({ key: item.key, reason: `error: ${error instanceof Error ? error.message : String(error)}` });
     }
+  }
+
+  const nextPausedUntil = nextCircuitBreakerPausedUntil(pausedUntil, { hadSuccess: fetched.length > 0, hadRateLimited });
+  if (nextPausedUntil !== pausedUntil) {
+    await writeCircuitBreakerPausedUntil(nextPausedUntil);
   }
 
   return { fetched, skipped, callsToday };

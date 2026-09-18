@@ -80380,6 +80380,19 @@ function shouldSkipForBudget(kind, callsToday, inGameWindow) {
   }
   return { skip: false };
 }
+var CIRCUIT_BREAKER_PAUSE_MS = 60 * 6e4;
+var CIRCUIT_BREAKER_ROW_KEY = "circuit-breaker";
+function isCircuitBreakerPaused(pausedUntil, now = Date.now()) {
+  if (!pausedUntil) return false;
+  const pausedUntilMs = new Date(pausedUntil).getTime();
+  if (!Number.isFinite(pausedUntilMs)) return false;
+  return now < pausedUntilMs;
+}
+function nextCircuitBreakerPausedUntil(current, outcome, now = Date.now()) {
+  if (outcome.hadSuccess) return null;
+  if (outcome.hadRateLimited) return new Date(now + CIRCUIT_BREAKER_PAUSE_MS).toISOString();
+  return current;
+}
 function nyDateString(now = /* @__PURE__ */ new Date()) {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/New_York",
@@ -92217,6 +92230,16 @@ function buildPlan(week2, inGameWindow) {
     }))
   ];
 }
+async function readCircuitBreakerPausedUntil() {
+  const { data, error: error46 } = await supabaseAdmin.from("fantasypros_usage").select("notes").eq("day", CIRCUIT_BREAKER_ROW_KEY).maybeSingle();
+  if (error46) throw new Error(`Unable to read FantasyPros circuit breaker state: ${error46.message}`);
+  const notes = data?.notes;
+  return notes?.pausedUntil ?? null;
+}
+async function writeCircuitBreakerPausedUntil(pausedUntil) {
+  const { error: error46 } = await supabaseAdmin.from("fantasypros_usage").upsert({ day: CIRCUIT_BREAKER_ROW_KEY, calls: 0, notes: pausedUntil ? { pausedUntil } : null }, { onConflict: "day" });
+  if (error46) throw new Error(`Unable to write FantasyPros circuit breaker state: ${error46.message}`);
+}
 async function loadFetchedAtByKey(keys) {
   const { data, error: error46 } = await supabaseAdmin.from("fantasypros_cache").select("key, fetched_at").in("key", keys);
   if (error46) throw new Error(`Unable to read FantasyPros cache metadata: ${error46.message}`);
@@ -92225,6 +92248,12 @@ async function loadFetchedAtByKey(keys) {
   return map2;
 }
 async function processFantasyProsRefresh() {
+  const pausedUntil = await readCircuitBreakerPausedUntil();
+  if (isCircuitBreakerPaused(pausedUntil)) {
+    console.log(`[fantasypros-refresh] circuit breaker paused until ${pausedUntil} -- skipping this tick`);
+    const { data: usageRow2 } = await supabaseAdmin.from("fantasypros_usage").select("calls").eq("day", nyDateString()).maybeSingle();
+    return { fetched: [], skipped: [], callsToday: usageRow2?.calls ?? 0 };
+  }
   const week2 = getLineupDefaultWeek() || 1;
   const inGameWindow = isLikelyNflGameWindow();
   const plan = buildPlan(week2, inGameWindow);
@@ -92235,7 +92264,12 @@ async function processFantasyProsRefresh() {
   let callsToday = usageRow?.calls ?? 0;
   const fetched = [];
   const skipped = [];
+  let hadRateLimited = false;
   for (const item of plan) {
+    if (hadRateLimited) {
+      skipped.push({ key: item.key, reason: "skipped: aborted after a 429 earlier this tick" });
+      continue;
+    }
     if (!isDue(fetchedAtByKey.get(item.key) ?? null, item.ttlMs)) {
       skipped.push({ key: item.key, reason: "not due" });
       continue;
@@ -92253,12 +92287,17 @@ async function processFantasyProsRefresh() {
       } else if (result.status === "rate-limited") {
         skipped.push({ key: item.key, reason: "429 from FantasyPros" });
         callsToday += 1;
+        hadRateLimited = true;
       } else {
         skipped.push({ key: item.key, reason: result.reason ?? "skipped" });
       }
     } catch (error46) {
       skipped.push({ key: item.key, reason: `error: ${error46 instanceof Error ? error46.message : String(error46)}` });
     }
+  }
+  const nextPausedUntil = nextCircuitBreakerPausedUntil(pausedUntil, { hadSuccess: fetched.length > 0, hadRateLimited });
+  if (nextPausedUntil !== pausedUntil) {
+    await writeCircuitBreakerPausedUntil(nextPausedUntil);
   }
   return { fetched, skipped, callsToday };
 }

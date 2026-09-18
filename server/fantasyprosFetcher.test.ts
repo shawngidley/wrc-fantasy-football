@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  CIRCUIT_BREAKER_PAUSE_MS,
   injuriesThresholdMs,
+  isCircuitBreakerPaused,
   isDue,
   isLikelyNflGameWindow,
   newsThresholdMs,
+  nextCircuitBreakerPausedUntil,
   nyDateString,
   RANKINGS_PROJECTIONS_THRESHOLD_MS,
   shouldSkipForBudget,
@@ -103,6 +106,59 @@ describe("shouldSkipForBudget", () => {
     expect(shouldSkipForBudget("news", 480, true).skip).toBe(true);
     expect(shouldSkipForBudget("ranks", 500, true).skip).toBe(true);
     expect(shouldSkipForBudget("projections", 500, true).skip).toBe(true);
+  });
+});
+
+describe("isCircuitBreakerPaused", () => {
+  const now = new Date("2026-09-17T18:00:00Z").getTime();
+
+  it("is not paused when there's no stored pause", () => {
+    expect(isCircuitBreakerPaused(null, now)).toBe(false);
+    expect(isCircuitBreakerPaused(undefined, now)).toBe(false);
+  });
+
+  it("is not paused when the stored timestamp doesn't parse", () => {
+    expect(isCircuitBreakerPaused("not-a-date", now)).toBe(false);
+  });
+
+  it("is paused when pausedUntil is in the future", () => {
+    expect(isCircuitBreakerPaused(new Date(now + 10 * 60_000).toISOString(), now)).toBe(true);
+  });
+
+  it("is not paused once pausedUntil has passed", () => {
+    expect(isCircuitBreakerPaused(new Date(now - 1_000).toISOString(), now)).toBe(false);
+  });
+
+  it("is not paused exactly at the pausedUntil boundary", () => {
+    expect(isCircuitBreakerPaused(new Date(now).toISOString(), now)).toBe(false);
+  });
+});
+
+describe("nextCircuitBreakerPausedUntil", () => {
+  const now = new Date("2026-09-17T18:00:00Z").getTime();
+  const priorPause = "2026-09-17T17:00:00.000Z";
+
+  it("clears the pause on any success, even alongside a 429 in the same tick", () => {
+    expect(nextCircuitBreakerPausedUntil(priorPause, { hadSuccess: true, hadRateLimited: false }, now)).toBeNull();
+    expect(nextCircuitBreakerPausedUntil(priorPause, { hadSuccess: true, hadRateLimited: true }, now)).toBeNull();
+    expect(nextCircuitBreakerPausedUntil(null, { hadSuccess: true, hadRateLimited: false }, now)).toBeNull();
+  });
+
+  it("opens a 60-minute pause on a 429-only tick with zero successes", () => {
+    expect(nextCircuitBreakerPausedUntil(null, { hadSuccess: false, hadRateLimited: true }, now)).toBe(
+      new Date(now + CIRCUIT_BREAKER_PAUSE_MS).toISOString(),
+    );
+  });
+
+  it("extends an existing pause on another 429-only tick", () => {
+    expect(nextCircuitBreakerPausedUntil(priorPause, { hadSuccess: false, hadRateLimited: true }, now)).toBe(
+      new Date(now + CIRCUIT_BREAKER_PAUSE_MS).toISOString(),
+    );
+  });
+
+  it("leaves state untouched when a tick has neither a success nor a 429", () => {
+    expect(nextCircuitBreakerPausedUntil(null, { hadSuccess: false, hadRateLimited: false }, now)).toBeNull();
+    expect(nextCircuitBreakerPausedUntil(priorPause, { hadSuccess: false, hadRateLimited: false }, now)).toBe(priorPause);
   });
 });
 
