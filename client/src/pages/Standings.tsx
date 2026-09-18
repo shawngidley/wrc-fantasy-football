@@ -287,6 +287,8 @@ function InjuryReport({ ownerKey }: { ownerKey: string }) {
         const context = [i.comment || `${i.name} is currently listed as ${status}.`, i.practiceInjuryType ? `Practice injury: ${i.practiceInjuryType}` : "", i.probabilityOfPlaying != null ? `${i.probabilityOfPlaying}% chance to play` : "", i.practices.length ? `Practice: ${i.practices.join(" / ")}` : ""].filter(Boolean).join(" · ");
         return { playerName: player?.name ?? i.name, pos: player?.pos ?? "", nflTeam: player?.nflTeam ?? i.team, headline: `${status}${i.injuryType ? ` · ${i.injuryType}` : ""}`, description: context, published: i.updated || new Date().toISOString(), isInjury: true, source: "FantasyPros" } as PlayerNewsItem;
       });
+      // Most recent update first.
+      found.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime());
       setItems(found);
     } catch {
       setItems([]);
@@ -398,9 +400,11 @@ function MyTeamNews({ ownerKey }: { ownerKey: string }) {
     return result;
   }, [tank01News, myPlayers, espnIdByPlayerName]);
 
-  // FantasyPros kept as a fallback supplement only, still enabled, in case
-  // Tank01 doesn't have coverage for a given player -- not the primary
-  // source anymore.
+  // FantasyPros roster news is shown alongside Tank01, not just as a
+  // fallback: FantasyPros stories carry an analyst write-up and impact
+  // note that Tank01 headlines don't, so an owner wants both even for the
+  // same player. Served from the FantasyPros hub cache, so this costs no
+  // API calls.
   const fantasyProsRosterNews = trpc.fantasyPros.rosterNews.useQuery(rosterInput, {
     enabled: rosterInput.players.length > 0,
     staleTime: 15 * 60_000,
@@ -408,11 +412,18 @@ function MyTeamNews({ ownerKey }: { ownerKey: string }) {
 
   const items = useMemo(() => {
     const fantasyProsItems = mapRosterNewsForDisplay(fantasyProsRosterNews.data ?? [], myPlayers) as PlayerNewsItem[];
-    const seenPlayers = new Set(tank01Items.map(i => i.playerName.toLowerCase()));
-    // Tank01 items first (the default source), then any FantasyPros items
-    // for players Tank01 didn't have anything on, so nothing gets silently
-    // dropped if FantasyPros happens to have unique coverage.
-    return [...tank01Items, ...fantasyProsItems.filter(i => !seenPlayers.has(i.playerName.toLowerCase()))];
+    // Both sources, deduped only on an identical headline for the same
+    // player, newest first. Tank01 items carry no timestamp of their own
+    // and are stamped at load time, so they sort with today's stories.
+    const seen = new Set<string>();
+    const merged: PlayerNewsItem[] = [];
+    for (const item of [...fantasyProsItems, ...tank01Items]) {
+      const key = `${item.playerName.toLowerCase()}|${item.headline.trim().toLowerCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      merged.push(item);
+    }
+    return merged.sort((a, b) => new Date(b.published).getTime() - new Date(a.published).getTime());
   }, [tank01Items, fantasyProsRosterNews.data, myPlayers]);
   const loading = tank01Loading || (myPlayers.length === 0 && !fantasyProsRosterNews.isFetched);
 
