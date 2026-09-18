@@ -27,6 +27,8 @@ import { useESPNSeasonStats, type SeasonStatRow } from "@/hooks/useESPNSeasonSta
 import { useNFLTeamSchedule, parseDate, type ScheduleGame } from "@/hooks/useNFLTeamSchedule";
 import { useNFLGameLog, type GameLogEntry } from "@/hooks/useNFLGameLog";
 import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections";
+import { useNFLInjuries, getInjuryDesignation } from "@/hooks/useNFLInjuries";
+import { InjuryTag } from "@/components/InjuryTag";
 import TeamLogo from "@/components/TeamLogo";
 import { PlayerNewsRow, type PlayerNewsItem } from "@/components/PlayerNewsRow";
 import { trpc } from "@/lib/trpc";
@@ -491,6 +493,7 @@ export default function PlayerPage() {
 
   // Find WRC ownership via live Supabase query
   const { ownership, ownerLoading: _ownerLoading } = usePlayerOwnership(playerName || null);
+  const { injuries } = useNFLInjuries();
   const isFreeAgent = !ownership;
 
   // Live NFL matchup data for the current week
@@ -682,6 +685,7 @@ export default function PlayerPage() {
                       {player.jerseyNum && (
                         <span className="text-slate-400 text-lg font-semibold">#{player.jerseyNum}</span>
                       )}
+                      <InjuryTag designation={getInjuryDesignation(injuries, player.longName) || getInjuryDesignation(injuries, playerName)} size="xs" />
                     </div>
                     <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                       {/* NFL team logo + name */}

@@ -13,6 +13,8 @@ import { useDraftedRoster } from "@/hooks/useDraftedRoster";
 import { Link } from "wouter";
 import TeamLogo from "@/components/TeamLogo";
 import { trpc } from "@/lib/trpc";
+import { useNFLInjuries, getInjuryDesignation } from "@/hooks/useNFLInjuries";
+import { InjuryTag } from "@/components/InjuryTag";
 
 // ── Sort helpers ──────────────────────────────────────────────────────────────
 const POS_ORDER: Record<string, number> = { QB: 0, RB: 1, WR: 2, TE: 3, K: 4, DST: 5 };
@@ -64,6 +66,7 @@ export default function Rosters() {
 
   // Primary: Supabase players table
   const { rosters, loading: sbLoading, error: sbError } = useSupabaseRosters();
+  const { injuries } = useNFLInjuries();
 
   // Once protections are submitted, a protected player's displayed round should
   // reflect the round they now cost (forfeited_round) rather than the round
@@ -234,7 +237,7 @@ export default function Rosters() {
                           </div>
                         ) : (
                           allPlayers.map((p, i) => (
-                            <PlayerRow key={p.id || i} player={p} alt={i % 2 !== 0} protectedRound={protectionRoundByPlayerId[p.id]} />
+                            <PlayerRow key={p.id || i} player={p} alt={i % 2 !== 0} protectedRound={protectionRoundByPlayerId[p.id]} injuryDesignation={getInjuryDesignation(injuries, p.name)} />
                           ))
                         )}
                       </div>
@@ -250,7 +253,7 @@ export default function Rosters() {
   );
 }
 
-function PlayerRow({ player, alt, protectedRound }: { player: SupabasePlayer; alt: boolean; protectedRound?: number }) {
+function PlayerRow({ player, alt, protectedRound, injuryDesignation }: { player: SupabasePlayer; alt: boolean; protectedRound?: number; injuryDesignation?: string }) {
   const c = POS_COLORS[player.position] ?? { bg: "oklch(0.93 0.02 150)", text: "oklch(0.4 0.04 150)" };
   const displayRound = protectedRound ?? player.draft_round;
   const isFa = !displayRound;
@@ -281,6 +284,7 @@ function PlayerRow({ player, alt, protectedRound }: { player: SupabasePlayer; al
         onMouseEnter={(e) => (e.currentTarget.style.color = "oklch(0.38 0.18 260)")}
         onMouseLeave={(e) => (e.currentTarget.style.color = "oklch(0.18 0.05 150)")}
       >{player.name}</a>
+      <InjuryTag designation={injuryDesignation} />
       <span style={{
         fontSize: "0.68rem", color: "oklch(0.55 0.06 150)",
         fontWeight: 600, fontFamily: "Barlow Condensed, sans-serif",

@@ -10,8 +10,10 @@
  */
 import { useMemo } from "react";
 import { trpc } from "@/lib/trpc";
+import { getLineupDefaultWeek } from "@/lib/scheduleData2026";
+import { normalizePlayerName } from "@shared/playerNameMatch";
 
-/** Map of lowercase player name → injury designation */
+/** Map of normalized player name → injury designation */
 export type InjuryMap = Record<string, string>;
 
 interface UseNFLInjuriesResult {
@@ -20,7 +22,6 @@ interface UseNFLInjuriesResult {
 }
 
 const CURRENT_SEASON = 2026;
-const CURRENT_WEEK = 1;
 
 /** Get a color for an injury designation badge */
 export function getInjuryColor(designation: string): { bg: string; text: string; border: string } | null {
@@ -48,25 +49,39 @@ export function getInjuryLabel(designation: string): string {
   if (d === "INJURED RESERVE" || d === "IR") return "IR";
   if (d === "PUP") return "PUP";
   if (d === "DNR") return "DNR";
-  return d;
+  if (d === "SUSPENSION" || d === "SUSPENDED") return "SUSP";
+  if (d === "PROBABLE") return "P";
+  if (d === "LIMITED") return "LTD";
+  if (d === "NON FOOTBALL INJURY" || d === "NFI") return "NFI";
+  // Any other status: keep it short so the pill stays a pill.
+  return d.length <= 4 ? d : d.slice(0, 4);
 }
 
 export function useNFLInjuries(): UseNFLInjuriesResult {
+  // The injuries endpoint is per-week; use the current planning week, not a
+  // hardcoded Week 1, or every badge shows opening-week designations all
+  // season. (The Standings injury panel already used the current week, so
+  // this was the source of that panel disagreeing with the lineup badges.)
+  const week = getLineupDefaultWeek() || 1;
   const query = trpc.fantasyPros.injuries.useQuery(
-    { year: CURRENT_SEASON, week: CURRENT_WEEK },
+    { year: CURRENT_SEASON, week },
     { staleTime: 20 * 60_000, refetchOnWindowFocus: false },
   );
+  // Key by the shared normalized name (suffix- and alias-aware) so a lookup
+  // for "Michael Pittman Jr." finds "Michael Pittman" and vice versa,
+  // instead of the old exact-lowercase match that silently missed anyone
+  // whose roster spelling differed from the feed's.
   const injuries = useMemo<InjuryMap>(() => Object.fromEntries(
-    (query.data ?? []).filter(item => item.name && item.status).map(item => [item.name.toLowerCase(), item.status]),
+    (query.data ?? []).filter(item => item.name && item.status).map(item => [normalizePlayerName(item.name), item.status]),
   ), [query.data]);
 
   return { injuries, loading: query.isLoading };
 }
 
 /**
- * Look up a player's injury designation.
- * Returns empty string if no injury.
+ * Look up a player's injury designation. Returns empty string if none.
+ * Normalizes the query the same way the map is keyed.
  */
 export function getInjuryDesignation(injuries: InjuryMap, playerName: string): string {
-  return injuries[playerName.toLowerCase()] ?? "";
+  return injuries[normalizePlayerName(playerName)] ?? "";
 }
