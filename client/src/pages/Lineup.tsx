@@ -424,7 +424,7 @@ function LineupIdentity({ player, meta }: { player: Player; meta?: { age?: strin
 }
 
 export function LineupRosterTable({
-  title, profile, players, statMap, metaMap, matchupMap, injuries, selectedId, isReadOnly, onSelect, onPlayerClick, getInlineChoices, onInlineSwap,
+  title, profile, players, statMap, metaMap, matchupMap, injuries, selectedId, isReadOnly, ignoreLocks = false, onSelect, onPlayerClick, getInlineChoices, onInlineSwap,
 }: {
   title: string;
   profile: "SFLEX" | "K" | "DST";
@@ -435,6 +435,8 @@ export function LineupRosterTable({
   injuries: unknown;
   selectedId: string | null;
   isReadOnly: boolean;
+  /** Commissioner override: treat every player as editable regardless of kickoff. */
+  ignoreLocks?: boolean;
   onSelect: (player: Player) => void;
   onPlayerClick: (player: Player) => void;
   getInlineChoices: (player: Player) => Player[];
@@ -481,7 +483,7 @@ export function LineupRosterTable({
               const injury = getInjuryDesignation(injuries as never, player.name);
               const injuryColor = injury ? getInjuryColor(injury) : null;
               const selected = selectedId === lineupPlayerKey(player.name);
-              const locked = isPlayerLocked(player.nflTeam, matchupMap);
+              const locked = !ignoreLocks && isPlayerLocked(player.nflTeam, matchupMap);
               const rowBg = selected
                 ? "oklch(0.96 0.06 85)"
                 : locked
@@ -621,6 +623,12 @@ export default function Lineup() {
   const isReadOnly = !!(teamId && franchise?.team_name !== viewTeamName) && !isCommissioner;
   const isOwnerView = !teamId; // true when on /lineup (owner's own page)
   const isCommissionerEditingOtherTeam = isCommissioner && !!teamId && franchise?.team_name !== viewTeamName;
+  // Commissioner override: the commissioner can move any player, including
+  // one whose NFL game has already kicked off (e.g. fixing a lineup for an
+  // owner who couldn't get to it, or correcting a mistake after the fact).
+  // The lock is a client-side rule only; the save procedures never enforced
+  // it, so this is purely about the UI letting the commissioner through.
+  const bypassLocks = isCommissioner;
 
   // Live NFL matchup + projection data from Tank01
   // Read ?week=N from the URL; fall back to the current real week.
@@ -885,7 +893,8 @@ export default function Lineup() {
 
   // Per-player locking: a player is locked once their NFL game has kicked off
   // The global lineupLocked flag is true only when ALL starters are locked
-  const lineupLocked = starters.length > 0 && starters.every(p => isPlayerLocked(p.nflTeam, matchupMap));
+  const playerLocked = (nflTeam: string) => !bypassLocks && isPlayerLocked(nflTeam, matchupMap);
+  const lineupLocked = starters.length > 0 && starters.every(p => playerLocked(p.nflTeam));
 
   const totalPts  = starters.reduce((s, p) => s + p.pts,  0);
   const totalProj = starters.reduce((s, p) => s + p.proj, 0);
@@ -980,7 +989,7 @@ export default function Lineup() {
 
   const handleTableSelect = (player: Player) => {
     if (isReadOnly) return;
-    const locked = isPlayerLocked(player.nflTeam, matchupMap);
+    const locked = playerLocked(player.nflTeam);
     if (locked) return;
     const playerKey = lineupPlayerKey(player.name);
     setSelectedId(current => current === playerKey ? null : playerKey);
@@ -992,8 +1001,8 @@ export default function Lineup() {
   const kickerPlayers = [...starters, ...bench].filter(player => player.pos === "K");
   const defensePlayers = [...starters, ...bench].filter(player => player.pos === "DST");
   const getInlineSwapChoices = (player: Player) => player.isBench
-    ? starters.filter(starter => getEligibleSlots(player).some(slot => slot.slot === starter.slot) && !isPlayerLocked(starter.nflTeam, matchupMap))
-    : getEligibleBench(player.slot ?? "").filter(candidate => !isPlayerLocked(candidate.nflTeam, matchupMap));
+    ? starters.filter(starter => getEligibleSlots(player).some(slot => slot.slot === starter.slot) && !playerLocked(starter.nflTeam))
+    : getEligibleBench(player.slot ?? "").filter(candidate => !playerLocked(candidate.nflTeam));
   const performInlineSwap = (source: Player, candidate: Player) => {
     if (source.isBench) doSwap(candidate.id, source.id);
     else doSwap(source.id, candidate.id);
@@ -1100,7 +1109,7 @@ export default function Lineup() {
               )}
               {(isReadOnly || isCommissionerEditingOtherTeam) ? viewTeamName : "My Lineup"}
             </h1>
-            <p>{isCommissionerEditingOtherTeam ? "Editing on behalf of this owner" : isReadOnly ? "Read-only view" : (franchise?.team_name || "Select a team")} — Lock: players lock at kickoff</p>
+            <p>{isCommissionerEditingOtherTeam ? "Editing on behalf of this owner" : isReadOnly ? "Read-only view" : (franchise?.team_name || "Select a team")} — {bypassLocks ? "Commissioner override: kickoff locks bypassed" : "Lock: players lock at kickoff"}</p>
             <select
               value={currentWeek}
               onChange={e => {
@@ -1209,7 +1218,7 @@ export default function Lineup() {
               </div>
             )}
             <span style={{ fontSize: "0.72rem", color: "oklch(0.75 0.06 150)" }}>
-              {lineupLocked ? "All starters locked — games in progress" : "Players lock at kickoff · ⚡ Best Lineup auto-optimizes"}
+              {bypassLocks ? "Commissioner override · locked players can be moved · ⚡ Best Lineup auto-optimizes" : lineupLocked ? "All starters locked — games in progress" : "Players lock at kickoff · ⚡ Best Lineup auto-optimizes"}
             </span>
           </div>
         </div>
@@ -1257,6 +1266,7 @@ export default function Lineup() {
           injuries={injuries}
           selectedId={selectedId}
           isReadOnly={isReadOnly}
+          ignoreLocks={bypassLocks}
           onSelect={handleTableSelect}
           onPlayerClick={(player) => navigate(`/player/${encodeURIComponent(player.name)}`)}
           getInlineChoices={getInlineSwapChoices}
@@ -1272,6 +1282,7 @@ export default function Lineup() {
           injuries={injuries}
           selectedId={selectedId}
           isReadOnly={isReadOnly}
+          ignoreLocks={bypassLocks}
           onSelect={handleTableSelect}
           onPlayerClick={(player) => navigate(`/player/${encodeURIComponent(player.name)}`)}
           getInlineChoices={getInlineSwapChoices}
@@ -1287,6 +1298,7 @@ export default function Lineup() {
           injuries={injuries}
           selectedId={selectedId}
           isReadOnly={isReadOnly}
+          ignoreLocks={bypassLocks}
           onSelect={handleTableSelect}
           onPlayerClick={(player) => navigate(`/player/${encodeURIComponent(player.name)}`)}
           getInlineChoices={getInlineSwapChoices}
@@ -1312,7 +1324,7 @@ export default function Lineup() {
                 <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
                   {getEligibleSlots(selectedBench).filter(slot => {
                     const currentStarter = starters.find(player => player.slot === slot.slot);
-                    return !currentStarter || !isPlayerLocked(currentStarter.nflTeam, matchupMap);
+                    return !currentStarter || !playerLocked(currentStarter.nflTeam);
                   }).map(slot => {
                     const currentStarter = starters.find(player => player.slot === slot.slot);
                     return currentStarter ? <button key={slot.slot} onClick={() => doSwap(currentStarter.id, selectedBench.id)} style={{ border: "1px solid oklch(0.78 0.1 85)", background: "white", color: "oklch(0.25 0.08 150)", borderRadius: 7, padding: "0.45rem 0.7rem", cursor: "pointer", fontWeight: 700 }}>{displaySlotLabel(slot.slot)}: {currentStarter.name}</button> : null;
@@ -1336,7 +1348,7 @@ export default function Lineup() {
             const isSelected = Boolean(player && selectedId === lineupPlayerKey(player.name));
             const eligibleBench = getEligibleBench(slot);
             // Per-player lock: this starter is locked if their game has started
-            const playerLocked = player ? isPlayerLocked(player.nflTeam, matchupMap) : false;
+            const starterLocked = player ? playerLocked(player.nflTeam) : false;
 
             return (
               <div key={slot}>
@@ -1348,7 +1360,7 @@ export default function Lineup() {
                     padding: "0.6rem 1rem",
                     borderBottom: isSelected ? "none" : "1px solid oklch(0.93 0.005 150)",
                     cursor: player ? "pointer" : "default",
-                    background: isSelected ? "oklch(0.94 0.04 150)" : playerLocked ? "oklch(0.97 0.005 0)" : "white",
+                    background: isSelected ? "oklch(0.94 0.04 150)" : starterLocked ? "oklch(0.97 0.005 0)" : "white",
                     transition: "background 0.12s",
                   }}
                 >
@@ -1356,7 +1368,7 @@ export default function Lineup() {
                   <div
                     onClick={(e) => {
                       e.stopPropagation();
-                      if (isReadOnly || playerLocked || !player) return;
+                      if (isReadOnly || starterLocked || !player) return;
                       setSelectedId(isSelected ? null : player.id);
                     }}
                     style={{
@@ -1365,17 +1377,17 @@ export default function Lineup() {
                       letterSpacing: "0.06em", color: "white",
                       background: player ? POS_COLORS[player.pos] || "oklch(0.5 0.04 150)" : "oklch(0.75 0.02 150)",
                       borderRadius: 4, padding: "2px 0", flexShrink: 0,
-                      cursor: (!isReadOnly && !playerLocked && player) ? "pointer" : "default",
-                      outline: (!isReadOnly && !playerLocked && player) ? "2px solid transparent" : "none",
+                      cursor: (!isReadOnly && !starterLocked && player) ? "pointer" : "default",
+                      outline: (!isReadOnly && !starterLocked && player) ? "2px solid transparent" : "none",
                       transition: "filter 0.12s",
-                      filter: (!isReadOnly && !playerLocked && player) ? undefined : undefined,
+                      filter: (!isReadOnly && !starterLocked && player) ? undefined : undefined,
                     }}
-                    onMouseEnter={(e) => { if (!isReadOnly && !playerLocked && player) (e.currentTarget as HTMLElement).style.filter = "brightness(1.2)"; }}
+                    onMouseEnter={(e) => { if (!isReadOnly && !starterLocked && player) (e.currentTarget as HTMLElement).style.filter = "brightness(1.2)"; }}
                     onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.filter = ""; }}
-                    title={(!isReadOnly && !playerLocked && player) ? "Tap to swap" : undefined}
+                    title={(!isReadOnly && !starterLocked && player) ? "Tap to swap" : undefined}
                   >
                     <div>{displaySlotLabel(slot)}</div>
-                    {(!isReadOnly && !playerLocked && player) && (
+                    {(!isReadOnly && !starterLocked && player) && (
                       <div style={{ fontSize: "0.5rem", opacity: 0.75, lineHeight: 1, marginTop: "1px" }}>⇄</div>
                     )}
                   </div>
@@ -1417,7 +1429,7 @@ export default function Lineup() {
                           <div style={{ fontSize: "0.62rem", color: "oklch(0.6 0.04 150)" }}>Proj {player.proj.toFixed(1)}</div>
                         </div>
                         {!isReadOnly && (
-                          playerLocked
+                          starterLocked
                             ? <Lock size={12} color="oklch(0.55 0.04 0)" style={{ opacity: 0.5 }} />
                             : isSelected
                               ? <X size={14} color="oklch(0.5 0.04 150)" onClick={(e) => { e.stopPropagation(); setSelectedId(null); }} style={{ cursor: "pointer" }} />
@@ -1488,7 +1500,7 @@ export default function Lineup() {
             // For bench: eligible slots that are NOT yet locked (starter's game hasn't started)
             const eligibleSlots = getEligibleSlots(player).filter(slotDef => {
               const currentStarter = starters.find(s => s.slot === slotDef.slot);
-              return !currentStarter || !isPlayerLocked(currentStarter.nflTeam, matchupMap);
+              return !currentStarter || !playerLocked(currentStarter.nflTeam);
             });
             // Bench player is clickable if at least one eligible unlocked slot exists
             const benchCanSwap = !isReadOnly && eligibleSlots.length > 0;
