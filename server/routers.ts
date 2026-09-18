@@ -13,6 +13,7 @@ import { getPublicLeagueTeam, listPublicLeagueTeams, verifyLeagueTeamPin } from 
 import { clearWrcTeamSession, readWrcTeamSession, writeWrcTeamSession } from "./wrcTeamSession";
 import { supabaseAdmin } from "./supabaseAdmin";
 import { loadPlayerRows, makePlayerId, rosterPlayerForTeam } from "./rosterPlayerForTeam";
+import { resolveLineupsForWeek } from "./lineupResolution";
 import { getLineupDefaultWeek, SCHEDULE_2026 } from "../client/src/lib/scheduleData2026";
 import { hasWeekKickedOff, hasPlayerTeamGameStarted } from "./nflWeekKickoffCheck";
 import { isEligibleAfterCut } from "../shared/freeAgentCutRestriction";
@@ -465,44 +466,15 @@ export const appRouter = router({
     lineups: publicProcedure
       .input(z.object({ teamId: z.string().min(1), week: z.number().int().min(1).max(22), season: z.number().int().min(2020).max(2100) }))
       .query(async ({ input }) => {
-        const { data, error } = await supabaseAdmin
-          .from("lineups")
-          .select("slot, player_id, player_name")
-          .eq("team_id", input.teamId)
-          .eq("week", input.week)
-          .eq("season", input.season);
-        if (error) throw new Error("Unable to load lineup");
-        if (data && data.length > 0) return data;
-
-        // Carry-forward: no lineup was explicitly saved for this week --
-        // fall back to the most recent PRIOR week that does have a saved
-        // lineup, so a lineup set once (e.g. Week 1) is the default for
-        // every following week until the owner actually changes it,
-        // rather than every unsaved week showing empty/default starters.
-        for (let priorWeek = input.week - 1; priorWeek >= 1; priorWeek--) {
-          const { data: priorData, error: priorError } = await supabaseAdmin
-            .from("lineups")
-            .select("slot, player_id, player_name")
-            .eq("team_id", input.teamId)
-            .eq("week", priorWeek)
-            .eq("season", input.season);
-          if (priorError) throw new Error("Unable to load lineup");
-          if (priorData && priorData.length > 0) {
-            // A carried-forward player may have since been dropped or
-            // traded away -- only include players still actually on
-            // this team's current roster, so a stale, invalid lineup
-            // never gets displayed or used as-is.
-            const { data: currentRoster, error: rosterError } = await supabaseAdmin
-              .from("players")
-              .select("id")
-              .eq("team_id", input.teamId);
-            if (rosterError) throw new Error("Unable to validate carried-forward lineup");
-            const rosterIds = new Set((currentRoster ?? []).map(p => p.id));
-            return priorData.filter(row => rosterIds.has(row.player_id));
-          }
-        }
-        return [];
+        // Carry-forward semantics (a saved lineup stays in effect until the
+        // owner saves a new one) live in resolveLineupsForWeek, shared with
+        // live scoring and weekly finalization so all three agree.
+        const rows = await resolveLineupsForWeek(input.week, input.season, input.teamId);
+        return rows.map(row => ({ slot: row.slot, player_id: row.player_id, player_name: row.player_name }));
       }),
+    lineupsForWeek: publicProcedure
+      .input(z.object({ week: z.number().int().min(1).max(22), season: z.number().int().min(2020).max(2100) }))
+      .query(({ input }) => resolveLineupsForWeek(input.week, input.season)),
     saveLineup: teamProcedure
       .input(z.object({
         week: z.number().int().min(1).max(22),

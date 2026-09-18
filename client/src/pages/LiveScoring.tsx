@@ -1059,6 +1059,7 @@ async function buildMatchupsFromLineups(
   matchupMap: import("@/hooks/useNFLMatchups").NFLMatchupMap,
   nflTeamPool: readonly { name: string; adp: number }[],
   gameStatus: NFLGameStatusMap,
+  lineupRows: Array<LineupRow & { team_id: string }>,
 ): Promise<Matchup[]> {
   const scheduleWeek = SCHEDULE_2026.find(w => w.week === week);
   if (!scheduleWeek) return [];
@@ -1073,14 +1074,14 @@ async function buildMatchupsFromLineups(
     playersByTeam[p.team_id].push(p);
   }
 
-  // Load saved lineups for this week
-  const { data: lineupRows } = await supabase
-    .from("lineups")
-    .select("team_id,slot,player_name,is_bench")
-    .eq("week", week)
-    .eq("season", 2026);
+  // Lineups come from league.lineupsForWeek (passed in by the caller),
+  // which carries a saved lineup forward to later weeks until the owner
+  // saves a new one -- the same rows the Lineup page and the weekly
+  // finalization use. Reading the lineups table directly for the exact
+  // week (the old code here) showed a default roster order for any team
+  // that hadn't re-saved that week, disagreeing with both.
   const lineupsByTeam: Record<string, LineupRow[]> = {};
-  for (const row of (lineupRows ?? []) as (LineupRow & { team_id: string })[]) {
+  for (const row of lineupRows) {
     if (!lineupsByTeam[row.team_id]) lineupsByTeam[row.team_id] = [];
     lineupsByTeam[row.team_id].push(row);
   }
@@ -1346,6 +1347,7 @@ export default function LiveScoring() {
   // Injury designations
   const { injuries } = useNFLInjuries();
 
+  const trpcUtils = trpc.useUtils();
   const loadMatchups = useCallback(async () => {
     // Only show the "Loading matchups..." state on the very first load.
     // liveScores and nflGameStatus both update every ~30s from background
@@ -1363,7 +1365,8 @@ export default function LiveScoring() {
     const isInitialLoad = !hasLoadedOnceRef.current;
     if (isInitialLoad) setLoading(true);
     try {
-      const matchups = await buildMatchupsFromLineups(currentWeek, liveScores, liveStats, kickerEvents, projections, nflMatchupMap, draftPlayerPool, nflGameStatus);
+      const lineupRows = await trpcUtils.league.lineupsForWeek.fetch({ week: currentWeek, season: 2026 });
+      const matchups = await buildMatchupsFromLineups(currentWeek, liveScores, liveStats, kickerEvents, projections, nflMatchupMap, draftPlayerPool, nflGameStatus, lineupRows);
       if (matchups.length > 0) {
         setLiveMatchups(matchups);
       } else if (isInitialLoad) {

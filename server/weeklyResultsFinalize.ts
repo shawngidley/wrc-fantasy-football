@@ -1,6 +1,7 @@
 import { SCHEDULE_2026 } from "../client/src/lib/scheduleData2026";
 import { supabaseAdmin } from "./supabaseAdmin";
 import { creditPrizeEarnings } from "./prizeEarnings";
+import { resolveLineupsForWeek } from "./lineupResolution";
 import { normalizePlayerName } from "../shared/playerNameMatch";
 import { calcFantasyPoints, type Tank01Stats } from "../shared/scoringEngine";
 import { parseEspnKickerEvents, getKickerEventsForPlayer, calculateWrcKickerPoints, type KickerPlayEvent } from "../shared/espnKickerEvents";
@@ -296,7 +297,11 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
   if (!games.length) throw new Error("No NFL games found for this week.");
 
   const [{ data: lineups, error: lineupsError }, { data: players, error: playersError }, { data: teams, error: teamsError }] = await Promise.all([
-    supabaseAdmin.from("lineups").select("team_id, player_name, slot, is_bench").eq("week", week).eq("season", season),
+    // Carry-forward aware: a team that never re-saved this week is scored
+    // on its most recent saved lineup, the same one the Lineup page and
+    // Live Scoring show them. Reading the exact week only (the old
+    // behavior) scored such a team as zero.
+    resolveLineupsForWeek(week, season).then(rows => ({ data: rows, error: null as null | { message: string } })),
     supabaseAdmin.from("players").select("name, position, nfl_team, team_id"),
     supabaseAdmin.from("teams").select("id, owner, name"),
   ]);

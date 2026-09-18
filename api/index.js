@@ -80784,6 +80784,56 @@ async function rosterPlayerForTeam(rows, teamId, player, acquisition = "FA") {
   return id;
 }
 
+// server/lineupResolution.ts
+init_supabaseAdmin();
+async function resolveLineupsForWeek(week2, season, teamId) {
+  let query = supabaseAdmin.from("lineups").select("team_id, week, slot, player_id, player_name, is_bench").eq("season", season).lte("week", week2);
+  if (teamId) query = query.eq("team_id", teamId);
+  const { data, error: error46 } = await query;
+  if (error46) throw new Error(`Unable to load lineups: ${error46.message}`);
+  const latestWeekByTeam = /* @__PURE__ */ new Map();
+  for (const row of data ?? []) {
+    const current = latestWeekByTeam.get(row.team_id);
+    if (current === void 0 || row.week > current) latestWeekByTeam.set(row.team_id, row.week);
+  }
+  if (latestWeekByTeam.size === 0) return [];
+  const carriedTeams = Array.from(latestWeekByTeam.entries()).filter(([, w]) => w < week2).map(([id]) => id);
+  const rosterIdsByTeam = /* @__PURE__ */ new Map();
+  if (carriedTeams.length > 0) {
+    const { data: roster, error: rosterError } = await supabaseAdmin.from("players").select("id, team_id").in("team_id", carriedTeams);
+    if (rosterError) throw new Error(`Unable to validate carried-forward lineups: ${rosterError.message}`);
+    for (const p of roster ?? []) {
+      if (!p.team_id) continue;
+      if (!rosterIdsByTeam.has(p.team_id)) rosterIdsByTeam.set(p.team_id, /* @__PURE__ */ new Set());
+      rosterIdsByTeam.get(p.team_id).add(p.id);
+    }
+  }
+  return selectEffectiveLineupRows(data ?? [], week2, rosterIdsByTeam);
+}
+function selectEffectiveLineupRows(rows, week2, rosterIdsByTeam) {
+  const latestWeekByTeam = /* @__PURE__ */ new Map();
+  for (const row of rows) {
+    if (row.week > week2) continue;
+    const current = latestWeekByTeam.get(row.team_id);
+    if (current === void 0 || row.week > current) latestWeekByTeam.set(row.team_id, row.week);
+  }
+  const out = [];
+  for (const row of rows) {
+    if (row.week !== latestWeekByTeam.get(row.team_id)) continue;
+    const carried = row.week < week2;
+    if (carried && !rosterIdsByTeam.get(row.team_id)?.has(row.player_id)) continue;
+    out.push({
+      team_id: row.team_id,
+      slot: row.slot,
+      player_id: row.player_id,
+      player_name: row.player_name,
+      is_bench: Boolean(row.is_bench),
+      source_week: row.week
+    });
+  }
+  return out;
+}
+
 // client/src/lib/scheduleData2026.ts
 var SCHEDULE_2026 = [
   {
@@ -82088,7 +82138,11 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
   const games = (await gamesResponse.json()).body ?? [];
   if (!games.length) throw new Error("No NFL games found for this week.");
   const [{ data: lineups, error: lineupsError }, { data: players, error: playersError }, { data: teams, error: teamsError }] = await Promise.all([
-    supabaseAdmin.from("lineups").select("team_id, player_name, slot, is_bench").eq("week", week2).eq("season", season),
+    // Carry-forward aware: a team that never re-saved this week is scored
+    // on its most recent saved lineup, the same one the Lineup page and
+    // Live Scoring show them. Reading the exact week only (the old
+    // behavior) scored such a team as zero.
+    resolveLineupsForWeek(week2, season).then((rows) => ({ data: rows, error: null })),
     supabaseAdmin.from("players").select("name, position, nfl_team, team_id"),
     supabaseAdmin.from("teams").select("id, owner, name")
   ]);
@@ -90859,21 +90913,10 @@ var appRouter = router({
       return { success: true };
     }),
     lineups: publicProcedure.input(external_exports.object({ teamId: external_exports.string().min(1), week: external_exports.number().int().min(1).max(22), season: external_exports.number().int().min(2020).max(2100) })).query(async ({ input }) => {
-      const { data, error: error46 } = await supabaseAdmin.from("lineups").select("slot, player_id, player_name").eq("team_id", input.teamId).eq("week", input.week).eq("season", input.season);
-      if (error46) throw new Error("Unable to load lineup");
-      if (data && data.length > 0) return data;
-      for (let priorWeek = input.week - 1; priorWeek >= 1; priorWeek--) {
-        const { data: priorData, error: priorError } = await supabaseAdmin.from("lineups").select("slot, player_id, player_name").eq("team_id", input.teamId).eq("week", priorWeek).eq("season", input.season);
-        if (priorError) throw new Error("Unable to load lineup");
-        if (priorData && priorData.length > 0) {
-          const { data: currentRoster, error: rosterError } = await supabaseAdmin.from("players").select("id").eq("team_id", input.teamId);
-          if (rosterError) throw new Error("Unable to validate carried-forward lineup");
-          const rosterIds = new Set((currentRoster ?? []).map((p) => p.id));
-          return priorData.filter((row) => rosterIds.has(row.player_id));
-        }
-      }
-      return [];
+      const rows = await resolveLineupsForWeek(input.week, input.season, input.teamId);
+      return rows.map((row) => ({ slot: row.slot, player_id: row.player_id, player_name: row.player_name }));
     }),
+    lineupsForWeek: publicProcedure.input(external_exports.object({ week: external_exports.number().int().min(1).max(22), season: external_exports.number().int().min(2020).max(2100) })).query(({ input }) => resolveLineupsForWeek(input.week, input.season)),
     saveLineup: teamProcedure.input(external_exports.object({
       week: external_exports.number().int().min(1).max(22),
       season: external_exports.number().int().min(2020).max(2100),
