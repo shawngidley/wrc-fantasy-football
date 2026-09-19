@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calcFantasyPoints, sacksFrom, n } from "./scoringEngine";
+import { calcFantasyPoints, calcFantasyPointsBreakdown, sacksFrom, n } from "./scoringEngine";
 
 describe("calcFantasyPoints (shared)", () => {
   // These specific cases are the exact discrepancies confirmed live
@@ -84,5 +84,39 @@ describe("n (shared)", () => {
   it("returns 0 for undefined, null, or non-numeric input", () => {
     expect(n(undefined)).toBe(0);
     expect(n("not a number")).toBe(0);
+  });
+});
+
+describe("calcFantasyPointsBreakdown", () => {
+  const sum = (items: { points: number }[]) => Math.round(items.reduce((t, i) => t + i.points, 0) * 10) / 10;
+
+  it("sums to calcFantasyPoints for a passing + rushing QB line", () => {
+    const stats = { Passing: { passYds: 248, passTD: 3, int: 0 }, Rushing: { rushYds: 69, rushTD: 2 } } as never;
+    expect(sum(calcFantasyPointsBreakdown(stats, "QB"))).toBe(calcFantasyPoints(stats, "QB"));
+  });
+
+  it("labels the pieces the way the popover shows them", () => {
+    const stats = { Passing: { passYds: 248, passTD: 3 }, Rushing: { rushYds: 69, rushTD: 2 } } as never;
+    const labels = calcFantasyPointsBreakdown(stats, "QB").map(i => i.label);
+    expect(labels).toContain("248 passing yds");
+    expect(labels).toContain("3 passing TDs");
+    expect(labels).toContain("69 rushing yds");
+    expect(labels).toContain("2 rushing TDs");
+  });
+
+  it("gives a TE the 1.5-per-reception bonus and sums correctly", () => {
+    const stats = { Receiving: { receptions: 9, recYds: 95, recTD: 1 } } as never;
+    expect(sum(calcFantasyPointsBreakdown(stats, "TE", true))).toBe(calcFantasyPoints(stats, "TE", true));
+  });
+
+  it("sums to calcFantasyPoints for a DST line", () => {
+    const stats = { Defense: { sacks: 3, defensiveInterceptions: 1, fumblesRecovered: 1, defTD: 1, safeties: 0 } } as never;
+    expect(sum(calcFantasyPointsBreakdown(stats, "DST"))).toBe(calcFantasyPoints(stats, "DST"));
+  });
+
+  it("omits zero contributions", () => {
+    const stats = { Passing: { passYds: 0, passTD: 0, int: 2 } } as never;
+    const labels = calcFantasyPointsBreakdown(stats, "QB").map(i => i.label);
+    expect(labels).toEqual(["2 INT"]);
   });
 });

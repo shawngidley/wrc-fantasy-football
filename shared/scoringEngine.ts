@@ -218,3 +218,84 @@ export function calcFantasyPoints(
 
   return Math.round(pts * 10) / 10;
 }
+
+export interface FantasyPointsBreakdownItem {
+  label: string;
+  points: number;
+}
+
+/**
+ * The same scoring as calcFantasyPoints, but returned as labelled line
+ * items (one per non-zero contribution) instead of a single total, for the
+ * "click a score to see how it was earned" popover on Live Scoring. The
+ * coefficients here MUST stay in lockstep with calcFantasyPoints -- the UI
+ * only shows this breakdown when its rounded sum equals the displayed
+ * score, so any drift just hides the popover rather than showing wrong math.
+ */
+export function calcFantasyPointsBreakdown(
+  stats: Tank01Stats,
+  pos: string,
+  isTE = false,
+): FantasyPointsBreakdownItem[] {
+  const items: FantasyPointsBreakdownItem[] = [];
+  const teReception = pos === "TE" || isTE;
+  const push = (count: number, per: number, label: (c: number) => string) => {
+    if (!count) return;
+    const points = count * per;
+    if (points === 0) return;
+    items.push({ label: label(count), points: Math.round(points * 100) / 100 });
+  };
+
+  if (pos !== "DST") {
+    if (stats.Passing) {
+      const p = stats.Passing;
+      push(n(p.passYds), 0.04, c => `${c} passing yds`);
+      push(n(p.passTD), 4, c => `${c} passing TD${c === 1 ? "" : "s"}`);
+      push(n(p.int), -3, c => `${c} INT`);
+      push(n(p.passingTwoPointConversion), 1, c => `${c} passing 2PT`);
+    }
+    if (stats.Rushing) {
+      const r = stats.Rushing;
+      push(n(r.rushYds), 0.1, c => `${c} rushing yds`);
+      push(n(r.rushTD), 6, c => `${c} rushing TD${c === 1 ? "" : "s"}`);
+      push(n(r.rushingTwoPointConversion), 2, c => `${c} rushing 2PT`);
+    }
+    if (stats.Receiving) {
+      const rec = stats.Receiving;
+      push(n(rec.receptions), teReception ? 1.5 : 1.0, c => `${c} reception${c === 1 ? "" : "s"}`);
+      push(n(rec.recYds), 0.1, c => `${c} receiving yds`);
+      push(n(rec.recTD), 6, c => `${c} receiving TD${c === 1 ? "" : "s"}`);
+      push(n(rec.receivingTwoPointConversion), 2, c => `${c} receiving 2PT`);
+    }
+    const fumblesLost = n(stats.Fumbles?.fumblesLost ?? stats.Defense?.fumblesLost);
+    push(fumblesLost, -3, c => `${c} fumble${c === 1 ? "" : "s"} lost`);
+    push(n(stats.Defense?.returnTD), 6, c => `${c} return TD${c === 1 ? "" : "s"}`);
+  }
+
+  if (stats.Kicking) {
+    const k = stats.Kicking;
+    const xpMade = n(k.xpMade);
+    const xpAtt = n(k.xpAttempts);
+    const fgMade = n(k.fgMade);
+    const fgAtt = n(k.fgAttempts);
+    const fgYds = n(k.fgYds);
+    push(xpMade, 1, c => `${c} XP made`);
+    push(xpAtt - xpMade, -2, c => `${c} XP missed`);
+    if (fgYds > 0) push(fgYds, 0.1, () => `${fgMade} FG made (${fgYds} yds)`);
+    push(fgAtt - fgMade, -2, c => `${c} FG missed`);
+  }
+
+  if (pos === "DST" && stats.Defense) {
+    const d = stats.Defense;
+    push(sacksFrom(d), 2, c => `${c} sack${c === 1 ? "" : "s"}`);
+    push(n(d.defensiveInterceptions), 3, c => `${c} INT`);
+    push(n(d.fumblesRecovered), 3, c => `${c} fumble${c === 1 ? "" : "s"} recovered`);
+    const dstTouchdowns = d.defensiveOrSpecialTeamsTds !== undefined
+      ? n(d.defensiveOrSpecialTeamsTds)
+      : n(d.defTD) + n(d.returnTD);
+    push(dstTouchdowns, 6, c => `${c} TD${c === 1 ? "" : "s"}`);
+    push(n(d.safeties), 2, c => `${c} saf${c === 1 ? "ety" : "eties"}`);
+  }
+
+  return items;
+}

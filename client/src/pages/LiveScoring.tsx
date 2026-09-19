@@ -19,6 +19,8 @@ import { useNFLGameStatus, minutesRemainingInGame, type NFLGameStatusMap } from 
 import { normalizeNFLTeamCode as normalizeNFLTeam } from "@shared/nflTeamCodes";
 import { useNFLLiveScores, getLivePoints, getLiveStats } from "@/hooks/useNFLLiveScores";
 import { buildStatChips } from "@/lib/scoringEngine";
+import { calcFantasyPointsBreakdown } from "@shared/scoringEngine";
+import { PointsBreakdown } from "@/components/PointsBreakdown";
 import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections";
 import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } from "@/hooks/useNFLInjuries";
 import { fetchPlayerByName } from "@/hooks/useTank01Player";
@@ -45,6 +47,7 @@ type SlotPlayer = {
   pos: string;           // "QB"
   nflTeam: string;       // "DAL"
   pts: number;           // fantasy points scored
+  breakdown?: import("@shared/scoringEngine").FantasyPointsBreakdownItem[];
   proj: number;          // projected total
   gameInfo: string;      // "DAL 30 @ WAS 23 F"
   stats: StatChip[];
@@ -503,7 +506,7 @@ function PlayerCell({ player, side, injuries = {} }: { player: SlotPlayer | null
             fontSize: "1.15rem", lineHeight: 1,
             color: hasScored ? "#e07b00" : "oklch(0.7 0.03 150)",
           }}>
-            {player.pts.toFixed(1)}
+            <PointsBreakdown items={player.breakdown ?? []} total={player.pts} align={isHome ? "right" : "left"}>{player.pts.toFixed(1)}</PointsBreakdown>
           </div>
           <div style={{ fontSize: "0.6rem", color: "oklch(0.6 0.04 150)", textAlign: "center" }}>
             PROJ {player.proj.toFixed(1)}
@@ -1032,12 +1035,14 @@ function makeSlotPlayer(
   }
   const rawStats = getLiveStats(liveStats, player.name, player.position, player.nfl_team ?? "");
   const stats = rawStats ? buildStatChips(rawStats, player.position) : [];
+  const breakdown = rawStats ? calcFantasyPointsBreakdown(rawStats, player.position, player.position === "TE") : [];
   return {
     name: displayName(player.name, player.position, player.nfl_team ?? ""),
     fullName: player.name,
     pos: player.position,
     nflTeam: player.nfl_team,
     pts,
+    breakdown,
     proj,
     gameInfo,
     stats,
