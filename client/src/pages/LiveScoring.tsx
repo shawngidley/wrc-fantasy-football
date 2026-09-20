@@ -1144,13 +1144,10 @@ async function buildMatchupsFromLineups(
             starters.push({ slot: normalizedSlot, player: p });
           }
         }
-        // Anyone on the roster the saved lineup doesn't mention -- a
-        // player added after it was last saved, e.g. a FAAB award like
-        // Shedeur Sanders landing on the Vipers mid-week -- used to be
-        // dropped from the page entirely, since this branch only ever
-        // emitted players named in the saved rows. Show them on the
-        // bench. Bench never feeds the score (that comes from
-        // pairedSlots/starters), so this is display-only.
+        // Roster players missing from the saved lineup -- e.g. a FAAB add
+        // made after the owner last saved that week's lineup -- still
+        // belong to the team, so show them on the bench instead of
+        // dropping them off the page entirely.
         for (const p of teamPlayers) {
           if (!used.has(p.id)) benchPlayers.push(p);
         }
