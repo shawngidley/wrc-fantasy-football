@@ -15,6 +15,8 @@ interface StarterInfo {
 
 interface UseLeagueWeekMedianResult {
   median: number | null;
+  /** Live point total this week for each requested team id. */
+  scoresByTeam: Record<string, number>;
   loading: boolean;
 }
 
@@ -91,15 +93,20 @@ export function useLeagueWeekMedian(teamIds: readonly string[], week: number): U
     return () => { cancelled = true; };
   }, [teamKey, week, draftPlayerPool]);
 
+  const scoresByTeam = useMemo<Record<string, number>>(() => {
+    const out: Record<string, number> = {};
+    for (const [teamId, starters] of Object.entries(startersByTeam)) {
+      out[teamId] = starters.reduce((sum, s) => sum + (getLivePoints(liveScores, s.name, s.position, s.nflTeam, kickerEvents, liveStats) ?? 0), 0);
+    }
+    return out;
+  }, [startersByTeam, liveScores, liveStats, kickerEvents]);
+
   const median = useMemo(() => {
-    const scores = Object.values(startersByTeam)
-      .map(starters => starters.reduce((sum, s) => sum + (getLivePoints(liveScores, s.name, s.position, s.nflTeam, kickerEvents, liveStats) ?? 0), 0))
-      .filter(score => score > 0)
-      .sort((a, b) => a - b);
+    const scores = Object.values(scoresByTeam).filter(score => score > 0).sort((a, b) => a - b);
     if (scores.length === 0) return null;
     const mid = Math.floor(scores.length / 2);
     return scores.length % 2 === 0 ? (scores[mid - 1] + scores[mid]) / 2 : scores[mid];
-  }, [startersByTeam, liveScores, liveStats, kickerEvents]);
+  }, [scoresByTeam]);
 
-  return { median, loading };
+  return { median, scoresByTeam, loading };
 }
