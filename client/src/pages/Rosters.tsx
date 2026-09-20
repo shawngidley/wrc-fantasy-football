@@ -237,7 +237,7 @@ export default function Rosters() {
                           </div>
                         ) : (
                           allPlayers.map((p, i) => (
-                            <PlayerRow key={p.id || i} player={p} alt={i % 2 !== 0} protectedRound={protectionRoundByPlayerId[p.id]} injuryDesignation={getInjuryDesignation(injuries, p.name)} />
+                            <PlayerRow key={p.id || i} player={p} alt={i % 2 !== 0} protectedRound={protectionRoundByPlayerId[p.id]} injuryDesignation={getInjuryDesignation(injuries, p.name, p.nfl_team)} />
                           ))
                         )}
                       </div>

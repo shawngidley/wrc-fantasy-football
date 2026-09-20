@@ -473,7 +473,7 @@ function PlayerCell({ player, side, injuries = {} }: { player: SlotPlayer | null
                 onMouseLeave={(e) => (e.currentTarget.style.color = "#1a3a2a")}
               >{player.name}</a>
               {(() => {
-                const designation = getInjuryDesignation(injuries, player.fullName);
+                const designation = getInjuryDesignation(injuries, player.fullName, player.nflTeam);
                 const injColor = designation ? getInjuryColor(designation) : null;
                 if (!injColor) return null;
                 return (

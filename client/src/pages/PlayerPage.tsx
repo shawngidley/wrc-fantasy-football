@@ -685,7 +685,7 @@ export default function PlayerPage() {
                       {player.jerseyNum && (
                         <span className="text-slate-400 text-lg font-semibold">#{player.jerseyNum}</span>
                       )}
-                      <InjuryTag designation={getInjuryDesignation(injuries, player.longName) || getInjuryDesignation(injuries, playerName)} size="xs" />
+                      <InjuryTag designation={getInjuryDesignation(injuries, player.longName, canonicalTeam) || getInjuryDesignation(injuries, playerName, canonicalTeam)} size="xs" />
                     </div>
                     <div className="flex items-center gap-3 mt-1.5 flex-wrap">
                       {/* NFL team logo + name */}

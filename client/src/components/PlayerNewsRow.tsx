@@ -81,7 +81,7 @@ export function PlayerNewsRow({ item, isFirst = false, showDetails = false }: { 
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", marginBottom: "0.15rem", flexWrap: "wrap" }}>
             <span className="news-row-name" style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, color: "oklch(0.38 0.18 240)", letterSpacing: "0.01em" }}>{displayName}</span>
-            <InjuryTag designation={getInjuryDesignation(injuries, item.playerName)} />
+            <InjuryTag designation={getInjuryDesignation(injuries, item.playerName, item.nflTeam)} />
             {item.isInjury && <span className="news-row-flag">🚩</span>}
             <span className="news-row-meta" style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600, color: "oklch(0.5 0.04 150)" }}>{item.pos}· {item.nflTeam}</span>
             {item.source && <span className="news-row-source" style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, color: item.source === "FantasyPros" ? "oklch(0.5 0.16 85)" : "oklch(0.5 0.04 150)", letterSpacing: "0.03em" }}>{item.source === "FantasyPros" ? "FP" : item.source}</span>}

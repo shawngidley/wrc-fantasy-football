@@ -1131,7 +1131,7 @@ export default function FreeAgents() {
                                 {player.name}
                               </p>
                               {(() => {
-                                const designation = getInjuryDesignation(injuries, player.name);
+                                const designation = getInjuryDesignation(injuries, player.name, player.nflTeam);
                                 const injColor = designation ? getInjuryColor(designation) : null;
                                 if (!injColor) return null;
                                 return (

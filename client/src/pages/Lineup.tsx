@@ -484,7 +484,7 @@ export function LineupRosterTable({
               const stats = statMap[player.name.toLowerCase()];
               const meta = metaMap[player.name.toLowerCase()];
               const matchup = matchupMap[player.nflTeam];
-              const injury = getInjuryDesignation(injuries as never, player.name);
+              const injury = getInjuryDesignation(injuries as never, player.name, player.nflTeam);
               const injuryColor = injury ? getInjuryColor(injury) : null;
               const selected = selectedId === lineupPlayerKey(player.name);
               const locked = !ignoreLocks && isPlayerLocked(player.nflTeam, matchupMap);
@@ -523,7 +523,7 @@ export function LineupRosterTable({
                 const candidateBg = "oklch(0.985 0.025 85)";
                 return <tr key={`${player.id}-${candidate.id}`} style={{ background: candidateBg }}>
                   <td style={{ ...tdStyle, position: "sticky", left: 0, zIndex: 2, background: candidateBg }}><button type="button" onClick={(event) => { event.preventDefault(); event.stopPropagation(); onInlineSwap(player, candidate); }} aria-label={`Move ${candidate.name} into ${player.slot ? displaySlotLabel(player.slot) : "bench"}`} title={`Move ${candidate.name}`} style={{ display: "grid", placeItems: "center", minWidth: "var(--lineup-slot-button-width)", minHeight: 24, border: "1px solid oklch(0.62 0.16 85)", borderRadius: 4, background: "oklch(0.52 0.16 85)", color: "white", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "var(--lineup-slot-font-size)", cursor: "pointer" }}>{player.slot ? displaySlotLabel(player.slot) : "BN"}</button></td>
-                  <td onClick={() => onPlayerClick(candidate)} style={{ ...tdStyle, position: "sticky", left: slotWidth, zIndex: 2, minWidth: playerWidth, maxWidth: playerWidth, textAlign: "left", cursor: "pointer", background: candidateBg }}><LineupIdentity player={candidate} meta={candidateMeta} injuryDesignation={getInjuryDesignation(injuries as never, candidate.name)} /></td>
+                  <td onClick={() => onPlayerClick(candidate)} style={{ ...tdStyle, position: "sticky", left: slotWidth, zIndex: 2, minWidth: playerWidth, maxWidth: playerWidth, textAlign: "left", cursor: "pointer", background: candidateBg }}><LineupIdentity player={candidate} meta={candidateMeta} injuryDesignation={getInjuryDesignation(injuries as never, candidate.name, candidate.nflTeam)} /></td>
                   <td style={tdStyle}>{candidateMeta?.age || "—"}</td><td style={tdStyle}>{candidate.byeWeek ?? "—"}</td><td style={tdStyle}>{candidateMatchup ? `${candidateMatchup.isHome ? "vs" : "@"} ${candidateMatchup.opponent}` : "BYE"}</td><td style={{ ...tdStyle, maxWidth: 86, overflow: "hidden", textOverflow: "ellipsis" }}>{candidateMatchup ? formatGameTime(candidateMatchup).replace(" ET", "") : "—"}</td>
                   <td style={{ ...tdStyle, fontWeight: 800 }}>{candidate.proj.toFixed(1)}</td><td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(candidateStats, "wrcPts", 1)}</td><td style={{ ...tdStyle, color: "oklch(0.45 0.13 85)", fontWeight: 800 }}>{value(candidateStats, "ptsPerGame", 1)}</td>
                   {profile === "SFLEX" && <><td style={tdStyle}>{value(candidateStats, "passYds")}</td><td style={tdStyle}>{value(candidateStats, "passTD")}</td><td style={tdStyle}>{value(candidateStats, "passInt")}</td><td style={tdStyle}>{value(candidateStats, "rushAtt")}</td><td style={tdStyle}>{value(candidateStats, "rushYds")}</td><td style={tdStyle}>{value(candidateStats, "rushTD")}</td><td style={tdStyle}>{value(candidateStats, "targets")}</td><td style={tdStyle}>{value(candidateStats, "receptions")}</td><td style={tdStyle}>{value(candidateStats, "recYds")}</td><td style={tdStyle}>{value(candidateStats, "recTD")}</td><td style={tdStyle}>{candidateStats ? candidateStats.passInt + candidateStats.fumblesLost : "—"}</td><td style={tdStyle}>{value(candidateStats, "gp")}</td></>}
@@ -1411,7 +1411,7 @@ export default function Lineup() {
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
                         {(() => {
-                          const designation = getInjuryDesignation(injuries, player.name);
+                          const designation = getInjuryDesignation(injuries, player.name, player.nflTeam);
                           const injColor = designation ? getInjuryColor(designation) : null;
                           if (injColor) {
                             return (
@@ -1555,7 +1555,7 @@ export default function Lineup() {
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexShrink: 0 }}>
                     {(() => {
-                      const designation = getInjuryDesignation(injuries, player.name);
+                      const designation = getInjuryDesignation(injuries, player.name, player.nflTeam);
                       const injColor = designation ? getInjuryColor(designation) : null;
                       if (injColor) {
                         return (

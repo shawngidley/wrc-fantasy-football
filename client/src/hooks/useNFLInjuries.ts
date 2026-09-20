@@ -12,6 +12,7 @@ import { useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { getLineupDefaultWeek } from "@/lib/scheduleData2026";
 import { normalizePlayerName } from "@shared/playerNameMatch";
+import { normalizeNFLTeamCode } from "@shared/nflTeamCodes";
 
 /** Map of normalized player name → injury designation */
 export type InjuryMap = Record<string, string>;
@@ -67,21 +68,45 @@ export function useNFLInjuries(): UseNFLInjuriesResult {
     { year: CURRENT_SEASON, week },
     { staleTime: 20 * 60_000, refetchOnWindowFocus: false },
   );
-  // Key by the shared normalized name (suffix- and alias-aware) so a lookup
-  // for "Michael Pittman Jr." finds "Michael Pittman" and vice versa,
-  // instead of the old exact-lowercase match that silently missed anyone
-  // whose roster spelling differed from the feed's.
-  const injuries = useMemo<InjuryMap>(() => Object.fromEntries(
-    (query.data ?? []).filter(item => item.name && item.status).map(item => [normalizePlayerName(item.name), item.status]),
-  ), [query.data]);
+  // Keyed two ways. The authoritative key is normalized name + normalized
+  // NFL team, so two different players who share a name (e.g. Justin
+  // Jefferson the Vikings WR vs. a same-named player on another team) never
+  // collide -- a healthy player must not inherit a same-named injured
+  // player's status. A name-only key is added only when exactly one player
+  // in the feed has that name, as a fallback for the few callers that have
+  // no team on hand; an ambiguous name gets no name-only entry on purpose.
+  // Names are suffix- and alias-aware via normalizePlayerName so
+  // "Michael Pittman Jr." still matches the feed's "Michael Pittman".
+  const injuries = useMemo<InjuryMap>(() => {
+    const rows = (query.data ?? []).filter(item => item.name && item.status);
+    const nameCounts = new Map<string, number>();
+    for (const item of rows) {
+      const nn = normalizePlayerName(item.name);
+      nameCounts.set(nn, (nameCounts.get(nn) ?? 0) + 1);
+    }
+    const map: InjuryMap = {};
+    for (const item of rows) {
+      const nn = normalizePlayerName(item.name);
+      map[`${nn}|${normalizeNFLTeamCode(item.team)}`] = item.status;
+      if ((nameCounts.get(nn) ?? 0) === 1) map[nn] = item.status;
+    }
+    return map;
+  }, [query.data]);
 
   return { injuries, loading: query.isLoading };
 }
 
 /**
  * Look up a player's injury designation. Returns empty string if none.
- * Normalizes the query the same way the map is keyed.
+ * When an NFL team is given, the match is team-strict -- a same-named
+ * player on a different team never matches -- which is what keeps a
+ * healthy player from showing another player's injury. Only when no team
+ * is available does it fall back to a name-only match, and that key exists
+ * only for names unique in the feed. Pass the team wherever possible.
  */
-export function getInjuryDesignation(injuries: InjuryMap, playerName: string): string {
-  return injuries[normalizePlayerName(playerName)] ?? "";
+export function getInjuryDesignation(injuries: InjuryMap, playerName: string, nflTeam?: string): string {
+  const nn = normalizePlayerName(playerName);
+  const team = nflTeam?.trim();
+  if (team) return injuries[`${nn}|${normalizeNFLTeamCode(team)}`] ?? "";
+  return injuries[nn] ?? "";
 }
