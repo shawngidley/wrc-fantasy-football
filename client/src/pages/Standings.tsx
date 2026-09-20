@@ -262,29 +262,26 @@ function MatchupWidget({ ownerKey, standings }: { ownerKey: string; standings: D
             });
             const [a, b] = sides;
             const hasScores = !a.isTbd && !b.isTbd && (a.score > 0 || b.score > 0);
-            const scoreStyle = (winning: boolean) => ({ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1rem", fontWeight: winning ? 900 : 700, color: winning ? "oklch(0.3 0.12 150)" : "oklch(0.45 0.04 150)", minWidth: 40, flexShrink: 0 });
-            // Team names take whatever width is left and ellipsize rather
-            // than wrapping, so a long name can't push the score or logo
-            // out of the row. minWidth 0 is what actually lets a flex item
-            // shrink below its content width.
-            const nameStyle = (winning: boolean) => ({ flex: 1, minWidth: 0, overflow: "hidden" as const, textOverflow: "ellipsis" as const, whiteSpace: "nowrap" as const, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: winning ? 800 : 600, color: winning ? "oklch(0.3 0.12 150)" : "oklch(0.5 0.04 150)" });
+            const scoreStyle = (winning: boolean) => ({ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1rem", fontWeight: winning ? 900 : 700, color: winning ? "oklch(0.3 0.12 150)" : "oklch(0.45 0.04 150)", minWidth: 34, flexShrink: 0 });
+            const nameStyle = (winning: boolean) => ({ flex: 1, minWidth: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: winning ? 800 : 600, color: "oklch(0.2 0.06 150)", whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" });
             const aWin = hasScores && a.score > b.score;
             const bWin = hasScores && b.score > a.score;
+            const logo = (side: typeof a) => side.isTbd
+              ? <div style={{ width: 22, height: 22, borderRadius: "50%", background: "oklch(0.92 0.02 150)", flexShrink: 0 }} />
+              : <TeamLogo teamName={side.name} size={22} round style={{ border: "1.5px solid oklch(0.9 0.03 150)", flexShrink: 0 }} />;
             return (
-              <div key={gi} style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.32rem 0", borderTop: gi > 0 ? "1px solid oklch(0.93 0.015 150)" : "none" }}>
-                <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.4rem", minWidth: 0 }}>
+              <div key={gi} style={{ display: "flex", alignItems: "center", gap: "0.4rem", padding: "0.32rem 0", borderTop: gi > 0 ? "1px solid oklch(0.93 0.015 150)" : "none" }}>
+                {/* Left team: name · logo · score */}
+                <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.35rem", minWidth: 0 }}>
                   <span style={{ ...nameStyle(aWin), textAlign: "right" as const }}>{a.isTbd ? "TBD" : a.name}</span>
-                  {a.isTbd
-                    ? <div style={{ width: 22, height: 22, borderRadius: "50%", background: "oklch(0.92 0.02 150)", flexShrink: 0 }} />
-                    : <TeamLogo teamName={a.name} size={22} round style={{ border: "1.5px solid oklch(0.9 0.03 150)", flexShrink: 0 }} />}
+                  {logo(a)}
                   <span style={{ ...scoreStyle(aWin), textAlign: "right" as const }}>{a.isTbd ? "—" : a.score.toFixed(1)}</span>
                 </div>
-                <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.62rem", fontWeight: 700, letterSpacing: "0.04em", color: "oklch(0.6 0.02 150)", flexShrink: 0, textTransform: "uppercase" as const }}>vs</span>
-                <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.4rem", justifyContent: "flex-end", minWidth: 0 }}>
+                <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.62rem", fontWeight: 800, letterSpacing: "0.05em", color: "oklch(0.55 0.14 85)", textTransform: "uppercase" as const, flexShrink: 0 }}>vs</span>
+                {/* Right team: score · logo · name */}
+                <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.35rem", justifyContent: "flex-end", minWidth: 0 }}>
                   <span style={{ ...scoreStyle(bWin), textAlign: "left" as const }}>{b.isTbd ? "—" : b.score.toFixed(1)}</span>
-                  {b.isTbd
-                    ? <div style={{ width: 22, height: 22, borderRadius: "50%", background: "oklch(0.92 0.02 150)", flexShrink: 0 }} />
-                    : <TeamLogo teamName={b.name} size={22} round style={{ border: "1.5px solid oklch(0.9 0.03 150)", flexShrink: 0 }} />}
+                  {logo(b)}
                   <span style={{ ...nameStyle(bWin), textAlign: "left" as const }}>{b.isTbd ? "TBD" : b.name}</span>
                 </div>
               </div>
