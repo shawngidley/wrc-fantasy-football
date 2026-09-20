@@ -242,7 +242,7 @@ function MatchupWidget({ ownerKey, standings }: { ownerKey: string; standings: D
         the matchup card above, linking to Live Scoring. */}
     {otherGames.length > 0 && (
       <Link href={`/live?week=${currentWeek}`} style={{ textDecoration: "none", display: "block" }}>
-        <div className="wrc-card" style={{ maxWidth: 340, margin: "0 auto 1.25rem", padding: "0.6rem 0.9rem", cursor: "pointer", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", transition: "box-shadow 0.15s" }}
+        <div className="wrc-card" style={{ maxWidth: 380, margin: "0 auto 1.25rem", padding: "0.6rem 0.9rem", cursor: "pointer", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", transition: "box-shadow 0.15s" }}
           onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 3px 12px rgba(0,0,0,0.11)")}
           onMouseLeave={e => (e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.06)")}
         >
@@ -262,23 +262,30 @@ function MatchupWidget({ ownerKey, standings }: { ownerKey: string; standings: D
             });
             const [a, b] = sides;
             const hasScores = !a.isTbd && !b.isTbd && (a.score > 0 || b.score > 0);
-            const scoreStyle = (winning: boolean) => ({ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1rem", fontWeight: winning ? 900 : 700, color: winning ? "oklch(0.3 0.12 150)" : "oklch(0.45 0.04 150)", minWidth: 40 });
+            const scoreStyle = (winning: boolean) => ({ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1rem", fontWeight: winning ? 900 : 700, color: winning ? "oklch(0.3 0.12 150)" : "oklch(0.45 0.04 150)", minWidth: 40, flexShrink: 0 });
+            // Team names take whatever width is left and ellipsize rather
+            // than wrapping, so a long name can't push the score or logo
+            // out of the row. minWidth 0 is what actually lets a flex item
+            // shrink below its content width.
+            const nameStyle = (winning: boolean) => ({ flex: 1, minWidth: 0, overflow: "hidden" as const, textOverflow: "ellipsis" as const, whiteSpace: "nowrap" as const, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: winning ? 800 : 600, color: winning ? "oklch(0.3 0.12 150)" : "oklch(0.5 0.04 150)" });
             const aWin = hasScores && a.score > b.score;
             const bWin = hasScores && b.score > a.score;
             return (
               <div key={gi} style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.32rem 0", borderTop: gi > 0 ? "1px solid oklch(0.93 0.015 150)" : "none" }}>
                 <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.4rem", minWidth: 0 }}>
+                  <span style={{ ...nameStyle(aWin), textAlign: "right" as const }}>{a.isTbd ? "TBD" : a.name}</span>
                   {a.isTbd
                     ? <div style={{ width: 22, height: 22, borderRadius: "50%", background: "oklch(0.92 0.02 150)", flexShrink: 0 }} />
                     : <TeamLogo teamName={a.name} size={22} round style={{ border: "1.5px solid oklch(0.9 0.03 150)", flexShrink: 0 }} />}
                   <span style={{ ...scoreStyle(aWin), textAlign: "right" as const }}>{a.isTbd ? "—" : a.score.toFixed(1)}</span>
                 </div>
-                <span style={{ fontSize: "0.62rem", color: "oklch(0.6 0.02 150)", flexShrink: 0 }}>–</span>
+                <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.62rem", fontWeight: 700, letterSpacing: "0.04em", color: "oklch(0.6 0.02 150)", flexShrink: 0, textTransform: "uppercase" as const }}>vs</span>
                 <div style={{ flex: 1, display: "flex", alignItems: "center", gap: "0.4rem", justifyContent: "flex-end", minWidth: 0 }}>
                   <span style={{ ...scoreStyle(bWin), textAlign: "left" as const }}>{b.isTbd ? "—" : b.score.toFixed(1)}</span>
                   {b.isTbd
                     ? <div style={{ width: 22, height: 22, borderRadius: "50%", background: "oklch(0.92 0.02 150)", flexShrink: 0 }} />
                     : <TeamLogo teamName={b.name} size={22} round style={{ border: "1.5px solid oklch(0.9 0.03 150)", flexShrink: 0 }} />}
+                  <span style={{ ...nameStyle(bWin), textAlign: "left" as const }}>{b.isTbd ? "TBD" : b.name}</span>
                 </div>
               </div>
             );
