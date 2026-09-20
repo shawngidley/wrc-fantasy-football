@@ -23,6 +23,7 @@ import { mapRosterNewsForDisplay } from "@/lib/rosterNewsMapping";
 import { fetchTank01News } from "@/hooks/useNFLNews";
 import { useDraftPlayerUniverse } from "@/hooks/useDraftPlayerUniverse";
 import { useOwnerMatchupScore } from "@/hooks/useOwnerMatchupScore";
+import { useLeagueWeekMedian } from "@/hooks/useLeagueWeekMedian";
 
 const normalizeRosterName = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -177,14 +178,12 @@ function MatchupWidget({ ownerKey, standings }: { ownerKey: string; standings: D
   // oppTeam when there's genuinely no matchup this week rather than
   // skipping the hook call itself.
   const { myScore, oppScore } = useOwnerMatchupScore(myTeamId, oppTeamId, currentWeek);
+  // Live median for THIS week's scores, not the cumulative season pts_for
+  // from standings (which only moves on finalize and so showed last week's
+  // median mid-week). Matches the Live Scoring scoreboard median.
+  const { median: liveMedian } = useLeagueWeekMedian(ALL_TEAM_IDS, currentWeek);
 
   if (!weekData || !matchup) return null;
-
-  // League median from live standings
-  const allPts = standings.map(t => t.pts_for);
-  const sorted = [...allPts].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  const median = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 
   const myTeamData = standings.find(t => t.team_name === myTeam);
   const oppTeamData = standings.find(t => t.team_name === oppTeam);
@@ -227,7 +226,7 @@ function MatchupWidget({ ownerKey, standings }: { ownerKey: string; standings: D
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 0.75rem", background: "oklch(0.96 0.02 150)", borderRadius: 8, border: "1px solid oklch(0.88 0.04 150)" }}>
           <span style={{ fontSize: "0.68rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.06em", color: "oklch(0.45 0.06 150)", textTransform: "uppercase" as const }}>League Median</span>
           <span style={{ flex: 1 }} />
-          <span style={{ fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.28 0.09 150)" }}>{median.toFixed(1)} pts</span>
+          <span style={{ fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.28 0.09 150)" }}>{liveMedian !== null ? `${liveMedian.toFixed(1)} pts` : "—"}</span>
           <span style={{ fontSize: "0.65rem", color: "oklch(0.55 0.04 150)" }}>· Beat median = +1W</span>
         </div>
       </div>
@@ -262,6 +261,9 @@ const OWNER_TO_TEAM_ID: Record<string, string> = {
   "Shawn":    "team-shawn",
   "Greg":     "team-greg",
 };
+
+// All 12 Supabase team ids, for the league-wide live median.
+const ALL_TEAM_IDS = Object.values(OWNER_TO_TEAM_ID);
 
 function InjuryReport({ ownerKey }: { ownerKey: string }) {
   const [items, setItems] = useState<PlayerNewsItem[]>([]);

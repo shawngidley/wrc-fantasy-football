@@ -19,6 +19,7 @@ import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections
 import { useLineupPersistence } from "@/hooks/useLineupPersistence";
 import { useNFLLiveScores, getLivePoints } from "@/hooks/useNFLLiveScores";
 import { useWeeklyResultsWriter } from "@/hooks/useWeeklyResultsWriter";
+import { useLeagueWeekMedian } from "@/hooks/useLeagueWeekMedian";
 import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } from "@/hooks/useNFLInjuries";
 import { InjuryTag } from "@/components/InjuryTag";
 import { useNFLSeasonStats } from "@/hooks/useNFLSeasonStats";
@@ -28,7 +29,6 @@ import { formatSeasonStat, type PlayerSeasonStats } from "@/lib/playerSeasonStat
 import { getNflTeamLogoUrl } from "@/lib/nflTeamLogo";
 import { fetchTeamSchedule } from "@/hooks/useNFLTeamSchedule";
 import { normalizePlayerName } from "@shared/playerNameMatch";
-import { supabase } from "@/lib/supabase";
 import { getDraftUniversePlayerByName } from "@shared/draftPlayerUniverse";
 import { normalizeNFLTeamCode } from "@shared/nflTeamCodes";
 import { hasTeamGameStarted } from "@/lib/playerGameLock";
@@ -596,6 +596,9 @@ export const TEAM_ID_TO_NAME: Record<string, string> = {
   "team-scottm":  "Xavier Musketeers",
 };
 
+// All 12 Supabase team ids, for the league-wide live median.
+const ALL_TEAM_IDS = Object.keys(TEAM_ID_TO_NAME);
+
 // Reverse map: team name → team id (for building links from other pages)
 export const TEAM_NAME_TO_ID: Record<string, string> = Object.fromEntries(
   Object.entries(TEAM_ID_TO_NAME).map(([id, name]) => [name, id])
@@ -607,18 +610,6 @@ export default function Lineup() {
   const { teamId } = useParams<{ teamId?: string }>();
   const { rostersByTeam, hasPicks, loading: draftLoading } = useDraftedRoster();
   const draftPlayerPool = useDraftPlayerUniverse();
-
-  // League median from team_standings
-  const [leagueMedian, setLeagueMedian] = useState<number | null>(null);
-  useEffect(() => {
-    supabase.from("team_standings").select("pts_for").then(({ data }) => {
-      if (!data || data.length === 0) return;
-      const pts = data.map((r: { pts_for: number }) => r.pts_for).sort((a: number, b: number) => a - b);
-      const mid = Math.floor(pts.length / 2);
-      const median = pts.length % 2 === 0 ? (pts[mid - 1] + pts[mid]) / 2 : pts[mid];
-      setLeagueMedian(median);
-    });
-  }, []);
 
   // Determine which team to show and whether we are in read-only mode.
   // The commissioner can edit any team's lineup, not just their own, so
@@ -652,6 +643,11 @@ export default function Lineup() {
   }
   const actualCurrentWeek = getLineupDefaultWeek() || 1;
   const [currentWeek, setCurrentWeek] = useState<number>(getWeekFromUrl);
+
+  // Live league median for the week being viewed -- the median of every
+  // team's live score this week, not the cumulative season pts_for (which
+  // only moves on finalize, so mid-week it showed last week's median).
+  const { median: leagueMedian } = useLeagueWeekMedian(ALL_TEAM_IDS, currentWeek);
 
   // Who the viewed team is playing this week, for the header.
   const opponentTeamName = resolveWeeklyOpponentTeamName(viewTeamName, currentWeek);
