@@ -1132,15 +1132,27 @@ async function buildMatchupsFromLineups(
 
       if (savedLineup.length > 0) {
         // Use saved lineup
+        const used = new Set<string>();
         for (const row of savedLineup) {
           const p = playerByName[normalizePlayerName(row.player_name)];
           if (!p) continue;
+          used.add(p.id);
           if (row.is_bench) benchPlayers.push(p);
           else {
             // Normalize RB1/RB2 → RB, WR1/WR2 → WR, TE1/TE2 → TE
             const normalizedSlot = row.slot.replace(/^(RB|WR|TE)\d+$/, "$1");
             starters.push({ slot: normalizedSlot, player: p });
           }
+        }
+        // Anyone on the roster the saved lineup doesn't mention -- a
+        // player added after it was last saved, e.g. a FAAB award like
+        // Shedeur Sanders landing on the Vipers mid-week -- used to be
+        // dropped from the page entirely, since this branch only ever
+        // emitted players named in the saved rows. Show them on the
+        // bench. Bench never feeds the score (that comes from
+        // pairedSlots/starters), so this is display-only.
+        for (const p of teamPlayers) {
+          if (!used.has(p.id)) benchPlayers.push(p);
         }
       } else {
         // Default: no saved lineup exists for this team/week yet. Previously
