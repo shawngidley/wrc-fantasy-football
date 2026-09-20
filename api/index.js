@@ -91090,17 +91090,19 @@ var appRouter = router({
         throw new Error(`${input.playerName}'s game has already started this week -- they can't be picked up until next week.`);
       }
       const teamId = ctx.teamSession.teamId;
-      const [{ data: team, error: teamError }, { data: roster, error: rosterError }, { data: targetPlayer, error: targetPlayerError }, { data: pendingBids, error: pendingBidsError }] = await Promise.all([
+      const [{ data: team, error: teamError }, { data: roster, error: rosterError }, { data: pendingBids, error: pendingBidsError }, allPlayers] = await Promise.all([
         supabaseAdmin.from("teams").select("name, faab").eq("id", teamId).single(),
         supabaseAdmin.from("players").select("id").eq("team_id", teamId),
-        supabaseAdmin.from("players").select("team_id, dropped_at").eq("name", input.playerName).maybeSingle(),
-        supabaseAdmin.from("faab_bids").select("bid_amount, player_name, drop_player_id").eq("team_id", teamId).eq("status", "pending")
+        supabaseAdmin.from("faab_bids").select("bid_amount, player_name, drop_player_id").eq("team_id", teamId).eq("status", "pending"),
+        loadPlayerRows()
       ]);
       if (teamError || !team) throw new Error(`Unable to load your team for this bid: ${teamError?.message ?? "team not found"}`);
       if (rosterError) throw new Error(`Unable to load your roster for this bid: ${rosterError.message}`);
-      if (targetPlayerError) throw new Error(`Unable to look up ${input.playerName}: ${targetPlayerError.message}`);
       if (pendingBidsError) throw new Error(`Unable to load your other pending bids: ${pendingBidsError.message}`);
-      if (!isEligibleAfterCut(targetPlayer?.dropped_at ?? null)) {
+      const targetKey = normalizePlayerName(input.playerName);
+      const nameMatches = allPlayers.filter((r) => normalizePlayerName(r.name) === targetKey);
+      const targetDroppedAt = nameMatches.find((r) => !r.team_id)?.dropped_at ?? null;
+      if (!isEligibleAfterCut(targetDroppedAt)) {
         throw new Error(`${input.playerName} was recently dropped and isn't eligible to be picked up yet.`);
       }
       const faab = Number(team.faab ?? 0);
@@ -91111,7 +91113,7 @@ var appRouter = router({
           committedElsewhere > 0 ? `Bid exceeds your available FAAB. You have $${faab} total, but $${committedElsewhere} is already committed to other pending bids -- $${trueAvailable} available.` : `Bid exceeds your FAAB balance ($${faab} remaining).`
         );
       }
-      if (targetPlayer?.team_id) throw new Error("This player is already on a WRC roster.");
+      if (nameMatches.some((r) => r.team_id)) throw new Error("This player is already on a WRC roster.");
       if ((roster?.length ?? 0) >= 18 && !input.dropPlayerId) throw new Error("Select a player to drop before bidding with a full roster.");
       let dropPlayer = null;
       if (input.dropPlayerId) {
@@ -94828,7 +94830,7 @@ function isFaabAwardWindow(now = /* @__PURE__ */ new Date()) {
 async function processAllPendingFaabBids() {
   const { data: pendingBids, error: bidsError } = await supabaseAdmin.from("faab_bids").select("id, team_id, team_name, player_id, player_name, player_pos, player_nfl_team, bid_amount, drop_player_id, drop_player_name").eq("status", "pending");
   if (bidsError) throw new Error("Unable to load pending FAAB bids");
-  if (!pendingBids || pendingBids.length === 0) return { awarded: [], skippedNoPending: true };
+  if (!pendingBids || pendingBids.length === 0) return { awarded: [], failed: [], skippedNoPending: true };
   const { data: standings, error: standingsError } = await supabaseAdmin.from("teams").select("id, wins, losses, ties, points_for");
   if (standingsError || !standings) throw new Error("Unable to load team standings for FAAB tiebreak");
   const standingsByTeamId = new Map(
@@ -94853,74 +94855,88 @@ async function processAllPendingFaabBids() {
   }
   const resolvedAt = (/* @__PURE__ */ new Date()).toISOString();
   const awarded = [];
+  const failed = [];
   for (const [, bids] of Array.from(byPlayer.entries())) {
     const playerName = bids[0].player_name;
-    const awardable = [];
-    const voidedIds = [];
-    for (const bid of bids) {
-      const dropRow2 = bid.drop_player_id ? playerRows.find((r) => r.id === bid.drop_player_id) : null;
-      const dropStillOnTeam = Boolean(dropRow2 && dropRow2.team_id === bid.team_id);
-      const hasOpenSpot = (rosterCount.get(bid.team_id) ?? 0) < ROSTER_LIMIT;
-      if (dropStillOnTeam || hasOpenSpot) awardable.push(bid);
-      else voidedIds.push(bid.id);
+    try {
+      const wonRow = findPlayerRowByName(playerRows, playerName);
+      if (wonRow && wonRow.team_id) {
+        const { error: error46 } = await supabaseAdmin.from("faab_bids").update({ status: "cancelled", resolved_at: resolvedAt }).in("id", bids.map((b) => b.id));
+        if (error46) throw new Error(`Unable to void bids on already-rostered ${playerName}`);
+        failed.push({ playerName, reason: "already on a WRC roster" });
+        continue;
+      }
+      const awardable = [];
+      const voidedIds = [];
+      for (const bid of bids) {
+        const dropRow2 = bid.drop_player_id ? playerRows.find((r) => r.id === bid.drop_player_id) : null;
+        const dropStillOnTeam = Boolean(dropRow2 && dropRow2.team_id === bid.team_id);
+        const hasOpenSpot = (rosterCount.get(bid.team_id) ?? 0) < ROSTER_LIMIT;
+        if (dropStillOnTeam || hasOpenSpot) awardable.push(bid);
+        else voidedIds.push(bid.id);
+      }
+      if (voidedIds.length) {
+        const { error: error46 } = await supabaseAdmin.from("faab_bids").update({ status: "cancelled", resolved_at: resolvedAt }).in("id", voidedIds);
+        if (error46) throw new Error(`Unable to void unfillable FAAB bids for ${playerName}`);
+      }
+      if (!awardable.length) continue;
+      const candidates = awardable.map((b) => ({ id: b.id, teamId: b.team_id, bidAmount: Number(b.bid_amount ?? 0) }));
+      const winnerCandidate = resolveFaabWinner(candidates, standingsByTeamId);
+      const winningBid = awardable.find((b) => b.id === winnerCandidate.id);
+      const losingBidIds = awardable.filter((b) => b.id !== winningBid.id).map((b) => b.id);
+      await rosterPlayerForTeam(playerRows, winningBid.team_id, {
+        name: winningBid.player_name,
+        position: winningBid.player_pos,
+        nflTeam: winningBid.player_nfl_team
+      });
+      rosterCount.set(winningBid.team_id, (rosterCount.get(winningBid.team_id) ?? 0) + 1);
+      const [{ error: winError }, { error: loseError }, { data: winningTeam, error: teamError }] = await Promise.all([
+        supabaseAdmin.from("faab_bids").update({ status: "won", resolved_at: resolvedAt }).eq("id", winningBid.id),
+        losingBidIds.length ? supabaseAdmin.from("faab_bids").update({ status: "lost", resolved_at: resolvedAt }).in("id", losingBidIds) : Promise.resolve({ error: null }),
+        supabaseAdmin.from("teams").select("faab").eq("id", winningBid.team_id).single()
+      ]);
+      if (winError || loseError || teamError || !winningTeam) throw new Error(`Unable to resolve FAAB bids for ${playerName}`);
+      const remainingFaab = Math.max(0, Number(winningTeam.faab ?? 0) - Number(winningBid.bid_amount));
+      const { error: faabError } = await supabaseAdmin.from("teams").update({ faab: remainingFaab }).eq("id", winningBid.team_id);
+      if (faabError) throw new Error(`Unable to deduct winning FAAB bid for ${playerName}`);
+      const dropRow = winningBid.drop_player_id ? playerRows.find((r) => r.id === winningBid.drop_player_id) : null;
+      const dropping = Boolean(winningBid.drop_player_id && dropRow && dropRow.team_id === winningBid.team_id);
+      if (dropping && dropRow) {
+        const { error: dropError } = await supabaseAdmin.from("players").update({ team_id: null, acquisition: "FA", dropped_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", winningBid.drop_player_id).eq("team_id", winningBid.team_id);
+        if (dropError) throw new Error(`Unable to drop the selected player for ${playerName}'s winning team`);
+        dropRow.team_id = null;
+        rosterCount.set(winningBid.team_id, (rosterCount.get(winningBid.team_id) ?? 1) - 1);
+      }
+      const moves = [{
+        move_type: "ADD",
+        team_name: winningBid.team_name,
+        owner: winningBid.team_name,
+        player_name: winningBid.player_name,
+        player_pos: winningBid.player_pos,
+        player_nfl_team: winningBid.player_nfl_team,
+        faab_spent: winningBid.bid_amount,
+        note: `FAAB $${winningBid.bid_amount} \u2014 automated award`
+      }];
+      if (dropping && winningBid.drop_player_name) moves.push({
+        move_type: "DROP",
+        team_name: winningBid.team_name,
+        owner: winningBid.team_name,
+        player_name: winningBid.drop_player_name.trim(),
+        player_pos: "\u2014",
+        player_nfl_team: "FA",
+        faab_spent: null,
+        note: `Dropped to make room for ${winningBid.player_name}`
+      });
+      const { error: moveError } = await supabaseAdmin.from("roster_moves").insert(moves);
+      if (moveError) throw new Error(`FAAB awarded for ${playerName}, but transaction history could not be written`);
+      awarded.push({ playerName, winningTeamName: winningBid.team_name, bidAmount: winningBid.bid_amount, bidCount: bids.length });
+    } catch (err) {
+      const reason = err instanceof Error ? err.message : String(err);
+      failed.push({ playerName, reason });
+      await supabaseAdmin.from("faab_bids").update({ status: "cancelled", resolved_at: resolvedAt }).in("id", bids.map((b) => b.id)).eq("status", "pending");
     }
-    if (voidedIds.length) {
-      const { error: error46 } = await supabaseAdmin.from("faab_bids").update({ status: "cancelled", resolved_at: resolvedAt }).in("id", voidedIds);
-      if (error46) throw new Error(`Unable to void unfillable FAAB bids for ${playerName}`);
-    }
-    if (!awardable.length) continue;
-    const candidates = awardable.map((b) => ({ id: b.id, teamId: b.team_id, bidAmount: Number(b.bid_amount ?? 0) }));
-    const winnerCandidate = resolveFaabWinner(candidates, standingsByTeamId);
-    const winningBid = awardable.find((b) => b.id === winnerCandidate.id);
-    const losingBidIds = awardable.filter((b) => b.id !== winningBid.id).map((b) => b.id);
-    const [{ error: winError }, { error: loseError }, { data: winningTeam, error: teamError }] = await Promise.all([
-      supabaseAdmin.from("faab_bids").update({ status: "won", resolved_at: resolvedAt }).eq("id", winningBid.id),
-      losingBidIds.length ? supabaseAdmin.from("faab_bids").update({ status: "lost", resolved_at: resolvedAt }).in("id", losingBidIds) : Promise.resolve({ error: null }),
-      supabaseAdmin.from("teams").select("faab").eq("id", winningBid.team_id).single()
-    ]);
-    if (winError || loseError || teamError || !winningTeam) throw new Error(`Unable to resolve FAAB bids for ${playerName}`);
-    const remainingFaab = Math.max(0, Number(winningTeam.faab ?? 0) - Number(winningBid.bid_amount));
-    const { error: faabError } = await supabaseAdmin.from("teams").update({ faab: remainingFaab }).eq("id", winningBid.team_id);
-    if (faabError) throw new Error(`Unable to deduct winning FAAB bid for ${playerName}`);
-    await rosterPlayerForTeam(playerRows, winningBid.team_id, {
-      name: winningBid.player_name,
-      position: winningBid.player_pos,
-      nflTeam: winningBid.player_nfl_team
-    });
-    rosterCount.set(winningBid.team_id, (rosterCount.get(winningBid.team_id) ?? 0) + 1);
-    const dropRow = winningBid.drop_player_id ? playerRows.find((r) => r.id === winningBid.drop_player_id) : null;
-    const dropping = Boolean(winningBid.drop_player_id && dropRow && dropRow.team_id === winningBid.team_id);
-    if (dropping && dropRow) {
-      const { error: dropError } = await supabaseAdmin.from("players").update({ team_id: null, acquisition: "FA", dropped_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", winningBid.drop_player_id).eq("team_id", winningBid.team_id);
-      if (dropError) throw new Error(`Unable to drop the selected player for ${playerName}'s winning team`);
-      dropRow.team_id = null;
-      rosterCount.set(winningBid.team_id, (rosterCount.get(winningBid.team_id) ?? 1) - 1);
-    }
-    const moves = [{
-      move_type: "ADD",
-      team_name: winningBid.team_name,
-      owner: winningBid.team_name,
-      player_name: winningBid.player_name,
-      player_pos: winningBid.player_pos,
-      player_nfl_team: winningBid.player_nfl_team,
-      faab_spent: winningBid.bid_amount,
-      note: `FAAB $${winningBid.bid_amount} \u2014 automated award`
-    }];
-    if (dropping && winningBid.drop_player_name) moves.push({
-      move_type: "DROP",
-      team_name: winningBid.team_name,
-      owner: winningBid.team_name,
-      player_name: winningBid.drop_player_name.trim(),
-      player_pos: "\u2014",
-      player_nfl_team: "FA",
-      faab_spent: null,
-      note: `Dropped to make room for ${winningBid.player_name}`
-    });
-    const { error: moveError } = await supabaseAdmin.from("roster_moves").insert(moves);
-    if (moveError) throw new Error(`FAAB awarded for ${playerName}, but transaction history could not be written`);
-    awarded.push({ playerName, winningTeamName: winningBid.team_name, bidAmount: winningBid.bid_amount, bidCount: bids.length });
   }
-  return { awarded, skippedNoPending: false };
+  return { awarded, failed, skippedNoPending: false };
 }
 async function faabAwardSchedule(_req, res) {
   try {

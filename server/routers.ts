@@ -771,20 +771,28 @@ export const appRouter = router({
           throw new Error(`${input.playerName}'s game has already started this week -- they can't be picked up until next week.`);
         }
         const teamId = ctx.teamSession.teamId;
-        const [{ data: team, error: teamError }, { data: roster, error: rosterError }, { data: targetPlayer, error: targetPlayerError }, { data: pendingBids, error: pendingBidsError }] = await Promise.all([
+        const [{ data: team, error: teamError }, { data: roster, error: rosterError }, { data: pendingBids, error: pendingBidsError }, allPlayers] = await Promise.all([
           supabaseAdmin.from("teams").select("name, faab").eq("id", teamId).single(),
           supabaseAdmin.from("players").select("id").eq("team_id", teamId),
-          supabaseAdmin.from("players").select("team_id, dropped_at").eq("name", input.playerName).maybeSingle(),
           supabaseAdmin.from("faab_bids").select("bid_amount, player_name, drop_player_id").eq("team_id", teamId).eq("status", "pending"),
+          loadPlayerRows(),
         ]);
         if (teamError || !team) throw new Error(`Unable to load your team for this bid: ${teamError?.message ?? "team not found"}`);
         if (rosterError) throw new Error(`Unable to load your roster for this bid: ${rosterError.message}`);
-        if (targetPlayerError) throw new Error(`Unable to look up ${input.playerName}: ${targetPlayerError.message}`);
         if (pendingBidsError) throw new Error(`Unable to load your other pending bids: ${pendingBidsError.message}`);
+        // Match the player the way the award does -- by normalized name,
+        // not an exact string. An exact-name lookup let a bid on "Deebo
+        // Samuel Sr." through while the rostered row read "Deebo Samuel",
+        // and the award then threw at roster-placement time and aborted the
+        // whole Sun 9/20, 2026 run. Any normalized-matching row that's on a
+        // team means the player isn't a free agent.
+        const targetKey = normalizePlayerName(input.playerName);
+        const nameMatches = allPlayers.filter(r => normalizePlayerName(r.name) === targetKey);
+        const targetDroppedAt = nameMatches.find(r => !r.team_id)?.dropped_at ?? null;
         // A player who was cut has to wait at least 48 hours, becoming
         // eligible at the next Sunday 9am ET or Tuesday 9am ET market
         // boundary after that -- see freeAgentCutRestriction.ts.
-        if (!isEligibleAfterCut(targetPlayer?.dropped_at ?? null)) {
+        if (!isEligibleAfterCut(targetDroppedAt)) {
           throw new Error(`${input.playerName} was recently dropped and isn't eligible to be picked up yet.`);
         }
         const faab = Number(team.faab ?? 0);
@@ -803,7 +811,7 @@ export const appRouter = router({
               : `Bid exceeds your FAAB balance ($${faab} remaining).`
           );
         }
-        if (targetPlayer?.team_id) throw new Error("This player is already on a WRC roster.");
+        if (nameMatches.some(r => r.team_id)) throw new Error("This player is already on a WRC roster.");
         if ((roster?.length ?? 0) >= 18 && !input.dropPlayerId) throw new Error("Select a player to drop before bidding with a full roster.");
 
         let dropPlayer: { id: string; name: string } | null = null;
