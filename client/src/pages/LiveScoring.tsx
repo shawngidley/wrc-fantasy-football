@@ -543,11 +543,9 @@ function PlayerCell({ player, side, injuries = {} }: { player: SlotPlayer | null
           {groupKickerEventsForDisplay(player.kickerEvents).map((chip) => (
             <span key={chip.key} style={{
               fontSize: "0.58rem", fontWeight: 700, borderRadius: 3, padding: "1px 4px",
-              // A made FG uses the same neutral palette as Chip()'s
-              // default branch, so kickers read like every other
-              // position. Only a miss, which actually costs points,
-              // stays red.
-              color: chip.outcome === "made" ? "oklch(0.22 0.06 150)" : "oklch(0.5 0.18 25)",
+              // A made FG uses the same neutral gray as every other scoring
+              // stat chip; only a costly miss stays red.
+              color: chip.outcome === "made" ? "oklch(0.42 0.02 150)" : "oklch(0.5 0.18 25)",
               background: chip.outcome === "made" ? "oklch(0.93 0.01 150)" : "oklch(0.97 0.04 25)",
               border: `1px solid ${chip.outcome === "made" ? "oklch(0.87 0.02 150)" : "oklch(0.87 0.08 25)"}`,
             }}>

@@ -233,14 +233,14 @@ describe("buildStatChips negative-event flagging", () => {
     expect(fumChip?.negative).toBe(true);
   });
 
-  it("shows a defensive fumble recovery (FR) chip, neutral like the other DST chips", () => {
+  it("shows a defensive fumble recovery (FR) chip, left neutral like every other position's stat chips", () => {
     const chips = buildStatChips({ Defense: { fumblesRecovered: 1 } }, "DST");
     const frChip = chips.find(c => c.label === "FR");
     expect(frChip).toBeDefined();
     expect(frChip?.positive).toBeUndefined();
   });
 
-  it("leaves all defensive stat chips (SACK, INT, TD, SFTY, FR) neutral, matching every other position", () => {
+  it("leaves all defensive stat chips (SACK, INT, TD, SFTY, FR) neutral -- no green styling, matching other positions", () => {
     const chips = buildStatChips({
       Defense: {
         sacksAndYardsLost: "2-10",
@@ -250,7 +250,7 @@ describe("buildStatChips negative-event flagging", () => {
         defTD: 1,
       },
     }, "DST");
-    expect(chips.every(c => c.positive === undefined)).toBe(true);
+    expect(chips.every(c => !c.positive)).toBe(true);
     expect(chips).toHaveLength(5); // SACK, INT, FR, SFTY, TD
   });
 

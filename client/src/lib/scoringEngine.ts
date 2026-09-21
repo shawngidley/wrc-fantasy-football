@@ -101,6 +101,8 @@ export function buildStatChips(stats: Tank01Stats, pos?: string): StatChipData[]
     const defTD = n(stats.Defense?.defTD) + n(stats.Defense?.defensiveOrSpecialTeamsTds);
     const fumblesRecovered = n(stats.Defense?.fumblesRecovered);
     const safeties = n(stats.Defense?.safeties);
+    // Neutral (gray), same as every other position's stat chips -- a good
+    // DST play is not styled green when a QB's passing TD isn't.
     if (sacks > 0) chips.push({ label: "SACK", value: sacks });
     if (defInt > 0) chips.push({ label: "INT", value: defInt });
     if (fumblesRecovered > 0) chips.push({ label: "FR", value: fumblesRecovered });

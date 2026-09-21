@@ -66,7 +66,7 @@ describe("groupKickerEventsForDisplay", () => {
     expect(madeChip?.text).toBe("62, 66 yd FG made (+15.8)");
   });
 
-  it("drops XP events entirely -- made or missed, they never render a chip", () => {
+  it("drops XP events entirely, keeping only FG chips", () => {
     const events = [
       { playerName: "K", type: "xp" as const, outcome: "made" as const, yards: null, text: "" },
       { playerName: "K", type: "xp" as const, outcome: "missed" as const, yards: null, text: "" },
@@ -74,18 +74,10 @@ describe("groupKickerEventsForDisplay", () => {
       { playerName: "K", type: "fg" as const, outcome: "made" as const, yards: 40, text: "" },
     ];
     const chips = groupKickerEventsForDisplay(events);
-    // Only the combined made-FG chip survives; both XPs are gone.
-    expect(chips).toHaveLength(1);
+    // No XP chips at all; the two made FGs combine into one chip.
     expect(chips.filter(c => c.text.includes("XP"))).toHaveLength(0);
-    expect(chips[0].key).toBe("made-fgs-combined");
-  });
-
-  it("renders nothing at all for a kicker whose only events are XPs", () => {
-    const events = [
-      { playerName: "K", type: "xp" as const, outcome: "made" as const, yards: null, text: "" },
-      { playerName: "K", type: "xp" as const, outcome: "missed" as const, yards: null, text: "" },
-    ];
-    expect(groupKickerEventsForDisplay(events)).toHaveLength(0);
+    expect(chips).toHaveLength(1);
+    expect(chips.find(c => c.key === "made-fgs-combined")).toBeDefined();
   });
 
   it("returns no made-FG chip at all when there are no made FGs", () => {

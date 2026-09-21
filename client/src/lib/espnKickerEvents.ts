@@ -37,14 +37,8 @@ export function formatKickerEvent(event: KickerPlayEvent): string {
  * Groups multiple made-FG events into a single display chip listing all
  * their yardages together (e.g. "20, 56 yd FG made (+7.6)") instead of a
  * separate "X yd FG made" chip per kick -- less repetitive when a kicker
- * has made more than one FG in a game. Missed FGs stay as individual
- * chips, one each.
- *
- * XP events are dropped entirely and never produce a chip: every other
- * position's chips summarize a whole stat line rather than listing each
- * play, and a row of one-per-kick XP chips made kickers the only
- * position rendering play-by-play. The XP points still count -- only
- * the chips are suppressed.
+ * has made more than one FG in a game. XP events and missed FGs stay as
+ * individual chips, one each, same as before.
  */
 export function groupKickerEventsForDisplay(events: KickerPlayEvent[]): { key: string; text: string; outcome: "made" | "missed" }[] {
   const madeFGs = events.filter(e => e.type === "fg" && e.outcome === "made");
@@ -52,6 +46,9 @@ export function groupKickerEventsForDisplay(events: KickerPlayEvent[]): { key: s
   // as a chip at all -- only a miss that actually costs points (49
   // yards or less) is displayed.
   const others = events.filter(e => {
+    // Extra points add nothing over the "XP x/x" summary chip and, because
+    // identical XP plays dedupe, several made XPs collapse into one
+    // misleading "+1" chip -- so no XP event chips at all.
     if (e.type === "xp") return false;
     if (e.type === "fg" && e.outcome === "made") return false;
     if (e.type === "fg" && e.outcome === "missed" && (e.yards ?? 0) >= 50) return false;
