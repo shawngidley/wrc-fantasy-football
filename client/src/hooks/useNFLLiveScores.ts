@@ -305,9 +305,6 @@ export function useNFLLiveScores(
     return events;
   }, []);
 
-  // Resolves true only if this call actually applied fresh scores to
-  // state. The scheduler needs that distinction: an empty game list or a
-  // stale-week result must not be mistaken for a completed initial fetch.
   const fetchBoxScores = useCallback(async (gameIds: string[]): Promise<boolean> => {
     if (gameIds.length === 0) {
       setIsPolling(false);
@@ -431,36 +428,28 @@ export function useNFLLiveScores(
       const needFullFetch = initialFetchDoneForWeekRef.current !== week;
       const idsToFetch = needFullFetch ? getActiveGameIds() : getInProgressGameIds();
       if (idsToFetch.length === 0) {
-        // Deliberately does NOT latch the week off. On mount matchupMap is
-        // still loading, so every id list is empty and
-        // hasAnyGameLikelyInProgress() is false too -- stopping here
-        // marked the week permanently stopped before the initial fetch had
-        // ever run, and since schedule() returns early on that flag, the
-        // effect re-running with a populated matchupMap could never
-        // recover. Every live score stayed 0.0 for the whole session.
-        // Leaving the flag alone lets that re-run fetch normally.
+        // Nothing to fetch right now -- e.g. matchupMap is still loading on
+        // mount, or a future week hasn't kicked off. Do NOT mark the week
+        // stopped here: doing so permanently halted polling before
+        // matchupMap arrived, so the initial full fetch never ran and every
+        // score showed 0.0. An effect re-run (matchupMap load) retries.
         setIsPolling(false);
         return;
       }
       fetchBoxScores(idsToFetch).then(populated => {
-        // Only a fetch that actually populated counts as the initial
-        // fetch; otherwise the next pass would switch to the
-        // in-progress-only list having never loaded the final games.
-        if (populated) initialFetchDoneForWeekRef.current = week;
+        // Only consider the full fetch "done" once it actually populated,
+        // so a fetch discarded by a re-render (mountedRef flipped) is
+        // retried instead of leaving finals stuck at 0.0.
+        if (needFullFetch && populated) initialFetchDoneForWeekRef.current = week;
+      }).finally(() => {
         if (mountedRef.current && hasAnyGameLikelyInProgress()) {
           timerRef.current = setTimeout(schedule, POLL_INTERVAL_MS);
-          return;
+        } else {
+          // Only give up on the week after the initial full fetch has
+          // populated; otherwise there'd be nothing to retry it.
+          if (initialFetchDoneForWeekRef.current === week) stoppedForWeekRef.current = week;
+          setIsPolling(false);
         }
-        // Stop for the week only once the initial full fetch has landed.
-        // Stopping before that would strand the week at 0.0 exactly as
-        // the empty-list case above did.
-        if (initialFetchDoneForWeekRef.current === week) stoppedForWeekRef.current = week;
-        setIsPolling(false);
-      }).catch(() => {
-        // .then replaced a .finally, so failures need an explicit path
-        // back to a non-polling state; the week is left unstopped so a
-        // later re-run can retry.
-        if (mountedRef.current) setIsPolling(false);
       });
     };
 
