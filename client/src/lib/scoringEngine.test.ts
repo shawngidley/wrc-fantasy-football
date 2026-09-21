@@ -123,9 +123,9 @@ describe("buildStatChips", () => {
 
   it("builds defense chips, omitting zero categories", () => {
     expect(buildStatChips({ Defense: { sacks: "2", defensiveInterceptions: "1", fumblesRecovered: "0", safeties: "0", defTD: "1" } }, "DST")).toEqual([
-      { label: "SACK", value: 2, positive: true },
-      { label: "INT", value: 1, positive: true },
-      { label: "TD", value: 1, positive: true },
+      { label: "SACK", value: 2 },
+      { label: "INT", value: 1 },
+      { label: "TD", value: 1 },
     ]);
   });
 
@@ -188,7 +188,7 @@ describe("buildStatChips negative-event flagging", () => {
     expect(chips.find(c => c.label === "FUM")).toBeUndefined();
     const frChip = chips.find(c => c.label === "FR");
     expect(frChip?.value).toBe(1);
-    expect(frChip?.positive).toBe(true);
+    expect(frChip?.positive).toBeUndefined();
   });
 
   it("never shows DST-specific chips (FR, SACK, INT, SFTY, TD) for an individual offensive player, even when their raw stats include a Defense sub-object", () => {
@@ -233,14 +233,14 @@ describe("buildStatChips negative-event flagging", () => {
     expect(fumChip?.negative).toBe(true);
   });
 
-  it("shows a defensive fumble recovery (FR) chip, marked positive (green) like the other DST chips", () => {
+  it("shows a defensive fumble recovery (FR) chip, neutral like the other DST chips", () => {
     const chips = buildStatChips({ Defense: { fumblesRecovered: 1 } }, "DST");
     const frChip = chips.find(c => c.label === "FR");
     expect(frChip).toBeDefined();
-    expect(frChip?.positive).toBe(true);
+    expect(frChip?.positive).toBeUndefined();
   });
 
-  it("marks all defensive stat chips (SACK, INT, TD, SFTY, FR) as positive -- good events for the DST", () => {
+  it("leaves all defensive stat chips (SACK, INT, TD, SFTY, FR) neutral, matching every other position", () => {
     const chips = buildStatChips({
       Defense: {
         sacksAndYardsLost: "2-10",
@@ -250,7 +250,7 @@ describe("buildStatChips negative-event flagging", () => {
         defTD: 1,
       },
     }, "DST");
-    expect(chips.every(c => c.positive === true)).toBe(true);
+    expect(chips.every(c => c.positive === undefined)).toBe(true);
     expect(chips).toHaveLength(5); // SACK, INT, FR, SFTY, TD
   });
 
