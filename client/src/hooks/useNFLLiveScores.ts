@@ -210,6 +210,11 @@ export function useNFLLiveScores(
   // across those re-runs (useRef survives effect cleanup/re-setup within
   // the same component instance) and is checked before any fetch at all.
   const stoppedForWeekRef = useRef<number | null>(null);
+  // The full 10-day box-score fetch (which populates already-final games)
+  // runs only once per week; after that, effect re-runs and recurring
+  // polls fetch only the in-progress games. Persists across effect
+  // re-setups like stoppedForWeekRef.
+  const initialFetchDoneForWeekRef = useRef<number | null>(null);
   const prevWeekRef = useRef<number | null>(null);
   // Always reflects the most current week, updated synchronously
   // whenever it changes -- used below to detect and discard a
@@ -255,6 +260,20 @@ export function useNFLLiveScores(
     return false;
   }, [matchupMap]);
 
+  // The games still likely in progress -- the only ones a recurring poll
+  // needs to refetch, since final games' box scores no longer change.
+  const getInProgressGameIds = useCallback((): string[] => {
+    const ids: string[] = [];
+    const seen = new Set<string>();
+    for (const m of Object.values(matchupMap)) {
+      if (m.gameId && !seen.has(m.gameId) && isLikelyStillInProgress(m.gameDate, m.gameTime)) {
+        ids.push(m.gameId);
+        seen.add(m.gameId);
+      }
+    }
+    return ids;
+  }, [matchupMap]);
+
   const fetchEspnKickerEvents = useCallback(async (activeGames: Array<{ gameDate: string; home: string; away: string }>) => {
     const events: KickerPlayEvent[] = [];
     const seen = new Set<string>();
@@ -286,13 +305,19 @@ export function useNFLLiveScores(
     return events;
   }, []);
 
-  const fetchBoxScores = useCallback(async () => {
-    const activeGameIds = getActiveGameIds();
-    const activeGames = getActiveGames();
-    if (activeGameIds.length === 0) {
+  const fetchBoxScores = useCallback(async (gameIds: string[]) => {
+    if (gameIds.length === 0) {
       setIsPolling(false);
       return;
     }
+    // Only the games the caller asked for: the scheduler passes the full
+    // 10-day set once on load (to populate finals), then just the games
+    // still in progress on every recurring poll -- final games don't
+    // change, so refetching all of them every 30s was the bulk of the
+    // Tank01 call volume.
+    const idSet = new Set(gameIds);
+    const activeGameIds = gameIds;
+    const activeGames = getActiveGames().filter(g => idSet.has(g.gameId));
 
     setIsPolling(true);
     const newScores: LiveScoreMap = { ...liveScores };
@@ -350,10 +375,22 @@ export function useNFLLiveScores(
     if (mountedRef.current && currentWeekRef.current === week) {
       setLiveScores(newScores);
       setLiveStats(newStats);
-      setKickerEvents(espnEvents);
+      // Merge rather than replace: a recurring poll only fetches
+      // in-progress games, so overwriting would wipe the kicker events
+      // captured for games that have already gone final. Dedup by the
+      // same key the fetch loop uses.
+      setKickerEvents(prev => {
+        const seen = new Set(prev.map(e => `${e.playerName}|${e.type}|${e.outcome}|${e.yards}|${e.text}`));
+        const merged = prev.slice();
+        for (const e of espnEvents) {
+          const key = `${e.playerName}|${e.type}|${e.outcome}|${e.yards}|${e.text}`;
+          if (!seen.has(key)) { seen.add(key); merged.push(e); }
+        }
+        return merged;
+      });
       setLastUpdated(new Date());
     }
-  }, [fetchEspnKickerEvents, getActiveGameIds, getActiveGames, liveScores, liveStats]);
+  }, [fetchEspnKickerEvents, getActiveGames, liveScores, liveStats]);
 
   // Start/stop polling based on active games
   useEffect(() => {
@@ -382,12 +419,19 @@ export function useNFLLiveScores(
         setIsPolling(false);
         return;
       }
-      const activeIds = getActiveGameIds();
-      if (activeIds.length === 0) {
+      // Full 10-day set only for the first fetch of this week (populates
+      // already-final games on a fresh load); every fetch after that is
+      // just the games still in progress. This is the core reduction:
+      // final games are fetched once, not re-fetched every 30 seconds.
+      const needFullFetch = initialFetchDoneForWeekRef.current !== week;
+      const idsToFetch = needFullFetch ? getActiveGameIds() : getInProgressGameIds();
+      if (idsToFetch.length === 0) {
+        if (!hasAnyGameLikelyInProgress()) stoppedForWeekRef.current = week;
         setIsPolling(false);
         return;
       }
-      fetchBoxScores().finally(() => {
+      fetchBoxScores(idsToFetch).finally(() => {
+        initialFetchDoneForWeekRef.current = week;
         if (mountedRef.current && hasAnyGameLikelyInProgress()) {
           timerRef.current = setTimeout(schedule, POLL_INTERVAL_MS);
         } else {

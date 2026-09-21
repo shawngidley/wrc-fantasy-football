@@ -92429,6 +92429,7 @@ async function releasePostDeadlinePlayers(_req, res) {
 }
 
 // server/tank01Proxy.ts
+init_supabaseAdmin();
 var TANK01_HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
 var TANK01_TIMEOUT_MS = 15e3;
 var ALLOWED_ENDPOINTS = /* @__PURE__ */ new Set([
@@ -92445,6 +92446,23 @@ var ALLOWED_ENDPOINTS = /* @__PURE__ */ new Set([
 ]);
 var CACHE_TTL_MS = 2e4;
 var responseCache = /* @__PURE__ */ new Map();
+var SHARED_CACHE_TABLE = "tank01_response_cache";
+async function readSharedCache(cacheKey) {
+  try {
+    const { data, error: error46 } = await supabaseAdmin.from(SHARED_CACHE_TABLE).select("status, content_type, body, updated_at").eq("cache_key", cacheKey).maybeSingle();
+    if (error46 || !data) return null;
+    if (Date.now() - new Date(data.updated_at).getTime() >= CACHE_TTL_MS) return null;
+    return { status: data.status, contentType: data.content_type, body: data.body };
+  } catch {
+    return null;
+  }
+}
+async function writeSharedCache(cacheKey, status, contentType, body) {
+  try {
+    await supabaseAdmin.from(SHARED_CACHE_TABLE).upsert({ cache_key: cacheKey, status, content_type: contentType, body, updated_at: (/* @__PURE__ */ new Date()).toISOString() }, { onConflict: "cache_key" });
+  } catch {
+  }
+}
 var KILL_SWITCH_ENDPOINTS = /* @__PURE__ */ new Set(["getNFLBoxScore", "getNFLGamesForWeek"]);
 function isKillSwitchActive() {
   return process.env.TANK01_KILL_SWITCH === "on";
@@ -92474,6 +92492,12 @@ async function proxyTank01Request(req, res) {
     res.status(cached2.status).type(cached2.contentType).send(cached2.body);
     return;
   }
+  const shared = await readSharedCache(cacheKey);
+  if (shared) {
+    responseCache.set(cacheKey, { ts: Date.now(), status: shared.status, contentType: shared.contentType, body: shared.body });
+    res.status(shared.status).type(shared.contentType).send(shared.body);
+    return;
+  }
   try {
     const upstream = await fetch(`https://${TANK01_HOST}/${endpoint}?${query.toString()}`, {
       headers: { "x-rapidapi-key": apiKey, "x-rapidapi-host": TANK01_HOST },
@@ -92481,7 +92505,10 @@ async function proxyTank01Request(req, res) {
     });
     const contentType = upstream.headers.get("content-type") || "application/json";
     const body = await upstream.text();
-    if (upstream.ok) responseCache.set(cacheKey, { ts: Date.now(), status: upstream.status, contentType, body });
+    if (upstream.ok) {
+      responseCache.set(cacheKey, { ts: Date.now(), status: upstream.status, contentType, body });
+      await writeSharedCache(cacheKey, upstream.status, contentType, body);
+    }
     res.status(upstream.status).type(contentType).send(body);
   } catch (error46) {
     console.error("Tank01 proxy request failed", error46);
