@@ -19,6 +19,7 @@ import { getLineupDefaultWeek, SCHEDULE_2026 } from "../client/src/lib/scheduleD
 import { hasWeekKickedOff, hasPlayerTeamGameStarted } from "./nflWeekKickoffCheck";
 import { isEligibleAfterCut } from "../shared/freeAgentCutRestriction";
 import { getFreeAgentMarketState } from "./faabMarketState";
+import { committedFaab, findSharedDropConflict, type BudgetBid } from "./faabBidValidation";
 import { sendSms } from "./twilioSms";
 import { validateProtectionSubmission } from "./protectionRules";
 import { releaseUnprotectedPlayers } from "./protectionRelease";
@@ -745,6 +746,13 @@ export const appRouter = router({
         dropPlayerId: z.string().min(1).max(128).nullable(),
         week: z.number().int().min(1).max(22),
         season: z.number().int().min(2020).max(2100),
+        // Conditional (ranked-group) bidding. Omit/null for a standalone bid
+        // (behaves exactly as before). "new" mints a fresh group with this
+        // bid as rank 1; an existing group id appends this bid to that group.
+        // groupMaxWins only applies when starting a "new" group (default 1);
+        // adding to an existing group inherits that group's win count.
+        groupId: z.union([z.literal("new"), z.string().min(1).max(128)]).nullable().optional(),
+        groupMaxWins: z.number().int().min(1).max(18).optional(),
       }))
       .mutation(async ({ input, ctx }) => {
         const marketState = getFreeAgentMarketState();
@@ -775,7 +783,7 @@ export const appRouter = router({
         const [{ data: team, error: teamError }, { data: roster, error: rosterError }, { data: pendingBids, error: pendingBidsError }, allPlayers] = await Promise.all([
           supabaseAdmin.from("teams").select("name, faab").eq("id", teamId).single(),
           supabaseAdmin.from("players").select("id").eq("team_id", teamId),
-          supabaseAdmin.from("faab_bids").select("bid_amount, player_name, drop_player_id").eq("team_id", teamId).eq("status", "pending"),
+          supabaseAdmin.from("faab_bids").select("id, bid_amount, player_name, drop_player_id, group_id, group_rank, group_max_wins").eq("team_id", teamId).eq("status", "pending"),
           loadPlayerRows(),
         ]);
         if (teamError || !team) throw new Error(`Unable to load your team for this bid: ${teamError?.message ?? "team not found"}`);
@@ -797,18 +805,49 @@ export const appRouter = router({
           throw new Error(`${input.playerName} was recently dropped and isn't eligible to be picked up yet.`);
         }
         const faab = Number(team.faab ?? 0);
-        // Sum every pending bid this team already has out, across all
-        // players -- prevents a team bidding $50 on two different players
-        // when they only actually have $50 total, which the previous check
-        // (comparing only this one new bid against the raw FAAB balance)
-        // allowed.
-        const committedElsewhere = (pendingBids ?? [])
-          .reduce((sum, bid) => sum + Number(bid.bid_amount ?? 0), 0);
-        const trueAvailable = faab - committedElsewhere;
-        if (input.bidAmount > trueAvailable) {
+        const pending = pendingBids ?? [];
+
+        // Resolve the conditional group this bid joins, if any. A null/omitted
+        // groupId is a standalone bid (group columns stay null, behavior
+        // unchanged). "new" mints a group with this bid as rank 1; an existing
+        // group id -- which, coming from this team's own pending bids, is
+        // implicitly ownership-checked -- appends this bid at the next rank and
+        // inherits the group's win count.
+        let groupId: string | null = null;
+        let groupRank: number | null = null;
+        let groupMaxWins: number | null = null;
+        if (input.groupId === "new") {
+          groupId = nanoid();
+          groupRank = 1;
+          groupMaxWins = input.groupMaxWins ?? 1;
+        } else if (input.groupId) {
+          const groupBids = pending.filter(b => b.group_id === input.groupId);
+          if (groupBids.length === 0) {
+            throw new Error("That bid group no longer exists -- start a new group instead.");
+          }
+          groupId = input.groupId;
+          groupRank = Math.max(0, ...groupBids.map(b => Number(b.group_rank ?? 0))) + 1;
+          groupMaxWins = Math.max(1, Number(groupBids[0].group_max_wins ?? 1) || 1);
+        }
+
+        // Budget is now group-aware: a group only ever commits its top
+        // group_max_wins bid amounts, not every bid in it, so an owner can
+        // bid over their balance across a win-one group and only tie up the
+        // largest. committedFaab captures that; the check is that the whole
+        // projected pending set (existing + this new bid) stays within FAAB.
+        const existingCommitted = committedFaab(
+          pending.map(b => ({ bidAmount: Number(b.bid_amount ?? 0), groupId: b.group_id ?? null, groupMaxWins: b.group_max_wins ?? null })),
+        );
+        const projected: BudgetBid[] = [
+          ...pending.map(b => ({ bidAmount: Number(b.bid_amount ?? 0), groupId: b.group_id ?? null, groupMaxWins: b.group_max_wins ?? null })),
+          { bidAmount: input.bidAmount, groupId, groupMaxWins },
+        ];
+        const projectedCommitted = committedFaab(projected);
+        if (projectedCommitted > faab) {
+          const available = faab - existingCommitted;
           throw new Error(
-            committedElsewhere > 0
-              ? `Bid exceeds your available FAAB. You have $${faab} total, but $${committedElsewhere} is already committed to other pending bids -- $${trueAvailable} available.`
+            existingCommitted > 0
+              ? `Bid exceeds your available FAAB. You have $${faab} total, but $${existingCommitted} is already committed to other pending bids -- $${available} available.`
               : `Bid exceeds your FAAB balance ($${faab} remaining).`
           );
         }
@@ -825,14 +864,19 @@ export const appRouter = router({
             .maybeSingle();
           if (error || !data) throw new Error("The selected drop player is not on your roster.");
           dropPlayer = data;
-          // One roster spot can only be vacated once. If this drop player
-          // is already pledged to another pending bid, both bids could win
-          // and the second award would have nothing to drop (Sep 17, 2026:
-          // two winning bids named the same drop, and the $1 one had to be
-          // reversed by hand).
-          const alreadyPledgedTo = (pendingBids ?? []).find(b => b.drop_player_id === dropPlayer!.id);
-          if (alreadyPledgedTo) {
-            throw new Error(`${dropPlayer.name.trim()} is already the drop for your pending bid on ${alreadyPledgedTo.player_name}. Pick a different player to drop, or cancel that bid first.`);
+          // One roster spot can only be vacated once, so a drop may back more
+          // than one pending bid ONLY when they are all in the same win-one
+          // group (at most one wins, so the shared drop is safe -- and is the
+          // point of ranking several players behind a single cut). Sharing is
+          // otherwise blocked: two winning bids on the same drop once had to be
+          // reversed by hand (Sep 17, 2026).
+          const conflict = findSharedDropConflict(
+            { dropPlayerId: dropPlayer.id, groupId, groupMaxWins },
+            pending.map(b => ({ id: b.id, dropPlayerId: b.drop_player_id ?? null, groupId: b.group_id ?? null, groupMaxWins: b.group_max_wins ?? null })),
+          );
+          if (conflict) {
+            const conflictBid = pending.find(b => b.id === conflict.id);
+            throw new Error(`${dropPlayer.name.trim()} is already the drop for your pending bid on ${conflictBid?.player_name ?? "another player"}. A drop can be shared only among bids in the same win-one group -- pick a different player to drop, or cancel that bid first.`);
           }
         }
 
@@ -849,9 +893,12 @@ export const appRouter = router({
           status: "pending",
           week: input.week,
           season: input.season,
+          group_id: groupId,
+          group_rank: groupRank,
+          group_max_wins: groupMaxWins,
         });
         if (error) throw new Error(`Unable to submit FAAB bid: ${error.message}`);
-        return { submitted: true, bidAmount: input.bidAmount };
+        return { submitted: true, bidAmount: input.bidAmount, groupId };
       }),
     // An owner's own bids -- unlike commissionerFaabBids (every team's
     // bids, commissioner-only), this is scoped to the calling team only,
@@ -862,7 +909,7 @@ export const appRouter = router({
       .query(async ({ input, ctx }) => {
         const { data, error } = await supabaseAdmin
           .from("faab_bids")
-          .select("id, team_id, team_name, player_id, player_name, player_pos, player_nfl_team, bid_amount, drop_player_id, drop_player_name, status, week, season, created_at")
+          .select("id, team_id, team_name, player_id, player_name, player_pos, player_nfl_team, bid_amount, drop_player_id, drop_player_name, status, week, season, created_at, group_id, group_rank, group_max_wins")
           .eq("team_id", ctx.teamSession.teamId)
           .eq("week", input.week)
           .eq("season", input.season)
@@ -873,6 +920,7 @@ export const appRouter = router({
     cancelFaabBid: teamProcedure
       .input(z.object({ bidId: z.string().min(1).max(128) }))
       .mutation(async ({ input, ctx }) => {
+        const teamId = ctx.teamSession.teamId;
         // .eq("team_id", ...) on the update itself, not just a pre-check,
         // is what actually prevents one team from cancelling another
         // team's bid -- a pre-check alone could still race with a
@@ -881,12 +929,32 @@ export const appRouter = router({
           .from("faab_bids")
           .update({ status: "cancelled" })
           .eq("id", input.bidId)
-          .eq("team_id", ctx.teamSession.teamId)
+          .eq("team_id", teamId)
           .eq("status", "pending")
-          .select("player_name")
+          .select("player_name, group_id")
           .maybeSingle();
         if (error) throw new Error(`Unable to cancel this bid: ${error.message}`);
         if (!data) throw new Error("This bid can't be cancelled -- it may have already been resolved or doesn't belong to your team.");
+        // A conditional group needs at least two bids to mean anything. If
+        // cancelling left exactly one pending bid in the group, demote it to a
+        // standalone bid (clear its group columns); cancelling the last member
+        // dissolves the group on its own.
+        if (data.group_id) {
+          const { data: remaining } = await supabaseAdmin
+            .from("faab_bids")
+            .select("id")
+            .eq("team_id", teamId)
+            .eq("group_id", data.group_id)
+            .eq("status", "pending");
+          if (remaining && remaining.length === 1) {
+            await supabaseAdmin
+              .from("faab_bids")
+              .update({ group_id: null, group_rank: null, group_max_wins: null })
+              .eq("id", remaining[0].id)
+              .eq("team_id", teamId)
+              .eq("status", "pending");
+          }
+        }
         return { cancelled: true, playerName: data.player_name };
       }),
     updateFaabBidAmount: teamProcedure
@@ -895,8 +963,8 @@ export const appRouter = router({
         const teamId = ctx.teamSession.teamId;
         const [{ data: team, error: teamError }, { data: existingBid, error: existingBidError }, { data: otherPendingBids, error: otherPendingBidsError }] = await Promise.all([
           supabaseAdmin.from("teams").select("faab").eq("id", teamId).single(),
-          supabaseAdmin.from("faab_bids").select("id, player_name, status, team_id").eq("id", input.bidId).maybeSingle(),
-          supabaseAdmin.from("faab_bids").select("bid_amount").eq("team_id", teamId).eq("status", "pending").neq("id", input.bidId),
+          supabaseAdmin.from("faab_bids").select("id, player_name, status, team_id, group_id, group_max_wins").eq("id", input.bidId).maybeSingle(),
+          supabaseAdmin.from("faab_bids").select("bid_amount, group_id, group_max_wins").eq("team_id", teamId).eq("status", "pending").neq("id", input.bidId),
         ]);
         if (teamError || !team) throw new Error(`Unable to load your team: ${teamError?.message ?? "team not found"}`);
         if (existingBidError) throw new Error(`Unable to load this bid: ${existingBidError.message}`);
@@ -904,10 +972,19 @@ export const appRouter = router({
         if (existingBid.status !== "pending") throw new Error("This bid has already been resolved and can no longer be changed.");
         if (otherPendingBidsError) throw new Error(`Unable to load your other pending bids: ${otherPendingBidsError.message}`);
 
-        const committedElsewhere = (otherPendingBids ?? []).reduce((sum, bid) => sum + Number(bid.bid_amount ?? 0), 0);
-        const trueAvailable = Number(team.faab ?? 0) - committedElsewhere;
-        if (input.bidAmount > trueAvailable) {
-          throw new Error(`You only have $${trueAvailable} available (${committedElsewhere > 0 ? `$${committedElsewhere} committed to other pending bids` : "after your FAAB balance"}).`);
+        const faab = Number(team.faab ?? 0);
+        // Group-aware, mirroring submitFaabBid: this bid's new amount is placed
+        // back into its own group so a win-one group is still charged only its
+        // largest bid. Compare the whole projected pending set against FAAB.
+        const others = (otherPendingBids ?? []).map(b => ({ bidAmount: Number(b.bid_amount ?? 0), groupId: b.group_id ?? null, groupMaxWins: b.group_max_wins ?? null }));
+        const existingCommitted = committedFaab(others);
+        const projectedCommitted = committedFaab([
+          ...others,
+          { bidAmount: input.bidAmount, groupId: existingBid.group_id ?? null, groupMaxWins: existingBid.group_max_wins ?? null },
+        ]);
+        if (projectedCommitted > faab) {
+          const available = faab - existingCommitted;
+          throw new Error(`You only have $${available} available (${existingCommitted > 0 ? `$${existingCommitted} committed to other pending bids` : "after your FAAB balance"}).`);
         }
 
         const { error: updateError } = await supabaseAdmin
@@ -918,6 +995,98 @@ export const appRouter = router({
           .eq("status", "pending");
         if (updateError) throw new Error(`Unable to update your bid: ${updateError.message}`);
         return { updated: true, playerName: existingBid.player_name, bidAmount: input.bidAmount };
+      }),
+    // Rewrite the rank order within one of the caller's own conditional groups.
+    // orderedBidIds must be a permutation of exactly that group's pending bids;
+    // ranks are rewritten to 1..N in that order (rank 1 = most wanted).
+    reorderFaabGroup: teamProcedure
+      .input(z.object({
+        groupId: z.string().min(1).max(128),
+        orderedBidIds: z.array(z.string().min(1).max(128)).min(1).max(50),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const teamId = ctx.teamSession.teamId;
+        const { data: groupBids, error } = await supabaseAdmin
+          .from("faab_bids")
+          .select("id")
+          .eq("team_id", teamId)
+          .eq("group_id", input.groupId)
+          .eq("status", "pending");
+        if (error) throw new Error(`Unable to load your bid group: ${error.message}`);
+        const ids = new Set((groupBids ?? []).map(b => b.id));
+        if (ids.size === 0) throw new Error("That bid group no longer exists.");
+        const orderedUnique = new Set(input.orderedBidIds);
+        if (
+          input.orderedBidIds.length !== ids.size ||
+          orderedUnique.size !== input.orderedBidIds.length ||
+          !input.orderedBidIds.every(id => ids.has(id))
+        ) {
+          throw new Error("The new order must list each of the group's pending bids exactly once.");
+        }
+        // Each update is scoped by team_id + group_id + pending so an owner can
+        // never renumber another team's rows or a resolved bid.
+        for (let i = 0; i < input.orderedBidIds.length; i++) {
+          const { error: updateError } = await supabaseAdmin
+            .from("faab_bids")
+            .update({ group_rank: i + 1 })
+            .eq("id", input.orderedBidIds[i])
+            .eq("team_id", teamId)
+            .eq("group_id", input.groupId)
+            .eq("status", "pending");
+          if (updateError) throw new Error(`Unable to reorder your bids: ${updateError.message}`);
+        }
+        return { reordered: true, groupId: input.groupId };
+      }),
+    // Change how many of a group may be won (the "win up to N" control).
+    // Re-validates the two rules N affects: the group must fit the budget at
+    // its new top-N commitment, and an N>1 group cannot share a drop.
+    setFaabGroupMaxWins: teamProcedure
+      .input(z.object({
+        groupId: z.string().min(1).max(128),
+        maxWins: z.number().int().min(1).max(18),
+      }))
+      .mutation(async ({ input, ctx }) => {
+        const teamId = ctx.teamSession.teamId;
+        const [{ data: team, error: teamError }, { data: allPending, error: pendingError }] = await Promise.all([
+          supabaseAdmin.from("teams").select("faab").eq("id", teamId).single(),
+          supabaseAdmin.from("faab_bids").select("id, bid_amount, drop_player_id, group_id, group_max_wins").eq("team_id", teamId).eq("status", "pending"),
+        ]);
+        if (teamError || !team) throw new Error(`Unable to load your team: ${teamError?.message ?? "team not found"}`);
+        if (pendingError) throw new Error(`Unable to load your pending bids: ${pendingError.message}`);
+        const pending = allPending ?? [];
+        const groupBids = pending.filter(b => b.group_id === input.groupId);
+        if (groupBids.length === 0) throw new Error("That bid group no longer exists.");
+
+        // Up to N of an N>1 group win at once, so each needs its own distinct
+        // drop -- a drop shared across the group (only ever valid win-one)
+        // can't stand once N rises above 1.
+        if (input.maxWins > 1) {
+          const drops = groupBids.map(b => b.drop_player_id).filter((d): d is string => d != null);
+          if (new Set(drops).size !== drops.length) {
+            throw new Error("These bids share a drop player, which only works when winning one. Give each bid its own player to drop before allowing multiple wins.");
+          }
+        }
+
+        const faab = Number(team.faab ?? 0);
+        const projectedCommitted = committedFaab(
+          pending.map(b => ({
+            bidAmount: Number(b.bid_amount ?? 0),
+            groupId: b.group_id ?? null,
+            groupMaxWins: b.group_id === input.groupId ? input.maxWins : (b.group_max_wins ?? null),
+          })),
+        );
+        if (projectedCommitted > faab) {
+          throw new Error(`Allowing ${input.maxWins} wins would commit $${projectedCommitted}, more than your $${faab} FAAB. Lower a bid or the win count first.`);
+        }
+
+        const { error: updateError } = await supabaseAdmin
+          .from("faab_bids")
+          .update({ group_max_wins: input.maxWins })
+          .eq("team_id", teamId)
+          .eq("group_id", input.groupId)
+          .eq("status", "pending");
+        if (updateError) throw new Error(`Unable to update the group's win count: ${updateError.message}`);
+        return { updated: true, groupId: input.groupId, maxWins: input.maxWins };
       }),
     instantAddFreeAgent: teamProcedure
       .input(z.object({
