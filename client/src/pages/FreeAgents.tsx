@@ -116,6 +116,9 @@ interface FaabBid {
   week: number;
   season: number;
   created_at: string;
+  group_id?: string | null;
+  group_rank?: number | null;
+  group_max_wins?: number | null;
 }
 
 // ── Commissioner bid management ──────────────────────────────────────────────
@@ -219,10 +222,14 @@ function CommissionerBids({ week }: { week: number }) {
 }
 
 // ── An owner's own bid management ───────────────────────────────────────────
+type PendingGroup = { id: string; maxWins: number; members: FaabBid[] };
+
 function MyBids({ week }: { week: number }) {
   const bidsQuery = trpc.league.myFaabBids.useQuery({ week, season: 2026 });
   const cancelMutation = trpc.league.cancelFaabBid.useMutation();
   const updateMutation = trpc.league.updateFaabBidAmount.useMutation();
+  const reorderMutation = trpc.league.reorderFaabGroup.useMutation();
+  const setMaxWinsMutation = trpc.league.setFaabGroupMaxWins.useMutation();
   const bids = (bidsQuery.data ?? []) as FaabBid[];
   const loading = bidsQuery.isLoading;
   const [editingBidId, setEditingBidId] = useState<string | null>(null);
@@ -259,6 +266,30 @@ function MyBids({ week }: { week: number }) {
     }
   };
 
+  // Move a member one place up (toward rank 1) or down within its group.
+  const handleMove = async (group: PendingGroup, index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= group.members.length) return;
+    const order = group.members.map((m) => m.id);
+    [order[index], order[target]] = [order[target], order[index]];
+    try {
+      await reorderMutation.mutateAsync({ groupId: group.id, orderedBidIds: order });
+      await bidsQuery.refetch();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to reorder your picks.");
+    }
+  };
+
+  const handleSetMaxWins = async (group: PendingGroup, maxWins: number) => {
+    if (maxWins === group.maxWins) return;
+    try {
+      await setMaxWinsMutation.mutateAsync({ groupId: group.id, maxWins });
+      await bidsQuery.refetch();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to change how many to win.");
+    }
+  };
+
   if (loading) {
     return (
       <div className="wrc-card" style={{ padding: "2rem", textAlign: "center" as const }}>
@@ -278,80 +309,165 @@ function MyBids({ week }: { week: number }) {
     );
   }
 
+  // Interactive group cards are only for a pending group with 2+ members; a
+  // lone grouped bid (e.g. mid-cancel, before the server demotes it) and every
+  // resolved bid render as a normal flat card.
+  const groupMap = new Map<string, FaabBid[]>();
+  for (const bid of bids) {
+    if (bid.status === "pending" && bid.group_id) {
+      const list = groupMap.get(bid.group_id) ?? [];
+      list.push(bid);
+      groupMap.set(bid.group_id, list);
+    }
+  }
+  const pendingGroups: PendingGroup[] = [];
+  const groupedIds = new Set<string>();
+  for (const [id, members] of Array.from(groupMap.entries())) {
+    if (members.length < 2) continue;
+    members.sort((a, b) => (Number(a.group_rank ?? 0)) - (Number(b.group_rank ?? 0)));
+    pendingGroups.push({ id, maxWins: Number(members[0]?.group_max_wins ?? 1), members });
+    members.forEach((m) => groupedIds.add(m.id));
+  }
+  const flatBids = bids.filter((b) => !groupedIds.has(b.id));
+
+  // The player/amount/edit/cancel/status row, shared by group members and flat
+  // cards. leftAdornment is the rank pill + reorder arrows for group members.
+  const renderRow = (bid: FaabBid, leftAdornment?: React.ReactNode) => (
+    <div style={{
+      padding: "0.75rem 1rem", display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" as const,
+      background: bid.status === "won" ? "oklch(0.96 0.04 150)" : bid.status === "lost" || bid.status === "cancelled" || bid.status === "skipped" ? "oklch(0.97 0.01 25)" : "white",
+      opacity: bid.status === "lost" || bid.status === "cancelled" || bid.status === "skipped" ? 0.6 : 1,
+    }}>
+      {leftAdornment}
+      <PosBadge pos={bid.player_pos} />
+      <div style={{ flex: 1, minWidth: 140 }}>
+        <p style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.95rem", color: "oklch(0.22 0.08 150)", margin: 0 }}>{bid.player_name} <span style={{ fontSize: "0.75rem", fontWeight: 400, color: "oklch(0.55 0.06 150)" }}>· {bid.player_nfl_team}</span></p>
+        {bid.drop_player_name && (
+          <p style={{ fontSize: "0.72rem", color: "oklch(0.55 0.06 150)", margin: 0 }}>Drops: {bid.drop_player_name}</p>
+        )}
+      </div>
+      {editingBidId === bid.id ? (
+        <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+          <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, color: "oklch(0.42 0.15 150)" }}>$</span>
+          <input
+            type="number" min={0} value={editAmount}
+            onChange={(e) => setEditAmount(e.target.value)}
+            style={{ width: 70, padding: "0.3rem 0.5rem", borderRadius: 6, border: "1.5px solid oklch(0.8 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, background: "white", color: "oklch(0.22 0.08 150)" }}
+          />
+          <button
+            onClick={() => handleSaveEdit(bid)}
+            disabled={updateMutation.isPending}
+            style={{ background: "oklch(0.42 0.15 150)", color: "white", border: "none", borderRadius: 7, padding: "0.3rem 0.7rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer" }}
+          >
+            Save
+          </button>
+          <button
+            onClick={() => setEditingBidId(null)}
+            style={{ background: "white", color: "oklch(0.45 0.04 150)", border: "1.5px solid oklch(0.8 0.04 150)", borderRadius: 7, padding: "0.3rem 0.7rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer" }}
+          >
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <>
+          <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "1.1rem", color: "oklch(0.42 0.15 150)" }}>${bid.bid_amount}</span>
+          {bid.status === "pending" ? (
+            <div style={{ display: "flex", gap: "0.4rem" }}>
+              <button
+                onClick={() => startEdit(bid)}
+                style={{ background: "white", color: "oklch(0.42 0.15 150)", border: "1.5px solid oklch(0.55 0.16 85)", borderRadius: 7, padding: "0.3rem 0.7rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer" }}
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => handleCancel(bid)}
+                disabled={cancelMutation.isPending}
+                style={{ background: "white", color: "oklch(0.5 0.15 25)", border: "1.5px solid oklch(0.7 0.1 25)", borderRadius: 7, padding: "0.3rem 0.7rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer" }}
+              >
+                {bid.group_id ? "Remove" : "Cancel Bid"}
+              </button>
+            </div>
+          ) : (
+            <span style={{
+              fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem",
+              padding: "0.2rem 0.5rem", borderRadius: 5,
+              background: bid.status === "won" ? "oklch(0.88 0.1 150)" : bid.status === "skipped" ? "oklch(0.9 0.03 85)" : "oklch(0.92 0.04 25)",
+              color: bid.status === "won" ? "oklch(0.35 0.12 150)" : bid.status === "skipped" ? "oklch(0.42 0.1 85)" : "oklch(0.45 0.1 25)",
+            }}>
+              {bid.status === "won" ? "WON" : bid.status === "cancelled" ? "CANCELLED" : bid.status === "skipped" ? "PASSED" : "LOST"}
+            </span>
+          )}
+        </>
+      )}
+    </div>
+  );
+
   return (
     <div style={{ display: "flex", flexDirection: "column" as const, gap: "0.75rem" }}>
       <div style={{ background: "oklch(0.96 0.04 85)", border: "1.5px solid oklch(0.82 0.12 85)", borderRadius: 10, padding: "0.75rem 1rem", fontSize: "0.8rem", color: "oklch(0.38 0.14 85)", fontFamily: "Barlow Condensed, sans-serif" }}>
         <strong>YOUR BIDS</strong> — Cancel or change the amount on a pending bid any time before it's resolved (Thursday or Sunday, 9am ET).
       </div>
-      {bids.map((bid) => (
+
+      {/* Conditional groups: ranked picks, win only your top N you can get */}
+      {pendingGroups.map((group) => (
+        <div key={group.id} className="wrc-card" style={{ overflow: "hidden", border: "1.5px solid oklch(0.82 0.12 85)" }}>
+          <div style={{ background: "oklch(0.97 0.03 85)", padding: "0.6rem 1rem", display: "flex", alignItems: "center", gap: "0.6rem", flexWrap: "wrap" as const, borderBottom: "1px solid oklch(0.88 0.06 85)" }}>
+            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.7rem", letterSpacing: "0.04em", padding: "0.15rem 0.5rem", borderRadius: 5, background: "oklch(0.55 0.16 85)", color: "white" }}>CONDITIONAL</span>
+            <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.85rem", color: "oklch(0.38 0.12 85)", display: "flex", alignItems: "center", gap: "0.4rem" }}>
+              Win up to
+              <select
+                value={group.maxWins}
+                onChange={(e) => handleSetMaxWins(group, Number(e.target.value))}
+                disabled={setMaxWinsMutation.isPending}
+                style={{ padding: "0.15rem 0.4rem", borderRadius: 6, border: "1.5px solid oklch(0.8 0.1 85)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, background: "white", color: "oklch(0.3 0.1 85)", cursor: "pointer" }}
+              >
+                {Array.from({ length: group.members.length }, (_, i) => i + 1).map((n) => (
+                  <option key={n} value={n}>{n}</option>
+                ))}
+              </select>
+              of {group.members.length} picks
+            </span>
+          </div>
+          <div style={{ padding: "0.5rem 0.6rem 0.6rem", fontSize: "0.72rem", color: "oklch(0.5 0.08 85)", fontFamily: "Barlow Condensed, sans-serif" }}>
+            Ranked top to bottom. You get the highest picks you can actually win, and only pay for those.
+          </div>
+          <div style={{ display: "flex", flexDirection: "column" as const, gap: "0.4rem", padding: "0 0.6rem 0.6rem" }}>
+            {group.members.map((member, index) => (
+              <div key={member.id} className="wrc-card" style={{ overflow: "hidden", boxShadow: "none", border: "1px solid oklch(0.9 0.02 150)" }}>
+                {renderRow(member, (
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                    <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.8rem", width: 20, height: 20, borderRadius: "50%", background: "oklch(0.55 0.16 85)", color: "white", display: "flex", alignItems: "center", justifyContent: "center" }}>{index + 1}</span>
+                    <div style={{ display: "flex", flexDirection: "column" as const }}>
+                      <button
+                        onClick={() => handleMove(group, index, -1)}
+                        disabled={index === 0 || reorderMutation.isPending}
+                        aria-label="Move pick up"
+                        style={{ background: "none", border: "none", cursor: index === 0 ? "default" : "pointer", opacity: index === 0 ? 0.25 : 1, padding: 0, lineHeight: 1, color: "oklch(0.42 0.12 150)" }}
+                      >
+                        <ArrowUp size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleMove(group, index, 1)}
+                        disabled={index === group.members.length - 1 || reorderMutation.isPending}
+                        aria-label="Move pick down"
+                        style={{ background: "none", border: "none", cursor: index === group.members.length - 1 ? "default" : "pointer", opacity: index === group.members.length - 1 ? 0.25 : 1, padding: 0, lineHeight: 1, color: "oklch(0.42 0.12 150)" }}
+                      >
+                        <ArrowDown size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {/* Standalone pending bids and every resolved bid */}
+      {flatBids.map((bid) => (
         <div key={bid.id} className="wrc-card" style={{ overflow: "hidden" }}>
           <div className="wrc-card-gold-stripe" />
-          <div style={{
-            padding: "0.75rem 1rem", display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" as const,
-            background: bid.status === "won" ? "oklch(0.96 0.04 150)" : bid.status === "lost" || bid.status === "cancelled" ? "oklch(0.97 0.01 25)" : "white",
-            opacity: bid.status === "lost" || bid.status === "cancelled" ? 0.6 : 1,
-          }}>
-            <PosBadge pos={bid.player_pos} />
-            <div style={{ flex: 1, minWidth: 140 }}>
-              <p style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.95rem", color: "oklch(0.22 0.08 150)", margin: 0 }}>{bid.player_name} <span style={{ fontSize: "0.75rem", fontWeight: 400, color: "oklch(0.55 0.06 150)" }}>· {bid.player_nfl_team}</span></p>
-              {bid.drop_player_name && (
-                <p style={{ fontSize: "0.72rem", color: "oklch(0.55 0.06 150)", margin: 0 }}>Drops: {bid.drop_player_name}</p>
-              )}
-            </div>
-            {editingBidId === bid.id ? (
-              <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
-                <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, color: "oklch(0.42 0.15 150)" }}>$</span>
-                <input
-                  type="number" min={0} value={editAmount}
-                  onChange={(e) => setEditAmount(e.target.value)}
-                  style={{ width: 70, padding: "0.3rem 0.5rem", borderRadius: 6, border: "1.5px solid oklch(0.8 0.04 150)", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, background: "white", color: "oklch(0.22 0.08 150)" }}
-                />
-                <button
-                  onClick={() => handleSaveEdit(bid)}
-                  disabled={updateMutation.isPending}
-                  style={{ background: "oklch(0.42 0.15 150)", color: "white", border: "none", borderRadius: 7, padding: "0.3rem 0.7rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer" }}
-                >
-                  Save
-                </button>
-                <button
-                  onClick={() => setEditingBidId(null)}
-                  style={{ background: "white", color: "oklch(0.45 0.04 150)", border: "1.5px solid oklch(0.8 0.04 150)", borderRadius: 7, padding: "0.3rem 0.7rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer" }}
-                >
-                  Cancel
-                </button>
-              </div>
-            ) : (
-              <>
-                <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "1.1rem", color: "oklch(0.42 0.15 150)" }}>${bid.bid_amount}</span>
-                {bid.status === "pending" ? (
-                  <div style={{ display: "flex", gap: "0.4rem" }}>
-                    <button
-                      onClick={() => startEdit(bid)}
-                      style={{ background: "white", color: "oklch(0.42 0.15 150)", border: "1.5px solid oklch(0.55 0.16 85)", borderRadius: 7, padding: "0.3rem 0.7rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer" }}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      onClick={() => handleCancel(bid)}
-                      disabled={cancelMutation.isPending}
-                      style={{ background: "white", color: "oklch(0.5 0.15 25)", border: "1.5px solid oklch(0.7 0.1 25)", borderRadius: 7, padding: "0.3rem 0.7rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.78rem", cursor: "pointer" }}
-                    >
-                      Cancel Bid
-                    </button>
-                  </div>
-                ) : (
-                  <span style={{
-                    fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem",
-                    padding: "0.2rem 0.5rem", borderRadius: 5,
-                    background: bid.status === "won" ? "oklch(0.88 0.1 150)" : "oklch(0.92 0.04 25)",
-                    color: bid.status === "won" ? "oklch(0.35 0.12 150)" : "oklch(0.45 0.1 25)",
-                  }}>
-                    {bid.status === "won" ? "WON" : bid.status === "cancelled" ? "CANCELLED" : "LOST"}
-                  </span>
-                )}
-              </>
-            )}
-          </div>
+          {renderRow(bid)}
         </div>
       ))}
     </div>

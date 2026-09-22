@@ -7,7 +7,7 @@
  *  - Roster (drop selector) — from `players` table filtered by team_id
  *  - FAAB balance — from `teams.faab` via auth context
  */
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,11 +43,35 @@ export default function FAABBidModal({ player, onClose }: FAABBidModalProps) {
   const [submitting, setSubmitting] = useState(false);
   const [myRoster, setMyRoster] = useState<RosterPlayer[]>([]);
   const [loadingRoster, setLoadingRoster] = useState(true);
+  // Conditional (ranked-group) bidding: off = a normal standalone bid; new =
+  // start a group with this player as the first pick; existing = add this bid
+  // to one of the owner's pending groups (win only one of the group).
+  const [conditionalMode, setConditionalMode] = useState<"off" | "new" | "existing">("off");
+  const [existingGroupId, setExistingGroupId] = useState<string>("");
   const bidDetailsQuery = trpc.league.faabBidRoster.useQuery(undefined, { enabled: Boolean(franchise?.id) });
   const submitBidMutation = trpc.league.submitFaabBid.useMutation();
+  const utils = trpc.useUtils();
 
   const currentWeek = getLineupDefaultWeek();
   const week = currentWeek > 0 ? currentWeek : 1;
+
+  // The owner's existing pending groups for this week, so a new bid can join
+  // one. Each is labeled by its first couple of players.
+  const myBidsQuery = trpc.league.myFaabBids.useQuery({ week, season: 2026 }, { enabled: Boolean(franchise?.id) });
+  const pendingGroups = useMemo(() => {
+    const map = new Map<string, { id: string; players: string[]; maxWins: number }>();
+    for (const b of (myBidsQuery.data ?? []) as Array<Record<string, unknown>>) {
+      if (b.status !== "pending" || !b.group_id) continue;
+      const groupId = String(b.group_id);
+      const group = map.get(groupId) ?? { id: groupId, players: [], maxWins: Number(b.group_max_wins ?? 1) };
+      group.players.push(String(b.player_name ?? ""));
+      map.set(groupId, group);
+    }
+    return Array.from(map.values());
+  }, [myBidsQuery.data]);
+
+  const groupLabel = (players: string[]) =>
+    players.slice(0, 2).join(", ") + (players.length > 2 ? ` +${players.length - 2} more` : "");
 
   // FAAB balance and roster are session-scoped server data.
   const faabRemaining = bidDetailsQuery.data?.faab ?? franchise?.faab ?? 1000;
@@ -70,11 +94,18 @@ export default function FAABBidModal({ player, onClose }: FAABBidModalProps) {
       return;
     }
 
+    if (conditionalMode === "existing" && !existingGroupId) {
+      toast.error("Pick which group this bid should join.");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const dropPlayer = dropPlayerId !== "__none__"
         ? myRoster.find((p) => p.id === dropPlayerId)
         : null;
+
+      const groupId = conditionalMode === "new" ? "new" : conditionalMode === "existing" ? existingGroupId : undefined;
 
       await submitBidMutation.mutateAsync({
         playerId: player.id,
@@ -85,9 +116,14 @@ export default function FAABBidModal({ player, onClose }: FAABBidModalProps) {
         dropPlayerId: dropPlayer?.id ?? null,
         week,
         season: 2026,
+        groupId,
       });
 
-      toast.success(`Bid of $${amount} submitted for ${player.name}! Bids are resolved automatically at 9am ET Thursday and Sunday.`);
+      const conditionalNote = conditionalMode === "off"
+        ? ""
+        : " It's part of a conditional group, so you'll win only one: your top-ranked pick you can get.";
+      toast.success(`Bid of $${amount} submitted for ${player.name}!${conditionalNote} Bids are resolved automatically at 9am ET Thursday and Sunday.`);
+      await utils.league.myFaabBids.invalidate();
       onClose();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to submit bid. Please try again.");
@@ -179,6 +215,65 @@ export default function FAABBidModal({ player, onClose }: FAABBidModalProps) {
               Your roster has {myRoster.length}/18 players.{" "}
               {rosterFull ? "You must drop a player to add one." : "You have room to add without dropping."}
             </p>
+          </div>
+
+          {/* Conditional (ranked-group) bidding */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm font-semibold cursor-pointer">
+              <input
+                type="checkbox"
+                checked={conditionalMode !== "off"}
+                onChange={(e) => setConditionalMode(e.target.checked ? "new" : "off")}
+                className="w-4 h-4 accent-amber-600"
+              />
+              Make this a conditional bid
+            </label>
+            <p className="text-xs text-slate-500">
+              Link this to other bids so you win only one: your top-ranked pick you can actually get. You only pay for the one you win, so you can chase the same roster spot with a ranked backup plan.
+            </p>
+            {conditionalMode !== "off" && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3 space-y-2">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="cond-group"
+                    checked={conditionalMode === "new"}
+                    onChange={() => setConditionalMode("new")}
+                    className="accent-amber-600"
+                  />
+                  Start a new group with {player.name}
+                </label>
+                {pendingGroups.length > 0 && (
+                  <>
+                    <label className="flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="radio"
+                        name="cond-group"
+                        checked={conditionalMode === "existing"}
+                        onChange={() => setConditionalMode("existing")}
+                        className="accent-amber-600"
+                      />
+                      Add to an existing group
+                    </label>
+                    {conditionalMode === "existing" && (
+                      <Select value={existingGroupId} onValueChange={setExistingGroupId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose a group" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {pendingGroups.map((g) => (
+                            <SelectItem key={g.id} value={g.id}>{groupLabel(g.players)}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </>
+                )}
+                <p className="text-xs text-slate-500">
+                  Rank your picks and choose how many to win over in My Bids.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Week info */}
