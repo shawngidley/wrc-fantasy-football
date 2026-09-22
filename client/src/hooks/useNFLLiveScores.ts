@@ -320,8 +320,17 @@ export function useNFLLiveScores(
     const activeGames = getActiveGames().filter(g => idSet.has(g.gameId));
 
     setIsPolling(true);
-    const newScores: LiveScoreMap = { ...liveScores };
-    const newStats: LiveStatsMap = { ...liveStats };
+    // Only what THIS call fetched. These used to start as a spread of the
+    // liveScores/liveStats captured in this callback's closure, but the
+    // recurring poll keeps invoking one captured fetchBoxScores instance
+    // via setTimeout, so that snapshot never refreshed. Once the poll
+    // narrowed to in-progress games only, the stale (often near-empty)
+    // snapshot was written back over every finished game -- the board
+    // flipping between all games and just the one in progress. Merging
+    // into the live state below instead of seeding from a closure makes
+    // the result independent of how old this closure is.
+    const newScores: LiveScoreMap = {};
+    const newStats: LiveStatsMap = {};
     // Tank01's getNFLBoxScore response keys teamStats by the literal
     // strings "home" and "away", not by team abbreviation -- confirmed
     // live via console diagnostics: `{ away: {...}, home: {...} }`, no
@@ -373,8 +382,11 @@ export function useNFLLiveScores(
     }
 
     if (mountedRef.current && currentWeekRef.current === week) {
-      setLiveScores(newScores);
-      setLiveStats(newStats);
+      // Functional updaters so the merge lands on the latest state rather
+      // than on whatever this closure captured -- same reason the kicker
+      // events below already merge this way.
+      setLiveScores(prev => ({ ...prev, ...newScores }));
+      setLiveStats(prev => ({ ...prev, ...newStats }));
       // Merge rather than replace: a recurring poll only fetches
       // in-progress games, so overwriting would wipe the kicker events
       // captured for games that have already gone final. Dedup by the
@@ -392,7 +404,7 @@ export function useNFLLiveScores(
       return true;
     }
     return false;
-  }, [fetchEspnKickerEvents, getActiveGames, liveScores, liveStats]);
+  }, [fetchEspnKickerEvents, getActiveGames]);
 
   // Start/stop polling based on active games
   useEffect(() => {
