@@ -113,9 +113,23 @@ function parseNewsItem(item: unknown): FantasyProsNewsItem {
   };
 }
 
-export async function getFantasyProsNews(limit = 50, fpid?: number): Promise<FantasyProsNewsItem[]> {
+/**
+ * The whole cached news feed, unsliced.
+ *
+ * getFantasyProsNews caps its result at 100 items league-wide, which is
+ * right for a general feed but wrong for any caller that filters to a
+ * subset afterwards: the cap is applied first, so an item belonging to
+ * the subset but sitting below the top 100 is gone before the filter
+ * ever sees it. Callers that narrow the feed themselves (rosterNews)
+ * read it all from here and slice, if at all, after filtering.
+ */
+export async function getAllCachedFantasyProsNews(): Promise<FantasyProsNewsItem[]> {
   const data = await readCache(CACHE_KEYS.news());
-  const items = asArray(data.items).map(parseNewsItem).filter(item => item.title);
+  return asArray(data.items).map(parseNewsItem).filter(item => item.title);
+}
+
+export async function getFantasyProsNews(limit = 50, fpid?: number): Promise<FantasyProsNewsItem[]> {
+  const items = await getAllCachedFantasyProsNews();
   // A per-player request is served by filtering the cached league-wide
   // feed rather than a dedicated upstream call -- see fetchAndStore's
   // budget cap, which the app used to blow through with one extra call
