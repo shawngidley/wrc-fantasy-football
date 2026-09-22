@@ -80503,14 +80503,15 @@ function parseNewsItem(item) {
     categories: asArray(row.categories).map(asString).filter(Boolean)
   };
 }
+async function getFantasyProsNews(limit = 50, fpid) {
+  const data = await readCache(CACHE_KEYS.news());
+  const items = asArray(data.items).map(parseNewsItem).filter((item) => item.title);
+  const filtered = fpid != null ? items.filter((item) => item.playerId === fpid) : items;
+  return filtered.slice(0, Math.min(Math.max(limit, 1), 100));
+}
 async function getAllCachedFantasyProsNews() {
   const data = await readCache(CACHE_KEYS.news());
   return asArray(data.items).map(parseNewsItem).filter((item) => item.title);
-}
-async function getFantasyProsNews(limit = 50, fpid) {
-  const items = await getAllCachedFantasyProsNews();
-  const filtered = fpid != null ? items.filter((item) => item.playerId === fpid) : items;
-  return filtered.slice(0, Math.min(Math.max(limit, 1), 100));
 }
 async function getFantasyProsInjuries(year2, week2) {
   const data = await readCache(CACHE_KEYS.injuries(year2, week2));
@@ -92199,10 +92200,9 @@ var appRouter = router({
       const rosterKeys = new Set(input.players.map((player) => normalizePlayerKey(player.name)));
       const positions = Array.from(new Set(input.players.map((player) => player.pos).filter((pos) => ["QB", "RB", "WR", "TE", "K", "DST"].includes(pos ?? ""))));
       const [leagueNews, ...rankGroups] = await Promise.all([
-        // The full cached feed, not getFantasyProsNews(100): that slices
-        // the top 100 league-wide before this procedure filters to the
-        // roster, so a rostered player's item sitting below the cut was
-        // dropped before the roster filter below could ever see it.
+        // Full cached feed, not the top-100 league-wide slice: a rostered
+        // player's item must not be dropped just because it sits below the
+        // 100 newest items league-wide before the roster filter runs.
         getAllCachedFantasyProsNews(),
         ...positions.map((position) => getFantasyProsRanks(position, 1))
       ]);

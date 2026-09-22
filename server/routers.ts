@@ -2281,10 +2281,9 @@ export const appRouter = router({
         const rosterKeys = new Set(input.players.map(player => normalizePlayerKey(player.name)));
         const positions = Array.from(new Set(input.players.map(player => player.pos).filter((pos): pos is "QB" | "RB" | "WR" | "TE" | "K" | "DST" => ["QB", "RB", "WR", "TE", "K", "DST"].includes(pos ?? ""))));
         const [leagueNews, ...rankGroups] = await Promise.all([
-          // The full cached feed, not getFantasyProsNews(100): that slices
-          // the top 100 league-wide before this procedure filters to the
-          // roster, so a rostered player's item sitting below the cut was
-          // dropped before the roster filter below could ever see it.
+          // Full cached feed, not the top-100 league-wide slice: a rostered
+          // player's item must not be dropped just because it sits below the
+          // 100 newest items league-wide before the roster filter runs.
           getAllCachedFantasyProsNews(),
           ...positions.map(position => getFantasyProsRanks(position, 1)),
         ]);

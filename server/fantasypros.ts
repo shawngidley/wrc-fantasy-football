@@ -113,29 +113,28 @@ function parseNewsItem(item: unknown): FantasyProsNewsItem {
   };
 }
 
-/**
- * The whole cached news feed, unsliced.
- *
- * getFantasyProsNews caps its result at 100 items league-wide, which is
- * right for a general feed but wrong for any caller that filters to a
- * subset afterwards: the cap is applied first, so an item belonging to
- * the subset but sitting below the top 100 is gone before the filter
- * ever sees it. Callers that narrow the feed themselves (rosterNews)
- * read it all from here and slice, if at all, after filtering.
- */
-export async function getAllCachedFantasyProsNews(): Promise<FantasyProsNewsItem[]> {
-  const data = await readCache(CACHE_KEYS.news());
-  return asArray(data.items).map(parseNewsItem).filter(item => item.title);
-}
-
 export async function getFantasyProsNews(limit = 50, fpid?: number): Promise<FantasyProsNewsItem[]> {
-  const items = await getAllCachedFantasyProsNews();
+  const data = await readCache(CACHE_KEYS.news());
+  const items = asArray(data.items).map(parseNewsItem).filter(item => item.title);
   // A per-player request is served by filtering the cached league-wide
   // feed rather than a dedicated upstream call -- see fetchAndStore's
   // budget cap, which the app used to blow through with one extra call
   // per roster player on every page load.
   const filtered = fpid != null ? items.filter(item => item.playerId === fpid) : items;
   return filtered.slice(0, Math.min(Math.max(limit, 1), 100));
+}
+
+/**
+ * The full cached FantasyPros news feed, unsliced. For server-side roster
+ * filtering (rosterNews), where slicing the top 100 league-wide FIRST
+ * dropped a rostered player's item whenever it sat below that window --
+ * the player-detail page found the same item because its per-player fpid
+ * request filters the whole cache before slicing. This is a pure cache
+ * read (no upstream call), so returning everything costs nothing.
+ */
+export async function getAllCachedFantasyProsNews(): Promise<FantasyProsNewsItem[]> {
+  const data = await readCache(CACHE_KEYS.news());
+  return asArray(data.items).map(parseNewsItem).filter(item => item.title);
 }
 
 export async function getFantasyProsInjuries(year: number, week: number): Promise<FantasyProsInjury[]> {
