@@ -320,17 +320,15 @@ export function useNFLLiveScores(
     const activeGames = getActiveGames().filter(g => idSet.has(g.gameId));
 
     setIsPolling(true);
-    // Only what THIS call fetched. These used to start as a spread of the
-    // liveScores/liveStats captured in this callback's closure, but the
-    // recurring poll keeps invoking one captured fetchBoxScores instance
-    // via setTimeout, so that snapshot never refreshed. Once the poll
-    // narrowed to in-progress games only, the stale (often near-empty)
-    // snapshot was written back over every finished game -- the board
-    // flipping between all games and just the one in progress. Merging
-    // into the live state below instead of seeding from a closure makes
-    // the result independent of how old this closure is.
-    const newScores: LiveScoreMap = {};
-    const newStats: LiveStatsMap = {};
+    // Accumulate only the players/teams fetched in THIS call, then merge
+    // them into the latest state functionally below. Never spread a
+    // captured liveScores snapshot: this callback is recreated whenever
+    // scores change, so a still-running older closure holds a stale (often
+    // near-empty) snapshot, and spreading it would wipe finals it predates.
+    // Re-fetching every game each poll used to mask this; polling only
+    // in-progress games exposed it as scores flipping to just the live game.
+    const scoreUpdates: LiveScoreMap = {};
+    const statUpdates: LiveStatsMap = {};
     // Tank01's getNFLBoxScore response keys teamStats by the literal
     // strings "home" and "away", not by team abbreviation -- confirmed
     // live via console diagnostics: `{ away: {...}, home: {...} }`, no
@@ -361,8 +359,8 @@ export function useNFLLiveScores(
           const kickerPlays = pos === "K" ? getKickerEventsForPlayer(espnEvents, name) : [];
           const pts = pos === "K" && kickerPlays.length > 0 ? calculateWrcKickerPoints(kickerPlays, p as Tank01Stats) : calcWRCLive(p, pos);
           const key = normalizePlayerName(name);
-          newScores[key] = pts;
-          newStats[key] = p as Tank01Stats;
+          scoreUpdates[key] = pts;
+          statUpdates[key] = p as Tank01Stats;
         }
 
         // Team DST stats
@@ -373,8 +371,8 @@ export function useNFLLiveScores(
           if (!teamAbv) continue;
           const dWithCorrectSacks = attributeOffenseFramedDefenseStats(homeAway, d, teamStats as Record<string, Record<string, string>>);
           const pts = calcDSTLive(dWithCorrectSacks);
-          newScores[`dst:${teamAbv}`] = pts;
-          newStats[`dst:${teamAbv}`] = { Defense: dWithCorrectSacks };
+          scoreUpdates[`dst:${teamAbv}`] = pts;
+          statUpdates[`dst:${teamAbv}`] = { Defense: dWithCorrectSacks };
         }
       } catch (err) {
         console.warn(`Failed to fetch box score for game ${gameId}:`, err);
@@ -382,11 +380,8 @@ export function useNFLLiveScores(
     }
 
     if (mountedRef.current && currentWeekRef.current === week) {
-      // Functional updaters so the merge lands on the latest state rather
-      // than on whatever this closure captured -- same reason the kicker
-      // events below already merge this way.
-      setLiveScores(prev => ({ ...prev, ...newScores }));
-      setLiveStats(prev => ({ ...prev, ...newStats }));
+      setLiveScores(prev => ({ ...prev, ...scoreUpdates }));
+      setLiveStats(prev => ({ ...prev, ...statUpdates }));
       // Merge rather than replace: a recurring poll only fetches
       // in-progress games, so overwriting would wipe the kicker events
       // captured for games that have already gone final. Dedup by the
