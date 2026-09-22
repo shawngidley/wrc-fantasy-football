@@ -1401,7 +1401,7 @@ export const appRouter = router({
       .mutation(async ({ input }) => {
         const { data: bid, error: bidError } = await supabaseAdmin
           .from("faab_bids")
-          .select("id, team_id, team_name, player_id, player_name, player_pos, player_nfl_team, bid_amount, drop_player_id, drop_player_name, status, week, season")
+          .select("id, team_id, team_name, player_id, player_name, player_pos, player_nfl_team, bid_amount, drop_player_id, drop_player_name, status, week, season, group_id, group_max_wins")
           .eq("id", input.bidId)
           .single();
         if (bidError || !bid || bid.status !== "pending") throw new Error("This pending FAAB bid was not found.");
@@ -1456,6 +1456,23 @@ export const appRouter = router({
         });
         const { error: moveError } = await supabaseAdmin.from("roster_moves").insert(moves);
         if (moveError) throw new Error("FAAB was processed, but transaction history could not be written");
+
+        // If this bid is part of a conditional group and awarding it brings
+        // the group to its win limit, the group's remaining pending picks are
+        // passed over -- mark them skipped so a later manual award or the cron
+        // can't also award them (win-one/up-to-N). Default max_wins is 1, so a
+        // single award closes out an ordinary conditional group.
+        if (bid.group_id) {
+          const maxWins = Math.max(1, Number(bid.group_max_wins ?? 1) || 1);
+          const { data: groupWon } = await supabaseAdmin
+            .from("faab_bids").select("id")
+            .eq("team_id", bid.team_id).eq("group_id", bid.group_id).eq("status", "won");
+          if ((groupWon?.length ?? 0) >= maxWins) {
+            await supabaseAdmin.from("faab_bids")
+              .update({ status: "skipped", resolved_at: resolvedAt })
+              .eq("team_id", bid.team_id).eq("group_id", bid.group_id).eq("status", "pending");
+          }
+        }
         return { awarded: true, bidId: bid.id, playerName: bid.player_name, teamName: bid.team_name, remainingFaab };
       }),
     protections: teamProcedure.query(async ({ ctx }) => {
