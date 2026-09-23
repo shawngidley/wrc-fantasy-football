@@ -238,11 +238,12 @@ function MatchupWidget({ ownerKey, standings }: { ownerKey: string; standings: D
     </div>
     </Link>
 
-    {/* All the other games this week in one compact panel, narrower than
-        the matchup card above, linking to Live Scoring. */}
+    {/* All the other games this week in one compact panel, deliberately
+        smaller and centered under the matchup card, but wide enough that full
+        team names show on desktop instead of truncating. Links to Live Scoring. */}
     {otherGames.length > 0 && (
       <Link href={`/live?week=${currentWeek}`} style={{ textDecoration: "none", display: "block" }}>
-        <div className="wrc-card" style={{ maxWidth: 380, margin: "0 auto 1.25rem", padding: "0.6rem 0.9rem", cursor: "pointer", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", transition: "box-shadow 0.15s" }}
+        <div className="wrc-card" style={{ maxWidth: 620, margin: "0 auto 1.25rem", padding: "0.6rem 0.9rem", cursor: "pointer", boxShadow: "0 1px 3px rgba(0,0,0,0.06)", transition: "box-shadow 0.15s" }}
           onMouseEnter={e => (e.currentTarget.style.boxShadow = "0 3px 12px rgba(0,0,0,0.11)")}
           onMouseLeave={e => (e.currentTarget.style.boxShadow = "0 1px 3px rgba(0,0,0,0.06)")}
         >
