@@ -48,6 +48,7 @@ export default function FAABBidModal({ player, onClose }: FAABBidModalProps) {
   // to one of the owner's pending groups (win only one of the group).
   const [conditionalMode, setConditionalMode] = useState<"off" | "new" | "existing">("off");
   const [existingGroupId, setExistingGroupId] = useState<string>("");
+  const [showConditionalHelp, setShowConditionalHelp] = useState(false);
   const bidDetailsQuery = trpc.league.faabBidRoster.useQuery(undefined, { enabled: Boolean(franchise?.id) });
   const submitBidMutation = trpc.league.submitFaabBid.useMutation();
   const utils = trpc.useUtils();
@@ -231,6 +232,23 @@ export default function FAABBidModal({ player, onClose }: FAABBidModalProps) {
             <p className="text-xs text-slate-500">
               Link this to other bids so you win only one: your top-ranked pick you can actually get. You only pay for the one you win, so you can chase the same roster spot with a ranked backup plan.
             </p>
+            <button
+              type="button"
+              onClick={() => setShowConditionalHelp(v => !v)}
+              className="text-xs font-semibold text-amber-700 underline underline-offset-2"
+            >
+              {showConditionalHelp ? "Hide instructions" : "How conditional bids work"}
+            </button>
+            {showConditionalHelp && (
+              <div className="rounded-xl bg-slate-50 border border-slate-200 p-3">
+                <ol className="list-decimal ml-4 text-xs text-slate-600 space-y-1.5">
+                  <li>On this player, check the box above and hit Submit. That creates a group with this player as your first pick. Nothing else changes on screen, that's expected.</li>
+                  <li>Open another free agent, enter a bid, check the box again, and choose "Add to an existing group." Pick the same drop player if you're clearing one roster spot for either player.</li>
+                  <li>In My Bids the two show as one group. Use the up and down arrows to rank them, and set how many you want to win (default is 1).</li>
+                  <li>At waivers you win only your highest-ranked pick you can actually get, and you only pay for that one. The rest are marked Passed.</li>
+                </ol>
+              </div>
+            )}
             {conditionalMode !== "off" && (
               <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3 space-y-2">
                 <label className="flex items-center gap-2 text-sm cursor-pointer">
