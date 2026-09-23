@@ -155,7 +155,15 @@ export async function getFantasyProsInjuries(year: number, week: number): Promis
       probabilityOfPlaying: asNumber(row.probability_of_playing),
       practices: [asString(row.practice_1), asString(row.practice_2), asString(row.practice_3)].filter(Boolean),
     };
-  }).filter(item => item.name && item.status);
+  }).filter(item =>
+    // Keep any player carrying an injury signal, not only those with an
+    // official game-status designation. Early in the week (Wed/Thu) FantasyPros
+    // lists players with a practice-report injury type ("hip") and a play
+    // probability but a blank `status` -- requiring `status` here dropped every
+    // one of them, so the injury panel read empty all week until Fri/game-day
+    // designations landed.
+    item.name && (item.status || item.shortStatus || item.injuryType || item.practiceInjuryType),
+  );
 }
 
 export async function getFantasyProsRanks(position: string, week: number): Promise<FantasyProsRank[]> {

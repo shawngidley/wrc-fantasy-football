@@ -80531,7 +80531,17 @@ async function getFantasyProsInjuries(year2, week2) {
       probabilityOfPlaying: asNumber(row.probability_of_playing),
       practices: [asString(row.practice_1), asString(row.practice_2), asString(row.practice_3)].filter(Boolean)
     };
-  }).filter((item) => item.name && item.status);
+  }).filter(
+    (item) => (
+      // Keep any player carrying an injury signal, not only those with an
+      // official game-status designation. Early in the week (Wed/Thu) FantasyPros
+      // lists players with a practice-report injury type ("hip") and a play
+      // probability but a blank `status` -- requiring `status` here dropped every
+      // one of them, so the injury panel read empty all week until Fri/game-day
+      // designations landed.
+      item.name && (item.status || item.shortStatus || item.injuryType || item.practiceInjuryType)
+    )
+  );
 }
 async function getFantasyProsRanks(position, week2) {
   const data = await readCache(CACHE_KEYS.ranks(position, week2));
@@ -92341,7 +92351,8 @@ var appRouter = router({
     news: publicProcedure.input(external_exports.object({ limit: external_exports.number().int().min(1).max(100).optional(), fpid: external_exports.number().int().positive().optional(), feedVersion: external_exports.number().int().optional() }).optional()).query(async ({ input }) => {
       const news = await getFantasyProsNews(input?.limit ?? 100, input?.fpid);
       if (input?.fpid) return news;
-      const rankGroups = await Promise.all(["QB", "RB", "WR", "TE", "K"].map((position) => getFantasyProsRanks(position, 1)));
+      const enrichWeek = getLineupDefaultWeek() || 1;
+      const rankGroups = await Promise.all(["QB", "RB", "WR", "TE", "K"].map((position) => getFantasyProsRanks(position, enrichWeek)));
       const current = attachFantasyProsPlayerNames(news, rankGroups.flat());
       const [archived] = await Promise.all([
         getArchivedFantasyProsNews(),
@@ -92355,12 +92366,13 @@ var appRouter = router({
     })).query(async ({ input }) => {
       const rosterKeys = new Set(input.players.map((player) => normalizePlayerKey(player.name)));
       const positions = Array.from(new Set(input.players.map((player) => player.pos).filter((pos) => ["QB", "RB", "WR", "TE", "K", "DST"].includes(pos ?? ""))));
+      const enrichWeek = getLineupDefaultWeek() || 1;
       const [leagueNews, ...rankGroups] = await Promise.all([
         // Full cached feed, not the top-100 league-wide slice: a rostered
         // player's item must not be dropped just because it sits below the
         // 100 newest items league-wide before the roster filter runs.
         getAllCachedFantasyProsNews(),
-        ...positions.map((position) => getFantasyProsRanks(position, 1))
+        ...positions.map((position) => getFantasyProsRanks(position, enrichWeek))
       ]);
       const current = attachFantasyProsPlayerNames(leagueNews, rankGroups.flat());
       const myRosterIds = new Set(
@@ -92391,9 +92403,10 @@ async function createContext(opts) {
 // server/scheduledFantasyProsArchive.ts
 async function collectFantasyProsArchive(_req, res) {
   try {
+    const enrichWeek = getLineupDefaultWeek() || 1;
     const [news, ...rankGroups] = await Promise.all([
       getFantasyProsNews(100),
-      ...["QB", "RB", "WR", "TE", "K"].map((position) => getFantasyProsRanks(position, 1))
+      ...["QB", "RB", "WR", "TE", "K"].map((position) => getFantasyProsRanks(position, enrichWeek))
     ]);
     const result = await archiveFantasyProsNews(attachFantasyProsPlayerNames(news, rankGroups.flat()));
     res.json({ ok: true, fetched: news.length, ...result });

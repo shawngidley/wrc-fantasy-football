@@ -2450,7 +2450,14 @@ export const appRouter = router({
       .query(async ({ input }) => {
         const news = await getFantasyProsNews(input?.limit ?? 100, input?.fpid);
         if (input?.fpid) return news;
-        const rankGroups = await Promise.all(["QB", "RB", "WR", "TE", "K"].map(position => getFantasyProsRanks(position, 1)));
+        // Raw news items carry a player_id but no name or position; those are
+        // attached from the ranks by id. Use the CURRENT week's ranks, which
+        // the fetcher keeps fresh -- the old hardcoded week 1 stopped being
+        // refreshed once the season moved on, so enrichment silently returned
+        // nothing, which both blanked current-feed matching and froze the
+        // archive (only position-tagged items are eligible to archive).
+        const enrichWeek = getLineupDefaultWeek() || 1;
+        const rankGroups = await Promise.all(["QB", "RB", "WR", "TE", "K"].map(position => getFantasyProsRanks(position, enrichWeek)));
         const current = attachFantasyProsPlayerNames(news, rankGroups.flat());
         const [archived] = await Promise.all([
           getArchivedFantasyProsNews(),
@@ -2466,12 +2473,18 @@ export const appRouter = router({
       .query(async ({ input }) => {
         const rosterKeys = new Set(input.players.map(player => normalizePlayerKey(player.name)));
         const positions = Array.from(new Set(input.players.map(player => player.pos).filter((pos): pos is "QB" | "RB" | "WR" | "TE" | "K" | "DST" => ["QB", "RB", "WR", "TE", "K", "DST"].includes(pos ?? ""))));
+        // Enrich from the CURRENT week's ranks (fresh), not a hardcoded week 1
+        // that stops being refreshed once the season moves on. Stale/absent
+        // week-1 ranks meant news items -- which carry only a player_id, no
+        // name -- never got a name to match the roster on, so this panel fell
+        // back to the (also-frozen) archive alone.
+        const enrichWeek = getLineupDefaultWeek() || 1;
         const [leagueNews, ...rankGroups] = await Promise.all([
           // Full cached feed, not the top-100 league-wide slice: a rostered
           // player's item must not be dropped just because it sits below the
           // 100 newest items league-wide before the roster filter runs.
           getAllCachedFantasyProsNews(),
-          ...positions.map(position => getFantasyProsRanks(position, 1)),
+          ...positions.map(position => getFantasyProsRanks(position, enrichWeek)),
         ]);
         // Both calls above are now pure fantasypros_cache reads (see
         // fantasypros.ts) -- this procedure makes zero calls to

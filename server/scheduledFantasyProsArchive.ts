@@ -2,12 +2,18 @@ import type { Request, Response } from "express";
 import { getFantasyProsNews, getFantasyProsRanks } from "./fantasypros";
 import { attachFantasyProsPlayerNames } from "./fantasyprosNewsNames";
 import { archiveFantasyProsNews } from "./fantasyprosArchive";
+import { getLineupDefaultWeek } from "../client/src/lib/scheduleData2026";
 
 export async function collectFantasyProsArchive(_req: Request, res: Response): Promise<void> {
   try {
+    // Enrich from the current week's ranks (kept fresh by the fetcher), not a
+    // hardcoded week 1 that goes stale. Only position-tagged items are eligible
+    // to archive, and that tag comes from this enrichment, so a stale rank week
+    // silently froze the whole rolling archive.
+    const enrichWeek = getLineupDefaultWeek() || 1;
     const [news, ...rankGroups] = await Promise.all([
       getFantasyProsNews(100),
-      ...["QB", "RB", "WR", "TE", "K"].map(position => getFantasyProsRanks(position, 1)),
+      ...["QB", "RB", "WR", "TE", "K"].map(position => getFantasyProsRanks(position, enrichWeek)),
     ]);
     const result = await archiveFantasyProsNews(attachFantasyProsPlayerNames(news, rankGroups.flat()));
     res.json({ ok: true, fetched: news.length, ...result });
