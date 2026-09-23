@@ -15,9 +15,23 @@ import Navigation from "@/components/Navigation";
 import DraftSubNav from "@/components/DraftSubNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { trpc } from "@/lib/trpc";
-import { ArrowRightLeft } from "lucide-react";
+import { OWNER_TO_TEAM_ID } from "@/lib/draftData2026";
 
 const TOTAL_ROUNDS = 18;
+
+// Owner chip colors, copied from the 2026 Draft pick list so the 2027 list
+// reads the same. Keyed by owner; mapped from team_id via OWNER_BY_TEAM_ID.
+const OWNER_COLORS: Record<string, string> = {
+  "Greg": "oklch(0.55 0.18 260)", "Shawn": "oklch(0.52 0.18 25)",
+  "Bill": "oklch(0.50 0.16 150)", "David R.": "oklch(0.52 0.18 85)",
+  "Jason": "oklch(0.50 0.16 310)", "Scott N.": "oklch(0.52 0.16 195)",
+  "David S.": "oklch(0.50 0.18 45)", "Jonas": "oklch(0.50 0.18 170)",
+  "Jamie": "oklch(0.52 0.16 280)", "Keith": "oklch(0.50 0.16 10)",
+  "Scott M.": "oklch(0.52 0.16 230)", "Dan": "oklch(0.50 0.16 130)",
+};
+const OWNER_BY_TEAM_ID: Record<string, string> = Object.fromEntries(
+  Object.entries(OWNER_TO_TEAM_ID).map(([owner, teamId]) => [teamId, owner]),
+);
 
 export default function DraftOrder2027() {
   const { franchise } = useAuth();
@@ -79,7 +93,6 @@ export default function DraftOrder2027() {
   }
 
   const gridCols = `52px repeat(${totalTeams}, minmax(78px, 1fr))`;
-  const hasTrades = tradedPicks.length > 0;
 
   const viewToggle = (
     <div style={{ display: "inline-flex", background: "rgba(255,255,255,0.08)", borderRadius: 8, padding: 3, marginBottom: "0.85rem" }}>
@@ -100,23 +113,61 @@ export default function DraftOrder2027() {
     </div>
   );
 
-  // Pick List: the first-round draft order (the order itself) as a clean list.
-  // Round-specific traded picks are called out in the summary below, in both views.
+  // Pick List: modeled on the 2026 Draft pick list -- a scrollable dark list
+  // with a header per round and, for each pick, the overall number, the
+  // round.pick, and the owning team as a colored chip (with the original team
+  // noted when the pick was traded). All 18 rounds, snaked on even rounds.
   const pickListView = (
-    <div className="wrc-card" style={{ overflow: "hidden" }}>
-      <div className="wrc-card-gold-stripe" />
-      <div style={{ padding: "0.25rem 0" }}>
-        {order.map((team, i) => (
-          <div key={team.teamId} style={{ display: "flex", alignItems: "center", gap: "0.85rem", padding: "0.6rem 1rem", borderTop: i > 0 ? "1px solid oklch(0.93 0.01 150)" : "none" }}>
-            <div style={{ width: 34, textAlign: "center" as const, fontFamily: "Barlow Condensed, sans-serif", fontWeight: 900, fontSize: "1.15rem", color: "oklch(0.55 0.16 85)" }}>{i + 1}</div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.98rem", color: "oklch(0.2 0.06 150)" }}>{team.teamName}</div>
-              <div style={{ fontSize: "0.74rem", color: "oklch(0.5 0.04 150)" }}>{team.wins}-{team.losses}{team.ties ? `-${team.ties}` : ""} record</div>
+    <div style={{ maxHeight: 720, overflowY: "auto", border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, marginBottom: "1.5rem", background: "rgba(8,10,16,0.88)" }}>
+      {Array.from({ length: TOTAL_ROUNDS }, (_, r) => r + 1).flatMap(round => [
+        <div
+          key={`round-header-${round}`}
+          style={{
+            padding: "0.5rem 0.9rem", background: "oklch(0.18 0.06 150)",
+            borderBottom: "2px solid oklch(0.78 0.15 85 / 0.45)",
+            borderTop: round > 1 ? "1px solid rgba(255,255,255,0.1)" : "none",
+            fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.92rem",
+            letterSpacing: "0.08em", textTransform: "uppercase" as const, color: "oklch(0.78 0.15 85)",
+          }}
+        >
+          Round {round}
+        </div>,
+        ...Array.from({ length: totalTeams }, (_, physicalPick) => {
+          const pickInRound = physicalPick + 1;
+          const overall = (round - 1) * totalTeams + pickInRound;
+          // Snake: worst-first order in odd rounds, reversed in even rounds.
+          const teamIndex = round % 2 === 1 ? physicalPick : (totalTeams - 1 - physicalPick);
+          const team = order[teamIndex];
+          const currentOwnerId = overrides.get(round)?.get(team.teamId) ?? team.teamId;
+          const isTraded = currentOwnerId !== team.teamId;
+          const currentOwnerName = teamNameById.get(currentOwnerId) ?? currentOwnerId;
+          const chipColor = OWNER_COLORS[OWNER_BY_TEAM_ID[currentOwnerId]];
+          return (
+            <div
+              key={overall}
+              style={{
+                display: "flex", alignItems: "center", gap: "0.7rem", padding: "0.6rem 0.9rem",
+                borderBottom: "1px solid rgba(255,255,255,0.06)",
+                background: overall % 2 === 0 ? "rgba(255,255,255,0.05)" : "transparent",
+              }}
+            >
+              <span style={{ width: 46, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", fontWeight: 700, color: "rgba(255,255,255,0.4)" }}>#{overall}</span>
+              <span style={{ width: 50, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", fontWeight: 700, color: "rgba(255,255,255,0.55)" }}>{round}.{String(pickInRound).padStart(2, "0")}</span>
+              <span
+                title={isTraded ? `Originally ${team.teamName}'s pick` : undefined}
+                style={{
+                  flex: 1, minWidth: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.86rem", fontWeight: 700,
+                  color: chipColor ? "white" : "rgba(255,255,255,0.65)",
+                  background: chipColor ?? "transparent", borderRadius: 4, padding: "3px 7px",
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                }}
+              >
+                {currentOwnerName}{isTraded ? ` (${team.teamName})` : ""}
+              </span>
             </div>
-            <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.42 0.12 150)" }}>Pick 1.{String(i + 1).padStart(2, "0")}</div>
-          </div>
-        ))}
-      </div>
+          );
+        }),
+      ])}
     </div>
   );
 
@@ -189,22 +240,6 @@ export default function DraftOrder2027() {
         </div>
       </div>
       </>
-      )}
-
-      {/* Traded-pick summary, so the changes read clearly without hunting the grid */}
-      {hasTrades && (
-        <div className="wrc-card" style={{ marginTop: "1rem", padding: "1rem 1.25rem" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", marginBottom: "0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.9rem", color: "oklch(0.28 0.08 150)" }}>
-            <ArrowRightLeft size={16} color="oklch(0.55 0.16 85)" /> Traded 2027 Picks
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.35rem" }}>
-            {[...tradedPicks].sort((a, b) => a.round - b.round).map((pick, i) => (
-              <div key={i} style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", color: "oklch(0.3 0.06 150)" }}>
-                <strong>Round {pick.round}</strong>: {teamNameById.get(pick.originalTeamId) ?? pick.originalTeamId} → {teamNameById.get(pick.currentOwnerTeamId) ?? pick.currentOwnerTeamId}
-              </div>
-            ))}
-          </div>
-        </div>
       )}
     </>,
   );
