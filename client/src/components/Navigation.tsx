@@ -47,6 +47,7 @@ const navLinks: NavLink[] = [
 
 // ── Mobile Nav List with expandable Draft group ───────────────────────────────
 const DRAFT_SUB_ITEMS = [
+  { label: "2027 Draft Order", path: "/2027-draft-order" },
   { label: "Draft Order", path: "/draft" },
   { label: "Draft Lottery", path: "/draft-lottery" },
   { label: "Draft Players", path: "/draft?tab=players" },

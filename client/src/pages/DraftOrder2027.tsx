@@ -10,7 +10,7 @@
  * Read-only: no draft is happening for 2027 yet, so there's no clock, no
  * lottery, and no pick entry -- just the order as it stands right now.
  */
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import Navigation from "@/components/Navigation";
 import DraftSubNav from "@/components/DraftSubNav";
 import { useAuth } from "@/contexts/AuthContext";
@@ -43,6 +43,9 @@ export default function DraftOrder2027() {
     }
     return map;
   }, [tradedPicks]);
+
+  // Pick List is the default, readable view; Grid is the full 18-round snake.
+  const [view, setView] = useState<"list" | "grid">("list");
 
   const shell = (children: React.ReactNode) => (
     <div className="bg-crowd bg-overlay" style={{ minHeight: "100vh" }}>
@@ -78,8 +81,50 @@ export default function DraftOrder2027() {
   const gridCols = `52px repeat(${totalTeams}, minmax(78px, 1fr))`;
   const hasTrades = tradedPicks.length > 0;
 
+  const viewToggle = (
+    <div style={{ display: "inline-flex", background: "rgba(255,255,255,0.08)", borderRadius: 8, padding: 3, marginBottom: "0.85rem" }}>
+      {(["list", "grid"] as const).map(v => (
+        <button
+          key={v}
+          onClick={() => setView(v)}
+          style={{
+            border: "none", cursor: "pointer", borderRadius: 6, padding: "0.4rem 0.95rem",
+            fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.78rem", letterSpacing: "0.05em", textTransform: "uppercase" as const,
+            background: view === v ? "oklch(0.72 0.15 85)" : "transparent",
+            color: view === v ? "oklch(0.15 0.02 150)" : "rgba(255,255,255,0.7)",
+          }}
+        >
+          {v === "list" ? "Pick List" : "Grid"}
+        </button>
+      ))}
+    </div>
+  );
+
+  // Pick List: the first-round draft order (the order itself) as a clean list.
+  // Round-specific traded picks are called out in the summary below, in both views.
+  const pickListView = (
+    <div className="wrc-card" style={{ overflow: "hidden" }}>
+      <div className="wrc-card-gold-stripe" />
+      <div style={{ padding: "0.25rem 0" }}>
+        {order.map((team, i) => (
+          <div key={team.teamId} style={{ display: "flex", alignItems: "center", gap: "0.85rem", padding: "0.6rem 1rem", borderTop: i > 0 ? "1px solid oklch(0.93 0.01 150)" : "none" }}>
+            <div style={{ width: 34, textAlign: "center" as const, fontFamily: "Barlow Condensed, sans-serif", fontWeight: 900, fontSize: "1.15rem", color: "oklch(0.55 0.16 85)" }}>{i + 1}</div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.98rem", color: "oklch(0.2 0.06 150)" }}>{team.teamName}</div>
+              <div style={{ fontSize: "0.74rem", color: "oklch(0.5 0.04 150)" }}>{team.wins}-{team.losses}{team.ties ? `-${team.ties}` : ""} record</div>
+            </div>
+            <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.42 0.12 150)" }}>Pick 1.{String(i + 1).padStart(2, "0")}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   return shell(
     <>
+      {viewToggle}
+      {view === "list" ? pickListView : (
+      <>
       <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap", marginBottom: "0.75rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", color: "rgba(255,255,255,0.75)" }}>
         <span style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
           <span style={{ width: 14, height: 14, borderRadius: 3, border: "1.5px solid oklch(0.78 0.15 85)", background: "oklch(0.28 0.09 85 / 0.5)", display: "inline-block" }} />
@@ -143,6 +188,8 @@ export default function DraftOrder2027() {
           })}
         </div>
       </div>
+      </>
+      )}
 
       {/* Traded-pick summary, so the changes read clearly without hunting the grid */}
       {hasTrades && (
