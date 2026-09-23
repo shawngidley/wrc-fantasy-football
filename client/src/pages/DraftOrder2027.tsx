@@ -15,12 +15,12 @@ import Navigation from "@/components/Navigation";
 import DraftSubNav from "@/components/DraftSubNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { trpc } from "@/lib/trpc";
-import { OWNER_TO_TEAM_ID } from "@/lib/draftData2026";
+import { OWNER_TO_TEAM } from "@/lib/scheduleData2026";
 
 const TOTAL_ROUNDS = 18;
 
 // Owner chip colors, copied from the 2026 Draft pick list so the 2027 list
-// reads the same. Keyed by owner; mapped from team_id via OWNER_BY_TEAM_ID.
+// reads the same. Keyed by owner first name.
 const OWNER_COLORS: Record<string, string> = {
   "Greg": "oklch(0.55 0.18 260)", "Shawn": "oklch(0.52 0.18 25)",
   "Bill": "oklch(0.50 0.16 150)", "David R.": "oklch(0.52 0.18 85)",
@@ -29,8 +29,11 @@ const OWNER_COLORS: Record<string, string> = {
   "Jamie": "oklch(0.52 0.16 280)", "Keith": "oklch(0.50 0.16 10)",
   "Scott M.": "oklch(0.52 0.16 230)", "Dan": "oklch(0.50 0.16 130)",
 };
-const OWNER_BY_TEAM_ID: Record<string, string> = Object.fromEntries(
-  Object.entries(OWNER_TO_TEAM_ID).map(([owner, teamId]) => [teamId, owner]),
+// Franchise name -> owner first name, so the chip can show the owner (as the
+// 2026 list does) and colour reliably. team_standings' team_id doesn't always
+// line up with the draft data's ids, so map by the franchise name we display.
+const OWNER_BY_TEAM_NAME: Record<string, string> = Object.fromEntries(
+  Object.entries(OWNER_TO_TEAM).map(([owner, franchise]) => [franchise, owner]),
 );
 
 export default function DraftOrder2027() {
@@ -140,8 +143,10 @@ export default function DraftOrder2027() {
           const team = order[teamIndex];
           const currentOwnerId = overrides.get(round)?.get(team.teamId) ?? team.teamId;
           const isTraded = currentOwnerId !== team.teamId;
-          const currentOwnerName = teamNameById.get(currentOwnerId) ?? currentOwnerId;
-          const chipColor = OWNER_COLORS[OWNER_BY_TEAM_ID[currentOwnerId]];
+          const franchise = teamNameById.get(currentOwnerId) ?? currentOwnerId;
+          const owner = OWNER_BY_TEAM_NAME[franchise] ?? franchise;
+          const originalOwner = OWNER_BY_TEAM_NAME[team.teamName] ?? team.teamName;
+          const chipColor = OWNER_COLORS[owner];
           return (
             <div
               key={overall}
@@ -153,16 +158,21 @@ export default function DraftOrder2027() {
             >
               <span style={{ width: 46, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", fontWeight: 700, color: "rgba(255,255,255,0.4)" }}>#{overall}</span>
               <span style={{ width: 50, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.85rem", fontWeight: 700, color: "rgba(255,255,255,0.55)" }}>{round}.{String(pickInRound).padStart(2, "0")}</span>
+              {/* Compact fixed-width owner chip, colored by owner -- the 2026 look. */}
               <span
-                title={isTraded ? `Originally ${team.teamName}'s pick` : undefined}
+                title={isTraded ? `Originally ${originalOwner}'s pick` : undefined}
                 style={{
-                  flex: 1, minWidth: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.86rem", fontWeight: 700,
-                  color: chipColor ? "white" : "rgba(255,255,255,0.65)",
+                  width: 150, flexShrink: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.86rem", fontWeight: 700,
+                  color: chipColor ? "white" : "rgba(255,255,255,0.6)",
                   background: chipColor ?? "transparent", borderRadius: 4, padding: "3px 7px",
                   overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                 }}
               >
-                {currentOwnerName}{isTraded ? ` (${team.teamName})` : ""}
+                {owner}{isTraded ? ` (${originalOwner})` : ""}
+              </span>
+              {/* Franchise name fills the rest, where the 2026 list shows the drafted player. */}
+              <span style={{ flex: 1, minWidth: 0, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.9rem", fontWeight: 700, color: "white", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {franchise}
               </span>
             </div>
           );
