@@ -17,6 +17,7 @@ import DraftHub from "./pages/DraftHub";
 import DraftReveal from "./pages/DraftReveal";
 import DraftPresentation from "./pages/DraftPresentation";
 import DraftLottery from "./pages/DraftLottery";
+import DraftOrder2027 from "./pages/DraftOrder2027";
 import DraftRecap from "./pages/DraftRecap";
 import Rundown from "./pages/Rundown";
 import PlayerNews from "./pages/PlayerNews";
@@ -63,6 +64,7 @@ function Router() {
       <Route path="/draft-reveal">{() => <ProtectedRoute component={DraftReveal} />}</Route>
       <Route path="/draft-presentation">{() => <ProtectedRoute component={DraftPresentation} />}</Route>
       <Route path="/draft-lottery" component={DraftLottery} />
+      <Route path="/2027-draft-order" component={DraftOrder2027} />
       <Route path="/draft-recap" component={DraftRecap} />
       <Route path="/protections">{() => { window.location.replace("/draft?tab=protections"); return null; }}</Route>
       <Route path="/rundown" component={Rundown} />

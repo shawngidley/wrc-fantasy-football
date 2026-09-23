@@ -278,6 +278,34 @@ export const appRouter = router({
       const revealComplete = data.reveal_status === "running" && revealStartedAt !== null && Date.now() - new Date(revealStartedAt).getTime() >= 6 * 45_000;
       return { status: data.status as "pending" | "drawn", eligibleOwners: data.eligible_owners as string[], resultOwners: data.result_owners as string[] | null, appliedResultOwners: revealComplete ? data.result_owners as string[] : null, drawnAt: data.drawn_at as string | null, revealStatus: data.reveal_status as "pending" | "running", revealStartedAt };
     }),
+    // The 2027 draft order is dynamic: seeded by the current standings (worst
+    // record picks first, ties broken by fewer points-for), then snaked over 18
+    // rounds on the client. Returns the live team order plus the 2027 picks
+    // that have actually changed hands, so the grid can mark them.
+    draftOrder2027: publicProcedure.query(async () => {
+      const [{ data: standings, error: standingsError }, { data: picks, error: picksError }] = await Promise.all([
+        supabaseAdmin.from("team_standings").select("team_id, team_name, wins, losses, ties, pts_for"),
+        supabaseAdmin.from("traded_picks").select("round, original_team_id, current_owner_team_id").eq("year", 2027),
+      ]);
+      if (standingsError || !standings) throw new Error("Unable to load standings for the 2027 draft order.");
+      if (picksError) throw new Error("Unable to load traded 2027 picks.");
+      const order = [...standings]
+        .sort((a, b) => (Number(a.wins ?? 0) - Number(b.wins ?? 0)) || (Number(a.pts_for ?? 0) - Number(b.pts_for ?? 0)))
+        .map(s => ({
+          teamId: s.team_id as string,
+          teamName: (s.team_name as string) ?? (s.team_id as string),
+          wins: Number(s.wins ?? 0),
+          losses: Number(s.losses ?? 0),
+          ties: Number(s.ties ?? 0),
+          pointsFor: Number(s.pts_for ?? 0),
+        }));
+      // Only the picks whose current owner differs from their original owner are
+      // overrides worth showing; everything else follows the standings slot.
+      const tradedPicks = (picks ?? [])
+        .filter(p => p.current_owner_team_id && p.original_team_id && p.current_owner_team_id !== p.original_team_id)
+        .map(p => ({ round: Number(p.round), originalTeamId: p.original_team_id as string, currentOwnerTeamId: p.current_owner_team_id as string }));
+      return { order, tradedPicks };
+    }),
     commissionerRunDraftLottery: commissionerProcedure.mutation(async ({ ctx }) => {
       const [{ data: lottery, error: lotteryError }, { data: draftState, error: draftError }] = await Promise.all([
         supabaseAdmin.from("draft_lottery").select("status").eq("id", 1).single(),

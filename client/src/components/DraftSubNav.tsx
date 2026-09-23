@@ -7,14 +7,19 @@
  */
 import { useLocation } from "wouter";
 
-export type DraftSubNavTab = "board" | "players" | "protections" | "lottery";
+export type DraftSubNavTab = "board" | "players" | "protections" | "lottery" | "order2027";
 
 const TABS: { id: DraftSubNavTab; label: string; path: string }[] = [
   { id: "board", label: "Draft Order", path: "/draft?tab=board" },
   { id: "players", label: "Draft Players", path: "/draft?tab=players" },
   { id: "protections", label: "Protections", path: "/draft?tab=protections" },
   { id: "lottery", label: "Draft Lottery", path: "/draft-lottery" },
+  { id: "order2027", label: "2027 Draft Order", path: "/2027-draft-order" },
 ];
+
+// Tabs that are their own route (a full navigation), not an in-place tab
+// switch inside DraftHub.
+const FULL_NAV_TABS = new Set<DraftSubNavTab>(["lottery", "order2027"]);
 
 interface DraftSubNavProps {
   active: DraftSubNavTab;
@@ -41,8 +46,8 @@ export default function DraftSubNav({ active, onSelectLocalTab }: DraftSubNavPro
           <button
             key={tab.id}
             onClick={() => {
-              if (tab.id !== "lottery" && onSelectLocalTab) {
-                onSelectLocalTab(tab.id);
+              if (!FULL_NAV_TABS.has(tab.id) && onSelectLocalTab) {
+                onSelectLocalTab(tab.id as "board" | "players" | "protections");
               } else {
                 navigate(tab.path);
               }
