@@ -740,8 +740,14 @@ export default function Lineup() {
   }, [byeWeeksByTeam, rostersByTeam, viewTeamName, draftPlayerPool]);
 
   const { starters: initialStarters, bench: initialBench } = useMemo(
-    () => liveRoster ?? buildRealRoster(viewTeamName ?? undefined),
-    [liveRoster, viewTeamName]
+    // While the live roster is still loading, start EMPTY rather than seeding
+    // from the static build-time roster (buildRealRoster / wrcData). That seed
+    // is stale -- the players who were on the team when the site was first
+    // built -- and painting it for a frame before the Supabase roster arrives
+    // is exactly the "flash of old players" on load. The static fallback still
+    // applies once loading finishes with no live roster (see the seed effect).
+    () => liveRoster ?? (draftLoading ? { starters: [], bench: [] } : buildRealRoster(viewTeamName ?? undefined)),
+    [liveRoster, viewTeamName, draftLoading]
   );
 
   const [starters, setStarters] = useState<Player[]>(initialStarters);
@@ -827,7 +833,18 @@ export default function Lineup() {
   // Combined effect: re-seed roster and apply saved lineup order.
   // Runs whenever liveRoster OR savedLineup changes so both load orders are handled.
   useEffect(() => {
-    if (!liveRoster) return; // wait for roster to load
+    if (!liveRoster) {
+      // Loading finished but Supabase returned no roster for this team: fall
+      // back to the static build-time seed so the lineup isn't blank. During
+      // loading (draftLoading) we leave it empty instead, so the stale seed
+      // never flashes before the real roster arrives.
+      if (!draftLoading) {
+        const fallback = buildRealRoster(viewTeamName ?? undefined);
+        setStarters(withProj(fallback.starters));
+        setBench(withProj(fallback.bench));
+      }
+      return;
+    }
     const newStarters = withProj(liveRoster.starters);
     const newBench = withProj(liveRoster.bench);
     const allPlayers = [...newStarters, ...newBench];
@@ -861,7 +878,7 @@ export default function Lineup() {
       setBench(newBench);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [liveRoster, savedLineup]);
+  }, [liveRoster, savedLineup, draftLoading, viewTeamName]);
 
   // Inject projected points once projections load (or when they update)
   useEffect(() => {
