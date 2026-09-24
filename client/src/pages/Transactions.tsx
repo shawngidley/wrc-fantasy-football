@@ -4,11 +4,11 @@
  * Owners can submit waiver claims (ADD + DROP) directly from this page.
  * Commissioner can log any transaction on behalf of any team.
  */
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
-import { ArrowUpCircle, ArrowDownCircle, ArrowLeftRight, Plus, X, RefreshCw, Search } from "lucide-react";
+import { ArrowUpCircle, ArrowDownCircle, ArrowLeftRight, Plus, X, RefreshCw, Search, ChevronDown, ChevronRight } from "lucide-react";
 import { type DraftUniversePlayer } from "@shared/draftPlayerUniverse";
 import { useDraftPlayerUniverse } from "@/hooks/useDraftPlayerUniverse";
 import { toast } from "sonner";
@@ -46,6 +46,26 @@ const TYPE_BG: Record<string, string> = {
 function fmt(iso: string) {
   const d = new Date(iso);
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+// One row in the expanded bid board: the winner (highlighted), or a losing /
+// passed-over bid. "PASSED" is a conditional-group bid skipped because that
+// owner's group already won its limit; "LOST" was simply outbid.
+function BidLine({ team, amount, label, won, dropName }: { team: string; amount: number; label: string; won?: boolean; dropName?: string | null }) {
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontFamily: "Barlow Condensed, sans-serif" }}>
+      <span style={{
+        fontSize: "0.62rem", fontWeight: 800, letterSpacing: "0.04em", borderRadius: 4, padding: "1px 6px", flexShrink: 0, width: 52, textAlign: "center",
+        color: won ? "oklch(0.25 0.09 150)" : label === "PASSED" ? "oklch(0.42 0.02 260)" : "oklch(0.45 0.14 25)",
+        background: won ? "oklch(0.88 0.12 150)" : label === "PASSED" ? "oklch(0.9 0.02 260)" : "oklch(0.94 0.05 25)",
+      }}>{label}</span>
+      <span style={{ fontSize: "0.86rem", fontWeight: won ? 800 : 600, color: "oklch(0.25 0.04 150)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        {team}
+        {dropName && <span style={{ fontSize: "0.72rem", fontWeight: 500, color: "oklch(0.55 0.04 150)" }}>  ·  would drop {dropName}</span>}
+      </span>
+      <span style={{ fontSize: "0.9rem", fontWeight: 800, color: won ? "oklch(0.3 0.12 150)" : "oklch(0.4 0.04 150)", flexShrink: 0 }}>${amount}</span>
+    </div>
+  );
 }
 
 // ── Add/Drop Modal ────────────────────────────────────────────────────────────
@@ -228,7 +248,19 @@ export default function Transactions() {
   const [showModal, setShowModal] = useState(false);
   const [filterType, setFilterType] = useState<"ALL" | "ADD" | "DROP" | "TRADE">("ALL");
   const [filterTeam, setFilterTeam] = useState("ALL");
+  const [expandedMoveId, setExpandedMoveId] = useState<number | null>(null);
   const manualTransactionMutation = trpc.league.submitManualTransaction.useMutation();
+
+  // Full-transparency waiver results: the losing bids behind each contested
+  // FAAB win. Keyed by player + winning team + amount so an ADD row can find
+  // its own award without a shared id. Only resolved awards come back, so a
+  // pending blind auction is never exposed here.
+  const faabResultsQuery = trpc.league.faabBidResults.useQuery({ season: 2026 }, { staleTime: 60_000 });
+  const resultsByKey = new Map((faabResultsQuery.data ?? []).map(r => [r.matchKey, r]));
+  const resultForMove = (m: RosterMove) =>
+    m.move_type === "ADD" && m.faab_spent != null
+      ? resultsByKey.get(`${m.player_name.toLowerCase().trim()}|${m.team_name.toLowerCase().trim()}|${m.faab_spent}`)
+      : undefined;
 
   const loadMoves = async () => {
     const { data } = await supabase
@@ -358,8 +390,16 @@ export default function Transactions() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map(m => (
-                    <tr key={m.id} className="wrc-row-hover">
+                  {filtered.map(m => {
+                    const result = resultForMove(m);
+                    const isExpanded = expandedMoveId === m.id;
+                    return (
+                    <Fragment key={m.id}>
+                    <tr
+                      className="wrc-row-hover"
+                      onClick={result ? () => setExpandedMoveId(isExpanded ? null : m.id) : undefined}
+                      style={{ cursor: result ? "pointer" : "default" }}
+                    >
                       <td>
                         <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
                           {TYPE_ICONS[m.move_type]}
@@ -374,6 +414,12 @@ export default function Transactions() {
                       <td style={{ fontWeight: 500 }}>
                         <div>{m.player_name}</div>
                         {m.note && <div style={{ fontSize: "0.72rem", color: "oklch(0.55 0.04 150)", marginTop: 2 }}>{m.note}</div>}
+                        {result && (
+                          <div style={{ display: "flex", alignItems: "center", gap: "0.2rem", marginTop: 3, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, color: "oklch(0.5 0.13 260)" }}>
+                            {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                            {isExpanded ? "Hide bids" : `Beat ${result.others.length} other ${result.others.length === 1 ? "bid" : "bids"}`}
+                          </div>
+                        )}
                       </td>
                       <td>
                         <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "oklch(0.35 0.06 150)", background: "oklch(0.92 0.01 150)", borderRadius: 4, padding: "1px 6px" }}>
@@ -385,7 +431,25 @@ export default function Transactions() {
                       </td>
                       <td style={{ color: "oklch(0.55 0.04 150)", fontSize: "0.82rem" }}>{fmt(m.created_at)}</td>
                     </tr>
-                  ))}
+                    {isExpanded && result && (
+                      <tr>
+                        <td colSpan={6} style={{ background: "oklch(0.97 0.02 260)", padding: "0.6rem 1rem 0.85rem", borderBottom: "1px solid oklch(0.9 0.02 260)" }}>
+                          <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "oklch(0.45 0.1 260)", marginBottom: "0.4rem" }}>
+                            Bidding for {result.playerName}
+                          </div>
+                          {/* Winner first, then the losing bids, ranked high to low. */}
+                          <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                            <BidLine team={result.winnerTeamName} amount={result.winnerAmount} label="WON" won />
+                            {result.others.map((o, i) => (
+                              <BidLine key={`${o.teamName}-${i}`} team={o.teamName} amount={o.amount} label={o.status === "skipped" ? "PASSED" : "LOST"} dropName={o.dropPlayerName} />
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

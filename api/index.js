@@ -91531,6 +91531,31 @@ var appRouter = router({
       if (error46) throw new Error("Unable to load FAAB bids");
       return data ?? [];
     }),
+    faabBidResults: publicProcedure.input(external_exports.object({ season: external_exports.number().int().min(2020).max(2100) })).query(async ({ input }) => {
+      const { data, error: error46 } = await supabaseAdmin.from("faab_bids").select("player_id, player_name, team_name, bid_amount, drop_player_name, status, resolved_at, week").eq("season", input.season).in("status", ["won", "lost", "skipped"]).not("resolved_at", "is", null).order("bid_amount", { ascending: false });
+      if (error46) throw new Error("Unable to load FAAB results");
+      const groups = /* @__PURE__ */ new Map();
+      for (const row of data ?? []) {
+        const groupKey = `${row.player_id}|${row.resolved_at}`;
+        let group = groups.get(groupKey);
+        if (!group) {
+          group = { playerName: row.player_name, week: row.week ?? null, winnerTeamName: "", winnerAmount: 0, others: [] };
+          groups.set(groupKey, group);
+        }
+        if (row.status === "won") {
+          group.winnerTeamName = row.team_name;
+          group.winnerAmount = Number(row.bid_amount);
+        } else group.others.push({ teamName: row.team_name, amount: Number(row.bid_amount), status: row.status, dropPlayerName: row.drop_player_name ?? null });
+      }
+      return Array.from(groups.values()).filter((group) => group.winnerTeamName && group.others.length > 0).map((group) => ({
+        matchKey: `${group.playerName.toLowerCase().trim()}|${group.winnerTeamName.toLowerCase().trim()}|${group.winnerAmount}`,
+        playerName: group.playerName,
+        week: group.week,
+        winnerTeamName: group.winnerTeamName,
+        winnerAmount: group.winnerAmount,
+        others: group.others.sort((a, b) => b.amount - a.amount)
+      }));
+    }),
     awardFaabBid: commissionerProcedure.input(external_exports.object({ bidId: external_exports.string().min(1).max(128) })).mutation(async ({ input }) => {
       const { data: bid, error: bidError } = await supabaseAdmin.from("faab_bids").select("id, team_id, team_name, player_id, player_name, player_pos, player_nfl_team, bid_amount, drop_player_id, drop_player_name, status, week, season, group_id, group_max_wins").eq("id", input.bidId).single();
       if (bidError || !bid || bid.status !== "pending") throw new Error("This pending FAAB bid was not found.");

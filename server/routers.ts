@@ -1426,6 +1426,51 @@ export const appRouter = router({
         if (error) throw new Error("Unable to load FAAB bids");
         return data ?? [];
       }),
+    faabBidResults: publicProcedure
+      .input(z.object({ season: z.number().int().min(2020).max(2100) }))
+      .query(async ({ input }) => {
+        // Full-transparency waiver results for the Transactions page: for every
+        // resolved FAAB award, the winning bid plus every non-winning bid --
+        // lost, and conditional-group bids that were skipped. Only resolved
+        // bids are ever returned; pending bids are never exposed while a blind
+        // auction is still open. Cancelled bids (withdrawn or voided) are left
+        // out on purpose -- they weren't real losing attempts.
+        const { data, error } = await supabaseAdmin
+          .from("faab_bids")
+          .select("player_id, player_name, team_name, bid_amount, drop_player_name, status, resolved_at, week")
+          .eq("season", input.season)
+          .in("status", ["won", "lost", "skipped"])
+          .not("resolved_at", "is", null)
+          .order("bid_amount", { ascending: false });
+        if (error) throw new Error("Unable to load FAAB results");
+
+        // Group by the award event: same player, same resolution moment. One
+        // cron run resolves several players at the same resolved_at, so the
+        // player_id is what separates them.
+        type Group = { playerName: string; week: number | null; winnerTeamName: string; winnerAmount: number; others: Array<{ teamName: string; amount: number; status: string; dropPlayerName: string | null }> };
+        const groups = new Map<string, Group>();
+        for (const row of data ?? []) {
+          const groupKey = `${row.player_id}|${row.resolved_at}`;
+          let group = groups.get(groupKey);
+          if (!group) { group = { playerName: row.player_name, week: row.week ?? null, winnerTeamName: "", winnerAmount: 0, others: [] }; groups.set(groupKey, group); }
+          if (row.status === "won") { group.winnerTeamName = row.team_name; group.winnerAmount = Number(row.bid_amount); }
+          else group.others.push({ teamName: row.team_name, amount: Number(row.bid_amount), status: row.status, dropPlayerName: row.drop_player_name ?? null });
+        }
+        // Only award events that had a winner (map to a real ADD in the feed)
+        // and at least one non-winning bid (something to reveal) are useful.
+        // matchKey lets the client attach this to its ADD row without a shared
+        // timestamp: player + winning team + winning amount is effectively unique.
+        return Array.from(groups.values())
+          .filter(group => group.winnerTeamName && group.others.length > 0)
+          .map(group => ({
+            matchKey: `${group.playerName.toLowerCase().trim()}|${group.winnerTeamName.toLowerCase().trim()}|${group.winnerAmount}`,
+            playerName: group.playerName,
+            week: group.week,
+            winnerTeamName: group.winnerTeamName,
+            winnerAmount: group.winnerAmount,
+            others: group.others.sort((a, b) => b.amount - a.amount),
+          }));
+      }),
     awardFaabBid: commissionerProcedure
       .input(z.object({ bidId: z.string().min(1).max(128) }))
       .mutation(async ({ input }) => {
