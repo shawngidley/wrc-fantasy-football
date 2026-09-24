@@ -22,7 +22,7 @@ const primaryLinks: NavLink[] = [
   { label: "Schedule", path: "/schedule" },
   { label: "News", path: "/news" },
   { label: "Trades", path: "/trades" },
-  { label: "Draft", path: "/draft" },
+  { label: "Draft", path: "/2027-draft-order" },
   { label: "Draft Recap", path: "/draft-recap" },
   { label: "NFL Sites", path: "/nfl-sites" },
 ];

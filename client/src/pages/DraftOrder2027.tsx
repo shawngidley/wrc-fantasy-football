@@ -61,11 +61,12 @@ export default function DraftOrder2027() {
     return map;
   }, [tradedPicks]);
 
-  // Pick List is the default, readable view; Grid is the full 18-round snake.
+  // The pick list is the default, readable view; Grid toggles the full
+  // 18-round snake.
   const [view, setView] = useState<"list" | "grid">("list");
-  // Team Picks filter (Pick List only): null = default to the logged-in
-  // owner's team; "" = all teams; otherwise a specific franchise name.
-  const [teamFilter, setTeamFilter] = useState<string | null>(null);
+  // Team Picks filter (pick list only): "" = all teams (the default),
+  // otherwise a specific franchise name.
+  const [teamFilter, setTeamFilter] = useState<string>("");
 
   const shell = (children: React.ReactNode) => (
     <div className="bg-crowd bg-overlay" style={{ minHeight: "100vh" }}>
@@ -100,28 +101,12 @@ export default function DraftOrder2027() {
 
   const gridCols = `52px repeat(${totalTeams}, minmax(78px, 1fr))`;
 
-  // Default the filter to the logged-in owner's team; "" means all teams.
-  const effectiveTeam = teamFilter === null ? (franchise?.team_name ?? "") : teamFilter;
+  // "" means all teams (the default); otherwise the chosen franchise.
+  const effectiveTeam = teamFilter;
   const teamOptions = [...order].map(t => t.teamName).sort((a, b) => a.localeCompare(b));
 
   const controls = (
     <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap", marginBottom: "0.85rem" }}>
-      <div style={{ display: "inline-flex", background: "rgba(255,255,255,0.08)", borderRadius: 8, padding: 3 }}>
-        {(["list", "grid"] as const).map(v => (
-          <button
-            key={v}
-            onClick={() => setView(v)}
-            style={{
-              border: "none", cursor: "pointer", borderRadius: 6, padding: "0.4rem 0.95rem",
-              fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.78rem", letterSpacing: "0.05em", textTransform: "uppercase" as const,
-              background: view === v ? "oklch(0.72 0.15 85)" : "transparent",
-              color: view === v ? "oklch(0.15 0.02 150)" : "rgba(255,255,255,0.7)",
-            }}
-          >
-            {v === "list" ? "Pick List" : "Grid"}
-          </button>
-        ))}
-      </div>
       <label style={{ display: "inline-flex", alignItems: "center", gap: "0.45rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.72rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" as const, color: "rgba(255,255,255,0.7)" }}>
         Team Picks
         <select
@@ -133,6 +118,18 @@ export default function DraftOrder2027() {
           {teamOptions.map(name => <option key={name} value={name} style={{ color: "black" }}>{name}</option>)}
         </select>
       </label>
+      <button
+        onClick={() => setView(view === "grid" ? "list" : "grid")}
+        aria-pressed={view === "grid"}
+        style={{
+          border: "none", cursor: "pointer", borderRadius: 6, padding: "0.4rem 0.95rem",
+          fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.78rem", letterSpacing: "0.05em", textTransform: "uppercase" as const,
+          background: view === "grid" ? "oklch(0.72 0.15 85)" : "rgba(255,255,255,0.08)",
+          color: view === "grid" ? "oklch(0.15 0.02 150)" : "rgba(255,255,255,0.7)",
+        }}
+      >
+        Grid
+      </button>
     </div>
   );
 
