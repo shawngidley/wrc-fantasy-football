@@ -26,7 +26,7 @@ import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } 
 import { fetchPlayerByName } from "@/hooks/useTank01Player";
 import { getEspnHeadshotUrl } from "@/lib/playerHeadshot";
 import { normalizePlayerName } from "@shared/playerNameMatch";
-import { buildDefaultStarters } from "@/lib/defaultLineup";
+import { buildDefaultStarters, fillEmptyStarterSlots } from "@/lib/defaultLineup";
 import { useDraftPlayerUniverse } from "@/hooks/useDraftPlayerUniverse";
 import { groupKickerEventsForDisplay, getKickerEventsForPlayer, type KickerPlayEvent } from "@/lib/espnKickerEvents";
 
@@ -1153,6 +1153,13 @@ async function buildMatchupsFromLineups(
         for (const p of teamPlayers) {
           if (!used.has(p.id)) benchPlayers.push(p);
         }
+        // A carried-forward or partial saved lineup can leave starter slots
+        // empty (players dropped or traded since it was saved) while the real
+        // roster sits on the bench. Backfill each gap from the bench so Live
+        // never shows a short lineup or benches a real starter over a stale save.
+        const backfilled = fillEmptyStarterSlots(starters, benchPlayers, SLOT_ORDER, nflTeamPool);
+        starters = backfilled.starters;
+        benchPlayers = backfilled.bench;
       } else {
         // Default: no saved lineup exists for this team/week yet. Previously
         // this picked whichever player at each position happened to be
