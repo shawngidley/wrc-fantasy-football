@@ -90823,15 +90823,16 @@ var appRouter = router({
       ]);
       if (standingsError || !standings) throw new Error("Unable to load standings for the 2027 draft order.");
       if (picksError) throw new Error("Unable to load traded 2027 picks.");
+      const normId = (id) => String(id ?? "").replace(/^team-/, "");
       const order = [...standings].sort((a, b) => Number(a.wins ?? 0) - Number(b.wins ?? 0) || Number(a.pts_for ?? 0) - Number(b.pts_for ?? 0)).map((s) => ({
-        teamId: s.team_id,
-        teamName: s.team_name ?? s.team_id,
+        teamId: normId(s.team_id),
+        teamName: s.team_name ?? normId(s.team_id),
         wins: Number(s.wins ?? 0),
         losses: Number(s.losses ?? 0),
         ties: Number(s.ties ?? 0),
         pointsFor: Number(s.pts_for ?? 0)
       }));
-      const tradedPicks = (picks ?? []).filter((p) => p.current_owner_team_id && p.original_team_id && p.current_owner_team_id !== p.original_team_id).map((p) => ({ round: Number(p.round), originalTeamId: p.original_team_id, currentOwnerTeamId: p.current_owner_team_id }));
+      const tradedPicks = (picks ?? []).filter((p) => p.current_owner_team_id && p.original_team_id && p.current_owner_team_id !== p.original_team_id).map((p) => ({ round: Number(p.round), originalTeamId: normId(p.original_team_id), currentOwnerTeamId: normId(p.current_owner_team_id) }));
       return { order, tradedPicks };
     }),
     commissionerRunDraftLottery: commissionerProcedure.mutation(async ({ ctx }) => {

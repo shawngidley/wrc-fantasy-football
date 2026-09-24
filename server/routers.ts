@@ -289,11 +289,16 @@ export const appRouter = router({
       ]);
       if (standingsError || !standings) throw new Error("Unable to load standings for the 2027 draft order.");
       if (picksError) throw new Error("Unable to load traded 2027 picks.");
+      // team_standings.team_id ("bill") and traded_picks.*_team_id ("team-bill")
+      // are two id conventions for the same teams, so the client's override
+      // lookup missed every trade. Strip a leading "team-" on BOTH sides so the
+      // order and the traded picks share one id space.
+      const normId = (id: unknown): string => String(id ?? "").replace(/^team-/, "");
       const order = [...standings]
         .sort((a, b) => (Number(a.wins ?? 0) - Number(b.wins ?? 0)) || (Number(a.pts_for ?? 0) - Number(b.pts_for ?? 0)))
         .map(s => ({
-          teamId: s.team_id as string,
-          teamName: (s.team_name as string) ?? (s.team_id as string),
+          teamId: normId(s.team_id),
+          teamName: (s.team_name as string) ?? normId(s.team_id),
           wins: Number(s.wins ?? 0),
           losses: Number(s.losses ?? 0),
           ties: Number(s.ties ?? 0),
@@ -303,7 +308,7 @@ export const appRouter = router({
       // overrides worth showing; everything else follows the standings slot.
       const tradedPicks = (picks ?? [])
         .filter(p => p.current_owner_team_id && p.original_team_id && p.current_owner_team_id !== p.original_team_id)
-        .map(p => ({ round: Number(p.round), originalTeamId: p.original_team_id as string, currentOwnerTeamId: p.current_owner_team_id as string }));
+        .map(p => ({ round: Number(p.round), originalTeamId: normId(p.original_team_id), currentOwnerTeamId: normId(p.current_owner_team_id) }));
       return { order, tradedPicks };
     }),
     commissionerRunDraftLottery: commissionerProcedure.mutation(async ({ ctx }) => {
