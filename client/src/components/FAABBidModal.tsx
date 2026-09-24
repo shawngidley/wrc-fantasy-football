@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useAuth } from "@/contexts/AuthContext";
 import { trpc } from "@/lib/trpc";
 import { getLineupDefaultWeek } from "@/lib/scheduleData2026";
+import { getFaabAwardDate } from "@shared/freeAgentCutRestriction";
 import { toast } from "sonner";
 import { DollarSign, X, Loader2 } from "lucide-react";
 
@@ -73,6 +74,17 @@ export default function FAABBidModal({ player, onClose }: FAABBidModalProps) {
 
   const groupLabel = (players: string[]) =>
     players.slice(0, 2).join(", ") + (players.length > 2 ? ` +${players.length - 2} more` : "");
+
+  // When would a winning bid on this player be awarded? The first Thu/Sun 9am ET
+  // FAAB award at least 48 hours after the player was cut (or the next award if
+  // the player was not recently cut). Kept fresh so the shown date can't go stale
+  // while the modal sits open across an award window.
+  const recentlyDroppedQuery = trpc.league.recentlyDroppedPlayers.useQuery(undefined, { staleTime: 60_000 });
+  const awardDateLabel = useMemo(() => {
+    const dropped = (recentlyDroppedQuery.data ?? []).find(p => p.name.toLowerCase() === player.name.toLowerCase());
+    const awardDate = getFaabAwardDate(dropped?.droppedAt ?? null);
+    return awardDate.toLocaleString("en-US", { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
+  }, [recentlyDroppedQuery.data, player.name]);
 
   // FAAB balance and roster are session-scoped server data.
   const faabRemaining = bidDetailsQuery.data?.faab ?? franchise?.faab ?? 1000;
@@ -184,6 +196,9 @@ export default function FAABBidModal({ player, onClose }: FAABBidModalProps) {
             </div>
             <p className="text-xs text-slate-500">
               Enter $0 to claim a player for free if no one else bids. Max: ${faabRemaining}.
+            </p>
+            <p className="text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+              If you win, awarded {awardDateLabel} ET
             </p>
           </div>
 

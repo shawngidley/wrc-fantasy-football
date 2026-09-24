@@ -1,69 +1,70 @@
 import { describe, expect, it } from "vitest";
-import { getFreeAgentEligibleDate, isEligibleAfterCut } from "./freeAgentCutRestriction";
+import { getFaabAwardDate, hasClearedWaiverHold, nextFaabAwardAfter } from "./freeAgentCutRestriction";
 
-describe("getFreeAgentEligibleDate", () => {
-  it("a player dropped Thursday 9am ET is eligible Sunday 9am ET (the confirmed example: 72 hours, not 48)", () => {
-    // Thursday Sept 10, 2026, 9:00am ET = 13:00 UTC (EDT)
-    const droppedAt = new Date("2026-09-10T13:00:00Z");
-    const eligible = getFreeAgentEligibleDate(droppedAt);
-    // Expected: Sunday Sept 13, 2026, 9:00am ET = 13:00 UTC
-    expect(eligible.toISOString()).toBe("2026-09-13T13:00:00.000Z");
+// Sept 2026 reference days (EDT, so 9am ET = 13:00 UTC):
+//   Thu Sep 10, Sun Sep 13, Wed Sep 16, Thu Sep 17, Sun Sep 20.
+
+describe("nextFaabAwardAfter", () => {
+  it("returns the same moment when `from` is exactly a Thu/Sun 9am award", () => {
+    expect(nextFaabAwardAfter(new Date("2026-09-10T13:00:00Z")).toISOString()).toBe("2026-09-10T13:00:00.000Z"); // Thu
+    expect(nextFaabAwardAfter(new Date("2026-09-13T13:00:00Z")).toISOString()).toBe("2026-09-13T13:00:00.000Z"); // Sun
   });
 
-  it("a player dropped Sunday 9am ET is eligible Tuesday 9am ET (the confirmed example: exactly 48 hours)", () => {
-    // Sunday Sept 13, 2026, 9:00am ET = 13:00 UTC
-    const droppedAt = new Date("2026-09-13T13:00:00Z");
-    const eligible = getFreeAgentEligibleDate(droppedAt);
-    // Expected: Tuesday Sept 15, 2026, 9:00am ET = 13:00 UTC
-    expect(eligible.toISOString()).toBe("2026-09-15T13:00:00.000Z");
+  it("jumps to Sunday from just after the Thursday award", () => {
+    expect(nextFaabAwardAfter(new Date("2026-09-10T13:01:00Z")).toISOString()).toBe("2026-09-13T13:00:00.000Z");
   });
 
-  it("a player dropped Tuesday 9am ET (right at a boundary) is eligible the following Sunday", () => {
-    // Tuesday Sept 15, 2026, 9:00am ET
-    const droppedAt = new Date("2026-09-15T13:00:00Z");
-    const eligible = getFreeAgentEligibleDate(droppedAt);
-    // 48h later = Thursday 9am, next boundary at/after that = Sunday Sept 20
-    expect(eligible.toISOString()).toBe("2026-09-20T13:00:00.000Z");
-  });
-
-  it("a player dropped Saturday 9am ET is eligible the following Tuesday", () => {
-    // Saturday Sept 12, 2026, 9:00am ET
-    const droppedAt = new Date("2026-09-12T13:00:00Z");
-    const eligible = getFreeAgentEligibleDate(droppedAt);
-    // 48h later = Monday 9am, next boundary at/after that = Tuesday Sept 15
-    expect(eligible.toISOString()).toBe("2026-09-15T13:00:00.000Z");
-  });
-
-  it("a player dropped just before a boundary still has to wait for the NEXT one, not the immediate one, if 48h hasn't passed", () => {
-    // Saturday Sept 12, 2026, 11:00pm ET -- 48h later is Monday 11pm,
-    // well past Sunday 9am, so next boundary is Tuesday, not Sunday.
-    const droppedAt = new Date("2026-09-13T03:00:00Z"); // Sat 11pm ET
-    const eligible = getFreeAgentEligibleDate(droppedAt);
-    expect(eligible.toISOString()).toBe("2026-09-15T13:00:00.000Z");
+  it("jumps to Thursday from Monday", () => {
+    expect(nextFaabAwardAfter(new Date("2026-09-14T15:00:00Z")).toISOString()).toBe("2026-09-17T13:00:00.000Z"); // Mon -> Thu
   });
 });
 
-describe("isEligibleAfterCut", () => {
-  it("returns true for a null droppedAt (never cut)", () => {
-    expect(isEligibleAfterCut(null)).toBe(true);
+describe("getFaabAwardDate", () => {
+  it("cut Thursday 9am ET -> awarded Sunday 9am ET", () => {
+    const cut = new Date("2026-09-10T13:00:00Z");
+    const now = new Date("2026-09-10T13:01:00Z"); // just after the cut
+    expect(getFaabAwardDate(cut, now).toISOString()).toBe("2026-09-13T13:00:00.000Z");
   });
 
-  it("returns false before the eligible moment", () => {
-    const droppedAt = new Date("2026-09-10T13:00:00Z"); // Thu 9am ET
-    const justBefore = new Date("2026-09-13T12:59:00Z"); // 1 min before Sun 9am ET
-    expect(isEligibleAfterCut(droppedAt, justBefore)).toBe(false);
+  it("cut Sunday 9am ET -> awarded Thursday 9am ET", () => {
+    const cut = new Date("2026-09-13T13:00:00Z");
+    const now = new Date("2026-09-13T13:01:00Z");
+    expect(getFaabAwardDate(cut, now).toISOString()).toBe("2026-09-17T13:00:00.000Z");
   });
 
-  it("returns true at and after the eligible moment", () => {
-    const droppedAt = new Date("2026-09-10T13:00:00Z"); // Thu 9am ET
-    const exactMoment = new Date("2026-09-13T13:00:00Z"); // Sun 9am ET exactly
-    const after = new Date("2026-09-13T14:00:00Z");
-    expect(isEligibleAfterCut(droppedAt, exactMoment)).toBe(true);
-    expect(isEligibleAfterCut(droppedAt, after)).toBe(true);
+  it("cut Wednesday 2pm ET -> awarded Sunday 9am ET", () => {
+    const cut = new Date("2026-09-16T18:00:00Z"); // Wed 2pm ET
+    const now = new Date("2026-09-16T18:01:00Z");
+    expect(getFaabAwardDate(cut, now).toISOString()).toBe("2026-09-20T13:00:00.000Z");
   });
 
-  it("accepts a string timestamp (as stored in the database) as well as a Date", () => {
-    expect(isEligibleAfterCut("2026-09-10T13:00:00Z", new Date("2026-09-13T13:00:00Z"))).toBe(true);
-    expect(isEligibleAfterCut("2026-09-10T13:00:00Z", new Date("2026-09-13T12:00:00Z"))).toBe(false);
+  it("cut Friday morning -> 48h lands Sunday morning after that award, so Thursday", () => {
+    const cut = new Date("2026-09-11T14:00:00Z"); // Fri 10am ET
+    const now = new Date("2026-09-11T14:01:00Z");
+    // 48h -> Sun 10am, which is AFTER Sunday's 9am award, so the next is Thursday.
+    expect(getFaabAwardDate(cut, now).toISOString()).toBe("2026-09-17T13:00:00.000Z");
+  });
+
+  it("a player not recently cut is awarded at the next Thu/Sun award", () => {
+    const now = new Date("2026-09-16T18:00:00Z"); // Wed
+    expect(getFaabAwardDate(null, now).toISOString()).toBe("2026-09-17T13:00:00.000Z"); // next Thu
+  });
+});
+
+describe("hasClearedWaiverHold", () => {
+  it("null droppedAt is always cleared", () => {
+    expect(hasClearedWaiverHold(null)).toBe(true);
+  });
+
+  it("is false before 48 hours and true at/after", () => {
+    const cut = new Date("2026-09-10T13:00:00Z");
+    expect(hasClearedWaiverHold(cut, new Date("2026-09-12T12:59:00Z"))).toBe(false); // 47h59m
+    expect(hasClearedWaiverHold(cut, new Date("2026-09-12T13:00:00Z"))).toBe(true); // exactly 48h
+    expect(hasClearedWaiverHold(cut, new Date("2026-09-13T00:00:00Z"))).toBe(true);
+  });
+
+  it("accepts a string timestamp as stored in the database", () => {
+    expect(hasClearedWaiverHold("2026-09-10T13:00:00Z", new Date("2026-09-12T14:00:00Z"))).toBe(true);
+    expect(hasClearedWaiverHold("2026-09-10T13:00:00Z", new Date("2026-09-11T14:00:00Z"))).toBe(false);
   });
 });

@@ -17,7 +17,7 @@ import { loadPlayerRows, makePlayerId, rosterPlayerForTeam } from "./rosterPlaye
 import { resolveLineupsForWeek } from "./lineupResolution";
 import { getLineupDefaultWeek, SCHEDULE_2026 } from "../client/src/lib/scheduleData2026";
 import { hasWeekKickedOff, hasPlayerTeamGameStarted } from "./nflWeekKickoffCheck";
-import { isEligibleAfterCut } from "../shared/freeAgentCutRestriction";
+import { hasClearedWaiverHold } from "../shared/freeAgentCutRestriction";
 import { getFreeAgentMarketState } from "./faabMarketState";
 import { committedFaab, findSharedDropConflict, type BudgetBid } from "./faabBidValidation";
 import { sendSms } from "./twilioSms";
@@ -830,13 +830,10 @@ export const appRouter = router({
         // team means the player isn't a free agent.
         const targetKey = normalizePlayerName(input.playerName);
         const nameMatches = allPlayers.filter(r => normalizePlayerName(r.name) === targetKey);
-        const targetDroppedAt = nameMatches.find(r => !r.team_id)?.dropped_at ?? null;
-        // A player who was cut has to wait at least 48 hours, becoming
-        // eligible at the next Sunday 9am ET or Tuesday 9am ET market
-        // boundary after that -- see freeAgentCutRestriction.ts.
-        if (!isEligibleAfterCut(targetDroppedAt)) {
-          throw new Error(`${input.playerName} was recently dropped and isn't eligible to be picked up yet.`);
-        }
+        // A bid can be placed the moment a player is cut (as long as the market
+        // is open for bidding, checked above). The 48-hour waiver hold is now
+        // enforced at AWARD time, not here -- see freeAgentCutRestriction.ts and
+        // the award gate in scheduledFaabAward.ts.
         const faab = Number(team.faab ?? 0);
         const pending = pendingBids ?? [];
 
@@ -1150,11 +1147,11 @@ export const appRouter = router({
           supabaseAdmin.from("players").select("id, team_id, dropped_at").eq("name", input.playerName).maybeSingle(),
         ]);
         if (teamError || !team || rosterError || existingPlayerError) throw new Error("Unable to validate this add");
-        // Same rule as FAAB bids: a cut player has to wait at least 48
-        // hours, becoming eligible at the next Sunday/Tuesday 9am ET
-        // market boundary after that.
-        if (!isEligibleAfterCut(existingPlayer?.dropped_at ?? null)) {
-          throw new Error(`${input.playerName} was recently dropped and isn't eligible to be picked up yet.`);
+        // The Sunday free pickup can't grab a player still inside the 48-hour
+        // waiver hold; they have to go through waivers. (Bids, unlike this free
+        // add, can be placed immediately -- the hold applies at award time.)
+        if (!hasClearedWaiverHold(existingPlayer?.dropped_at ?? null)) {
+          throw new Error(`${input.playerName} was cut in the last 48 hours and can't be added for free yet -- place a FAAB bid instead.`);
         }
         if ((roster?.length ?? 0) >= 18 && !input.dropPlayerId) throw new Error("Select a player to drop before adding with a full roster.");
 

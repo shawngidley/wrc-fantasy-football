@@ -4,6 +4,7 @@ import { type TeamStandingForTiebreak } from "./faabResolution";
 import { planFaabAwards, type PlannerBid } from "./faabAwardPlan";
 import { findPlayerRowByName, loadPlayerRows, rosterPlayerForTeam } from "./rosterPlayerForTeam";
 import { normalizePlayerName } from "../shared/playerNameMatch";
+import { hasClearedWaiverHold } from "../shared/freeAgentCutRestriction";
 
 const ROSTER_LIMIT = 18;
 
@@ -85,7 +86,19 @@ export async function processAllPendingFaabBids(): Promise<{ awarded: AwardResul
   // can't be awarded at all (cancelled: already rostered, or no spot to
   // fill). This is where the ranked-group, win-one/up-to-N logic lives, and
   // it is exhaustively unit tested. The writes below just execute the plan.
-  const plannerBids: PlannerBid[] = pendingBids.map(bid => {
+  // A cut player's 48-hour waiver hold is enforced here, at award time: a bid
+  // on a player who hasn't been on waivers 48 hours yet is HELD -- left pending,
+  // untouched -- so it carries to the next Thu/Sun award once the hold clears.
+  // (Bidding itself is allowed immediately; see freeAgentCutRestriction.ts.)
+  const awardNow = new Date();
+  let heldForWaiver = 0;
+  const eligiblePendingBids = pendingBids.filter(bid => {
+    const row = findPlayerRowByName(playerRows, bid.player_name);
+    if (hasClearedWaiverHold(row?.dropped_at ?? null, awardNow)) return true;
+    heldForWaiver += 1;
+    return false;
+  });
+  const plannerBids: PlannerBid[] = eligiblePendingBids.map(bid => {
     const wonRow = findPlayerRowByName(playerRows, bid.player_name);
     const dropRow = bid.drop_player_id ? playerRows.find(r => r.id === bid.drop_player_id) : null;
     return {
@@ -100,6 +113,9 @@ export async function processAllPendingFaabBids(): Promise<{ awarded: AwardResul
       dropStillOnTeam: Boolean(dropRow && dropRow.team_id === bid.team_id),
     };
   });
+  if (heldForWaiver > 0) {
+    console.log(`[faab-award] holding ${heldForWaiver} bid(s) on players still within the 48h waiver hold -- they stay pending for the next award`);
+  }
   const plan = planFaabAwards(
     plannerBids,
     standingsByTeamId,

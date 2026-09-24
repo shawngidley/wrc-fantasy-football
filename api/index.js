@@ -81183,42 +81183,13 @@ async function hasPlayerTeamGameStarted(nflTeam, week2, season) {
 }
 
 // shared/freeAgentCutRestriction.ts
-function etDateAt9am(year2, month, day2) {
-  const guess = new Date(Date.UTC(year2, month - 1, day2, 13, 0, 0));
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    hour: "numeric",
-    hour12: false
-  }).formatToParts(guess);
-  const observedHour = Number(parts.find((p) => p.type === "hour")?.value ?? 9);
-  const hourDiff = observedHour - 9;
-  return new Date(guess.getTime() - hourDiff * 60 * 60 * 1e3);
+var WAIVER_HOLD_MS = 48 * 60 * 60 * 1e3;
+function toDate(value) {
+  return typeof value === "string" ? new Date(value) : value;
 }
-function getFreeAgentEligibleDate(droppedAt) {
-  const minEligibleTime = new Date(droppedAt.getTime() + 48 * 60 * 60 * 1e3);
-  for (let dayOffset = 0; dayOffset <= 8; dayOffset++) {
-    const candidateDay = new Date(minEligibleTime.getTime() + dayOffset * 24 * 60 * 60 * 1e3);
-    const parts = new Intl.DateTimeFormat("en-US", {
-      timeZone: "America/New_York",
-      weekday: "short",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit"
-    }).formatToParts(candidateDay);
-    const weekday = parts.find((p) => p.type === "weekday")?.value;
-    if (weekday !== "Sun" && weekday !== "Tue") continue;
-    const year2 = Number(parts.find((p) => p.type === "year")?.value);
-    const month = Number(parts.find((p) => p.type === "month")?.value);
-    const day2 = Number(parts.find((p) => p.type === "day")?.value);
-    const boundary = etDateAt9am(year2, month, day2);
-    if (boundary.getTime() >= minEligibleTime.getTime()) return boundary;
-  }
-  return minEligibleTime;
-}
-function isEligibleAfterCut(droppedAt, now = /* @__PURE__ */ new Date()) {
+function hasClearedWaiverHold(droppedAt, now = /* @__PURE__ */ new Date()) {
   if (!droppedAt) return true;
-  const dropDate = typeof droppedAt === "string" ? new Date(droppedAt) : droppedAt;
-  return now.getTime() >= getFreeAgentEligibleDate(dropDate).getTime();
+  return now.getTime() >= toDate(droppedAt).getTime() + WAIVER_HOLD_MS;
 }
 
 // server/faabMarketState.ts
@@ -91183,10 +91154,6 @@ var appRouter = router({
       if (pendingBidsError) throw new Error(`Unable to load your other pending bids: ${pendingBidsError.message}`);
       const targetKey = normalizePlayerName(input.playerName);
       const nameMatches = allPlayers.filter((r) => normalizePlayerName(r.name) === targetKey);
-      const targetDroppedAt = nameMatches.find((r) => !r.team_id)?.dropped_at ?? null;
-      if (!isEligibleAfterCut(targetDroppedAt)) {
-        throw new Error(`${input.playerName} was recently dropped and isn't eligible to be picked up yet.`);
-      }
       const faab = Number(team.faab ?? 0);
       const pending = pendingBids ?? [];
       let groupId = null;
@@ -91389,8 +91356,8 @@ var appRouter = router({
         supabaseAdmin.from("players").select("id, team_id, dropped_at").eq("name", input.playerName).maybeSingle()
       ]);
       if (teamError || !team || rosterError || existingPlayerError) throw new Error("Unable to validate this add");
-      if (!isEligibleAfterCut(existingPlayer?.dropped_at ?? null)) {
-        throw new Error(`${input.playerName} was recently dropped and isn't eligible to be picked up yet.`);
+      if (!hasClearedWaiverHold(existingPlayer?.dropped_at ?? null)) {
+        throw new Error(`${input.playerName} was cut in the last 48 hours and can't be added for free yet -- place a FAAB bid instead.`);
       }
       if ((roster?.length ?? 0) >= 18 && !input.dropPlayerId) throw new Error("Select a player to drop before adding with a full roster.");
       let dropPlayer = null;
@@ -95169,7 +95136,15 @@ async function processAllPendingFaabBids() {
     const key = normalizePlayerName(bid.player_name);
     bidCountByKey.set(key, (bidCountByKey.get(key) ?? 0) + 1);
   }
-  const plannerBids = pendingBids.map((bid) => {
+  const awardNow = /* @__PURE__ */ new Date();
+  let heldForWaiver = 0;
+  const eligiblePendingBids = pendingBids.filter((bid) => {
+    const row = findPlayerRowByName(playerRows, bid.player_name);
+    if (hasClearedWaiverHold(row?.dropped_at ?? null, awardNow)) return true;
+    heldForWaiver += 1;
+    return false;
+  });
+  const plannerBids = eligiblePendingBids.map((bid) => {
     const wonRow = findPlayerRowByName(playerRows, bid.player_name);
     const dropRow = bid.drop_player_id ? playerRows.find((r) => r.id === bid.drop_player_id) : null;
     return {
@@ -95184,6 +95159,9 @@ async function processAllPendingFaabBids() {
       dropStillOnTeam: Boolean(dropRow && dropRow.team_id === bid.team_id)
     };
   });
+  if (heldForWaiver > 0) {
+    console.log(`[faab-award] holding ${heldForWaiver} bid(s) on players still within the 48h waiver hold -- they stay pending for the next award`);
+  }
   const plan = planFaabAwards(
     plannerBids,
     standingsByTeamId,

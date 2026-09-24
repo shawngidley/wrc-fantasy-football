@@ -21,7 +21,7 @@ import { getLineupDefaultWeek, getDefaultStatsYear, AVAILABLE_STATS_YEARS } from
 import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections";
 import { useNFLMatchups, formatGameTime } from "@/hooks/useNFLMatchups";
 import { hasTeamGameStarted } from "@/lib/playerGameLock";
-import { isEligibleAfterCut, getFreeAgentEligibleDate } from "@shared/freeAgentCutRestriction";
+import { hasClearedWaiverHold, getFaabAwardDate } from "@shared/freeAgentCutRestriction";
 import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } from "@/hooks/useNFLInjuries";
 import { normalizePlayerName } from "@shared/playerNameMatch";
 import FAABBidModal from "@/components/FAABBidModal";
@@ -230,6 +230,14 @@ function MyBids({ week }: { week: number }) {
   const updateMutation = trpc.league.updateFaabBidAmount.useMutation();
   const reorderMutation = trpc.league.reorderFaabGroup.useMutation();
   const setMaxWinsMutation = trpc.league.setFaabGroupMaxWins.useMutation();
+  const recentlyDroppedQuery = trpc.league.recentlyDroppedPlayers.useQuery(undefined, { staleTime: 60_000 });
+  const droppedAtMap = useMemo(
+    () => Object.fromEntries((recentlyDroppedQuery.data ?? []).map(p => [p.name.toLowerCase(), p.droppedAt])),
+    [recentlyDroppedQuery.data],
+  );
+  const awardLabelFor = (playerName: string) =>
+    getFaabAwardDate(droppedAtMap[playerName.toLowerCase()] ?? null)
+      .toLocaleString("en-US", { weekday: "long", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
   const bids = (bidsQuery.data ?? []) as FaabBid[];
   const loading = bidsQuery.isLoading;
   const [editingBidId, setEditingBidId] = useState<string | null>(null);
@@ -344,6 +352,9 @@ function MyBids({ week }: { week: number }) {
         <p style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "0.95rem", color: "oklch(0.22 0.08 150)", margin: 0 }}>{bid.player_name} <span style={{ fontSize: "0.75rem", fontWeight: 400, color: "oklch(0.55 0.06 150)" }}>· {bid.player_nfl_team}</span></p>
         {bid.drop_player_name && (
           <p style={{ fontSize: "0.72rem", color: "oklch(0.55 0.06 150)", margin: 0 }}>Drops: {bid.drop_player_name}</p>
+        )}
+        {bid.status === "pending" && (
+          <p style={{ fontSize: "0.72rem", fontWeight: 700, color: "oklch(0.5 0.13 85)", margin: "0.15rem 0 0" }}>If you win, awarded {awardLabelFor(bid.player_name)} ET</p>
         )}
       </div>
       {editingBidId === bid.id ? (
@@ -1222,7 +1233,10 @@ export default function FreeAgents() {
                     const matchup = matchupMap[normalizeNFLTeamCode(player.nflTeam)];
                     const playerGameStarted = hasTeamGameStarted(player.nflTeam, matchupMap);
                     const droppedAt = droppedAtMap[player.name.toLowerCase()] ?? null;
-                    const cutRestricted = !isEligibleAfterCut(droppedAt);
+                    // Bidding is never cut-blocked -- a bid can be placed the moment a player is
+                    // cut and the hold is enforced at award time. Only the Sunday free pickup is
+                    // blocked while a player is inside the 48-hour waiver hold.
+                    const freePickupBlocked = !hasClearedWaiverHold(droppedAt);
                     return (
                       <div
                         key={player.id}
@@ -1289,10 +1303,12 @@ export default function FreeAgents() {
                         ) : franchise ? (
                           playerGameStarted ? (
                             <span style={{ fontSize: "0.65rem", color: "oklch(0.6 0.04 150)", textAlign: "center" as const, fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600 }}>Game started</span>
-                          ) : cutRestricted ? (
-                            <span title={droppedAt ? `Eligible ${getFreeAgentEligibleDate(new Date(droppedAt)).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" })} ET` : undefined} style={{ fontSize: "0.65rem", color: "oklch(0.6 0.04 150)", textAlign: "center" as const, fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600 }}>Not eligible yet</span>
                           ) : marketState === "open_waiver" ? (
-                            <button onClick={() => setInstantAddPlayer(player)} style={{ background: "oklch(0.5 0.16 150)", color: "white", border: "none", borderRadius: 7, padding: "0.3rem 0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem", letterSpacing: "0.04em", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem", justifyContent: "center" }}><UserPlus size={11} />Add</button>
+                            freePickupBlocked ? (
+                              <span title={droppedAt ? `Cut ${new Date(droppedAt).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" })} ET. Free pickup needs 48 hours on waivers; you can bid on this player when bidding reopens Tue 9am ET.` : undefined} style={{ fontSize: "0.65rem", color: "oklch(0.6 0.04 150)", textAlign: "center" as const, fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600 }}>Bid opens Tue</span>
+                            ) : (
+                              <button onClick={() => setInstantAddPlayer(player)} style={{ background: "oklch(0.5 0.16 150)", color: "white", border: "none", borderRadius: 7, padding: "0.3rem 0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem", letterSpacing: "0.04em", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem", justifyContent: "center" }}><UserPlus size={11} />Add</button>
+                            )
                           ) : marketState === "closed" ? (
                             <span style={{ fontSize: "0.65rem", color: "oklch(0.6 0.04 150)", textAlign: "center" as const, fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600 }}>Reopens Tue 9am ET</span>
                           ) : (
