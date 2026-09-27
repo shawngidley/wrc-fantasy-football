@@ -66,7 +66,7 @@ describe("groupKickerEventsForDisplay", () => {
     expect(madeChip?.text).toBe("62, 66 yd FG made (+15.8)");
   });
 
-  it("drops XP events entirely, keeping only FG chips", () => {
+  it("drops made XPs but keeps a missed one, alongside the combined FG chip", () => {
     const events = [
       { playerName: "K", type: "xp" as const, outcome: "made" as const, yards: null, text: "" },
       { playerName: "K", type: "xp" as const, outcome: "missed" as const, yards: null, text: "" },
@@ -74,10 +74,31 @@ describe("groupKickerEventsForDisplay", () => {
       { playerName: "K", type: "fg" as const, outcome: "made" as const, yards: 40, text: "" },
     ];
     const chips = groupKickerEventsForDisplay(events);
-    // No XP chips at all; the two made FGs combine into one chip.
-    expect(chips.filter(c => c.text.includes("XP"))).toHaveLength(0);
-    expect(chips).toHaveLength(1);
+    // The made XP is gone, the missed one survives, and the two made FGs
+    // combine into one chip.
+    expect(chips).toHaveLength(2);
+    expect(chips.filter(c => c.text.includes("XP"))).toHaveLength(1);
     expect(chips.find(c => c.key === "made-fgs-combined")).toBeDefined();
+  });
+
+  it("renders a missed XP as a red -2 chip", () => {
+    const events = [
+      { playerName: "K", type: "xp" as const, outcome: "missed" as const, yards: null, text: "" },
+    ];
+    const chips = groupKickerEventsForDisplay(events);
+    expect(chips).toHaveLength(1);
+    expect(chips[0].text).toBe("XP missed (-2)");
+    // LiveScoring paints any chip whose outcome isn't "made" in the red
+    // palette, so this is what makes it render red.
+    expect(chips[0].outcome).toBe("missed");
+  });
+
+  it("renders nothing for a kicker whose only events are made XPs", () => {
+    const events = [
+      { playerName: "K", type: "xp" as const, outcome: "made" as const, yards: null, text: "" },
+      { playerName: "K", type: "xp" as const, outcome: "made" as const, yards: null, text: "" },
+    ];
+    expect(groupKickerEventsForDisplay(events)).toHaveLength(0);
   });
 
   it("returns no made-FG chip at all when there are no made FGs", () => {
