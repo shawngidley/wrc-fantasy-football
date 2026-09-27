@@ -37,8 +37,8 @@ export function formatKickerEvent(event: KickerPlayEvent): string {
  * Groups multiple made-FG events into a single display chip listing all
  * their yardages together (e.g. "20, 56 yd FG made (+7.6)") instead of a
  * separate "X yd FG made" chip per kick -- less repetitive when a kicker
- * has made more than one FG in a game. Missed FGs and missed XPs stay as
- * individual chips, one each.
+ * has made more than one FG in a game. XP events and missed FGs stay as
+ * individual chips, one each, same as before.
  */
 export function groupKickerEventsForDisplay(events: KickerPlayEvent[]): { key: string; text: string; outcome: "made" | "missed" }[] {
   const madeFGs = events.filter(e => e.type === "fg" && e.outcome === "made");
@@ -46,11 +46,10 @@ export function groupKickerEventsForDisplay(events: KickerPlayEvent[]): { key: s
   // as a chip at all -- only a miss that actually costs points (49
   // yards or less) is displayed.
   const others = events.filter(e => {
-    // A MADE extra point adds nothing over the "XP x/x" summary chip and,
-    // because identical XP plays dedupe, several made XPs collapse into
-    // one misleading "+1" chip. A missed one is different: it costs -2,
-    // which the summary chip's "3/4" never makes obvious, so it stays --
-    // same reasoning as the sub-50 missed FG just below.
+    // A MADE extra point adds nothing over the "XP x/x" summary chip (and several
+    // made XPs would dedupe into one misleading "+1" chip), so made XPs get no
+    // event chip. A MISSED extra point is a -2 penalty, so it IS shown -- as a red
+    // chip, same as a costly missed FG.
     if (e.type === "xp" && e.outcome === "made") return false;
     if (e.type === "fg" && e.outcome === "made") return false;
     if (e.type === "fg" && e.outcome === "missed" && (e.yards ?? 0) >= 50) return false;

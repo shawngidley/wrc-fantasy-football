@@ -66,7 +66,7 @@ describe("groupKickerEventsForDisplay", () => {
     expect(madeChip?.text).toBe("62, 66 yd FG made (+15.8)");
   });
 
-  it("drops made XPs but keeps a missed one, alongside the combined FG chip", () => {
+  it("drops a made XP but shows a missed XP as a red -2 chip", () => {
     const events = [
       { playerName: "K", type: "xp" as const, outcome: "made" as const, yards: null, text: "" },
       { playerName: "K", type: "xp" as const, outcome: "missed" as const, yards: null, text: "" },
@@ -74,31 +74,14 @@ describe("groupKickerEventsForDisplay", () => {
       { playerName: "K", type: "fg" as const, outcome: "made" as const, yards: 40, text: "" },
     ];
     const chips = groupKickerEventsForDisplay(events);
-    // The made XP is gone, the missed one survives, and the two made FGs
-    // combine into one chip.
-    expect(chips).toHaveLength(2);
-    expect(chips.filter(c => c.text.includes("XP"))).toHaveLength(1);
+    // Made XP folds into the summary chip (no event chip); the missed XP is a -2
+    // penalty, so it shows as a red chip; the two made FGs combine into one chip.
+    const xpChips = chips.filter(c => c.text.includes("XP"));
+    expect(xpChips).toHaveLength(1);
+    expect(xpChips[0].text).toBe("XP missed (-2)");
+    expect(xpChips[0].outcome).toBe("missed");
     expect(chips.find(c => c.key === "made-fgs-combined")).toBeDefined();
-  });
-
-  it("renders a missed XP as a red -2 chip", () => {
-    const events = [
-      { playerName: "K", type: "xp" as const, outcome: "missed" as const, yards: null, text: "" },
-    ];
-    const chips = groupKickerEventsForDisplay(events);
-    expect(chips).toHaveLength(1);
-    expect(chips[0].text).toBe("XP missed (-2)");
-    // LiveScoring paints any chip whose outcome isn't "made" in the red
-    // palette, so this is what makes it render red.
-    expect(chips[0].outcome).toBe("missed");
-  });
-
-  it("renders nothing for a kicker whose only events are made XPs", () => {
-    const events = [
-      { playerName: "K", type: "xp" as const, outcome: "made" as const, yards: null, text: "" },
-      { playerName: "K", type: "xp" as const, outcome: "made" as const, yards: null, text: "" },
-    ];
-    expect(groupKickerEventsForDisplay(events)).toHaveLength(0);
+    expect(chips).toHaveLength(2);
   });
 
   it("returns no made-FG chip at all when there are no made FGs", () => {
