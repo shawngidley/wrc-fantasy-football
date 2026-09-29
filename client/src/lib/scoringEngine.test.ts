@@ -121,6 +121,22 @@ describe("buildStatChips", () => {
     ]);
   });
 
+  it("adds a red XP MISS chip spelling out the -2-per-miss penalty when a kicker misses extra points", () => {
+    // The exact E. Pineiro case: XP 3/5 (2 missed) should show the fraction
+    // plus a red chip for the -4 penalty, derived from Tank01's aggregate.
+    const chips = buildStatChips({ Kicking: { fgMade: "1", fgAttempts: "1", xpMade: "3", xpAttempts: "5" } });
+    expect(chips).toEqual([
+      { label: "FG", value: "1/1" },
+      { label: "XP", value: "3/5" },
+      { label: "XP MISS", value: "2 (-4)", negative: true },
+    ]);
+  });
+
+  it("shows no XP MISS chip when every extra point was made", () => {
+    const chips = buildStatChips({ Kicking: { xpMade: "3", xpAttempts: "3" } });
+    expect(chips.find(c => c.label === "XP MISS")).toBeUndefined();
+  });
+
   it("builds defense chips, omitting zero categories", () => {
     expect(buildStatChips({ Defense: { sacks: "2", defensiveInterceptions: "1", fumblesRecovered: "0", safeties: "0", defTD: "1" } }, "DST")).toEqual([
       { label: "SACK", value: 2 },

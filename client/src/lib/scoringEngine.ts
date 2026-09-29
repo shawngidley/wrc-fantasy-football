@@ -84,6 +84,15 @@ export function buildStatChips(stats: Tank01Stats, pos?: string): StatChipData[]
   const xpAttempts = stats.Kicking?.xpAttempts;
   if (xpMade !== undefined || xpAttempts !== undefined) {
     chips.push({ label: "XP", value: `${n(xpMade)}/${n(xpAttempts)}` });
+    // A missed extra point is -2 in WRC scoring, so a kicker whose XP line
+    // isn't perfect (e.g. "XP 3/5") gets a red chip spelling out the
+    // penalty. This is derived from Tank01's reliable xpMade/xpAttempts
+    // aggregate -- the same source the "XP x/x" chip and XP scoring use --
+    // NOT ESPN play-by-play text, whose XP wording routinely fails to parse.
+    const xpMissed = Math.max(0, n(xpAttempts) - n(xpMade));
+    if (xpMissed > 0) {
+      chips.push({ label: "XP MISS", value: `${xpMissed} (-${xpMissed * 2})`, negative: true });
+    }
   }
 
   // DST-specific categories (sacks, interceptions, fumble recoveries,
