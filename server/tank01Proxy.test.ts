@@ -105,6 +105,17 @@ describe("proxyTank01Request response caching", () => {
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
+  it("keeps a slow-changing feed (news) cached well past the 20s live-data TTL", async () => {
+    mockFetchAlwaysReturning(200, { body: [] });
+
+    await proxyTank01Request({ params: { endpoint: "getNFLNews" }, query: { recentNews: "true" } } as never, responseMock() as never);
+    vi.advanceTimersByTime(60_000); // 1 min: well past the 20s live TTL, well under news's 15 min
+    await proxyTank01Request({ params: { endpoint: "getNFLNews" }, query: { recentNews: "true" } } as never, responseMock() as never);
+
+    // Under the old flat 20s TTL this would have re-fetched; now it's one call.
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
   it("does not share the cache across different query params (different games)", async () => {
     mockFetchAlwaysReturning(200, { body: {} });
 

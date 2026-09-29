@@ -27,7 +27,37 @@ const ALLOWED_ENDPOINTS = new Set([
 // at once). 20s is deliberately just under the 30s client poll interval,
 // so legitimate polling still gets reasonably fresh data while
 // overlapping/duplicate requests within that window share one response.
-const CACHE_TTL_MS = 20_000;
+// Per-endpoint cache TTL. Live game data has to stay near-real-time, so it
+// keeps the original 20s window (just under the 30s client poll). But the
+// slow-changing feeds were being re-fetched on that same 20s window even
+// though they barely change and are identical for every viewer -- pure waste
+// on a game-day Sunday with all 12 owners watching. Giving those a much longer
+// TTL collapses "N viewers x every load" into ONE upstream call per window:
+//   - news every 15 min (fresh enough for injury/inactive updates, but no
+//     longer re-fetched per browser -- getNFLNews is a league-wide feed,
+//     the same payload for everyone),
+//   - player info (bio/photo/season stats behind the avatars) every 15 min --
+//     this was the single biggest driver of the weekend spikes,
+//   - near-static reference data (teams, ADP, depth charts, schedules) only a
+//     few times a day.
+// Anything not listed falls back to the safe 20s default.
+const DEFAULT_CACHE_TTL_MS = 20_000;
+const MINUTE_MS = 60_000;
+const CACHE_TTL_BY_ENDPOINT: Record<string, number> = {
+  getNFLBoxScore: 20_000,             // live in-game scoring -- must stay fresh
+  getNFLGamesForWeek: 20_000,         // live game status + kickoff-lock checks
+  getNFLNews: 15 * MINUTE_MS,         // league-wide news feed (same for all viewers)
+  getNFLPlayerInfo: 15 * MINUTE_MS,   // player bio/photo/season stats (avatars)
+  getNFLGamesForPlayer: 15 * MINUTE_MS,
+  getNFLProjections: 60 * MINUTE_MS,
+  getNFLTeamSchedule: 6 * 60 * MINUTE_MS,
+  getNFLTeams: 6 * 60 * MINUTE_MS,
+  getNFLADP: 6 * 60 * MINUTE_MS,
+  getNFLDepthCharts: 6 * 60 * MINUTE_MS,
+};
+function cacheTtlMs(endpoint: string): number {
+  return CACHE_TTL_BY_ENDPOINT[endpoint] ?? DEFAULT_CACHE_TTL_MS;
+}
 const responseCache = new Map<string, { ts: number; status: number; contentType: string; body: string }>();
 
 // Shared L2 cache in Supabase, so the 20s dedup window actually holds
@@ -40,7 +70,7 @@ const responseCache = new Map<string, { ts: number; status: number; contentType:
 // Run supabase_tank01_cache_table.sql to create the table.
 const SHARED_CACHE_TABLE = "tank01_response_cache";
 
-async function readSharedCache(cacheKey: string): Promise<{ status: number; contentType: string; body: string } | null> {
+async function readSharedCache(cacheKey: string, ttlMs: number): Promise<{ status: number; contentType: string; body: string } | null> {
   try {
     const { data, error } = await supabaseAdmin
       .from(SHARED_CACHE_TABLE)
@@ -48,7 +78,7 @@ async function readSharedCache(cacheKey: string): Promise<{ status: number; cont
       .eq("cache_key", cacheKey)
       .maybeSingle();
     if (error || !data) return null;
-    if (Date.now() - new Date(data.updated_at as string).getTime() >= CACHE_TTL_MS) return null;
+    if (Date.now() - new Date(data.updated_at as string).getTime() >= ttlMs) return null;
     return { status: data.status as number, contentType: data.content_type as string, body: data.body as string };
   } catch {
     return null;
@@ -124,16 +154,17 @@ export async function proxyTank01Request(req: Request, res: Response) {
     if (typeof value === "string" && key.length <= 64 && value.length <= 256) query.set(key, value);
   }
 
+  const ttlMs = cacheTtlMs(endpoint);
   const cacheKey = `${endpoint}?${query.toString()}`;
   const cached = responseCache.get(cacheKey);
-  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+  if (cached && Date.now() - cached.ts < ttlMs) {
     res.status(cached.status).type(cached.contentType).send(cached.body);
     return;
   }
 
   // L2: shared across instances/viewers. Warm this instance's L1 from it
   // so subsequent same-instance requests skip the Supabase round trip.
-  const shared = await readSharedCache(cacheKey);
+  const shared = await readSharedCache(cacheKey, ttlMs);
   if (shared) {
     responseCache.set(cacheKey, { ts: Date.now(), status: shared.status, contentType: shared.contentType, body: shared.body });
     res.status(shared.status).type(shared.contentType).send(shared.body);

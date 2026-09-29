@@ -92635,14 +92635,34 @@ var ALLOWED_ENDPOINTS = /* @__PURE__ */ new Set([
   "getNFLNews",
   "getNFLDepthCharts"
 ]);
-var CACHE_TTL_MS = 2e4;
+var DEFAULT_CACHE_TTL_MS = 2e4;
+var MINUTE_MS = 6e4;
+var CACHE_TTL_BY_ENDPOINT = {
+  getNFLBoxScore: 2e4,
+  // live in-game scoring -- must stay fresh
+  getNFLGamesForWeek: 2e4,
+  // live game status + kickoff-lock checks
+  getNFLNews: 15 * MINUTE_MS,
+  // league-wide news feed (same for all viewers)
+  getNFLPlayerInfo: 15 * MINUTE_MS,
+  // player bio/photo/season stats (avatars)
+  getNFLGamesForPlayer: 15 * MINUTE_MS,
+  getNFLProjections: 60 * MINUTE_MS,
+  getNFLTeamSchedule: 6 * 60 * MINUTE_MS,
+  getNFLTeams: 6 * 60 * MINUTE_MS,
+  getNFLADP: 6 * 60 * MINUTE_MS,
+  getNFLDepthCharts: 6 * 60 * MINUTE_MS
+};
+function cacheTtlMs(endpoint) {
+  return CACHE_TTL_BY_ENDPOINT[endpoint] ?? DEFAULT_CACHE_TTL_MS;
+}
 var responseCache = /* @__PURE__ */ new Map();
 var SHARED_CACHE_TABLE = "tank01_response_cache";
-async function readSharedCache(cacheKey) {
+async function readSharedCache(cacheKey, ttlMs) {
   try {
     const { data, error: error46 } = await supabaseAdmin.from(SHARED_CACHE_TABLE).select("status, content_type, body, updated_at").eq("cache_key", cacheKey).maybeSingle();
     if (error46 || !data) return null;
-    if (Date.now() - new Date(data.updated_at).getTime() >= CACHE_TTL_MS) return null;
+    if (Date.now() - new Date(data.updated_at).getTime() >= ttlMs) return null;
     return { status: data.status, contentType: data.content_type, body: data.body };
   } catch {
     return null;
@@ -92677,13 +92697,14 @@ async function proxyTank01Request(req, res) {
   for (const [key, value] of Object.entries(req.query)) {
     if (typeof value === "string" && key.length <= 64 && value.length <= 256) query.set(key, value);
   }
+  const ttlMs = cacheTtlMs(endpoint);
   const cacheKey = `${endpoint}?${query.toString()}`;
   const cached2 = responseCache.get(cacheKey);
-  if (cached2 && Date.now() - cached2.ts < CACHE_TTL_MS) {
+  if (cached2 && Date.now() - cached2.ts < ttlMs) {
     res.status(cached2.status).type(cached2.contentType).send(cached2.body);
     return;
   }
-  const shared = await readSharedCache(cacheKey);
+  const shared = await readSharedCache(cacheKey, ttlMs);
   if (shared) {
     responseCache.set(cacheKey, { ts: Date.now(), status: shared.status, contentType: shared.contentType, body: shared.body });
     res.status(shared.status).type(shared.contentType).send(shared.body);
