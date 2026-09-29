@@ -1243,3 +1243,16 @@
 
 - [x] Run the supplied Tank01-based player-team comparison and apply verified `nfl_team` updates.
 - [x] Run the supplied 2026 bye-week update and verify the final player-record counts.
+
+# Fresh 2026 NFL Team and Bye-Week Reconciliation
+
+- [x] Recheck every stored player against the current Tank01 player list and 2026 schedules.
+- [x] Apply only newly confirmed NFL team or bye-week changes and report the current run’s counts.
+
+# Repeated 2026 NFL Team and Bye-Week Reconciliation
+
+- [x] Run another Tank01 player-team and 2026 schedule comparison, apply any new changes, and verify the final result.
+
+# Current 2026 NFL Team and Bye-Week Reconciliation
+
+- [x] Re-run the Tank01 player-list and 2026 schedule comparison, apply any new differences, and verify the player table.
