@@ -3,16 +3,10 @@ import { supabase } from "@/lib/supabase";
 import { trpc } from "@/lib/trpc";
 import { useNFLMatchups } from "@/hooks/useNFLMatchups";
 import { useNFLLiveScores, getLivePoints } from "@/hooks/useNFLLiveScores";
-import { buildDefaultStarters, fillEmptyStarterSlots } from "@/lib/defaultLineup";
+import { buildDefaultStarters, fillEmptyStarterSlots, STARTER_SLOT_ORDER } from "@/lib/defaultLineup";
 import { useDraftPlayerUniverse } from "@/hooks/useDraftPlayerUniverse";
 import { resolveRosterPlayerForLineupEntry, type RosterPlayerRow } from "@shared/rosterPlayerResolution";
 import { normalizePlayerName } from "@shared/playerNameMatch";
-
-// The 10 WRC starter slots, in order -- the same array Live Scoring's
-// buildSide passes to fillEmptyStarterSlots (LiveScoring.tsx SLOT_ORDER).
-// Kept in step with that copy so this hook's backfill fills exactly the
-// slots Live Scoring does.
-const STARTER_SLOTS = ["QB", "RB", "RB", "WR", "WR", "TE", "SFLEX", "FLEX", "K", "DST"] as const;
 
 interface StarterInfo {
   name: string;
@@ -96,7 +90,7 @@ export function useOwnerMatchupScore(myTeamId: string, oppTeamId: string, week: 
           // after the owner last saved) still belong to the team -- put them on
           // the bench so backfill can promote them into any empty slot.
           for (const p of teamPlayers) if (!used.has(p.id)) bench.push(p);
-          const { starters: filled } = fillEmptyStarterSlots(starters, bench, STARTER_SLOTS, draftPlayerPool);
+          const { starters: filled } = fillEmptyStarterSlots(starters, bench, STARTER_SLOT_ORDER, draftPlayerPool);
           return filled.map(({ player }) => ({ name: player.name, position: player.position, nflTeam: player.nfl_team }));
         }
 

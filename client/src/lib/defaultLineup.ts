@@ -51,6 +51,13 @@ export function buildDefaultStarters<T extends DefaultLineupPlayer>(
   return starters;
 }
 
+// The 10 WRC starter slots, in order: QB, two RB, two WR, TE, a super-flex
+// (QB/RB/WR/TE), a flex (RB/WR/TE), K, DST. The single source of truth for
+// this order -- Live Scoring, the Standings matchup card, and the default-
+// lineup tests all import it, so backfill fills exactly the same slots
+// everywhere and the three can't silently drift apart.
+export const STARTER_SLOT_ORDER = ["QB", "RB", "RB", "WR", "WR", "TE", "SFLEX", "FLEX", "K", "DST"] as const;
+
 // Which positions may fill each starter slot. Matches the Lineup page's
 // STARTER_SLOTS so a slot backfilled here agrees with what the owner sees.
 export const STARTER_SLOT_ELIGIBLE: Record<string, string[]> = {

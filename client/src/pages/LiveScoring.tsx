@@ -26,7 +26,7 @@ import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } 
 import { fetchPlayerByName } from "@/hooks/useTank01Player";
 import { getEspnHeadshotUrl } from "@/lib/playerHeadshot";
 import { normalizePlayerName } from "@shared/playerNameMatch";
-import { buildDefaultStarters, fillEmptyStarterSlots } from "@/lib/defaultLineup";
+import { buildDefaultStarters, fillEmptyStarterSlots, STARTER_SLOT_ORDER } from "@/lib/defaultLineup";
 import { useDraftPlayerUniverse } from "@/hooks/useDraftPlayerUniverse";
 import { groupKickerEventsForDisplay, getKickerEventsForPlayer, type KickerPlayEvent } from "@/lib/espnKickerEvents";
 
@@ -944,7 +944,10 @@ const OWNER_TO_TEAM_ID: Record<string, string> = {
 };
 
 // ── Slot ordering for default lineup ─────────────────────────────────────────
-const SLOT_ORDER = ["QB", "RB", "RB", "WR", "WR", "TE", "SFLEX", "FLEX", "K", "DST"] as const;
+// Single source of truth in defaultLineup.ts (shared with the Standings
+// matchup card and the default-lineup tests); aliased here so this file's
+// existing SLOT_ORDER / SlotLabel usages stay unchanged.
+const SLOT_ORDER = STARTER_SLOT_ORDER;
 type SlotLabel = typeof SLOT_ORDER[number];
 
 /**

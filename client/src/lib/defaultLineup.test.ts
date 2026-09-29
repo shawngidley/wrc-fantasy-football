@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { buildDefaultStarters, fillEmptyStarterSlots } from "./defaultLineup";
+import { buildDefaultStarters, fillEmptyStarterSlots, STARTER_SLOT_ORDER } from "./defaultLineup";
 
-const SLOT_ORDER = ["QB", "RB", "RB", "WR", "WR", "TE", "SFLEX", "FLEX", "K", "DST"];
+// Exercise the real exported order, so this test also guards it against drift.
+const SLOT_ORDER = STARTER_SLOT_ORDER;
 
 const pool = [
   { name: "Josh Allen", adp: 26.1 },
