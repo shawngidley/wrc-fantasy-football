@@ -25,7 +25,7 @@ import { InjuryTag } from "@/components/InjuryTag";
 import { useNFLSeasonStats } from "@/hooks/useNFLSeasonStats";
 import { useDbSeasonStats } from "@/hooks/useDbSeasonStats";
 import { fetchSeasonStats, type SeasonStatRow } from "@/hooks/useESPNSeasonStats";
-import { formatSeasonStat, type PlayerSeasonStats } from "@/lib/playerSeasonStats";
+import { formatSeasonStat, mergeSeasonStatMapsPreferComplete, type PlayerSeasonStats } from "@/lib/playerSeasonStats";
 import { getNflTeamLogoUrl } from "@/lib/nflTeamLogo";
 import { fetchTeamSchedule } from "@/hooks/useNFLTeamSchedule";
 import { normalizePlayerName } from "@shared/playerNameMatch";
@@ -775,7 +775,12 @@ export default function Lineup() {
     Boolean(viewTeamName) && !draftLoading,
   );
   const lineupStatMap = useMemo(
-    () => ({ ...tankLineupStatMap, ...dbLineupStatMap }),
+    // Prefer WRC's finalized-DB stats, but never let them override the live
+    // Tank01 total when Tank01 has more games -- i.e. a week finished but isn't
+    // finalized into player_weekly_stats yet. A blind spread ({...tank,...db})
+    // let the stale DB win, which is the "loads correct, then flashes back to
+    // fewer games" bug. See mergeSeasonStatMapsPreferComplete.
+    () => mergeSeasonStatMapsPreferComplete(tankLineupStatMap, dbLineupStatMap),
     [tankLineupStatMap, dbLineupStatMap],
   );
 
