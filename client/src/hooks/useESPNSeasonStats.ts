@@ -15,9 +15,29 @@
  */
 import { useState, useEffect } from "react";
 
-const CACHE_PREFIX = "wrc_espn_gl_v8_";
+const CACHE_PREFIX = "wrc_espn_gl_v9_";
 const CACHE_NAMESPACE = "wrc_espn_gl_";
-const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+// Past seasons never change, so a day-long cache is fine. The CURRENT season's
+// game count and totals change every week (and during games), so caching it for
+// 24h made a just-played game invisible for up to a day -- confirmed live:
+// players stuck at 2 games days after week 3 finished, because each player's
+// per-viewer cache was populated at a different time (some before ESPN added
+// week 3, some after), which is exactly the "some show 3, most show 2" pattern.
+// Cache the in-progress season only briefly so a new game shows up promptly.
+// (Prefix bumped to v9 so any stale v8 entries are dropped on deploy by
+// clearObsoleteHistoryCaches below.)
+const CACHE_TTL_MS = 24 * 60 * 60 * 1000;           // past seasons: 24h
+const CURRENT_SEASON_CACHE_TTL_MS = 30 * 60 * 1000; // in-progress season: 30 min
+
+// The NFL season is labeled by the calendar year it kicks off in (September)
+// and runs through the following February, so Jan/Feb belong to the prior
+// year's season; March onward is the current/upcoming season's year.
+export function currentNflSeason(now: Date = new Date()): number {
+  return now.getMonth() >= 2 ? now.getFullYear() : now.getFullYear() - 1;
+}
+function seasonCacheTtlMs(year: number): number {
+  return year >= currentNflSeason() ? CURRENT_SEASON_CACHE_TTL_MS : CACHE_TTL_MS;
+}
 
 export function clearObsoleteHistoryCaches(storage: Pick<Storage, "length" | "key" | "removeItem">): void {
   const obsoleteKeys: string[] = [];
@@ -50,7 +70,7 @@ export async function fetchSeasonStats(
     const cached = sessionStorage.getItem(cacheKey);
     if (cached) {
       const { ts, data } = JSON.parse(cached);
-      if (Date.now() - ts < CACHE_TTL_MS) return data;
+      if (Date.now() - ts < seasonCacheTtlMs(year)) return data;
     }
   } catch {}
 

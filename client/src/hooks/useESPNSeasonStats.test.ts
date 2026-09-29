@@ -1,5 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { clearObsoleteHistoryCaches, extractFromGamelog, extractFromSeasonTotals, getPrimarySeasonTeam } from "./useESPNSeasonStats";
+import { clearObsoleteHistoryCaches, currentNflSeason, extractFromGamelog, extractFromSeasonTotals, getPrimarySeasonTeam } from "./useESPNSeasonStats";
+
+describe("currentNflSeason", () => {
+  it("labels an in-season month (September) by that calendar year", () => {
+    expect(currentNflSeason(new Date("2026-09-29T12:00:00"))).toBe(2026);
+  });
+  it("keeps December in the same season year", () => {
+    expect(currentNflSeason(new Date("2026-12-20T12:00:00"))).toBe(2026);
+  });
+  it("counts January and February as the prior year's season", () => {
+    expect(currentNflSeason(new Date("2027-01-15T12:00:00"))).toBe(2026);
+    expect(currentNflSeason(new Date("2027-02-05T12:00:00"))).toBe(2026);
+  });
+  it("rolls to the new season year from March onward (offseason)", () => {
+    expect(currentNflSeason(new Date("2027-03-01T12:00:00"))).toBe(2027);
+  });
+});
 
 describe("extractFromGamelog", () => {
   it("keeps a receiving-first tight end's historical stats in the correct columns", () => {
@@ -52,7 +68,8 @@ describe("clearObsoleteHistoryCaches", () => {
     const values = new Map([
       ["wrc_espn_gl_v2_4361307_2024", "old"],
       ["wrc_espn_gl_v3_4361307_2024", "old"],
-      ["wrc_espn_gl_v8_4361307_2024", "current"],
+      ["wrc_espn_gl_v8_4361307_2024", "old"],     // previous schema -- now obsolete
+      ["wrc_espn_gl_v9_4361307_2024", "current"], // current schema -- preserved
       ["unrelated", "keep"],
     ]);
     const storage = {
@@ -65,7 +82,8 @@ describe("clearObsoleteHistoryCaches", () => {
 
     expect(values.has("wrc_espn_gl_v2_4361307_2024")).toBe(false);
     expect(values.has("wrc_espn_gl_v3_4361307_2024")).toBe(false);
-    expect(values.has("wrc_espn_gl_v8_4361307_2024")).toBe(true);
+    expect(values.has("wrc_espn_gl_v8_4361307_2024")).toBe(false);
+    expect(values.has("wrc_espn_gl_v9_4361307_2024")).toBe(true);
     expect(values.has("unrelated")).toBe(true);
   });
 });
