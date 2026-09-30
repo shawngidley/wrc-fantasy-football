@@ -94675,17 +94675,29 @@ async function recomputeStandingsSchedule(_req, res) {
 // server/scheduledSeasonStatsPrecompute.ts
 init_supabaseAdmin();
 var SEASON4 = 2026;
+async function loadAllPlayerWeeklyStatsForSeason(season) {
+  const PAGE = 1e3;
+  const all = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error: error46 } = await supabaseAdmin.from("player_weekly_stats").select("*").eq("season", season).order("player_name", { ascending: true }).order("week", { ascending: true }).range(from, from + PAGE - 1);
+    if (error46) throw new Error(`Unable to load player_weekly_stats: ${error46.message}`);
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < PAGE) break;
+  }
+  return all;
+}
 async function precomputeSeasonStatsSchedule(_req, res) {
   try {
-    const { data, error: error46 } = await supabaseAdmin.from("player_weekly_stats").select("*").eq("season", SEASON4);
-    if (error46) throw new Error(`Unable to load player_weekly_stats: ${error46.message}`);
+    const data = await loadAllPlayerWeeklyStatsForSeason(SEASON4);
     const rowsByPlayer = /* @__PURE__ */ new Map();
-    for (const row of data ?? []) {
-      const existing = rowsByPlayer.get(row.player_name);
+    for (const row of data) {
+      const playerName = String(row.player_name);
+      const existing = rowsByPlayer.get(playerName);
       if (existing) {
         existing.rows.push(row);
       } else {
-        rowsByPlayer.set(row.player_name, { position: row.position, nflTeam: row.nfl_team, rows: [row] });
+        rowsByPlayer.set(playerName, { position: String(row.position ?? ""), nflTeam: String(row.nfl_team ?? ""), rows: [row] });
       }
     }
     const precomputedRows = Array.from(rowsByPlayer.entries()).map(([playerName, { position, nflTeam, rows }]) => {
