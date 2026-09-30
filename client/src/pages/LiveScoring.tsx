@@ -1466,7 +1466,7 @@ export default function LiveScoring() {
     : 0;
 
   return (
-    <div className="bg-crowd bg-overlay" style={{ minHeight: "100vh" }}>
+    <div className="bg-stadium-night bg-overlay" style={{ minHeight: "100vh" }}>
       <Navigation showTicker={false} teamName={franchise?.team_name} />
 
       {/* Matchup selector bar */}
