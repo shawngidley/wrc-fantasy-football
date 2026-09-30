@@ -631,7 +631,7 @@ export default function Standings() {
   };
 
   return (
-    <div className="bg-stadium-night bg-overlay" style={{ minHeight: "100vh" }}>
+    <div className="bg-crowd bg-overlay" style={{ minHeight: "100vh" }}>
       <Navigation showTicker={rivalryGamesThisWeek.length > 0} tickerMessages={tickerMessages} teamName={franchise?.team_name} />
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "1.5rem 0.75rem 3rem" }}>
