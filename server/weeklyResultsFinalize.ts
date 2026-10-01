@@ -224,6 +224,23 @@ export function attributeOffenseFramedDefenseStats(
   };
 }
 
+/**
+ * A defense's points allowed in one game: the opponent's final score. Tank01's
+ * team Defense block doesn't carry it, so it comes from the box score body's
+ * homePts/awayPts. Display stat only -- WRC's D/ST scoring has no
+ * points-allowed category (see the note in scoringEngine's DST branch), so this
+ * never contributes to a defense's points.
+ */
+export function pointsAllowedFor(
+  homeAway: string,
+  body: { homePts?: unknown; awayPts?: unknown } | null | undefined,
+): number | undefined {
+  const raw = homeAway === "home" ? body?.awayPts : body?.homePts;
+  if (raw === undefined || raw === null || raw === "") return undefined;
+  const points = Number(raw);
+  return Number.isFinite(points) ? points : undefined;
+}
+
 // The actual scoring formula (including sacksFrom) now lives in
 // shared/scoringEngine.ts, used identically by both this server-side
 // official finalization path and the client's live-scoring display --
@@ -380,8 +397,13 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
       if (!teamAbv) return;
       const attributedStats = attributeOffenseFramedDefenseStats(homeAway, stats, teamStatsBody);
       const points = defensePoints(attributedStats);
+      // Points allowed is read off the box score's final score and attached only
+      // to the stored stat line -- points are already computed above, from the
+      // untouched stats, so this cannot move a defense's score.
+      const ptsAgainst = pointsAllowedFor(homeAway, body);
+      const statLineStats = ptsAgainst === undefined ? attributedStats : { ...attributedStats, ptsAgainst };
       dstScores[teamAbv] = points;
-      dstStatLines[teamAbv] = { ...normalizeTankSeasonStats({ Defense: attributedStats } as Tank01Stats, "DST"), wrcPts: points };
+      dstStatLines[teamAbv] = { ...normalizeTankSeasonStats({ Defense: statLineStats } as Tank01Stats, "DST"), wrcPts: points };
     });
   }
 

@@ -82137,6 +82137,12 @@ function attributeOffenseFramedDefenseStats(homeAway, stats, teamStatsBody) {
     fumblesRecovered: opponentStats?.fumblesLost
   };
 }
+function pointsAllowedFor(homeAway, body) {
+  const raw = homeAway === "home" ? body?.awayPts : body?.homePts;
+  if (raw === void 0 || raw === null || raw === "") return void 0;
+  const points = Number(raw);
+  return Number.isFinite(points) ? points : void 0;
+}
 function playerPoints(stats, position) {
   return calcFantasyPoints(stats, position);
 }
@@ -82229,8 +82235,10 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
       if (!teamAbv) return;
       const attributedStats = attributeOffenseFramedDefenseStats(homeAway, stats, teamStatsBody);
       const points = defensePoints(attributedStats);
+      const ptsAgainst = pointsAllowedFor(homeAway, body);
+      const statLineStats = ptsAgainst === void 0 ? attributedStats : { ...attributedStats, ptsAgainst };
       dstScores[teamAbv] = points;
-      dstStatLines[teamAbv] = { ...normalizeTankSeasonStats({ Defense: attributedStats }, "DST"), wrcPts: points };
+      dstStatLines[teamAbv] = { ...normalizeTankSeasonStats({ Defense: statLineStats }, "DST"), wrcPts: points };
     });
   }
   const playerByNormalizedName = new Map((players ?? []).map((player) => [normalizePlayerName(player.name), player]));
