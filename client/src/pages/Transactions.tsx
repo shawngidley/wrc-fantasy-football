@@ -45,7 +45,9 @@ const TYPE_BG: Record<string, string> = {
 
 function fmt(iso: string) {
   const d = new Date(iso);
-  return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const date = d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "America/New_York" });
+  const time = d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", timeZone: "America/New_York" });
+  return `${date}, ${time} ET`;
 }
 
 // One row in the expanded bid board: the winner (highlighted), or a losing /
