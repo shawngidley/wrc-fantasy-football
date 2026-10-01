@@ -246,6 +246,28 @@ export const appRouter = router({
         for (const row of data ?? []) result[row.player_name] = aggregateWeeklyStatRows([row]);
         return result;
       }),
+    // Reads a set of players' per-week stat lines for a season from
+    // player_weekly_stats, each week's row reshaped into the same camelCase
+    // stat shape as seasonStats (via aggregateWeeklyStatRows on that single
+    // row). Used by the player card's game log for team defenses, which have
+    // no Tank01 per-player game feed to read from. Scoped by player name, so
+    // a single D/ST's handful of weekly rows stays well under the 1000-row cap.
+    weeklyStats: publicProcedure
+      .input(z.object({ playerNames: z.array(z.string()), season: z.number().int() }))
+      .query(async ({ input }) => {
+        if (!input.playerNames.length) return {};
+        const { data, error } = await supabaseAdmin.from("player_weekly_stats")
+          .select("*").eq("season", input.season).in("player_name", input.playerNames)
+          .order("week", { ascending: true });
+        if (error) throw new Error("Unable to load player weekly stats.");
+        const result: Record<string, Array<{ week: number } & ReturnType<typeof aggregateWeeklyStatRows>>> = {};
+        for (const row of data ?? []) {
+          const name = String(row.player_name);
+          if (!result[name]) result[name] = [];
+          result[name].push({ week: Number(row.week), ...aggregateWeeklyStatRows([row]) });
+        }
+        return result;
+      }),
     // Reads a set of players' stats for a completed historical season
     // (2023-2025) from season_stats_historical -- populated once by the
     // manually-triggered /api/scheduled/historical-season-stats-backfill,
