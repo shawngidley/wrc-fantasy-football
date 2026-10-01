@@ -19,7 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Star, TrendingUp, Shield, Zap, AlertCircle, Calendar, User, ListOrdered, BarChart2 } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import FAABBidModal from "@/components/FAABBidModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNFLMatchups, formatMatchup, formatGameTime } from "@/hooks/useNFLMatchups";
@@ -546,6 +546,41 @@ export default function PlayerPage() {
     player?.playerID ?? null,
     player?.pos ?? "",
     gameLogSeason
+  );
+
+  // The per-player game-log feed (getNFLGamesForPlayer) carries each game's stat
+  // line but not the final score, so the RESULT column was always blank. The
+  // team schedule (getNFLTeamSchedule) does carry scores, keyed by the same
+  // Tank01 gameID, so fill in each game's W/L from there. Only the current
+  // season's schedule is loaded, so a past-season row finds no match and stays
+  // blank, as before.
+  const scheduleScoreByGameId = useMemo(() => {
+    const m = new Map<string, { home: number; away: number }>();
+    for (const g of schedule) {
+      if (g.gameStatus !== "Final" && g.gameStatus !== "Completed") continue;
+      const home = Number(g.homeScore);
+      const away = Number(g.awayScore);
+      if (!Number.isFinite(home) || !Number.isFinite(away)) continue;
+      m.set(g.gameID, { home, away });
+    }
+    return m;
+  }, [schedule]);
+
+  // Each row's own isHome comes from the gameID matchup and the stat line's own
+  // team, so it holds even for a player who has since changed teams -- the
+  // schedule's isHome is relative to his current team and would invert the
+  // result for a game he played against it.
+  const gameLogWithResults = useMemo(
+    () => gameLog.map(g => {
+      if (g.result) return g;
+      const score = scheduleScoreByGameId.get(g.gameID);
+      if (!score) return g;
+      const myScore = g.isHome ? score.home : score.away;
+      const oppScore = g.isHome ? score.away : score.home;
+      const outcome = myScore > oppScore ? "W" : myScore < oppScore ? "L" : "T";
+      return { ...g, result: `${outcome} ${myScore}-${oppScore}` };
+    }),
+    [gameLog, scheduleScoreByGameId],
   );
 
   // Depth chart position from Tank01
@@ -1082,7 +1117,7 @@ export default function PlayerPage() {
                           : `No game log found for ${gameLogSeason}.`}
                       </div>
                     ) : (
-                      <GameLogTable games={gameLog} pos={player.pos} />
+                      <GameLogTable games={gameLogWithResults} pos={player.pos} />
                     )}
                   </div>
                 </div>
