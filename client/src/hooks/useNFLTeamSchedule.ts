@@ -4,10 +4,23 @@
  * Caches in sessionStorage for 6 hours.
  */
 import { useState, useEffect } from "react";
+import { normalizeNFLTeamCode } from "@shared/nflTeamCodes";
 
 const BASE_URL = "/api/tank01";
 const HEADERS = {};
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+// The app normalizes Tank01's team codes to its own (JAX→JAC, KAN→KC, TAM→TB,
+// ARZ→ARI, WAS→WSH). getNFLTeamSchedule expects Tank01's own codes, so a
+// request for "JAC" returns nothing. Map the app code back to Tank01's before
+// the request. Teams whose codes already match (everyone else) pass through.
+const APP_TO_TANK01_TEAM: Record<string, string> = {
+  JAC: "JAX",
+  KC: "KAN",
+  TB: "TAM",
+  ARI: "ARZ",
+  WSH: "WAS",
+};
 
 export interface ScheduleGame {
   gameID: string;
@@ -51,12 +64,14 @@ function cacheSet(key: string, data: unknown) {
 }
 
 export async function fetchTeamSchedule(teamAbv: string, season = 2026): Promise<ScheduleGame[]> {
-  const cacheKey = `wrc_schedule_${teamAbv}_${season}`;
+  const appTeam = teamAbv.toUpperCase();
+  const tankTeam = APP_TO_TANK01_TEAM[appTeam] ?? appTeam;
+  const cacheKey = `wrc_schedule_${appTeam}_${season}`;
   const cached = cacheGet<ScheduleGame[]>(cacheKey);
   if (cached) return cached;
 
   const res = await fetch(
-    `${BASE_URL}/getNFLTeamSchedule?teamAbv=${teamAbv}&season=${season}`,
+    `${BASE_URL}/getNFLTeamSchedule?teamAbv=${tankTeam}&season=${season}`,
     { headers: HEADERS }
   );
   if (!res.ok) return [];
@@ -68,16 +83,18 @@ export async function fetchTeamSchedule(teamAbv: string, season = 2026): Promise
     .map((g) => {
       const weekMatch = g.gameWeek?.match(/Week (\d+)/);
       const weekNum = weekMatch ? parseInt(weekMatch[1], 10) : 0;
-      const isHome = g.home === teamAbv;
-      const opponent = isHome ? g.away : g.home;
+      const homeCode = normalizeNFLTeamCode(g.home);
+      const awayCode = normalizeNFLTeamCode(g.away);
+      const isHome = homeCode === appTeam;
+      const opponent = isHome ? awayCode : homeCode;
       return {
         gameID: g.gameID,
         week: g.gameWeek ?? "",
         weekNum,
         gameDate: g.gameDate ?? "",
         gameTime: g.gameTime ?? "",
-        home: g.home ?? "",
-        away: g.away ?? "",
+        home: homeCode,
+        away: awayCode,
         gameStatus: g.gameStatus ?? "Scheduled",
         homeScore: g.homePts,
         awayScore: g.awayPts,

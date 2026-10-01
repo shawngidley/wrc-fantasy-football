@@ -53,7 +53,7 @@ function fmt(iso: string) {
 // One row in the expanded bid board: the winner (highlighted), or a losing /
 // passed-over bid. "PASSED" is a conditional-group bid skipped because that
 // owner's group already won its limit; "LOST" was simply outbid.
-function BidLine({ team, amount, label, won, dropName }: { team: string; amount: number; label: string; won?: boolean; dropName?: string | null }) {
+function BidLine({ team, amount, label, won }: { team: string; amount: number; label: string; won?: boolean }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontFamily: "Barlow Condensed, sans-serif" }}>
       <span style={{
@@ -63,7 +63,6 @@ function BidLine({ team, amount, label, won, dropName }: { team: string; amount:
       }}>{label}</span>
       <span style={{ fontSize: "0.86rem", fontWeight: won ? 800 : 600, color: "oklch(0.25 0.04 150)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
         {team}
-        {dropName && <span style={{ fontSize: "0.72rem", fontWeight: 500, color: "oklch(0.55 0.04 150)" }}>  ·  would drop {dropName}</span>}
       </span>
       <span style={{ fontSize: "0.9rem", fontWeight: 800, color: won ? "oklch(0.3 0.12 150)" : "oklch(0.4 0.04 150)", flexShrink: 0 }}>${amount}</span>
     </div>
@@ -443,7 +442,7 @@ export default function Transactions() {
                           <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                             <BidLine team={result.winnerTeamName} amount={result.winnerAmount} label="WON" won />
                             {result.others.map((o, i) => (
-                              <BidLine key={`${o.teamName}-${i}`} team={o.teamName} amount={o.amount} label={o.status === "skipped" ? "PASSED" : "LOST"} dropName={o.dropPlayerName} />
+                              <BidLine key={`${o.teamName}-${i}`} team={o.teamName} amount={o.amount} label={o.status === "skipped" ? "PASSED" : "LOST"} />
                             ))}
                           </div>
                         </td>
