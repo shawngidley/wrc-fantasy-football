@@ -10,16 +10,14 @@ const BASE_URL = "/api/tank01";
 const HEADERS = {};
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
 
-// The app normalizes Tank01's team codes to its own (JAX→JAC, KAN→KC, TAM→TB,
-// ARZ→ARI, WAS→WSH). getNFLTeamSchedule expects Tank01's own codes, so a
-// request for "JAC" returns nothing. Map the app code back to Tank01's before
-// the request. Teams whose codes already match (everyone else) pass through.
+// getNFLTeamSchedule's teamAbv matches the app's team codes for every team
+// except Jacksonville: the app stores it as "JAC" (it normalizes Tank01's "JAX"
+// to "JAC" everywhere), but the schedule endpoint only knows "JAX", so convert
+// it back for the request. Confirmed against getNFLTeams: KC, TB, ARI and WSH
+// are identical in both. (KAN/TAM/ARZ/WAS are Tank01's response-only codes and
+// are NOT valid teamAbv values -- mapping to them returns an empty schedule.)
 const APP_TO_TANK01_TEAM: Record<string, string> = {
   JAC: "JAX",
-  KC: "KAN",
-  TB: "TAM",
-  ARI: "ARZ",
-  WSH: "WAS",
 };
 
 export interface ScheduleGame {
@@ -66,7 +64,9 @@ function cacheSet(key: string, data: unknown) {
 export async function fetchTeamSchedule(teamAbv: string, season = 2026): Promise<ScheduleGame[]> {
   const appTeam = teamAbv.toUpperCase();
   const tankTeam = APP_TO_TANK01_TEAM[appTeam] ?? appTeam;
-  const cacheKey = `wrc_schedule_${appTeam}_${season}`;
+  // v2: the v1 key cached empty results from the earlier wrong team-code mapping;
+  // bumping the version discards those so the corrected request is used.
+  const cacheKey = `wrc_schedule_v2_${appTeam}_${season}`;
   const cached = cacheGet<ScheduleGame[]>(cacheKey);
   if (cached) return cached;
 
