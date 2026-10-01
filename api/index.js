@@ -81994,7 +81994,14 @@ function normalizeTankSeasonStats(stats, pos) {
     fgMade60Plus: kickingField("fgMade60Plus", "fgMade60_99", "fgMade60OrMore") ?? 0,
     xpMade: num(kicking.xpMade),
     xpAtt: num(kicking.xpAttempts),
-    sacks: num(defense.sacks),
+    // Tank01 reports sacks as the combined "sacksAndYardsLost" string ("3-10"),
+    // so read it the same way scoring does (sacksFrom) rather than a bare
+    // defense.sacks, which is usually absent -- that left the stored D/ST sacks
+    // stat at 0 even though WRC points (which use sacksFrom) counted them.
+    // sacksFrom still prefers a plain sacks field when present, so the
+    // opponent-framed credit attributeOffenseFramedDefenseStats writes is
+    // honored here exactly as it is in scoring.
+    sacks: sacksFrom(defense),
     defInt,
     fumblesRecovered,
     takeaways: defInt + fumblesRecovered,
