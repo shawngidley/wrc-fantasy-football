@@ -80778,7 +80778,8 @@ async function rosterPlayerForTeam(rows, teamId, player, acquisition = "FA") {
   if (existing) {
     if (existing.team_id === teamId) return existing.id;
     if (existing.team_id) throw new Error(`${player.name} is already on another WRC roster.`);
-    const { data: claimed, error: error47 } = await supabaseAdmin.from("players").update({ team_id: teamId, acquisition }).eq("id", existing.id).is("team_id", null).select("id");
+    const claimFields = acquisition === "FA" ? { team_id: teamId, acquisition, draft_round: null, draft_pick: null } : { team_id: teamId, acquisition };
+    const { data: claimed, error: error47 } = await supabaseAdmin.from("players").update(claimFields).eq("id", existing.id).is("team_id", null).select("id");
     if (error47) throw new Error(`Unable to add ${player.name} to the roster: ${error47.message}`);
     if (!claimed || claimed.length === 0) throw new Error(`${player.name} was just taken by another team.`);
     existing.team_id = teamId;
@@ -81367,7 +81368,7 @@ async function releaseUnprotectedPlayers(now = Date.now()) {
   const protectedIds = new Set((protectedRows ?? []).map((row) => row.player_id));
   const releaseIds = (rosteredPlayers ?? []).map((player) => player.id).filter((id) => !protectedIds.has(id));
   if (!releaseIds.length) return { released: 0, skipped: "already-released" };
-  const { error: error46 } = await supabaseAdmin.from("players").update({ team_id: null, acquisition: "FA", draft_round: null }).in("id", releaseIds);
+  const { error: error46 } = await supabaseAdmin.from("players").update({ team_id: null, acquisition: "FA", draft_round: null, draft_pick: null }).in("id", releaseIds);
   if (error46) throw new Error("Unable to release unprotected players into the draft pool.");
   return { released: releaseIds.length, skipped: null };
 }
@@ -91368,7 +91369,7 @@ var appRouter = router({
       }
       if (existingPlayer) {
         if (existingPlayer.team_id) throw new Error("This player was already added by another team.");
-        const { data: claimed, error: claimError } = await supabaseAdmin.from("players").update({ team_id: teamId, acquisition: "FA" }).eq("id", existingPlayer.id).is("team_id", null).select("id");
+        const { data: claimed, error: claimError } = await supabaseAdmin.from("players").update({ team_id: teamId, acquisition: "FA", draft_round: null, draft_pick: null }).eq("id", existingPlayer.id).is("team_id", null).select("id");
         if (claimError) throw new Error("Unable to add this player");
         if (!claimed || claimed.length === 0) throw new Error("This player was just added by another team. Please pick someone else.");
       } else {
@@ -91383,7 +91384,7 @@ var appRouter = router({
         if (insertError) throw new Error("This player was just added by another team. Please pick someone else.");
       }
       if (dropPlayer) {
-        const { error: dropError } = await supabaseAdmin.from("players").update({ team_id: null, acquisition: "FA", dropped_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", dropPlayer.id).eq("team_id", teamId);
+        const { error: dropError } = await supabaseAdmin.from("players").update({ team_id: null, acquisition: "FA", draft_round: null, draft_pick: null, dropped_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", dropPlayer.id).eq("team_id", teamId);
         if (dropError) throw new Error("Unable to drop the selected player");
       }
       const moves = [{
@@ -91575,7 +91576,7 @@ var appRouter = router({
         nflTeam: bid.player_nfl_team
       });
       if (bid.drop_player_id) {
-        const { error: dropError } = await supabaseAdmin.from("players").update({ team_id: null, acquisition: "FA", dropped_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", bid.drop_player_id).eq("team_id", bid.team_id);
+        const { error: dropError } = await supabaseAdmin.from("players").update({ team_id: null, acquisition: "FA", draft_round: null, draft_pick: null, dropped_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", bid.drop_player_id).eq("team_id", bid.team_id);
         if (dropError) throw new Error("Unable to drop the selected player");
       }
       const moves = [{
@@ -95274,7 +95275,7 @@ async function processAllPendingFaabBids() {
       if (faabError) throw new Error(`Unable to deduct winning FAAB bid for ${playerName}`);
       const dropping = Boolean(winningBid.drop_player_id && dropRow && dropRow.team_id === winningBid.team_id);
       if (dropping && dropRow) {
-        const { error: dropError } = await supabaseAdmin.from("players").update({ team_id: null, acquisition: "FA", dropped_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", winningBid.drop_player_id).eq("team_id", winningBid.team_id);
+        const { error: dropError } = await supabaseAdmin.from("players").update({ team_id: null, acquisition: "FA", draft_round: null, draft_pick: null, dropped_at: (/* @__PURE__ */ new Date()).toISOString() }).eq("id", winningBid.drop_player_id).eq("team_id", winningBid.team_id);
         if (dropError) throw new Error(`Unable to drop the selected player for ${playerName}'s winning team`);
         dropRow.team_id = null;
         rosterCount.set(winningBid.team_id, (rosterCount.get(winningBid.team_id) ?? 1) - 1);

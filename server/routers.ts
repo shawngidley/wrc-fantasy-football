@@ -1176,7 +1176,7 @@ export const appRouter = router({
           if (existingPlayer.team_id) throw new Error("This player was already added by another team.");
           const { data: claimed, error: claimError } = await supabaseAdmin
             .from("players")
-            .update({ team_id: teamId, acquisition: "FA" })
+            .update({ team_id: teamId, acquisition: "FA", draft_round: null, draft_pick: null })
             .eq("id", existingPlayer.id)
             .is("team_id", null)
             .select("id");
@@ -1200,7 +1200,7 @@ export const appRouter = router({
 
         if (dropPlayer) {
           const { error: dropError } = await supabaseAdmin.from("players")
-            .update({ team_id: null, acquisition: "FA", dropped_at: new Date().toISOString() })
+            .update({ team_id: null, acquisition: "FA", draft_round: null, draft_pick: null, dropped_at: new Date().toISOString() })
             .eq("id", dropPlayer.id)
             .eq("team_id", teamId);
           if (dropError) throw new Error("Unable to drop the selected player");
@@ -1503,7 +1503,7 @@ export const appRouter = router({
         });
         if (bid.drop_player_id) {
           const { error: dropError } = await supabaseAdmin.from("players")
-            .update({ team_id: null, acquisition: "FA", dropped_at: new Date().toISOString() })
+            .update({ team_id: null, acquisition: "FA", draft_round: null, draft_pick: null, dropped_at: new Date().toISOString() })
             .eq("id", bid.drop_player_id)
             .eq("team_id", bid.team_id);
           if (dropError) throw new Error("Unable to drop the selected player");

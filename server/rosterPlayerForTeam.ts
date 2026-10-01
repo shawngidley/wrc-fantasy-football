@@ -63,9 +63,17 @@ export async function rosterPlayerForTeam(
   if (existing) {
     if (existing.team_id === teamId) return existing.id;
     if (existing.team_id) throw new Error(`${player.name} is already on another WRC roster.`);
+    // players rows are reused, so a free-agent add has to clear the
+    // draft_round/draft_pick left over from when this player was last drafted
+    // -- otherwise anything reading draft_round still reads him as that draft
+    // pick. A caller passing a draft acquisition sets its own round, so leave
+    // those columns alone for it.
+    const claimFields = acquisition === "FA"
+      ? { team_id: teamId, acquisition, draft_round: null, draft_pick: null }
+      : { team_id: teamId, acquisition };
     const { data: claimed, error } = await supabaseAdmin
       .from("players")
-      .update({ team_id: teamId, acquisition })
+      .update(claimFields)
       .eq("id", existing.id)
       .is("team_id", null)
       .select("id");

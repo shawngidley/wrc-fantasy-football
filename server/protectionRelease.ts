@@ -41,7 +41,7 @@ export async function releaseUnprotectedPlayers(now = Date.now()) {
 
   const { error } = await supabaseAdmin
     .from("players")
-    .update({ team_id: null, acquisition: "FA", draft_round: null })
+    .update({ team_id: null, acquisition: "FA", draft_round: null, draft_pick: null })
     .in("id", releaseIds);
   if (error) throw new Error("Unable to release unprotected players into the draft pool.");
   return { released: releaseIds.length, skipped: null };
