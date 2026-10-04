@@ -1439,12 +1439,20 @@ export default function LiveScoring() {
   useEffect(() => {
     const interval = setInterval(() => {
       setCountdown(c => {
-        if (c <= 1) { refresh(); return REFRESH_SECONDS; }
+        if (c <= 1) {
+          // Only actually refresh while a game is in progress (isPolling) and the
+          // tab is visible. Off-game or backgrounded, the matchups don't change,
+          // so skipping the fetch avoids pinging the server every 5 min for
+          // nothing (the lineup fetch is server-side, not Tank01). The countdown
+          // keeps ticking so it resumes cleanly once a game is live again.
+          if (isPolling && document.visibilityState === "visible") refresh();
+          return REFRESH_SECONDS;
+        }
         return c - 1;
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [refresh]);
+  }, [refresh, isPolling]);
 
   const mins = Math.floor(countdown / 60);
   const secs = countdown % 60;

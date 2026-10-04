@@ -92687,7 +92687,27 @@ var CACHE_TTL_BY_ENDPOINT = {
   getNFLADP: 6 * 60 * MINUTE_MS,
   getNFLDepthCharts: 6 * 60 * MINUTE_MS
 };
-function cacheTtlMs(endpoint) {
+var LIVE_ENDPOINTS = /* @__PURE__ */ new Set(["getNFLBoxScore", "getNFLGamesForWeek"]);
+var OFF_WINDOW_TTL_MS = 15 * MINUTE_MS;
+var ET_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+function isLiveGameWindow(now = /* @__PURE__ */ new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    hour: "numeric",
+    hour12: false
+  }).formatToParts(now);
+  const weekday = parts.find((p) => p.type === "weekday")?.value ?? "";
+  let hour2 = Number(parts.find((p) => p.type === "hour")?.value ?? "0");
+  if (hour2 >= 24) hour2 = 0;
+  if (hour2 >= 2 && hour2 < 9) return false;
+  const dayIndex = ET_DAYS.indexOf(weekday);
+  if (dayIndex < 0) return true;
+  const slateDay = hour2 < 2 ? ET_DAYS[(dayIndex + 6) % 7] : ET_DAYS[dayIndex];
+  return slateDay !== "Tue" && slateDay !== "Wed";
+}
+function cacheTtlMs(endpoint, now = /* @__PURE__ */ new Date()) {
+  if (LIVE_ENDPOINTS.has(endpoint) && !isLiveGameWindow(now)) return OFF_WINDOW_TTL_MS;
   return CACHE_TTL_BY_ENDPOINT[endpoint] ?? DEFAULT_CACHE_TTL_MS;
 }
 var responseCache = /* @__PURE__ */ new Map();

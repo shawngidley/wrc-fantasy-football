@@ -55,7 +55,48 @@ const CACHE_TTL_BY_ENDPOINT: Record<string, number> = {
   getNFLADP: 6 * 60 * MINUTE_MS,
   getNFLDepthCharts: 6 * 60 * MINUTE_MS,
 };
-function cacheTtlMs(endpoint: string): number {
+// The two live endpoints keep their 20s TTL only while a game could actually be
+// in progress. Outside NFL game windows the weekly schedule and the (now-final)
+// box scores are static, so a 20s TTL just re-fetches identical data on every
+// page load and Live Scoring open -- the bulk of the quiet-day API spend. The
+// window is intentionally generous so live scoring is never under-cached.
+const LIVE_ENDPOINTS = new Set(["getNFLBoxScore", "getNFLGamesForWeek"]);
+const OFF_WINDOW_TTL_MS = 15 * MINUTE_MS;
+const ET_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+
+/**
+ * Whether an NFL game could plausibly be in progress right now, in ET (so it
+ * follows the EST/EDT shift on its own): roughly 9am to 2am on any day that has
+ * a slate, which covers a 9:30am London kickoff through a night game in
+ * overtime.
+ *
+ * The 12am-2am hours are attributed to the PREVIOUS day's slate -- a Monday
+ * night game in overtime is still Monday football at 12:30am Tuesday -- because
+ * otherwise the day rolling over to Tuesday would drop a live late game out of
+ * the window and leave Live Scoring up to 15 minutes stale during the fourth
+ * quarter. Same for a Thursday nighter running into Friday.
+ *
+ * Tue/Wed slates are treated as impossible. The league does occasionally move a
+ * game there (weather, scheduling emergencies); the cost if that happens is
+ * 15-minute-stale scores for that one game, not a broken page.
+ */
+export function isLiveGameWindow(now: Date = new Date()): boolean {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York", weekday: "short", hour: "numeric", hour12: false,
+  }).formatToParts(now);
+  const weekday = parts.find(p => p.type === "weekday")?.value ?? "";
+  let hour = Number(parts.find(p => p.type === "hour")?.value ?? "0");
+  if (hour >= 24) hour = 0; // some runtimes emit "24" for midnight
+
+  if (hour >= 2 && hour < 9) return false; // overnight: nothing can be in progress
+  const dayIndex = ET_DAYS.indexOf(weekday as (typeof ET_DAYS)[number]);
+  if (dayIndex < 0) return true; // unparseable weekday: fail toward fresh data
+  const slateDay = hour < 2 ? ET_DAYS[(dayIndex + 6) % 7] : ET_DAYS[dayIndex];
+  return slateDay !== "Tue" && slateDay !== "Wed";
+}
+
+function cacheTtlMs(endpoint: string, now: Date = new Date()): number {
+  if (LIVE_ENDPOINTS.has(endpoint) && !isLiveGameWindow(now)) return OFF_WINDOW_TTL_MS;
   return CACHE_TTL_BY_ENDPOINT[endpoint] ?? DEFAULT_CACHE_TTL_MS;
 }
 const responseCache = new Map<string, { ts: number; status: number; contentType: string; body: string }>();

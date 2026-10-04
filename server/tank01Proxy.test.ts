@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { proxyTank01Request, __clearTank01ProxyCacheForTests } from "./tank01Proxy";
+import { proxyTank01Request, __clearTank01ProxyCacheForTests, isLiveGameWindow } from "./tank01Proxy";
 
 describe("proxyTank01Request", () => {
   const originalApiKey = process.env.TANK01_API_KEY;
@@ -216,5 +216,48 @@ describe("proxyTank01Request kill switch", () => {
 
     expect(global.fetch).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(503);
+  });
+});
+
+describe("isLiveGameWindow", () => {
+  // Written as UTC instants so these don't depend on the machine's zone. EDT is
+  // UTC-4, so 16:00Z is noon ET and 04:00Z is midnight ET.
+  const et = (iso: string) => new Date(iso);
+
+  it("is live through a normal game-day slate", () => {
+    expect(isLiveGameWindow(et("2026-10-04T13:30:00Z"))).toBe(true); // Sun 9:30am ET, London kickoff
+    expect(isLiveGameWindow(et("2026-10-04T17:00:00Z"))).toBe(true); // Sun 1pm ET
+    expect(isLiveGameWindow(et("2026-10-05T00:20:00Z"))).toBe(true); // Sun 8:20pm ET, SNF
+    expect(isLiveGameWindow(et("2026-10-06T00:15:00Z"))).toBe(true); // Mon 8:15pm ET, MNF
+    expect(isLiveGameWindow(et("2026-10-09T00:15:00Z"))).toBe(true); // Thu 8:15pm ET, TNF
+    expect(isLiveGameWindow(et("2026-12-26T18:00:00Z"))).toBe(true); // Sat 1pm ET, late-season
+  });
+
+  // The case the day-of-week check gets wrong on its own: a night game in
+  // overtime is still the previous day's slate after midnight ET, and dropping
+  // out of the window there would leave Live Scoring 15 minutes stale during
+  // the fourth quarter.
+  it("stays live for a night game that runs past midnight ET", () => {
+    expect(isLiveGameWindow(et("2026-10-06T04:30:00Z"))).toBe(true); // Tue 12:30am ET = Monday night
+    expect(isLiveGameWindow(et("2026-10-09T04:30:00Z"))).toBe(true); // Fri 12:30am ET = Thursday night
+    expect(isLiveGameWindow(et("2026-10-05T05:45:00Z"))).toBe(true); // Mon 1:45am ET = Sunday night
+  });
+
+  it("is off overnight once every game has ended", () => {
+    expect(isLiveGameWindow(et("2026-10-05T06:00:00Z"))).toBe(false); // Mon 2am ET
+    expect(isLiveGameWindow(et("2026-10-05T11:00:00Z"))).toBe(false); // Mon 7am ET
+  });
+
+  it("is off all day Tuesday and Wednesday, which have no slate", () => {
+    expect(isLiveGameWindow(et("2026-10-06T17:00:00Z"))).toBe(false); // Tue 1pm ET
+    expect(isLiveGameWindow(et("2026-10-07T00:15:00Z"))).toBe(false); // Tue 8:15pm ET
+    expect(isLiveGameWindow(et("2026-10-07T17:00:00Z"))).toBe(false); // Wed 1pm ET
+    expect(isLiveGameWindow(et("2026-10-08T04:30:00Z"))).toBe(false); // Thu 12:30am ET = Wednesday night
+  });
+
+  // The ET conversion has to follow the standard-time shift, not a fixed offset.
+  it("tracks the EST/EDT shift", () => {
+    expect(isLiveGameWindow(et("2026-11-29T18:00:00Z"))).toBe(true);  // Sun 1pm EST
+    expect(isLiveGameWindow(et("2026-11-30T12:00:00Z"))).toBe(false); // Mon 7am EST
   });
 });
