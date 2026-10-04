@@ -7,7 +7,7 @@
  *
  * Polling strategy:
  *  - Only polls when at least one game is currently in progress
- *  - Polls every 30 seconds during active windows
+ *  - Polls every 60 seconds during active windows
  *  - Stops polling when all games are final
  *  - Uses sessionStorage to cache final scores
  */
@@ -18,7 +18,7 @@ import { calcFantasyPoints, type Tank01Stats } from "@/lib/scoringEngine";
 import { normalizePlayerName } from "@shared/playerNameMatch";
 
 const TANK01_BASE_URL = "/api/tank01";
-const POLL_INTERVAL_MS = 30_000; // 30 seconds
+const POLL_INTERVAL_MS = 60_000; // 60s -- a once-a-minute scoreboard (like ESPN/Yahoo); halves game-day box-score calls vs the old 30s, the dominant Tank01 cost
 
 /** Map of lowercase player name → live WRC fantasy points */
 export type LiveScoreMap = Record<string, number>;

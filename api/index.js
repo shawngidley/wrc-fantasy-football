@@ -92672,10 +92672,16 @@ var ALLOWED_ENDPOINTS = /* @__PURE__ */ new Set([
 var DEFAULT_CACHE_TTL_MS = 2e4;
 var MINUTE_MS = 6e4;
 var CACHE_TTL_BY_ENDPOINT = {
-  getNFLBoxScore: 2e4,
-  // live in-game scoring -- must stay fresh
-  getNFLGamesForWeek: 2e4,
-  // live game status + kickoff-lock checks
+  getNFLBoxScore: 5e4,
+  // live in-game scoring; just under the 60s client poll
+  // Matchups and kickoff times are static once the week is set, and nothing
+  // time-sensitive reads this endpoint's own status field: the client lineup
+  // lock (hasTeamGameStarted) and the poller's in-progress check
+  // (isLikelyStillInProgress) both compute off the static kickoff time, while
+  // the rivalry-declaration and free-agent-bid locks (nflWeekKickoffCheck) and
+  // weekly finalization call Tank01 directly, bypassing this cache entirely.
+  // Only the cosmetic NFL game score in the matchup header goes staler.
+  getNFLGamesForWeek: 5 * MINUTE_MS,
   getNFLNews: 15 * MINUTE_MS,
   // league-wide news feed (same for all viewers)
   getNFLPlayerInfo: 15 * MINUTE_MS,

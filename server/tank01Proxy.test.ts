@@ -61,6 +61,10 @@ describe("proxyTank01Request response caching", () => {
     process.env.TANK01_KILL_SWITCH = "off"; // these tests verify caching, not the kill switch
     __clearTank01ProxyCacheForTests();
     vi.useFakeTimers();
+    // Pin to a live game window (Sun 2pm ET) so the live endpoints use their
+    // in-game TTL deterministically, not the long off-window TTL -- otherwise
+    // these cache tests would pass or fail depending on the day they run.
+    vi.setSystemTime(new Date("2026-10-04T18:00:00Z"));
   });
 
   afterEach(() => {
@@ -99,7 +103,7 @@ describe("proxyTank01Request response caching", () => {
     mockFetchAlwaysReturning(200, { body: {} });
 
     await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20260910_NE@SEA" } } as never, responseMock() as never);
-    vi.advanceTimersByTime(21_000); // just past the 20s TTL
+    vi.advanceTimersByTime(51_000); // just past the 50s in-game box-score TTL
     await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20260910_NE@SEA" } } as never, responseMock() as never);
 
     expect(global.fetch).toHaveBeenCalledTimes(2);
@@ -109,7 +113,7 @@ describe("proxyTank01Request response caching", () => {
     mockFetchAlwaysReturning(200, { body: [] });
 
     await proxyTank01Request({ params: { endpoint: "getNFLNews" }, query: { recentNews: "true" } } as never, responseMock() as never);
-    vi.advanceTimersByTime(60_000); // 1 min: well past the 20s live TTL, well under news's 15 min
+    vi.advanceTimersByTime(60_000); // 1 min: past the 50s live-data TTL, well under news's 15 min
     await proxyTank01Request({ params: { endpoint: "getNFLNews" }, query: { recentNews: "true" } } as never, responseMock() as never);
 
     // Under the old flat 20s TTL this would have re-fetched; now it's one call.

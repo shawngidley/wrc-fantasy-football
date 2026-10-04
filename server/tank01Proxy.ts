@@ -27,8 +27,9 @@ const ALLOWED_ENDPOINTS = new Set([
 // at once). 20s is deliberately just under the 30s client poll interval,
 // so legitimate polling still gets reasonably fresh data while
 // overlapping/duplicate requests within that window share one response.
-// Per-endpoint cache TTL. Live game data has to stay near-real-time, so it
-// keeps the original 20s window (just under the 30s client poll). But the
+// Per-endpoint cache TTL. Live box scores stay near-real-time on a 50s window,
+// just under the 60s client poll (raised from 30s/20s to roughly halve game-day
+// box-score calls -- the dominant cost -- for a once-a-minute scoreboard). But the
 // slow-changing feeds were being re-fetched on that same 20s window even
 // though they barely change and are identical for every viewer -- pure waste
 // on a game-day Sunday with all 12 owners watching. Giving those a much longer
@@ -44,8 +45,15 @@ const ALLOWED_ENDPOINTS = new Set([
 const DEFAULT_CACHE_TTL_MS = 20_000;
 const MINUTE_MS = 60_000;
 const CACHE_TTL_BY_ENDPOINT: Record<string, number> = {
-  getNFLBoxScore: 20_000,             // live in-game scoring -- must stay fresh
-  getNFLGamesForWeek: 20_000,         // live game status + kickoff-lock checks
+  getNFLBoxScore: 50_000,             // live in-game scoring; just under the 60s client poll
+  // Matchups and kickoff times are static once the week is set, and nothing
+  // time-sensitive reads this endpoint's own status field: the client lineup
+  // lock (hasTeamGameStarted) and the poller's in-progress check
+  // (isLikelyStillInProgress) both compute off the static kickoff time, while
+  // the rivalry-declaration and free-agent-bid locks (nflWeekKickoffCheck) and
+  // weekly finalization call Tank01 directly, bypassing this cache entirely.
+  // Only the cosmetic NFL game score in the matchup header goes staler.
+  getNFLGamesForWeek: 5 * MINUTE_MS,
   getNFLNews: 15 * MINUTE_MS,         // league-wide news feed (same for all viewers)
   getNFLPlayerInfo: 15 * MINUTE_MS,   // player bio/photo/season stats (avatars)
   getNFLGamesForPlayer: 15 * MINUTE_MS,
