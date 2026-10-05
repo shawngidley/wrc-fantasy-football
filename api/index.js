@@ -81140,7 +81140,34 @@ function normalizeNFLTeamCode(team) {
 }
 
 // server/nflWeekKickoffCheck.ts
+init_supabaseAdmin();
 var TANK01_BASE_URL = "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
+var SHARED_CACHE_TABLE = "tank01_response_cache";
+var GAMES_CACHE_TTL_MS = 10 * 60 * 1e3;
+var gamesMemo = /* @__PURE__ */ new Map();
+async function readGamesCache(cacheKey) {
+  const mem = gamesMemo.get(cacheKey);
+  if (mem && Date.now() - mem.ts < GAMES_CACHE_TTL_MS) return mem.games;
+  try {
+    const { data, error: error46 } = await supabaseAdmin.from(SHARED_CACHE_TABLE).select("body, updated_at").eq("cache_key", cacheKey).maybeSingle();
+    if (error46 || !data) return null;
+    if (Date.now() - new Date(data.updated_at).getTime() >= GAMES_CACHE_TTL_MS) return null;
+    const games = JSON.parse(data.body).body ?? [];
+    if (games.length === 0) return null;
+    gamesMemo.set(cacheKey, { ts: Date.now(), games });
+    return games;
+  } catch {
+    return null;
+  }
+}
+async function writeGamesCache(cacheKey, rawBody, games) {
+  if (games.length === 0) return;
+  gamesMemo.set(cacheKey, { ts: Date.now(), games });
+  try {
+    await supabaseAdmin.from(SHARED_CACHE_TABLE).upsert({ cache_key: cacheKey, status: 200, content_type: "application/json", body: rawBody, updated_at: (/* @__PURE__ */ new Date()).toISOString() }, { onConflict: "cache_key" });
+  } catch {
+  }
+}
 function hasKickoffTimePassed(gameDate, gameTime) {
   if (!gameDate || !gameTime || gameDate.length < 8) return false;
   const year2 = parseInt(gameDate.slice(0, 4), 10);
@@ -81161,6 +81188,9 @@ function hasGameStarted(game) {
   return Boolean(game.gameStatus && game.gameStatus !== "Scheduled") || hasKickoffTimePassed(game.gameDate, game.gameTime);
 }
 async function fetchGamesForWeek(week2, season) {
+  const cacheKey = `lock:getNFLGamesForWeek?week=${week2}&season=${season}`;
+  const cached2 = await readGamesCache(cacheKey);
+  if (cached2) return cached2;
   const key = process.env.TANK01_API_KEY;
   if (!key) throw new Error("Tank01 API credential is unavailable.");
   const headers = { "x-rapidapi-key": key, "x-rapidapi-host": "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com" };
@@ -81169,7 +81199,10 @@ async function fetchGamesForWeek(week2, season) {
     { headers, signal: AbortSignal.timeout(15e3) }
   );
   if (!response.ok) throw new Error(`Unable to load this week's NFL games (${response.status}).`);
-  return (await response.json()).body ?? [];
+  const payload = await response.json();
+  const games = payload.body ?? [];
+  await writeGamesCache(cacheKey, JSON.stringify(payload), games);
+  return games;
 }
 async function hasWeekKickedOff(week2, season) {
   const games = await fetchGamesForWeek(week2, season);
@@ -92717,10 +92750,10 @@ function cacheTtlMs(endpoint, now = /* @__PURE__ */ new Date()) {
   return CACHE_TTL_BY_ENDPOINT[endpoint] ?? DEFAULT_CACHE_TTL_MS;
 }
 var responseCache = /* @__PURE__ */ new Map();
-var SHARED_CACHE_TABLE = "tank01_response_cache";
+var SHARED_CACHE_TABLE2 = "tank01_response_cache";
 async function readSharedCache(cacheKey, ttlMs) {
   try {
-    const { data, error: error46 } = await supabaseAdmin.from(SHARED_CACHE_TABLE).select("status, content_type, body, updated_at").eq("cache_key", cacheKey).maybeSingle();
+    const { data, error: error46 } = await supabaseAdmin.from(SHARED_CACHE_TABLE2).select("status, content_type, body, updated_at").eq("cache_key", cacheKey).maybeSingle();
     if (error46 || !data) return null;
     if (Date.now() - new Date(data.updated_at).getTime() >= ttlMs) return null;
     return { status: data.status, contentType: data.content_type, body: data.body };
@@ -92730,7 +92763,7 @@ async function readSharedCache(cacheKey, ttlMs) {
 }
 async function writeSharedCache(cacheKey, status, contentType, body) {
   try {
-    await supabaseAdmin.from(SHARED_CACHE_TABLE).upsert({ cache_key: cacheKey, status, content_type: contentType, body, updated_at: (/* @__PURE__ */ new Date()).toISOString() }, { onConflict: "cache_key" });
+    await supabaseAdmin.from(SHARED_CACHE_TABLE2).upsert({ cache_key: cacheKey, status, content_type: contentType, body, updated_at: (/* @__PURE__ */ new Date()).toISOString() }, { onConflict: "cache_key" });
   } catch {
   }
 }
