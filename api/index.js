@@ -92728,6 +92728,8 @@ var CACHE_TTL_BY_ENDPOINT = {
 };
 var LIVE_ENDPOINTS = /* @__PURE__ */ new Set(["getNFLBoxScore", "getNFLGamesForWeek"]);
 var OFF_WINDOW_TTL_MS = 15 * MINUTE_MS;
+var OFF_WINDOW_SCHEDULE_TTL_MS = 60 * MINUTE_MS;
+var FINAL_GAME_TTL_MS = 12 * 60 * MINUTE_MS;
 var ET_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 function isLiveGameWindow(now = /* @__PURE__ */ new Date()) {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -92745,8 +92747,35 @@ function isLiveGameWindow(now = /* @__PURE__ */ new Date()) {
   const slateDay = hour2 < 2 ? ET_DAYS[(dayIndex + 6) % 7] : ET_DAYS[dayIndex];
   return slateDay !== "Tue" && slateDay !== "Wed";
 }
-function cacheTtlMs(endpoint, now = /* @__PURE__ */ new Date()) {
-  if (LIVE_ENDPOINTS.has(endpoint) && !isLiveGameWindow(now)) return OFF_WINDOW_TTL_MS;
+function etSlateDate(now = /* @__PURE__ */ new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "numeric",
+    hour12: false
+  }).formatToParts(now);
+  const get2 = (type) => parts.find((p) => p.type === type)?.value ?? "";
+  let hour2 = Number(get2("hour") || "0");
+  if (hour2 >= 24) hour2 = 0;
+  const day2 = /* @__PURE__ */ new Date(`${get2("year")}-${get2("month")}-${get2("day")}T00:00:00Z`);
+  if (hour2 < 2) day2.setUTCDate(day2.getUTCDate() - 1);
+  const mm = String(day2.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(day2.getUTCDate()).padStart(2, "0");
+  return `${day2.getUTCFullYear()}${mm}${dd}`;
+}
+function isPastDayBoxScore(endpoint, query, now) {
+  if (endpoint !== "getNFLBoxScore") return false;
+  const datePart = (query.get("gameID") ?? "").slice(0, 8);
+  if (!/^\d{8}$/.test(datePart)) return false;
+  return datePart < etSlateDate(now);
+}
+function cacheTtlMs(endpoint, query, now = /* @__PURE__ */ new Date()) {
+  if (isPastDayBoxScore(endpoint, query, now)) return FINAL_GAME_TTL_MS;
+  if (LIVE_ENDPOINTS.has(endpoint) && !isLiveGameWindow(now)) {
+    return endpoint === "getNFLGamesForWeek" ? OFF_WINDOW_SCHEDULE_TTL_MS : OFF_WINDOW_TTL_MS;
+  }
   return CACHE_TTL_BY_ENDPOINT[endpoint] ?? DEFAULT_CACHE_TTL_MS;
 }
 var responseCache = /* @__PURE__ */ new Map();
@@ -92790,7 +92819,7 @@ async function proxyTank01Request(req, res) {
   for (const [key, value] of Object.entries(req.query)) {
     if (typeof value === "string" && key.length <= 64 && value.length <= 256) query.set(key, value);
   }
-  const ttlMs = cacheTtlMs(endpoint);
+  const ttlMs = cacheTtlMs(endpoint, query);
   const cacheKey = `${endpoint}?${query.toString()}`;
   const cached2 = responseCache.get(cacheKey);
   if (cached2 && Date.now() - cached2.ts < ttlMs) {

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { proxyTank01Request, __clearTank01ProxyCacheForTests, isLiveGameWindow } from "./tank01Proxy";
+import { proxyTank01Request, __clearTank01ProxyCacheForTests, isLiveGameWindow, etSlateDate } from "./tank01Proxy";
 
 describe("proxyTank01Request", () => {
   const originalApiKey = process.env.TANK01_API_KEY;
@@ -93,8 +93,8 @@ describe("proxyTank01Request response caching", () => {
   it("serves a second request for the same endpoint+params from cache without hitting Tank01 again", async () => {
     mockFetchAlwaysReturning(200, { body: { score: 7 } });
 
-    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20260910_NE@SEA" } } as never, responseMock() as never);
-    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20260910_NE@SEA" } } as never, responseMock() as never);
+    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20261004_NE@SEA" } } as never, responseMock() as never);
+    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20261004_NE@SEA" } } as never, responseMock() as never);
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
@@ -102,9 +102,38 @@ describe("proxyTank01Request response caching", () => {
   it("hits Tank01 again once the cache TTL has expired", async () => {
     mockFetchAlwaysReturning(200, { body: {} });
 
-    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20260910_NE@SEA" } } as never, responseMock() as never);
+    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20261004_NE@SEA" } } as never, responseMock() as never);
     vi.advanceTimersByTime(51_000); // just past the 50s in-game box-score TTL
-    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20260910_NE@SEA" } } as never, responseMock() as never);
+    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20261004_NE@SEA" } } as never, responseMock() as never);
+
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("caches a past-day (final) box score far longer than the live TTL", async () => {
+    mockFetchAlwaysReturning(200, { body: {} });
+
+    // gameID date 2026-10-03 is the day before the pinned clock's slate day
+    // (2026-10-04), so the game is final -- its box score should hold well past
+    // the 50s live window rather than being re-fetched on every page open.
+    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20261003_NE@SEA" } } as never, responseMock() as never);
+    vi.advanceTimersByTime(60 * 60_000); // 1 hour: far past 50s, under the 12h final TTL
+    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20261003_NE@SEA" } } as never, responseMock() as never);
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  // The failure the slate-date rule exists to prevent: at 12:30am Monday a
+  // Sunday night game is still being played, but the calendar date has already
+  // rolled over. Treating it as "yesterday" would freeze its box score for 12
+  // hours and Live Scoring would stop updating that game for the rest of the
+  // night.
+  it("keeps the live TTL for a Sunday night game still in progress after midnight", async () => {
+    vi.setSystemTime(new Date("2026-10-05T04:30:00Z")); // Mon 12:30am ET
+    mockFetchAlwaysReturning(200, { body: {} });
+
+    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20261004_NE@SEA" } } as never, responseMock() as never);
+    vi.advanceTimersByTime(51_000); // past the 50s live TTL
+    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20261004_NE@SEA" } } as never, responseMock() as never);
 
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
@@ -123,8 +152,8 @@ describe("proxyTank01Request response caching", () => {
   it("does not share the cache across different query params (different games)", async () => {
     mockFetchAlwaysReturning(200, { body: {} });
 
-    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20260910_NE@SEA" } } as never, responseMock() as never);
-    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20260913_ARI@LAC" } } as never, responseMock() as never);
+    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20261004_NE@SEA" } } as never, responseMock() as never);
+    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20261004_ARI@LAC" } } as never, responseMock() as never);
 
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
@@ -134,8 +163,8 @@ describe("proxyTank01Request response caching", () => {
       .mockImplementationOnce(() => Promise.resolve(new Response(JSON.stringify({ error: "upstream error" }), { status: 502, headers: { "content-type": "application/json" } })))
       .mockImplementationOnce(() => Promise.resolve(new Response(JSON.stringify({ body: {} }), { status: 200, headers: { "content-type": "application/json" } })));
 
-    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20260910_NE@SEA" } } as never, responseMock() as never);
-    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20260910_NE@SEA" } } as never, responseMock() as never);
+    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20261004_NE@SEA" } } as never, responseMock() as never);
+    await proxyTank01Request({ params: { endpoint: "getNFLBoxScore" }, query: { gameID: "20261004_NE@SEA" } } as never, responseMock() as never);
 
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
@@ -263,5 +292,23 @@ describe("isLiveGameWindow", () => {
   it("tracks the EST/EDT shift", () => {
     expect(isLiveGameWindow(et("2026-11-29T18:00:00Z"))).toBe(true);  // Sun 1pm EST
     expect(isLiveGameWindow(et("2026-11-30T12:00:00Z"))).toBe(false); // Mon 7am EST
+  });
+});
+
+describe("etSlateDate", () => {
+  it("is the ET calendar date during the day", () => {
+    expect(etSlateDate(new Date("2026-10-04T18:00:00Z"))).toBe("20261004"); // Sun 2pm ET
+    expect(etSlateDate(new Date("2026-10-05T00:20:00Z"))).toBe("20261004"); // Sun 8:20pm ET
+  });
+
+  it("counts the 12am-2am hours as the previous day's slate", () => {
+    expect(etSlateDate(new Date("2026-10-05T04:30:00Z"))).toBe("20261004"); // Mon 12:30am ET
+    expect(etSlateDate(new Date("2026-10-05T05:59:00Z"))).toBe("20261004"); // Mon 1:59am ET
+    expect(etSlateDate(new Date("2026-10-05T06:00:00Z"))).toBe("20261005"); // Mon 2:00am ET
+  });
+
+  it("rolls back across month and year boundaries", () => {
+    expect(etSlateDate(new Date("2026-11-01T04:30:00Z"))).toBe("20261031"); // Nov 1 12:30am ET
+    expect(etSlateDate(new Date("2027-01-01T05:30:00Z"))).toBe("20261231"); // Jan 1 12:30am EST
   });
 });
