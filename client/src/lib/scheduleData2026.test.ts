@@ -1,5 +1,40 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
-import { getCurrentWeek, resolveWeeklyOpponentTeamName, isSeason2026Underway, getLineupDefaultWeek } from "./scheduleData2026";
+import { getCurrentWeek, resolveWeeklyOpponentTeamName, isSeason2026Underway, getLineupDefaultWeek, nflWeekForDate, WEEK_START_TIMESTAMPS } from "./scheduleData2026";
+
+describe("nflWeekForDate", () => {
+  it("maps a game date to its NFL week by week-start boundaries", () => {
+    expect(nflWeekForDate("20260913")).toBe(1); // Sun Sep 13, within week 1 (starts Sep 9)
+    expect(nflWeekForDate("20260920")).toBe(2); // Sun Sep 20, week 2 (starts Sep 17)
+    expect(nflWeekForDate("20260927")).toBe(3); // week 3 (starts Sep 24)
+    expect(nflWeekForDate("20261004")).toBe(4); // week 4 (starts Oct 1)
+    expect(nflWeekForDate("20261008")).toBe(5); // Thu Oct 8, exactly week 5's start
+  });
+
+  it("returns 0 for an empty, short, unparseable, or pre-season date so a week join finds no match", () => {
+    expect(nflWeekForDate("")).toBe(0);
+    expect(nflWeekForDate("2026")).toBe(0);
+    expect(nflWeekForDate("not-a-date")).toBe(0);
+    expect(nflWeekForDate("20269999")).toBe(0);
+    expect(nflWeekForDate("20260901")).toBe(0); // before week 1 starts (Sep 9)
+  });
+
+  // The join only works if a gameID date lands on the same week getCurrentWeek
+  // would report at that moment -- they must read the same boundaries.
+  it("agrees with getCurrentWeek on every week-start boundary", () => {
+    vi.useFakeTimers();
+    try {
+      WEEK_START_TIMESTAMPS.forEach((ts, i) => {
+        vi.setSystemTime(new Date(ts));
+        const d = new Date(ts);
+        const yyyymmdd = `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, "0")}${String(d.getUTCDate()).padStart(2, "0")}`;
+        expect(nflWeekForDate(yyyymmdd)).toBe(i + 1);
+        expect(nflWeekForDate(yyyymmdd)).toBe(getCurrentWeek());
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
 
 describe("getCurrentWeek", () => {
   afterEach(() => {

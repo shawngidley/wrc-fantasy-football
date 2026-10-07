@@ -19,7 +19,8 @@ import { calcFantasyPoints, injuryColor, injuryLabel } from "@/lib/scoringEngine
 import type { Tank01Stats } from "@/lib/scoringEngine";
 import { formatSeasonStatColumn, getSeasonStatColumns, normalizeTankSeasonStats } from "@/lib/playerSeasonStats";
 import { siteAssetUrl } from "@/lib/siteAssetUrl";
-import { getLineupDefaultWeek } from "@/lib/scheduleData2026";
+import { getLineupDefaultWeek, nflWeekForDate } from "@/lib/scheduleData2026";
+import { getDraftUniversePlayerByName } from "@shared/draftPlayerUniverse";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -668,6 +669,31 @@ export default function PlayerPage() {
   const dstWeeks = dstName ? (dstWeeksMap[dstName.toLowerCase()] ?? []) : [];
   const dstRecord = useNFLTeamRecord(isDst ? dstTeamCode : null);
 
+  // Kicker WRC points per week come from WRC's own finalized results, not from
+  // recomputing the Tank01 per-game line. WRC's kicker scoring credits a made
+  // field goal only through its yardage (0.1/yd, see scoringEngine), and the
+  // game-log feed's Kicking block carries fgMade/fgAtt/xpMade/xpAtt but no FG
+  // yardage -- so recomputing here scores every made field goal as zero while
+  // still applying the -2 per miss. A 3-FG game shows only its extra points.
+  // The weekly finalize already stores the correct per-week points (scored from
+  // ESPN play-by-play distances) in player_weekly_stats for every player who
+  // played, free agents included, so read those back and key them by week.
+  const isKicker = (player?.pos ?? "") === "K";
+  // player_weekly_stats is keyed by the pool/roster name, and the query filters
+  // on an exact name, so canonicalize Tank01's longName through the draft
+  // universe first -- the same thing the D/ST path does by looking up the pool's
+  // own name. Anyone the pool doesn't know falls back to the Tank01 name.
+  const kickerName = isKicker
+    ? (getDraftUniversePlayerByName(player?.longName ?? "")?.name ?? player?.longName ?? "")
+    : "";
+  const { weeksByPlayer: kickerWeeksMap } = useDbWeeklyStats(kickerName ? [kickerName] : [], gameLogSeason, isKicker);
+  const kickerWrcByWeek = useMemo(() => {
+    const m = new Map<number, number>();
+    if (!kickerName) return m;
+    for (const w of kickerWeeksMap[kickerName.toLowerCase()] ?? []) m.set(w.week, w.wrcPts);
+    return m;
+  }, [kickerWeeksMap, kickerName]);
+
   // The per-player game-log feed (getNFLGamesForPlayer) carries each game's stat
   // line but not the final score, so the RESULT column was always blank. The
   // team schedule (getNFLTeamSchedule) does carry scores, keyed by the same
@@ -692,15 +718,26 @@ export default function PlayerPage() {
   // result for a game he played against it.
   const gameLogWithResults = useMemo(
     () => gameLog.map(g => {
-      if (g.result) return g;
-      const score = scheduleScoreByGameId.get(g.gameID);
-      if (!score) return g;
-      const myScore = g.isHome ? score.home : score.away;
-      const oppScore = g.isHome ? score.away : score.home;
-      const outcome = myScore > oppScore ? "W" : myScore < oppScore ? "L" : "T";
-      return { ...g, result: `${outcome} ${myScore}-${oppScore}` };
+      let row = g;
+      if (!row.result) {
+        const score = scheduleScoreByGameId.get(g.gameID);
+        if (score) {
+          const myScore = g.isHome ? score.home : score.away;
+          const oppScore = g.isHome ? score.away : score.home;
+          const outcome = myScore > oppScore ? "W" : myScore < oppScore ? "L" : "T";
+          row = { ...row, result: `${outcome} ${myScore}-${oppScore}` };
+        }
+      }
+      // Override the recomputed WRC PTS for kickers with the finalized value for
+      // that week (distance-accurate; see kickerWrcByWeek above). Only 2026 is in
+      // player_weekly_stats; past seasons find no row and keep the recomputed value.
+      if (isKicker && gameLogSeason === 2026) {
+        const dbPts = kickerWrcByWeek.get(nflWeekForDate(g.gameDate));
+        if (dbPts !== undefined) row = { ...row, wrcPts: dbPts };
+      }
+      return row;
     }),
-    [gameLog, scheduleScoreByGameId],
+    [gameLog, scheduleScoreByGameId, isKicker, gameLogSeason, kickerWrcByWeek],
   );
 
   // Depth chart position from Tank01

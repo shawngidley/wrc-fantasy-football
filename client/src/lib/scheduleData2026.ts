@@ -385,6 +385,23 @@ export function getCurrentWeek(): number {
   return current;
 }
 
+/**
+ * The NFL week a game played on the given date (YYYYMMDD, e.g. "20260913")
+ * belongs to, using the same week-start boundaries as getCurrentWeek. Returns
+ * 0 for an empty/unparseable date or any date before the season's first week,
+ * so a caller joining on week simply finds no match and falls back.
+ */
+export function nflWeekForDate(yyyymmdd: string): number {
+  if (!yyyymmdd || yyyymmdd.length < 8) return 0;
+  const ms = new Date(`${yyyymmdd.slice(0, 4)}-${yyyymmdd.slice(4, 6)}-${yyyymmdd.slice(6, 8)}`).getTime();
+  if (!Number.isFinite(ms) || ms < WEEK_START_TIMESTAMPS[0]) return 0;
+  let week = 0;
+  for (let i = 0; i < WEEK_START_TIMESTAMPS.length; i++) {
+    if (ms >= WEEK_START_TIMESTAMPS[i]) week = i + 1;
+  }
+  return week;
+}
+
 // 2026's DST end date (EDT -> EST), the first Sunday in November --
 // needed to compute the correct UTC offset for "9am ET" on any given
 // Tuesday cutoff below, since the season spans both.
