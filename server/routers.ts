@@ -26,6 +26,7 @@ import { releaseUnprotectedPlayers } from "./protectionRelease";
 import { isProtectionDeadlinePassed } from "../shared/protectionSchedule";
 import { findDraftUniversePlayer } from "../shared/draftPlayerUniverse";
 import { normalizePlayerName } from "../shared/playerNameMatch";
+import { normalizeNFLTeamCode } from "../shared/nflTeamCodes";
 import { DRAFT_LOTTERY_OWNERS, isValidDraftLotteryResult } from "../shared/draftLottery";
 import { applyDraftLottery } from "../shared/draftLottery";
 import { DRAFT_PICKS_2026 } from "../client/src/lib/draftData2026";
@@ -222,6 +223,31 @@ export function aggregateWeeklyStatRows(rows: Array<Record<string, unknown>>) {
   };
 }
 
+/**
+ * Groups player_weekly_stats DST rows by normalized NFL team code and sums each
+ * team's weeks into one season line.
+ *
+ * Keying by team rather than by name is the whole point: the same defense is
+ * stored under different names in different places (draft pool "KC Chiefs" vs
+ * roster "Kansas City Chiefs"), and whichever name it carried in a given week is
+ * what that week's row holds -- so a defense that was rostered for some weeks
+ * and a free agent for others has its season split across two names, and a
+ * lookup by either one sees only part of it. Grouping by team puts those weeks
+ * back together.
+ */
+export function groupDstRowsByTeam(rows: Array<Record<string, unknown>>) {
+  const rowsByTeam = new Map<string, Array<Record<string, unknown>>>();
+  for (const row of rows) {
+    const team = normalizeNFLTeamCode(String(row.nfl_team));
+    if (!team) continue;
+    if (!rowsByTeam.has(team)) rowsByTeam.set(team, []);
+    rowsByTeam.get(team)!.push(row);
+  }
+  const result: Record<string, ReturnType<typeof aggregateWeeklyStatRows>> = {};
+  for (const [team, teamRows] of Array.from(rowsByTeam.entries())) result[team] = aggregateWeeklyStatRows(teamRows);
+  return result;
+}
+
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
@@ -245,6 +271,19 @@ export const appRouter = router({
         const result: Record<string, ReturnType<typeof aggregateWeeklyStatRows>> = {};
         for (const row of data ?? []) result[row.player_name] = aggregateWeeklyStatRows([row]);
         return result;
+      }),
+    // Season-to-date stats for every team defense, keyed by normalized NFL team
+    // code rather than by name -- see groupDstRowsByTeam for why a name lookup
+    // is unreliable for a D/ST (confirmed live: KC's season stats showing blank
+    // on Free Agents). At most one row per team per week, so a full 18-week
+    // season is ~576 rows, well under the 1000-row select cap.
+    dstSeasonStats: publicProcedure
+      .input(z.object({ season: z.number().int() }))
+      .query(async ({ input }) => {
+        const { data, error } = await supabaseAdmin.from("player_weekly_stats")
+          .select("*").eq("season", input.season).eq("position", "DST");
+        if (error) throw new Error("Unable to load DST season stats.");
+        return groupDstRowsByTeam((data ?? []) as Array<Record<string, unknown>>);
       }),
     // Reads a set of players' per-week stat lines for a season from
     // player_weekly_stats, each week's row reshaped into the same camelCase

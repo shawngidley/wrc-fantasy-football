@@ -10,7 +10,7 @@
  * - "Bid" button opens FAABBidModal for signed-in users
  * - Commissioner sees all pending bids in a separate tab
  */
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Link } from "wouter";
 import { type NFLPlayer } from "@/lib/nflPlayers2026";
 import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026 } from "@shared/currentDraftPlayerUniverse2026";
@@ -32,7 +32,7 @@ import { Search, DollarSign, UserPlus, ChevronRight, Trophy, Clock, ArrowUpDown,
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { toast } from "sonner";
 import Navigation from "@/components/Navigation";
-import { useDbSeasonStats } from "@/hooks/useDbSeasonStats";
+import { useDbSeasonStats, useDbDstSeasonStats } from "@/hooks/useDbSeasonStats";
 import { useHistoricalSeasonStats } from "@/hooks/useHistoricalSeasonStats";
 import { formatSeasonStatColumn, type PlayerSeasonStats, type SeasonStatColumn, type SeasonStatKey } from "@/lib/playerSeasonStats";
 import { normalizeNFLTeamCode } from "@shared/nflTeamCodes";
@@ -725,6 +725,24 @@ export default function FreeAgents() {
   );
   const seasonStatMap = selectedStatsYear === defaultStatsYear ? currentSeasonStatMap : historicalStatMap;
   const activeSeasonStatsLoading = selectedStatsYear === defaultStatsYear ? currentSeasonStatsLoading : historicalStatsLoading;
+  // Team defenses are resolved by team, not name: their finalized rows can be
+  // stored under a different name than this page's label, and a defense rostered
+  // for part of the season has its weeks split across both (see
+  // useDbDstSeasonStats), so a name lookup misses some or all of it. Current
+  // season only; the historical tables stay name-based.
+  const { byTeam: dstSeasonByTeam } = useDbDstSeasonStats(
+    defaultStatsYear,
+    selectedStatsYear === defaultStatsYear && baseFiltered.length > 0,
+  );
+  const seasonStatsFor = useCallback(
+    (player: { name: string; pos: string; nflTeam: string }) => {
+      if (player.pos === "DST" && selectedStatsYear === defaultStatsYear) {
+        return dstSeasonByTeam[normalizeNFLTeamCode(player.nflTeam)] ?? seasonStatMap[player.name.toLowerCase()];
+      }
+      return seasonStatMap[player.name.toLowerCase()];
+    },
+    [dstSeasonByTeam, seasonStatMap, selectedStatsYear, defaultStatsYear],
+  );
   const seasonColumns = useMemo(
     () => getFreeAgentStatColumns(posFilter),
     [posFilter]
@@ -789,7 +807,7 @@ export default function FreeAgents() {
         return matchup ? formatGameTime(matchup) : "";
       }
       if (sortKey === "proj") return getProjectedPoints(projections, player.name, player.pos, player.nflTeam);
-      return freeAgentStatValue(seasonStatMap[player.name.toLowerCase()], sortKey);
+      return freeAgentStatValue(seasonStatsFor(player), sortKey);
     };
 
     return [...baseFiltered].sort((a, b) => {
@@ -800,7 +818,7 @@ export default function FreeAgents() {
         : Number(aValue) - Number(bValue);
       return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [baseFiltered, projections, matchupMap, ownershipMap, seasonStatMap, sortDirection, sortKey]);
+  }, [baseFiltered, projections, matchupMap, ownershipMap, seasonStatMap, seasonStatsFor, sortDirection, sortKey]);
 
   const handleSort = (nextKey: SortKey) => {
     if (nextKey === sortKey) {
@@ -1227,7 +1245,7 @@ export default function FreeAgents() {
                     const proj = getProjectedPoints(projections, player.name, player.pos, player.nflTeam);
                     const ownerTeam = ownershipMap[player.name.toLowerCase()];
                     const isOwned = !!ownerTeam;
-                    const seasonStats = seasonStatMap[player.name.toLowerCase()];
+                    const seasonStats = seasonStatsFor(player);
                     const matchup = matchupMap[normalizeNFLTeamCode(player.nflTeam)];
                     const playerGameStarted = hasTeamGameStarted(player.nflTeam, matchupMap);
                     const droppedAt = droppedAtMap[player.name.toLowerCase()] ?? null;

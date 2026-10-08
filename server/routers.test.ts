@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aggregateWeeklyStatRows } from "./routers";
+import { aggregateWeeklyStatRows, groupDstRowsByTeam } from "./routers";
 
 describe("aggregateWeeklyStatRows", () => {
   it("sums basic counting stats across multiple weeks", () => {
@@ -70,5 +70,54 @@ describe("aggregateWeeklyStatRows", () => {
     expect(result.rushYds).toBe(0);
     expect(result.wrcPts).toBe(0);
     expect(Number.isNaN(result.ptsPerGame)).toBe(false);
+  });
+});
+
+describe("groupDstRowsByTeam", () => {
+  // The reason this is keyed by team at all: the same defense is stored under
+  // the draft-pool name some weeks and the roster name others, so keying by
+  // name returns only the weeks that happened to carry the name you asked for.
+  it("sums a team's weeks even when they are stored under different names", () => {
+    const rows = [
+      { nfl_team: "KC", player_name: "KC Chiefs", gp: 1, sacks: 3, def_int: 1, wrc_pts: 9.0 },
+      { nfl_team: "KC", player_name: "Kansas City Chiefs", gp: 1, sacks: 2, def_int: 0, wrc_pts: 4.0 },
+    ];
+    const result = groupDstRowsByTeam(rows);
+    expect(Object.keys(result)).toEqual(["KC"]);
+    expect(result.KC.gp).toBe(2);
+    expect(result.KC.sacks).toBe(5);
+    expect(result.KC.defInt).toBe(1);
+    expect(result.KC.wrcPts).toBe(13.0);
+  });
+
+  it("keeps separate teams separate", () => {
+    const rows = [
+      { nfl_team: "KC", gp: 1, sacks: 3 },
+      { nfl_team: "BUF", gp: 1, sacks: 1 },
+    ];
+    const result = groupDstRowsByTeam(rows);
+    expect(result.KC.sacks).toBe(3);
+    expect(result.BUF.sacks).toBe(1);
+  });
+
+  // Rows can carry either code depending on which feed wrote them, and the page
+  // looks up by the app's own normalized code.
+  it("normalizes the team code so Tank01's and the app's spellings merge", () => {
+    const rows = [
+      { nfl_team: "JAX", gp: 1, sacks: 2 },
+      { nfl_team: "JAC", gp: 1, sacks: 3 },
+    ];
+    const result = groupDstRowsByTeam(rows);
+    expect(Object.keys(result)).toEqual(["JAC"]);
+    expect(result.JAC.sacks).toBe(5);
+  });
+
+  it("skips a row with no team rather than inventing an empty bucket", () => {
+    const result = groupDstRowsByTeam([{ nfl_team: "", gp: 1 }, { nfl_team: "KC", gp: 1 }]);
+    expect(Object.keys(result)).toEqual(["KC"]);
+  });
+
+  it("returns an empty map for no rows", () => {
+    expect(groupDstRowsByTeam([])).toEqual({});
   });
 });

@@ -90784,6 +90784,18 @@ function aggregateWeeklyStatRows(rows) {
     ptsPerGame: gp > 0 ? Math.round(wrcPts / gp * 10) / 10 : 0
   };
 }
+function groupDstRowsByTeam(rows) {
+  const rowsByTeam = /* @__PURE__ */ new Map();
+  for (const row of rows) {
+    const team = normalizeNFLTeamCode(String(row.nfl_team));
+    if (!team) continue;
+    if (!rowsByTeam.has(team)) rowsByTeam.set(team, []);
+    rowsByTeam.get(team).push(row);
+  }
+  const result = {};
+  for (const [team, teamRows] of Array.from(rowsByTeam.entries())) result[team] = aggregateWeeklyStatRows(teamRows);
+  return result;
+}
 var appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
@@ -90803,6 +90815,16 @@ var appRouter = router({
       const result = {};
       for (const row of data ?? []) result[row.player_name] = aggregateWeeklyStatRows([row]);
       return result;
+    }),
+    // Season-to-date stats for every team defense, keyed by normalized NFL team
+    // code rather than by name -- see groupDstRowsByTeam for why a name lookup
+    // is unreliable for a D/ST (confirmed live: KC's season stats showing blank
+    // on Free Agents). At most one row per team per week, so a full 18-week
+    // season is ~576 rows, well under the 1000-row select cap.
+    dstSeasonStats: publicProcedure.input(external_exports.object({ season: external_exports.number().int() })).query(async ({ input }) => {
+      const { data, error: error46 } = await supabaseAdmin.from("player_weekly_stats").select("*").eq("season", input.season).eq("position", "DST");
+      if (error46) throw new Error("Unable to load DST season stats.");
+      return groupDstRowsByTeam(data ?? []);
     }),
     // Reads a set of players' per-week stat lines for a season from
     // player_weekly_stats, each week's row reshaped into the same camelCase
