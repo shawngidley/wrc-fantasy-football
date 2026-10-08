@@ -32,7 +32,6 @@ import { Search, DollarSign, UserPlus, ChevronRight, Trophy, Clock, ArrowUpDown,
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { toast } from "sonner";
 import Navigation from "@/components/Navigation";
-import { useNFLDepthCharts } from "@/hooks/useNFLDepthCharts";
 import { useDbSeasonStats } from "@/hooks/useDbSeasonStats";
 import { useHistoricalSeasonStats } from "@/hooks/useHistoricalSeasonStats";
 import { formatSeasonStatColumn, type PlayerSeasonStats, type SeasonStatColumn, type SeasonStatKey } from "@/lib/playerSeasonStats";
@@ -667,7 +666,6 @@ export default function FreeAgents() {
 
   // Injury designations
   const { injuries } = useNFLInjuries();
-  const { depthMap } = useNFLDepthCharts();
 
   const allPlayers = useMemo(() => getFreeAgentPlayerPool(draftPlayerPool as unknown as readonly NFLPlayer[]), [draftPlayerPool]);
 
@@ -1276,16 +1274,6 @@ export default function FreeAgents() {
                             <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", marginTop: 1 }}>
                               <PosBadge pos={player.pos} />
                               <span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.06 150)" }}>{player.nflTeam}</span>
-                              {depthMap.get(player.name.toLowerCase())?.depthPosition && (
-                                <span style={{
-                                  fontSize: "0.62rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif",
-                                  padding: "1px 4px", borderRadius: 3, flexShrink: 0,
-                                  background: "oklch(0.22 0.08 150)", color: "oklch(0.78 0.15 85)",
-                                  border: "1px solid oklch(0.35 0.1 150)",
-                                }}>
-                                  {depthMap.get(player.name.toLowerCase())?.depthPosition}
-                                </span>
-                              )}
                             </div>
                           </div>
                           <ChevronRight size={12} color="oklch(0.75 0.06 150)" style={{ flexShrink: 0 }} />
