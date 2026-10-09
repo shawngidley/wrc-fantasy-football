@@ -3,7 +3,7 @@
  * Background: Field turf
  * Supports trading players, FAAB budget, and future draft picks (current + next year)
  */
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { trpc } from "@/lib/trpc";
@@ -342,6 +342,18 @@ export default function Trades() {
   const [note, setNote] = useState("");
   const [counterToId, setCounterToId] = useState<string | null>(null);
   const formRef = useRef<HTMLDivElement>(null);
+  // franchise comes from an async session query, so it's null on the first
+  // render. mySide's initial team is captured from that null, leaving it "" with
+  // no later sync -- so tradeTeamData never loads the proposer's own roster, FAAB
+  // or picks, and "You Send" shows no team name, no FAAB and empty pickers. Seed
+  // the team name once franchise arrives (and keep it in step), without
+  // disturbing any assets already added. Safe to force: this side's team has no
+  // selector (isMyTeam hides it), so it can never be fighting a user's choice.
+  useEffect(() => {
+    if (franchise?.team_name) {
+      setMySide(prev => (prev.team === franchise.team_name ? prev : { ...prev, team: franchise.team_name }));
+    }
+  }, [franchise?.team_name]);
   const recipientTradeData = useTeamData(theirSide.team);
   const inboxQuery = trpc.league.tradeInbox.useQuery(undefined, { enabled: Boolean(franchise?.id), staleTime: 15_000 });
   const sentQuery = trpc.league.tradeSent.useQuery(undefined, { enabled: Boolean(franchise?.id), staleTime: 15_000 });
