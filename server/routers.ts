@@ -27,6 +27,7 @@ import { isProtectionDeadlinePassed } from "../shared/protectionSchedule";
 import { findDraftUniversePlayer } from "../shared/draftPlayerUniverse";
 import { normalizePlayerName } from "../shared/playerNameMatch";
 import { normalizeNFLTeamCode } from "../shared/nflTeamCodes";
+import { TRADEABLE_PICK_YEARS, isTradeablePickYear } from "../shared/tradeablePickYears";
 import { DRAFT_LOTTERY_OWNERS, isValidDraftLotteryResult } from "../shared/draftLottery";
 import { applyDraftLottery } from "../shared/draftLottery";
 import { DRAFT_PICKS_2026 } from "../client/src/lib/draftData2026";
@@ -1670,7 +1671,7 @@ export const appRouter = router({
         if (teamError || !team) throw new Error("Trade team was not found");
         const [{ data: roster, error: rosterError }, { data: picks, error: picksError }] = await Promise.all([
           supabaseAdmin.from("players").select("id, name, position, nfl_team").eq("team_id", team.id).order("position").order("name"),
-          supabaseAdmin.from("traded_picks").select("year, round, original_team_id").eq("current_owner_team_id", team.id).in("year", [2026, 2027]).order("year").order("round"),
+          supabaseAdmin.from("traded_picks").select("year, round, original_team_id").eq("current_owner_team_id", team.id).in("year", TRADEABLE_PICK_YEARS as number[]).order("year").order("round"),
         ]);
         if (rosterError || picksError) throw new Error("Unable to load trade assets");
         return {
@@ -1709,8 +1710,8 @@ export const appRouter = router({
         receivePlayerNames: z.array(z.string().min(1).max(128)).max(30),
         giveFaab: z.number().int().min(0).max(10_000),
         receiveFaab: z.number().int().min(0).max(10_000),
-        givePicks: z.array(z.object({ year: z.number().int().min(2026).max(2027), round: z.number().int().min(1).max(18), originalTeamId: z.string().min(1).max(128).optional() })).max(36),
-        receivePicks: z.array(z.object({ year: z.number().int().min(2026).max(2027), round: z.number().int().min(1).max(18), originalTeamId: z.string().min(1).max(128).optional() })).max(36),
+        givePicks: z.array(z.object({ year: z.number().int().refine(isTradeablePickYear, "Picks for that draft are no longer tradeable"), round: z.number().int().min(1).max(18), originalTeamId: z.string().min(1).max(128).optional() })).max(36),
+        receivePicks: z.array(z.object({ year: z.number().int().refine(isTradeablePickYear, "Picks for that draft are no longer tradeable"), round: z.number().int().min(1).max(18), originalTeamId: z.string().min(1).max(128).optional() })).max(36),
         note: z.string().max(1_000),
         counterToId: z.string().uuid().nullable(),
       }))

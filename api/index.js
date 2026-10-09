@@ -81429,6 +81429,13 @@ function getDraftUniversePlayerByName(name, pool2 = CURRENT_DRAFT_PLAYER_UNIVERS
   return pool2.find((player) => canonical(player.name) === candidateName) ?? null;
 }
 
+// shared/tradeablePickYears.ts
+var TRADEABLE_PICK_YEARS = [2027];
+var DEFAULT_TRADEABLE_PICK_YEAR = TRADEABLE_PICK_YEARS[0];
+function isTradeablePickYear(year2) {
+  return TRADEABLE_PICK_YEARS.includes(year2);
+}
+
 // shared/draftLottery.ts
 var DRAFT_LOTTERY_OWNERS = ["Greg", "Shawn", "Bill", "David R.", "Jason", "Scott N."];
 function isValidDraftLotteryResult(value) {
@@ -91740,7 +91747,7 @@ var appRouter = router({
       if (teamError || !team) throw new Error("Trade team was not found");
       const [{ data: roster, error: rosterError }, { data: picks, error: picksError }] = await Promise.all([
         supabaseAdmin.from("players").select("id, name, position, nfl_team").eq("team_id", team.id).order("position").order("name"),
-        supabaseAdmin.from("traded_picks").select("year, round, original_team_id").eq("current_owner_team_id", team.id).in("year", [2026, 2027]).order("year").order("round")
+        supabaseAdmin.from("traded_picks").select("year, round, original_team_id").eq("current_owner_team_id", team.id).in("year", TRADEABLE_PICK_YEARS).order("year").order("round")
       ]);
       if (rosterError || picksError) throw new Error("Unable to load trade assets");
       return {
@@ -91766,8 +91773,8 @@ var appRouter = router({
       receivePlayerNames: external_exports.array(external_exports.string().min(1).max(128)).max(30),
       giveFaab: external_exports.number().int().min(0).max(1e4),
       receiveFaab: external_exports.number().int().min(0).max(1e4),
-      givePicks: external_exports.array(external_exports.object({ year: external_exports.number().int().min(2026).max(2027), round: external_exports.number().int().min(1).max(18), originalTeamId: external_exports.string().min(1).max(128).optional() })).max(36),
-      receivePicks: external_exports.array(external_exports.object({ year: external_exports.number().int().min(2026).max(2027), round: external_exports.number().int().min(1).max(18), originalTeamId: external_exports.string().min(1).max(128).optional() })).max(36),
+      givePicks: external_exports.array(external_exports.object({ year: external_exports.number().int().refine(isTradeablePickYear, "Picks for that draft are no longer tradeable"), round: external_exports.number().int().min(1).max(18), originalTeamId: external_exports.string().min(1).max(128).optional() })).max(36),
+      receivePicks: external_exports.array(external_exports.object({ year: external_exports.number().int().refine(isTradeablePickYear, "Picks for that draft are no longer tradeable"), round: external_exports.number().int().min(1).max(18), originalTeamId: external_exports.string().min(1).max(128).optional() })).max(36),
       note: external_exports.string().max(1e3),
       counterToId: external_exports.string().uuid().nullable()
     })).mutation(async ({ input, ctx }) => {

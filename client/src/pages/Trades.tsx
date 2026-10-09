@@ -5,6 +5,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from "react";
 import Navigation from "@/components/Navigation";
+import { TRADEABLE_PICK_YEARS, DEFAULT_TRADEABLE_PICK_YEAR } from "@shared/tradeablePickYears";
 import { useAuth } from "@/contexts/AuthContext";
 import { trpc } from "@/lib/trpc";
 import { ArrowLeftRight, Plus, X, DollarSign, CalendarDays, Inbox, Send, Check, XCircle, RefreshCw, CornerUpLeft } from "lucide-react";
@@ -15,7 +16,7 @@ import { toast } from "sonner";
 
 const TEAMS = WRC_TEAMS.map(t => t.teamName);
 
-const NEXT_YEAR = 2027;
+const TRADEABLE_PICK_YEARS_LABEL = TRADEABLE_PICK_YEARS.join(" & ");
 const ROUNDS = Array.from({ length: 18 }, (_, i) => i + 1);
 
 type TradeAsset =
@@ -112,7 +113,7 @@ function TradeSideBuilder({
   isMyTeam?: boolean;
 }) {
   const [faabAmount, setFaabAmount] = useState("");
-  const [pickYear, setPickYear] = useState(2026);
+  const [pickYear, setPickYear] = useState(DEFAULT_TRADEABLE_PICK_YEAR);
   const [pickRound, setPickRound] = useState(1);
   const [addMode, setAddMode] = useState<"player" | "faab" | "pick" | null>(null);
   const { roster, faab, ownedPicks, teamId, loading: teamLoading } = useTeamData(side.team);
@@ -492,7 +493,7 @@ export default function Trades() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1.25rem" }}>
           <div className="wrc-page-title" style={{ padding: 0 }}>
             <h1>Trades</h1>
-            <p>Trade deadline: Nov 26, 2026 · 12:00pm ET · Players, FAAB, and draft picks (2026 &amp; 2027) are all tradeable</p>
+            <p>Trade deadline: Nov 26, 2026 · 12:00pm ET · Players, FAAB, and {TRADEABLE_PICK_YEARS_LABEL} draft picks are all tradeable</p>
           </div>
           <button
             onClick={() => setShowForm(true)}
@@ -514,7 +515,7 @@ export default function Trades() {
               <p style={{ color: "oklch(0.45 0.04 150)", fontSize: "0.85rem", margin: "0 0 1.25rem" }}>
                 {counterToId
                   ? <>You are sending a <strong>counter-offer</strong>. Modify either side and send your revised proposal.</>
-                  : <>Build your trade by adding players, FAAB budget, and/or draft picks to each side. You can trade picks for the <strong>2026</strong> and <strong>{NEXT_YEAR}</strong> drafts.</>
+                  : <>Build your trade by adding players, FAAB budget, and/or draft picks to each side. You can trade picks for the <strong>{TRADEABLE_PICK_YEARS_LABEL}</strong> draft.</>
                 }
               </p>
 
