@@ -91767,6 +91767,18 @@ var appRouter = router({
       if (error46) throw new Error("Unable to load sent trade proposals");
       return data ?? [];
     }),
+    // Withdraw an outgoing proposal the acting team made that's still pending.
+    // The from_team_id + status="pending" filter is the guard: it's what stops
+    // a team cancelling another team's proposal, or cancelling one the recipient
+    // has already accepted/declined/countered (same shape as cancelFaabBid). No
+    // roster/FAAB/pick changes happen on a pending proposal, so cancelling it is
+    // purely a status flip -- nothing to unwind.
+    cancelTradeProposal: teamProcedure.input(external_exports.object({ proposalId: external_exports.string().uuid() })).mutation(async ({ input, ctx }) => {
+      const { data, error: error46 } = await supabaseAdmin.from("trade_proposals").update({ status: "cancelled" }).eq("id", input.proposalId).eq("from_team_id", ctx.teamSession.teamId).eq("status", "pending").select("id").maybeSingle();
+      if (error46) throw new Error(`Unable to withdraw this proposal: ${error46.message}`);
+      if (!data) throw new Error("This proposal can't be withdrawn -- it may have already been responded to, or doesn't belong to your team.");
+      return { cancelled: true };
+    }),
     createTradeProposal: teamProcedure.input(external_exports.object({
       toTeamId: external_exports.string().min(1).max(128),
       givePlayerNames: external_exports.array(external_exports.string().min(1).max(128)).max(30),

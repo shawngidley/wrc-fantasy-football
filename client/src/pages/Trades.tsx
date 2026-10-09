@@ -45,7 +45,7 @@ type IncomingProposal = {
   givePicks: {year:number;round:number}[];
   receivePicks: {year:number;round:number}[];
   note?: string;
-  status: "pending" | "accepted" | "declined" | "countered";
+  status: "pending" | "accepted" | "declined" | "countered" | "cancelled";
 };
 
 const SAMPLE_INCOMING: IncomingProposal[] = [];
@@ -360,6 +360,9 @@ export default function Trades() {
   const sentQuery = trpc.league.tradeSent.useQuery(undefined, { enabled: Boolean(franchise?.id), staleTime: 15_000 });
   const createProposalMutation = trpc.league.createTradeProposal.useMutation();
   const respondProposalMutation = trpc.league.respondToTradeProposal.useMutation();
+  const cancelProposalMutation = trpc.league.cancelTradeProposal.useMutation();
+  const [showPastIncoming, setShowPastIncoming] = useState(false);
+  const [showPastSent, setShowPastSent] = useState(false);
   const inboxLoading = inboxQuery.isLoading || inboxQuery.isFetching;
   const sentLoading = sentQuery.isLoading || sentQuery.isFetching;
   const inbox = useMemo(() => ((inboxQuery.data ?? []) as Array<{ id: string; from_team_id: string; to_team_id: string; give_player_ids: string[]; receive_player_ids: string[]; faab_amount: number; receive_faab_amount: number; give_picks: {year:number;round:number}[]; receive_picks: {year:number;round:number}[]; note: string; status: string; created_at: string }>).map(r => ({
@@ -385,7 +388,7 @@ export default function Trades() {
       givePicks: r.give_picks ?? [],
       receivePicks: r.receive_picks ?? [],
       note: r.note || undefined,
-      status: r.status as "pending" | "accepted" | "declined" | "countered",
+      status: r.status as "pending" | "accepted" | "declined" | "countered" | "cancelled",
     })), [inboxQuery.data]);
 
   // Sent (outgoing) proposals -- from/to are flipped relative to inbox
@@ -407,7 +410,7 @@ export default function Trades() {
         ...((r.receive_picks ?? []).map((p: {year:number;round:number}) => `${p.year} Rd ${p.round} Pick`)),
       ],
       note: r.note || undefined,
-      status: r.status as "pending" | "accepted" | "declined" | "countered",
+      status: r.status as "pending" | "accepted" | "declined" | "countered" | "cancelled",
     })), [sentQuery.data]);
 
   const resetForm = () => {
@@ -483,6 +486,113 @@ export default function Trades() {
       toast.error(error instanceof Error ? error.message : "Unable to respond to trade proposal.");
     }
   };
+
+  const withdrawProposal = async (id: string) => {
+    try {
+      await cancelProposalMutation.mutateAsync({ proposalId: id });
+      toast.success("Proposal withdrawn.");
+      await Promise.all([sentQuery.refetch(), inboxQuery.refetch()]);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Unable to withdraw proposal.");
+    }
+  };
+
+  // Live (pending) proposals stay at the top of each list; everything that's
+  // been responded to or withdrawn collapses into an expandable "past" group, so
+  // the active ones aren't buried among dead ones.
+  const inboxActive = inbox.filter(p => p.status === "pending");
+  const inboxPast = inbox.filter(p => p.status !== "pending");
+  const sentActive = sent.filter(p => p.status === "pending");
+  const sentPast = sent.filter(p => p.status !== "pending");
+
+  const assetChips = (items: string[]) => (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
+      {items.map((s, j) => {
+        const isFaab = s.startsWith("FAAB");
+        const isPick = s.includes("Pick") || s.includes("Rd");
+        return <span key={j} style={{ fontSize: "0.75rem", fontWeight: 600, borderRadius: 4, padding: "2px 8px", background: isFaab ? "oklch(0.93 0.06 250)" : isPick ? "oklch(0.93 0.06 85)" : "oklch(0.93 0.03 150)", color: isFaab ? "oklch(0.32 0.14 250)" : isPick ? "oklch(0.35 0.14 85)" : "oklch(0.28 0.08 150)" }}>{s}</span>;
+      })}
+    </div>
+  );
+
+  const statusPill = (status: string) => (
+    <span style={{ fontSize: "0.72rem", fontWeight: 700, borderRadius: 4, padding: "2px 8px",
+      background: status === "accepted" ? "oklch(0.93 0.06 150)" : status === "pending" ? "oklch(0.94 0.06 85)" : status === "cancelled" ? "oklch(0.93 0.008 150)" : "oklch(0.94 0.04 25)",
+      color: status === "accepted" ? "oklch(0.35 0.15 150)" : status === "pending" ? "oklch(0.45 0.16 85)" : status === "cancelled" ? "oklch(0.45 0.02 150)" : "oklch(0.45 0.18 25)",
+    }}>
+      {status === "accepted" ? "✓ Accepted" : status === "pending" ? "⏳ Waiting for response" : status === "countered" ? "↩ Countered" : status === "cancelled" ? "✕ Withdrawn" : "✕ Declined"}
+    </span>
+  );
+
+  const proposalGrid = (p: { theySend: string[]; youSend: string[]; note?: string }, mine: boolean) => (
+    <>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: "0.75rem", alignItems: "center" }}>
+        <div>
+          <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "oklch(0.5 0.04 150)", marginBottom: "0.3rem", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.06em", textTransform: "uppercase" }}>{mine ? "You send" : "They send"}</div>
+          {assetChips(mine ? p.youSend : p.theySend)}
+        </div>
+        <ArrowLeftRight size={16} color="oklch(0.6 0.04 150)" style={{ flexShrink: 0 }} />
+        <div>
+          <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "oklch(0.5 0.04 150)", marginBottom: "0.3rem", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.06em", textTransform: "uppercase" }}>{mine ? "They send" : "You send"}</div>
+          {assetChips(mine ? p.theySend : p.youSend)}
+        </div>
+      </div>
+      {p.note && (
+        <div style={{ marginTop: "0.6rem", padding: "0.5rem 0.75rem", background: "oklch(0.96 0.01 150)", borderRadius: 6, fontSize: "0.8rem", color: "oklch(0.4 0.04 150)", fontStyle: "italic" }}>
+          "{p.note}"
+        </div>
+      )}
+    </>
+  );
+
+  const rowShell = (status: string): React.CSSProperties => ({
+    padding: "1rem 1.25rem", borderBottom: "1px solid oklch(0.92 0.005 150)",
+    background: status !== "pending" ? "oklch(0.97 0.005 150)" : "white",
+    opacity: status !== "pending" ? 0.65 : 1,
+  });
+  const rowHeader: React.CSSProperties = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem", flexWrap: "wrap", gap: "0.5rem" };
+  const teamNameStyle: React.CSSProperties = { fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.22 0.08 150)" };
+  const dateStyle: React.CSSProperties = { fontSize: "0.7rem", color: "oklch(0.55 0.03 150)" };
+  const actionBtn = (bg: string, fg: string, border = "none"): React.CSSProperties => ({ display: "flex", alignItems: "center", gap: "0.3rem", padding: "0.3rem 0.85rem", background: bg, color: fg, border, borderRadius: 6, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.06em", cursor: "pointer" });
+  const pastToggleStyle: React.CSSProperties = { width: "100%", textAlign: "left", padding: "0.6rem 1.25rem", background: "oklch(0.97 0.005 150)", border: "none", borderBottom: "1px solid oklch(0.92 0.005 150)", cursor: "pointer", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "oklch(0.5 0.04 150)" };
+  const emptyLine = (text: string) => <div style={{ padding: "1rem 1.25rem", fontSize: "0.82rem", color: "oklch(0.55 0.03 150)" }}>{text}</div>;
+
+  const renderInboxRow = (proposal: (typeof inbox)[number]) => (
+    <div key={proposal.id} style={rowShell(proposal.status)}>
+      <div style={rowHeader}>
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          <span style={teamNameStyle}>{proposal.from}</span>
+          <span style={dateStyle}>{proposal.date}</span>
+        </div>
+        {proposal.status === "pending" ? (
+          <div style={{ display: "flex", gap: "0.5rem" }}>
+            <button onClick={() => respondToProposal(proposal.id, "accepted")} style={actionBtn("oklch(0.38 0.15 150)", "white")}><Check size={12} /> Accept</button>
+            <button onClick={() => respondToProposal(proposal.id, "declined")} style={actionBtn("oklch(0.95 0.03 25)", "oklch(0.45 0.18 25)", "1px solid oklch(0.85 0.08 25)")}><XCircle size={12} /> Decline</button>
+            <button onClick={() => handleCounter(proposal)} style={actionBtn("oklch(0.93 0.06 250)", "oklch(0.32 0.14 250)", "1px solid oklch(0.82 0.1 250)")}><CornerUpLeft size={12} /> Counter</button>
+          </div>
+        ) : statusPill(proposal.status)}
+      </div>
+      {proposalGrid(proposal, false)}
+    </div>
+  );
+
+  const renderSentRow = (proposal: (typeof sent)[number]) => (
+    <div key={proposal.id} style={rowShell(proposal.status)}>
+      <div style={rowHeader}>
+        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+          <span style={teamNameStyle}>To: {proposal.to}</span>
+          <span style={dateStyle}>{proposal.date}</span>
+        </div>
+        {proposal.status === "pending" ? (
+          <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            {statusPill("pending")}
+            <button onClick={() => withdrawProposal(proposal.id)} disabled={cancelProposalMutation.isPending} style={{ ...actionBtn("oklch(0.95 0.03 25)", "oklch(0.45 0.18 25)", "1px solid oklch(0.85 0.08 25)"), cursor: cancelProposalMutation.isPending ? "default" : "pointer", opacity: cancelProposalMutation.isPending ? 0.6 : 1 }}><XCircle size={12} /> Withdraw</button>
+          </div>
+        ) : statusPill(proposal.status)}
+      </div>
+      {proposalGrid(proposal, true)}
+    </div>
+  );
 
   return (
     <div className="bg-turf bg-overlay" style={{ minHeight: "100vh" }}>
@@ -587,80 +697,16 @@ export default function Trades() {
             </div>
           ) : (
             <div>
-              {inbox.map(proposal => (
-                <div key={proposal.id} style={{
-                  padding: "1rem 1.25rem",
-                  borderBottom: "1px solid oklch(0.92 0.005 150)",
-                  background: proposal.status !== "pending" ? "oklch(0.97 0.005 150)" : "white",
-                  opacity: proposal.status !== "pending" ? 0.65 : 1,
-                }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem", flexWrap: "wrap", gap: "0.5rem" }}>
-                    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                      <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.22 0.08 150)" }}>{proposal.from}</span>
-                      <span style={{ fontSize: "0.7rem", color: "oklch(0.55 0.03 150)" }}>{proposal.date}</span>
-                    </div>
-                    {proposal.status === "pending" ? (
-                      <div style={{ display: "flex", gap: "0.5rem" }}>
-                        <button
-                          onClick={() => respondToProposal(proposal.id, "accepted")}
-                          style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "0.3rem 0.85rem", background: "oklch(0.38 0.15 150)", color: "white", border: "none", borderRadius: 6, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.06em", cursor: "pointer" }}
-                        >
-                          <Check size={12} /> Accept
-                        </button>
-                        <button
-                          onClick={() => respondToProposal(proposal.id, "declined")}
-                          style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "0.3rem 0.85rem", background: "oklch(0.95 0.03 25)", color: "oklch(0.45 0.18 25)", border: "1px solid oklch(0.85 0.08 25)", borderRadius: 6, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.06em", cursor: "pointer" }}
-                        >
-                          <XCircle size={12} /> Decline
-                        </button>
-                        <button
-                          onClick={() => handleCounter(proposal)}
-                          style={{ display: "flex", alignItems: "center", gap: "0.3rem", padding: "0.3rem 0.85rem", background: "oklch(0.93 0.06 250)", color: "oklch(0.32 0.14 250)", border: "1px solid oklch(0.82 0.1 250)", borderRadius: 6, fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.75rem", fontWeight: 700, letterSpacing: "0.06em", cursor: "pointer" }}
-                        >
-                          <CornerUpLeft size={12} /> Counter
-                        </button>
-                      </div>
-                    ) : (
-                      <span style={{ fontSize: "0.72rem", fontWeight: 700, borderRadius: 4, padding: "2px 8px",
-                        background: proposal.status === "accepted" ? "oklch(0.93 0.06 150)" : "oklch(0.94 0.04 25)",
-                        color: proposal.status === "accepted" ? "oklch(0.35 0.15 150)" : "oklch(0.45 0.18 25)"
-                      }}>
-                        {proposal.status === "accepted" ? "✓ Accepted" : proposal.status === "countered" ? "↩ Countered" : "✕ Declined"}
-                      </span>
-                    )}
-                  </div>
-
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: "0.75rem", alignItems: "center" }}>
-                    <div>
-                      <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "oklch(0.5 0.04 150)", marginBottom: "0.3rem", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.06em", textTransform: "uppercase" }}>They send</div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
-                        {proposal.theySend.map((s, j) => {
-                          const isFaab = s.startsWith("FAAB");
-                          const isPick = s.includes("Pick") || s.includes("Rd");
-                          return <span key={j} style={{ fontSize: "0.75rem", fontWeight: 600, borderRadius: 4, padding: "2px 8px", background: isFaab ? "oklch(0.93 0.06 250)" : isPick ? "oklch(0.93 0.06 85)" : "oklch(0.93 0.03 150)", color: isFaab ? "oklch(0.32 0.14 250)" : isPick ? "oklch(0.35 0.14 85)" : "oklch(0.28 0.08 150)" }}>{s}</span>;
-                        })}
-                      </div>
-                    </div>
-                    <ArrowLeftRight size={16} color="oklch(0.6 0.04 150)" style={{ flexShrink: 0 }} />
-                    <div>
-                      <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "oklch(0.5 0.04 150)", marginBottom: "0.3rem", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.06em", textTransform: "uppercase" }}>You send</div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
-                        {proposal.youSend.map((s, j) => {
-                          const isFaab = s.startsWith("FAAB");
-                          const isPick = s.includes("Pick") || s.includes("Rd");
-                          return <span key={j} style={{ fontSize: "0.75rem", fontWeight: 600, borderRadius: 4, padding: "2px 8px", background: isFaab ? "oklch(0.93 0.06 250)" : isPick ? "oklch(0.93 0.06 85)" : "oklch(0.93 0.03 150)", color: isFaab ? "oklch(0.32 0.14 250)" : isPick ? "oklch(0.35 0.14 85)" : "oklch(0.28 0.08 150)" }}>{s}</span>;
-                        })}
-                      </div>
-                    </div>
-                  </div>
-
-                  {proposal.note && (
-                    <div style={{ marginTop: "0.6rem", padding: "0.5rem 0.75rem", background: "oklch(0.96 0.01 150)", borderRadius: 6, fontSize: "0.8rem", color: "oklch(0.4 0.04 150)", fontStyle: "italic" }}>
-                      "{proposal.note}"
-                    </div>
-                  )}
-                </div>
-              ))}
+              {inboxActive.map(renderInboxRow)}
+              {inboxActive.length === 0 && emptyLine("No pending incoming proposals.")}
+              {inboxPast.length > 0 && (
+                <>
+                  <button onClick={() => setShowPastIncoming(v => !v)} style={pastToggleStyle}>
+                    {showPastIncoming ? "▾ Hide" : "▸ Show"} {inboxPast.length} past {inboxPast.length === 1 ? "proposal" : "proposals"}
+                  </button>
+                  {showPastIncoming && inboxPast.map(renderInboxRow)}
+                </>
+              )}
             </div>
           )}
         </div>
@@ -692,57 +738,16 @@ export default function Trades() {
             </div>
           ) : (
             <div>
-              {sent.map(proposal => (
-                <div key={proposal.id} style={{
-                  padding: "1rem 1.25rem",
-                  borderBottom: "1px solid oklch(0.92 0.005 150)",
-                  background: proposal.status !== "pending" ? "oklch(0.97 0.005 150)" : "white",
-                  opacity: proposal.status !== "pending" ? 0.65 : 1,
-                }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.6rem", flexWrap: "wrap", gap: "0.5rem" }}>
-                    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-                      <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.22 0.08 150)" }}>To: {proposal.to}</span>
-                      <span style={{ fontSize: "0.7rem", color: "oklch(0.55 0.03 150)" }}>{proposal.date}</span>
-                    </div>
-                    <span style={{ fontSize: "0.72rem", fontWeight: 700, borderRadius: 4, padding: "2px 8px",
-                      background: proposal.status === "accepted" ? "oklch(0.93 0.06 150)" : proposal.status === "pending" ? "oklch(0.94 0.06 85)" : "oklch(0.94 0.04 25)",
-                      color: proposal.status === "accepted" ? "oklch(0.35 0.15 150)" : proposal.status === "pending" ? "oklch(0.45 0.16 85)" : "oklch(0.45 0.18 25)"
-                    }}>
-                      {proposal.status === "accepted" ? "✓ Accepted" : proposal.status === "pending" ? "⏳ Waiting for response" : proposal.status === "countered" ? "↩ Countered" : "✕ Declined"}
-                    </span>
-                  </div>
-
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: "0.75rem", alignItems: "center" }}>
-                    <div>
-                      <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "oklch(0.5 0.04 150)", marginBottom: "0.3rem", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.06em", textTransform: "uppercase" }}>You send</div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
-                        {proposal.youSend.map((s, j) => {
-                          const isFaab = s.startsWith("FAAB");
-                          const isPick = s.includes("Pick") || s.includes("Rd");
-                          return <span key={j} style={{ fontSize: "0.75rem", fontWeight: 600, borderRadius: 4, padding: "2px 8px", background: isFaab ? "oklch(0.93 0.06 250)" : isPick ? "oklch(0.93 0.06 85)" : "oklch(0.93 0.03 150)", color: isFaab ? "oklch(0.32 0.14 250)" : isPick ? "oklch(0.35 0.14 85)" : "oklch(0.28 0.08 150)" }}>{s}</span>;
-                        })}
-                      </div>
-                    </div>
-                    <ArrowLeftRight size={16} color="oklch(0.6 0.04 150)" style={{ flexShrink: 0 }} />
-                    <div>
-                      <div style={{ fontSize: "0.72rem", fontWeight: 600, color: "oklch(0.5 0.04 150)", marginBottom: "0.3rem", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.06em", textTransform: "uppercase" }}>They send</div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.3rem" }}>
-                        {proposal.theySend.map((s, j) => {
-                          const isFaab = s.startsWith("FAAB");
-                          const isPick = s.includes("Pick") || s.includes("Rd");
-                          return <span key={j} style={{ fontSize: "0.75rem", fontWeight: 600, borderRadius: 4, padding: "2px 8px", background: isFaab ? "oklch(0.93 0.06 250)" : isPick ? "oklch(0.93 0.06 85)" : "oklch(0.93 0.03 150)", color: isFaab ? "oklch(0.32 0.14 250)" : isPick ? "oklch(0.35 0.14 85)" : "oklch(0.28 0.08 150)" }}>{s}</span>;
-                        })}
-                      </div>
-                    </div>
-                  </div>
-
-                  {proposal.note && (
-                    <div style={{ marginTop: "0.6rem", padding: "0.5rem 0.75rem", background: "oklch(0.96 0.01 150)", borderRadius: 6, fontSize: "0.8rem", color: "oklch(0.4 0.04 150)", fontStyle: "italic" }}>
-                      "{proposal.note}"
-                    </div>
-                  )}
-                </div>
-              ))}
+              {sentActive.map(renderSentRow)}
+              {sentActive.length === 0 && emptyLine("No pending sent proposals.")}
+              {sentPast.length > 0 && (
+                <>
+                  <button onClick={() => setShowPastSent(v => !v)} style={pastToggleStyle}>
+                    {showPastSent ? "▾ Hide" : "▸ Show"} {sentPast.length} past {sentPast.length === 1 ? "proposal" : "proposals"}
+                  </button>
+                  {showPastSent && sentPast.map(renderSentRow)}
+                </>
+              )}
             </div>
           )}
         </div>
