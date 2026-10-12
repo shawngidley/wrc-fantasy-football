@@ -81121,6 +81121,20 @@ function getLineupDefaultWeek(now = /* @__PURE__ */ new Date()) {
   }
   return current;
 }
+function getFaabBiddingWeek(now = /* @__PURE__ */ new Date()) {
+  const base = getLineupDefaultWeek(now);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    hour: "numeric",
+    hour12: false
+  }).formatToParts(now);
+  const weekday = parts.find((p) => p.type === "weekday")?.value;
+  let hour2 = Number(parts.find((p) => p.type === "hour")?.value ?? -1);
+  if (hour2 >= 24) hour2 = 0;
+  const biddingForNextWeek = weekday === "Sun" && hour2 >= 13 || weekday === "Mon" || weekday === "Tue" && hour2 < 9;
+  return biddingForNextWeek ? base + 1 : base;
+}
 
 // shared/nflTeamCodes.ts
 var TEAM_CODE_ALIASES = {
@@ -81236,13 +81250,7 @@ function getFreeAgentMarketState(now = /* @__PURE__ */ new Date()) {
   }).formatToParts(now);
   const weekday = parts.find((p) => p.type === "weekday")?.value;
   const hour2 = Number(parts.find((p) => p.type === "hour")?.value ?? -1);
-  if (weekday === "Sun") {
-    if (hour2 < 9) return "bidding";
-    if (hour2 < 13) return "open_waiver";
-    return "closed";
-  }
-  if (weekday === "Mon") return "closed";
-  if (weekday === "Tue") return hour2 < 9 ? "closed" : "bidding";
+  if (weekday === "Sun" && hour2 >= 9 && hour2 < 13) return "open_waiver";
   return "bidding";
 }
 
@@ -91229,9 +91237,10 @@ var appRouter = router({
       if (marketState === "closed") {
         throw new Error("The free agent market is closed until Tuesday 9am ET.");
       }
+      const biddingWeek = getFaabBiddingWeek();
       let playerGameStarted;
       try {
-        playerGameStarted = await hasPlayerTeamGameStarted(input.playerNflTeam, input.week, input.season);
+        playerGameStarted = await hasPlayerTeamGameStarted(input.playerNflTeam, biddingWeek, input.season);
       } catch {
         playerGameStarted = true;
       }
@@ -91309,7 +91318,7 @@ var appRouter = router({
         drop_player_id: dropPlayer?.id ?? null,
         drop_player_name: dropPlayer?.name ?? null,
         status: "pending",
-        week: input.week,
+        week: biddingWeek,
         season: input.season,
         group_id: groupId,
         group_rank: groupRank,
@@ -91323,7 +91332,7 @@ var appRouter = router({
     // so any owner can see and manage their own bids without needing
     // commissioner access.
     myFaabBids: teamProcedure.input(external_exports.object({ week: external_exports.number().int().min(1).max(22), season: external_exports.number().int().min(2020).max(2100) })).query(async ({ input, ctx }) => {
-      const { data, error: error46 } = await supabaseAdmin.from("faab_bids").select("id, team_id, team_name, player_id, player_name, player_pos, player_nfl_team, bid_amount, drop_player_id, drop_player_name, status, week, season, created_at, group_id, group_rank, group_max_wins").eq("team_id", ctx.teamSession.teamId).eq("week", input.week).eq("season", input.season).order("created_at", { ascending: false });
+      const { data, error: error46 } = await supabaseAdmin.from("faab_bids").select("id, team_id, team_name, player_id, player_name, player_pos, player_nfl_team, bid_amount, drop_player_id, drop_player_name, status, week, season, created_at, group_id, group_rank, group_max_wins").eq("team_id", ctx.teamSession.teamId).or(`week.eq.${input.week},status.eq.pending`).eq("season", input.season).order("created_at", { ascending: false });
       if (error46) throw new Error("Unable to load your FAAB bids.");
       return data ?? [];
     }),
@@ -91623,7 +91632,7 @@ var appRouter = router({
       return { declared: true, week: currentWeek, opponentName: opponentTeam.name };
     }),
     commissionerFaabBids: commissionerProcedure.input(external_exports.object({ week: external_exports.number().int().min(1).max(22), season: external_exports.number().int().min(2020).max(2100) })).query(async ({ input }) => {
-      const { data, error: error46 } = await supabaseAdmin.from("faab_bids").select("id, team_id, team_name, player_id, player_name, player_pos, player_nfl_team, bid_amount, drop_player_id, drop_player_name, status, week, season, created_at").eq("week", input.week).eq("season", input.season).order("player_name", { ascending: true }).order("bid_amount", { ascending: false });
+      const { data, error: error46 } = await supabaseAdmin.from("faab_bids").select("id, team_id, team_name, player_id, player_name, player_pos, player_nfl_team, bid_amount, drop_player_id, drop_player_name, status, week, season, created_at").or(`week.eq.${input.week},status.eq.pending`).eq("season", input.season).order("player_name", { ascending: true }).order("bid_amount", { ascending: false });
       if (error46) throw new Error("Unable to load FAAB bids");
       return data ?? [];
     }),

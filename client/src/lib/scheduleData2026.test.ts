@@ -1,5 +1,46 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
-import { getCurrentWeek, resolveWeeklyOpponentTeamName, isSeason2026Underway, getLineupDefaultWeek, nflWeekForDate, WEEK_START_TIMESTAMPS } from "./scheduleData2026";
+import { getCurrentWeek, resolveWeeklyOpponentTeamName, isSeason2026Underway, getLineupDefaultWeek, getFaabBiddingWeek, nflWeekForDate, WEEK_START_TIMESTAMPS } from "./scheduleData2026";
+
+describe("getFaabBiddingWeek", () => {
+  // Week 5's weekend is Oct 8-12, 2026 (getLineupDefaultWeek advances to 5 at
+  // 9am ET Tue Oct 6, and to 6 at 9am ET Tue Oct 13). EDT (UTC-4) throughout.
+  it("matches the current week during the Tue 9am -> Sun 1pm bidding window", () => {
+    expect(getLineupDefaultWeek(new Date("2026-10-10T16:00:00Z"))).toBe(5); // Sat 12pm ET
+    expect(getFaabBiddingWeek(new Date("2026-10-10T16:00:00Z"))).toBe(5); // Sat: current week
+    expect(getFaabBiddingWeek(new Date("2026-10-11T14:00:00Z"))).toBe(5); // Sun 10am ET (open-waiver hour)
+  });
+
+  it("is next week from 1pm Sunday through Tue 9am, so bids are for the upcoming slate", () => {
+    expect(getFaabBiddingWeek(new Date("2026-10-11T17:00:00Z"))).toBe(6); // Sun 1pm ET
+    expect(getFaabBiddingWeek(new Date("2026-10-11T23:00:00Z"))).toBe(6); // Sun 7pm ET
+    expect(getFaabBiddingWeek(new Date("2026-10-12T16:00:00Z"))).toBe(6); // Mon 12pm ET
+    expect(getFaabBiddingWeek(new Date("2026-10-13T12:00:00Z"))).toBe(6); // Tue 8am ET (default week still 5)
+  });
+
+  it("stays on the same week when the default week catches up at Tue 9am", () => {
+    expect(getLineupDefaultWeek(new Date("2026-10-13T14:00:00Z"))).toBe(6); // Tue 10am ET
+    expect(getFaabBiddingWeek(new Date("2026-10-13T14:00:00Z"))).toBe(6); // Tue 10am: now the current week
+    expect(getFaabBiddingWeek(new Date("2026-10-14T16:00:00Z"))).toBe(6); // Wed 12pm ET
+  });
+
+  // The 1pm boundary is 1pm LOCAL, so its UTC time moves by an hour when EDT
+  // ends on Nov 1, 2026. A fixed UTC-4 offset would read 17:59Z as 1:59pm and
+  // flip to next week an hour early for the rest of the season.
+  it("holds the 1pm Sunday boundary at 1pm ET after DST ends", () => {
+    expect(getLineupDefaultWeek(new Date("2026-12-06T17:59:00Z"))).toBe(13); // Sun Dec 6, EST
+    expect(getFaabBiddingWeek(new Date("2026-12-06T17:59:00Z"))).toBe(13); // 12:59pm EST: still week 13
+    expect(getFaabBiddingWeek(new Date("2026-12-06T18:00:00Z"))).toBe(14); // 1:00pm EST: week 14
+  });
+
+  // Midnight is the hour this app has gotten wrong repeatedly (ET hour 0 vs a
+  // runtime that reports 24). Sunday's small hours are still the window that
+  // started Thursday, and Monday's are already next week's.
+  it("treats the midnight hour as hour 0, not hour 24", () => {
+    expect(getFaabBiddingWeek(new Date("2026-10-11T04:00:00Z"))).toBe(5); // Sun 12am ET
+    expect(getFaabBiddingWeek(new Date("2026-10-11T04:30:00Z"))).toBe(5); // Sun 12:30am ET
+    expect(getFaabBiddingWeek(new Date("2026-10-12T04:00:00Z"))).toBe(6); // Mon 12am ET
+  });
+});
 
 describe("nflWeekForDate", () => {
   it("maps a game date to its NFL week by week-start boundaries", () => {

@@ -15,7 +15,7 @@ import { clearWrcTeamSession, readWrcTeamSession, writeWrcTeamSession } from "./
 import { supabaseAdmin } from "./supabaseAdmin";
 import { loadPlayerRows, makePlayerId, rosterPlayerForTeam } from "./rosterPlayerForTeam";
 import { resolveLineupsForWeek } from "./lineupResolution";
-import { getLineupDefaultWeek, SCHEDULE_2026 } from "../client/src/lib/scheduleData2026";
+import { getLineupDefaultWeek, getFaabBiddingWeek, SCHEDULE_2026 } from "../client/src/lib/scheduleData2026";
 import { hasWeekKickedOff, hasPlayerTeamGameStarted } from "./nflWeekKickoffCheck";
 import { hasClearedWaiverHold } from "../shared/freeAgentCutRestriction";
 import { getFreeAgentMarketState } from "./faabMarketState";
@@ -857,14 +857,19 @@ export const appRouter = router({
         if (marketState === "closed") {
           throw new Error("The free agent market is closed until Tuesday 9am ET.");
         }
-        // Once a specific free agent's own game has kicked off this week,
-        // they're locked for the rest of the week regardless of whether
-        // the overall market is still open -- same reasoning as a
-        // rostered player locking the moment their game starts, just
-        // applied to free agent pickups instead of lineup edits.
+        // The week this bid is FOR, computed server-side (not trusted from the
+        // client): normally the current week, but from 1pm Sunday through Tue
+        // 9am it's next week, since this week's awards have already run. The
+        // kickoff lock and the stored row both use it, so a Sunday-afternoon bid
+        // checks next week's slate -- which hasn't started -- rather than this
+        // week's, which is why every free agent is biddable then.
+        const biddingWeek = getFaabBiddingWeek();
+        // A specific free agent is locked once their own game in the bidding
+        // week has kicked off -- same reasoning as a rostered player locking the
+        // moment their game starts, applied to pickups.
         let playerGameStarted: boolean;
         try {
-          playerGameStarted = await hasPlayerTeamGameStarted(input.playerNflTeam, input.week, input.season);
+          playerGameStarted = await hasPlayerTeamGameStarted(input.playerNflTeam, biddingWeek, input.season);
         } catch {
           // Fail safe: if this can't be verified, treat the player as
           // locked rather than risking a bid on someone who's already
@@ -983,7 +988,7 @@ export const appRouter = router({
           drop_player_id: dropPlayer?.id ?? null,
           drop_player_name: dropPlayer?.name ?? null,
           status: "pending",
-          week: input.week,
+          week: biddingWeek,
           season: input.season,
           group_id: groupId,
           group_rank: groupRank,
@@ -1003,7 +1008,16 @@ export const appRouter = router({
           .from("faab_bids")
           .select("id, team_id, team_name, player_id, player_name, player_pos, player_nfl_team, bid_amount, drop_player_id, drop_player_name, status, week, season, created_at, group_id, group_rank, group_max_wins")
           .eq("team_id", ctx.teamSession.teamId)
-          .eq("week", input.week)
+          // This week's bids, plus EVERY still-pending bid whatever week it was
+          // placed for. A pending bid is never week-scoped anywhere it actually
+          // matters -- the award (scheduledFaabAward) processes all pending bids
+          // with no week filter, and so do this bid's own budget, shared-drop
+          // and group checks -- and a bid the Sunday award left pending (a
+          // player still inside their 48h waiver hold) keeps its original week.
+          // Filtering strictly by week would hide such a bid from its owner
+          // from 1pm Sunday on, once getFaabBiddingWeek moves to next week:
+          // still live, still committing FAAB, but impossible to see or cancel.
+          .or(`week.eq.${input.week},status.eq.pending`)
           .eq("season", input.season)
           .order("created_at", { ascending: false });
         if (error) throw new Error("Unable to load your FAAB bids.");
@@ -1481,7 +1495,10 @@ export const appRouter = router({
         const { data, error } = await supabaseAdmin
           .from("faab_bids")
           .select("id, team_id, team_name, player_id, player_name, player_pos, player_nfl_team, bid_amount, drop_player_id, drop_player_name, status, week, season, created_at")
-          .eq("week", input.week)
+          // Same as myFaabBids: this week's bids plus every still-pending one,
+          // since the award the commissioner is about to run from this screen
+          // processes all pending bids regardless of the week they carry.
+          .or(`week.eq.${input.week},status.eq.pending`)
           .eq("season", input.season)
           .order("player_name", { ascending: true })
           .order("bid_amount", { ascending: false });

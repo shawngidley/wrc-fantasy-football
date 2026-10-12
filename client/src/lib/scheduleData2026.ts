@@ -435,6 +435,36 @@ export function getLineupDefaultWeek(now = new Date()): number {
 }
 
 /**
+ * The NFL week that FAAB bids placed right now are FOR -- i.e. the week whose
+ * first automated award (the next Thursday 9am) will put the player on a roster.
+ *
+ * For most of the week this is just getLineupDefaultWeek(). The one difference
+ * is the stretch from 1pm ET Sunday through 9am ET Tuesday: by 1pm Sunday both
+ * of this week's awards (Thu + Sun 9am) have already run, so any new bid is for
+ * NEXT week, and its award is the upcoming Thursday. getLineupDefaultWeek()
+ * doesn't advance until Tuesday 9am, so during that window it's still pointing
+ * at the week that's ending -- bump it by one so bids, the per-player kickoff
+ * lock, and the bid lists all line up on the week the bid is actually for.
+ *
+ * The ET weekday/hour come from Intl rather than a fixed UTC offset, so the
+ * 1pm Sunday boundary stays at 1pm local after DST ends in November.
+ */
+export function getFaabBiddingWeek(now = new Date()): number {
+  const base = getLineupDefaultWeek(now);
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York", weekday: "short", hour: "numeric", hour12: false,
+  }).formatToParts(now);
+  const weekday = parts.find(p => p.type === "weekday")?.value;
+  let hour = Number(parts.find(p => p.type === "hour")?.value ?? -1);
+  if (hour >= 24) hour = 0; // some runtimes emit "24" for midnight
+  const biddingForNextWeek =
+    (weekday === "Sun" && hour >= 13) ||
+    weekday === "Mon" ||
+    (weekday === "Tue" && hour < 9);
+  return biddingForNextWeek ? base + 1 : base;
+}
+
+/**
  * Resolves a team's opponent for a given week, by team name (since some
  * pages, like Lineup.tsx, identify teams by name rather than owner key).
  * Returns undefined when there's no matchup for this team that week

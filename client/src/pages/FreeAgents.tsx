@@ -17,7 +17,7 @@ import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026 } from "@shared/currentDraftPlayerUn
 import { CURRENT_TANK01_KICKERS_2026 } from "@/lib/currentKickers2026";
 import { getTeamLogoUrl } from "@/hooks/useTank01Player";
 import { useAuth } from "@/contexts/AuthContext";
-import { getLineupDefaultWeek, getDefaultStatsYear, AVAILABLE_STATS_YEARS } from "@/lib/scheduleData2026";
+import { getLineupDefaultWeek, getFaabBiddingWeek, getDefaultStatsYear, AVAILABLE_STATS_YEARS } from "@/lib/scheduleData2026";
 import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections";
 import { useNFLMatchups, formatGameTime } from "@/hooks/useNFLMatchups";
 import { hasTeamGameStarted } from "@/lib/playerGameLock";
@@ -644,7 +644,11 @@ export default function FreeAgents() {
   }, [franchise, columnPreferencesQuery.data]);
 
   const currentWeek = getLineupDefaultWeek();
-  const week = currentWeek > 0 ? currentWeek : 1;
+  // The week FAAB bidding is for: normally the current week, but from 1pm Sunday
+  // through Tue 9am it's next week (this week's awards have run). Drives the per-
+  // player lock, the matchup/projection columns, the bid lists and the bid modal
+  // so they all agree on the week a bid will be awarded for.
+  const week = getFaabBiddingWeek();
   const rosteredPlayersQuery = trpc.league.rosteredPlayers.useQuery(undefined, { staleTime: 60_000 });
   const recentlyDroppedQuery = trpc.league.recentlyDroppedPlayers.useQuery(undefined, { staleTime: 60_000, refetchInterval: 60_000 });
   const droppedAtMap = useMemo(
@@ -1311,7 +1315,7 @@ export default function FreeAgents() {
                             <span style={{ fontSize: "0.65rem", color: "oklch(0.6 0.04 150)", textAlign: "center" as const, fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600 }}>Game started</span>
                           ) : marketState === "open_waiver" ? (
                             freePickupBlocked ? (
-                              <span title={droppedAt ? `Cut ${new Date(droppedAt).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" })} ET. Free pickup needs 48 hours on waivers; you can bid on this player when bidding reopens Tue 9am ET.` : undefined} style={{ fontSize: "0.65rem", color: "oklch(0.6 0.04 150)", textAlign: "center" as const, fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600 }}>Bid opens Tue</span>
+                              <span title={droppedAt ? `Cut ${new Date(droppedAt).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" })} ET. Free pickup needs 48 hours on waivers; you can bid on this player when bidding reopens at 1pm ET (the 48h hold is then checked at the award).` : undefined} style={{ fontSize: "0.65rem", color: "oklch(0.6 0.04 150)", textAlign: "center" as const, fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600 }}>Bid opens 1pm</span>
                             ) : (
                               <button onClick={() => setInstantAddPlayer(player)} style={{ background: "oklch(0.5 0.16 150)", color: "white", border: "none", borderRadius: 7, padding: "0.3rem 0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem", letterSpacing: "0.04em", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem", justifyContent: "center" }}><UserPlus size={11} />Add</button>
                             )
