@@ -80802,12 +80802,9 @@ async function rosterPlayerForTeam(rows, teamId, player, acquisition = "FA") {
 // server/lineupResolution.ts
 init_supabaseAdmin();
 async function resolveLineupsForWeek(week2, season, teamId) {
-  let query = supabaseAdmin.from("lineups").select("team_id, week, slot, player_id, player_name, is_bench").eq("season", season).lte("week", week2);
-  if (teamId) query = query.eq("team_id", teamId);
-  const { data, error: error46 } = await query;
-  if (error46) throw new Error(`Unable to load lineups: ${error46.message}`);
+  const data = await loadLineupRows(week2, season, teamId);
   const latestWeekByTeam = /* @__PURE__ */ new Map();
-  for (const row of data ?? []) {
+  for (const row of data) {
     const current = latestWeekByTeam.get(row.team_id);
     if (current === void 0 || row.week > current) latestWeekByTeam.set(row.team_id, row.week);
   }
@@ -80823,7 +80820,21 @@ async function resolveLineupsForWeek(week2, season, teamId) {
       rosterIdsByTeam.get(p.team_id).add(p.id);
     }
   }
-  return selectEffectiveLineupRows(data ?? [], week2, rosterIdsByTeam);
+  return selectEffectiveLineupRows(data, week2, rosterIdsByTeam);
+}
+var LINEUP_PAGE_SIZE = 1e3;
+async function loadLineupRows(week2, season, teamId) {
+  const all = [];
+  for (let from = 0; ; from += LINEUP_PAGE_SIZE) {
+    let query = supabaseAdmin.from("lineups").select("team_id, week, slot, player_id, player_name, is_bench").eq("season", season).lte("week", week2);
+    if (teamId) query = query.eq("team_id", teamId);
+    const { data, error: error46 } = await query.order("week", { ascending: true }).order("team_id", { ascending: true }).order("slot", { ascending: true }).order("player_id", { ascending: true }).range(from, from + LINEUP_PAGE_SIZE - 1);
+    if (error46) throw new Error(`Unable to load lineups: ${error46.message}`);
+    if (!data || data.length === 0) break;
+    all.push(...data);
+    if (data.length < LINEUP_PAGE_SIZE) break;
+  }
+  return all;
 }
 function selectEffectiveLineupRows(rows, week2, rosterIdsByTeam) {
   const latestWeekByTeam = /* @__PURE__ */ new Map();

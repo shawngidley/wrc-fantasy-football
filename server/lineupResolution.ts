@@ -35,18 +35,11 @@ export interface StoredLineupRow {
  * live scoring read the exact week and treated an unsaved week as empty.
  */
 export async function resolveLineupsForWeek(week: number, season: number, teamId?: string): Promise<ResolvedLineupRow[]> {
-  let query = supabaseAdmin
-    .from("lineups")
-    .select("team_id, week, slot, player_id, player_name, is_bench")
-    .eq("season", season)
-    .lte("week", week);
-  if (teamId) query = query.eq("team_id", teamId);
-  const { data, error } = await query;
-  if (error) throw new Error(`Unable to load lineups: ${error.message}`);
+  const data = await loadLineupRows(week, season, teamId);
 
   // Most recent saved week per team, at or before the requested week.
   const latestWeekByTeam = new Map<string, number>();
-  for (const row of (data ?? []) as StoredLineupRow[]) {
+  for (const row of data) {
     const current = latestWeekByTeam.get(row.team_id);
     if (current === undefined || row.week > current) latestWeekByTeam.set(row.team_id, row.week);
   }
@@ -67,7 +60,49 @@ export async function resolveLineupsForWeek(week: number, season: number, teamId
     }
   }
 
-  return selectEffectiveLineupRows((data ?? []) as StoredLineupRow[], week, rosterIdsByTeam);
+  return selectEffectiveLineupRows(data, week, rosterIdsByTeam);
+}
+
+// Supabase silently caps a single select at 1000 rows -- no error, it just
+// stops. A league-wide read (no teamId) pulls every team's lineup for every
+// week up to the one requested: 12 teams x 18 rows = 216 rows per saved week, so
+// Week 5 (1080 rows) was the first to cross the cap. Because the unordered
+// result came back in insertion order, the rows dropped were always the NEWEST
+// saves. Teams whose Week 5 save fell past the cap silently resolved to their
+// Week 4 lineup (carried forward) -- Live Scoring and the weekly finalizer
+// showed a stale lineup while the Lineup page, which reads one team (90 rows),
+// showed the real one. Page through every row in a stable order so the result
+// is complete no matter how many weeks have been saved. Same fix, and the same
+// page-and-break idiom, as loadAllPlayerWeeklyStatsForSeason in
+// scheduledSeasonStatsPrecompute.ts, which hit this cap first.
+//
+// The order is (week, team_id, slot, player_id) -- all columns this select
+// already reads, and unique per row, since one slot holds one player in a given
+// team's week. Paging needs a TOTAL order: any tie at a page boundary lets
+// Postgres return a row twice or not at all across two LIMIT/OFFSET queries.
+const LINEUP_PAGE_SIZE = 1000;
+
+async function loadLineupRows(week: number, season: number, teamId?: string): Promise<StoredLineupRow[]> {
+  const all: StoredLineupRow[] = [];
+  for (let from = 0; ; from += LINEUP_PAGE_SIZE) {
+    let query = supabaseAdmin
+      .from("lineups")
+      .select("team_id, week, slot, player_id, player_name, is_bench")
+      .eq("season", season)
+      .lte("week", week);
+    if (teamId) query = query.eq("team_id", teamId);
+    const { data, error } = await query
+      .order("week", { ascending: true })
+      .order("team_id", { ascending: true })
+      .order("slot", { ascending: true })
+      .order("player_id", { ascending: true })
+      .range(from, from + LINEUP_PAGE_SIZE - 1);
+    if (error) throw new Error(`Unable to load lineups: ${error.message}`);
+    if (!data || data.length === 0) break;
+    all.push(...(data as StoredLineupRow[]));
+    if (data.length < LINEUP_PAGE_SIZE) break;
+  }
+  return all;
 }
 
 /**
