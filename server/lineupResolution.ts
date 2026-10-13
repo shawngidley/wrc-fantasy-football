@@ -1,3 +1,5 @@
+import { normalizePlayerName } from "../shared/playerNameMatch";
+import { resolveRosterPlayerForLineupEntry, type RosterPlayerRow } from "../shared/rosterPlayerResolution";
 import { supabaseAdmin } from "./supabaseAdmin";
 
 export interface ResolvedLineupRow {
@@ -29,6 +31,14 @@ export interface StoredLineupRow {
  * traded since) are left out, so a stale lineup can never start someone
  * the team doesn't have.
  *
+ * "On the roster" uses the same matching as the weekly finalizer and the
+ * matchup score hooks (resolveRosterPlayerForLineupEntry): player_id first,
+ * then normalized name, then -- for the DST slot -- the team's own DST. Saved
+ * lineups carry inconsistent ids (some were written with draft-pool ids like
+ * "dp14127" while the roster row has a different id), and every reader already
+ * resolves by name, so requiring an exact id here made a perfectly good lineup
+ * vanish the moment it was carried into the next week.
+ *
  * Everything that reads lineups goes through here: the Lineup page, Live
  * Scoring, and the weekly finalization that produces the official score.
  * Before this existed only the Lineup page carried forward; scoring and
@@ -47,20 +57,23 @@ export async function resolveLineupsForWeek(week: number, season: number, teamId
 
   const carriedTeams = Array.from(latestWeekByTeam.entries()).filter(([, w]) => w < week).map(([id]) => id);
   const rosterIdsByTeam = new Map<string, Set<string>>();
+  const rosterByTeam = new Map<string, RosterPlayerRow[]>();
   if (carriedTeams.length > 0) {
     const { data: roster, error: rosterError } = await supabaseAdmin
       .from("players")
-      .select("id, team_id")
+      .select("id, name, position, nfl_team, team_id")
       .in("team_id", carriedTeams);
     if (rosterError) throw new Error(`Unable to validate carried-forward lineups: ${rosterError.message}`);
     for (const p of roster ?? []) {
       if (!p.team_id) continue;
       if (!rosterIdsByTeam.has(p.team_id)) rosterIdsByTeam.set(p.team_id, new Set());
       rosterIdsByTeam.get(p.team_id)!.add(p.id);
+      if (!rosterByTeam.has(p.team_id)) rosterByTeam.set(p.team_id, []);
+      rosterByTeam.get(p.team_id)!.push(p as RosterPlayerRow);
     }
   }
 
-  return selectEffectiveLineupRows(data, week, rosterIdsByTeam);
+  return selectEffectiveLineupRows(data, week, rosterIdsByTeam, rosterByTeam);
 }
 
 // Supabase silently caps a single select at 1000 rows -- no error, it just
@@ -109,11 +122,16 @@ async function loadLineupRows(week: number, season: number, teamId?: string): Pr
  * Pure selection step, split out for tests: keep only each team's most
  * recent saved week at or before `week`; when that week is earlier than
  * `week` (carried forward), drop players no longer on the roster.
+ *
+ * `rosterByTeam` (optional) lets a carried row match its roster player by
+ * normalized name, or by the team's DST for the DST slot, when its saved id
+ * isn't on the roster. Without it only exact ids match, as before.
  */
 export function selectEffectiveLineupRows(
   rows: StoredLineupRow[],
   week: number,
   rosterIdsByTeam: Map<string, Set<string>>,
+  rosterByTeam?: Map<string, RosterPlayerRow[]>,
 ): ResolvedLineupRow[] {
   const latestWeekByTeam = new Map<string, number>();
   for (const row of rows) {
@@ -121,11 +139,25 @@ export function selectEffectiveLineupRows(
     const current = latestWeekByTeam.get(row.team_id);
     if (current === undefined || row.week > current) latestWeekByTeam.set(row.team_id, row.week);
   }
+
+  const nameIndexByTeam = new Map<string, Map<string, RosterPlayerRow>>();
+  const isOnRoster = (row: StoredLineupRow): boolean => {
+    if (rosterIdsByTeam.get(row.team_id)?.has(row.player_id)) return true;
+    const roster = rosterByTeam?.get(row.team_id);
+    if (!roster || roster.length === 0) return false;
+    let byName = nameIndexByTeam.get(row.team_id);
+    if (!byName) {
+      byName = new Map(roster.map(p => [normalizePlayerName(p.name), p]));
+      nameIndexByTeam.set(row.team_id, byName);
+    }
+    return resolveRosterPlayerForLineupEntry(row, new Map(), byName, roster) !== undefined;
+  };
+
   const out: ResolvedLineupRow[] = [];
   for (const row of rows) {
     if (row.week !== latestWeekByTeam.get(row.team_id)) continue;
     const carried = row.week < week;
-    if (carried && !rosterIdsByTeam.get(row.team_id)?.has(row.player_id)) continue;
+    if (carried && !isOnRoster(row)) continue;
     out.push({
       team_id: row.team_id,
       slot: row.slot,

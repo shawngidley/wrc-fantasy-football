@@ -80799,6 +80799,17 @@ async function rosterPlayerForTeam(rows, teamId, player, acquisition = "FA") {
   return id;
 }
 
+// shared/rosterPlayerResolution.ts
+function resolveRosterPlayerForLineupEntry(entry, playerById, playerByNormalizedName, allPlayers) {
+  const byId = entry.player_id ? playerById.get(entry.player_id) : void 0;
+  const byName = byId ?? playerByNormalizedName.get(normalizePlayerName(entry.player_name));
+  if (byName) return byName;
+  if (entry.slot === "DST") {
+    return allPlayers.find((candidate) => candidate.team_id === entry.team_id && candidate.position === "DST");
+  }
+  return void 0;
+}
+
 // server/lineupResolution.ts
 init_supabaseAdmin();
 async function resolveLineupsForWeek(week2, season, teamId) {
@@ -80811,16 +80822,19 @@ async function resolveLineupsForWeek(week2, season, teamId) {
   if (latestWeekByTeam.size === 0) return [];
   const carriedTeams = Array.from(latestWeekByTeam.entries()).filter(([, w]) => w < week2).map(([id]) => id);
   const rosterIdsByTeam = /* @__PURE__ */ new Map();
+  const rosterByTeam = /* @__PURE__ */ new Map();
   if (carriedTeams.length > 0) {
-    const { data: roster, error: rosterError } = await supabaseAdmin.from("players").select("id, team_id").in("team_id", carriedTeams);
+    const { data: roster, error: rosterError } = await supabaseAdmin.from("players").select("id, name, position, nfl_team, team_id").in("team_id", carriedTeams);
     if (rosterError) throw new Error(`Unable to validate carried-forward lineups: ${rosterError.message}`);
     for (const p of roster ?? []) {
       if (!p.team_id) continue;
       if (!rosterIdsByTeam.has(p.team_id)) rosterIdsByTeam.set(p.team_id, /* @__PURE__ */ new Set());
       rosterIdsByTeam.get(p.team_id).add(p.id);
+      if (!rosterByTeam.has(p.team_id)) rosterByTeam.set(p.team_id, []);
+      rosterByTeam.get(p.team_id).push(p);
     }
   }
-  return selectEffectiveLineupRows(data, week2, rosterIdsByTeam);
+  return selectEffectiveLineupRows(data, week2, rosterIdsByTeam, rosterByTeam);
 }
 var LINEUP_PAGE_SIZE = 1e3;
 async function loadLineupRows(week2, season, teamId) {
@@ -80836,18 +80850,30 @@ async function loadLineupRows(week2, season, teamId) {
   }
   return all;
 }
-function selectEffectiveLineupRows(rows, week2, rosterIdsByTeam) {
+function selectEffectiveLineupRows(rows, week2, rosterIdsByTeam, rosterByTeam) {
   const latestWeekByTeam = /* @__PURE__ */ new Map();
   for (const row of rows) {
     if (row.week > week2) continue;
     const current = latestWeekByTeam.get(row.team_id);
     if (current === void 0 || row.week > current) latestWeekByTeam.set(row.team_id, row.week);
   }
+  const nameIndexByTeam = /* @__PURE__ */ new Map();
+  const isOnRoster = (row) => {
+    if (rosterIdsByTeam.get(row.team_id)?.has(row.player_id)) return true;
+    const roster = rosterByTeam?.get(row.team_id);
+    if (!roster || roster.length === 0) return false;
+    let byName = nameIndexByTeam.get(row.team_id);
+    if (!byName) {
+      byName = new Map(roster.map((p) => [normalizePlayerName(p.name), p]));
+      nameIndexByTeam.set(row.team_id, byName);
+    }
+    return resolveRosterPlayerForLineupEntry(row, /* @__PURE__ */ new Map(), byName, roster) !== void 0;
+  };
   const out = [];
   for (const row of rows) {
     if (row.week !== latestWeekByTeam.get(row.team_id)) continue;
     const carried = row.week < week2;
-    if (carried && !rosterIdsByTeam.get(row.team_id)?.has(row.player_id)) continue;
+    if (carried && !isOnRoster(row)) continue;
     out.push({
       team_id: row.team_id,
       slot: row.slot,
@@ -81992,17 +82018,6 @@ function calculateWrcKickerPoints(events, rawStats) {
     xpPoints = events.filter((event) => event.type === "xp").reduce((total, event) => total + (event.outcome === "made" ? 1 : -2), 0);
   }
   return Math.round((fgPoints + xpPoints) * 10) / 10;
-}
-
-// shared/rosterPlayerResolution.ts
-function resolveRosterPlayerForLineupEntry(entry, playerById, playerByNormalizedName, allPlayers) {
-  const byId = entry.player_id ? playerById.get(entry.player_id) : void 0;
-  const byName = byId ?? playerByNormalizedName.get(normalizePlayerName(entry.player_name));
-  if (byName) return byName;
-  if (entry.slot === "DST") {
-    return allPlayers.find((candidate) => candidate.team_id === entry.team_id && candidate.position === "DST");
-  }
-  return void 0;
 }
 
 // shared/playerSeasonStats.ts
