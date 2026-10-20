@@ -5,10 +5,11 @@ import { resolveLineupsForWeek } from "./lineupResolution";
 import { normalizePlayerName } from "../shared/playerNameMatch";
 import { calcFantasyPoints, type Tank01Stats } from "../shared/scoringEngine";
 import { parseEspnKickerEvents, getKickerEventsForPlayer, calculateWrcKickerPoints, type KickerPlayEvent } from "../shared/espnKickerEvents";
-import { resolveRosterPlayerForLineupEntry, type RosterPlayerRow } from "../shared/rosterPlayerResolution";
+import { type RosterPlayerRow } from "../shared/rosterPlayerResolution";
 import { normalizeTankSeasonStats, type PlayerSeasonStats } from "../shared/playerSeasonStats";
 import { getDraftUniversePlayerByName } from "../shared/draftPlayerUniverse";
 import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026 } from "../shared/currentDraftPlayerUniverse2026";
+import { buildEffectiveStarters, type RosterPlayerWithId } from "../shared/effectiveStarters";
 
 const HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
 const n = (value: unknown) => Number.parseFloat(String(value ?? "0")) || 0;
@@ -319,7 +320,7 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
     // Live Scoring show them. Reading the exact week only (the old
     // behavior) scored such a team as zero.
     resolveLineupsForWeek(week, season).then(rows => ({ data: rows, error: null as null | { message: string } })),
-    supabaseAdmin.from("players").select("name, position, nfl_team, team_id"),
+    supabaseAdmin.from("players").select("id, name, position, nfl_team, team_id"),
     supabaseAdmin.from("teams").select("id, owner, name"),
   ]);
   if (lineupsError || playersError || teamsError || !teams) {
@@ -407,21 +408,33 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
     });
   }
 
-  const playerByNormalizedName = new Map((players ?? []).map(player => [normalizePlayerName(player.name), player as RosterPlayerRow]));
-  const emptyPlayerById = new Map<string, RosterPlayerRow>();
   const teamScores = new Map<string, number>();
   const idByOwnerForLog = new Map(teams.map(team => [team.id, team.owner]));
+  // Score each team on its effective starters: saved starters that are still
+  // on THIS team's roster, with open slots (dropped players, FAAB adds)
+  // filled from the roster -- the same lineup Live Scoring shows. Looking
+  // saved names up across every team's players (the old behavior) scored a
+  // player the team had already dropped and ignored his replacement.
+  const rosterByTeam = new Map<string, RosterPlayerWithId[]>();
+  for (const player of (players ?? []) as RosterPlayerWithId[]) {
+    if (!rosterByTeam.has(player.team_id)) rosterByTeam.set(player.team_id, []);
+    rosterByTeam.get(player.team_id)!.push(player);
+  }
+  const lineupRowsByTeam = new Map<string, NonNullable<typeof lineups>>();
   for (const lineup of lineups ?? []) {
-    if (lineup.is_bench) continue;
-    const player = resolveRosterPlayerForLineupEntry(lineup, emptyPlayerById, playerByNormalizedName, (players ?? []) as RosterPlayerRow[]);
-    if (!player) {
-      console.log(`[weeklyResultsFinalize] ${idByOwnerForLog.get(lineup.team_id)}'s starter still not found in players table: "${lineup.player_name}" (slot=${lineup.slot})`);
-      continue;
+    if (!lineupRowsByTeam.has(lineup.team_id)) lineupRowsByTeam.set(lineup.team_id, []);
+    lineupRowsByTeam.get(lineup.team_id)!.push(lineup);
+  }
+  for (const team of teams) {
+    const starters = buildEffectiveStarters(lineupRowsByTeam.get(team.id) ?? [], rosterByTeam.get(team.id) ?? [], CURRENT_DRAFT_PLAYER_UNIVERSE_2026);
+    if (starters.length < 10) console.log(`[weeklyResultsFinalize] ${idByOwnerForLog.get(team.id)} has only ${starters.length} of 10 scoreable starters`);
+    let total = 0;
+    for (const { player } of starters) {
+      total += player.position === "DST"
+        ? (dstScores[teamCode(player.nfl_team)] ?? 0)
+        : (individualScores[normalizePlayerName(player.name)] ?? 0);
     }
-    const score = player.position === "DST"
-      ? (dstScores[teamCode(player.nfl_team)] ?? 0)
-      : (individualScores[normalizePlayerName(String(lineup.player_name))] ?? 0);
-    teamScores.set(lineup.team_id, Math.round(((teamScores.get(lineup.team_id) ?? 0) + score) * 10) / 10);
+    teamScores.set(team.id, Math.round(total * 10) / 10);
   }
 
   // Persist every rostered player's full weekly stat line, plus every

@@ -82093,6 +82093,98 @@ function normalizeTankSeasonStats(stats, pos) {
   };
 }
 
+// shared/defaultLineup.ts
+function buildDefaultStarters(teamPlayers, nflTeamPool) {
+  const adpByNormalizedName = /* @__PURE__ */ new Map();
+  for (const p of nflTeamPool) {
+    adpByNormalizedName.set(normalizePlayerName(p.name), p.adp);
+  }
+  const sortedByAdp = [...teamPlayers].sort((a, b) => {
+    const adpA = adpByNormalizedName.get(normalizePlayerName(a.name)) ?? 9999;
+    const adpB = adpByNormalizedName.get(normalizePlayerName(b.name)) ?? 9999;
+    return adpA - adpB;
+  });
+  const slotDef = [
+    { slot: "QB", pos: "QB" },
+    { slot: "RB", pos: "RB" },
+    { slot: "RB", pos: "RB" },
+    { slot: "WR", pos: "WR" },
+    { slot: "WR", pos: "WR" },
+    { slot: "TE", pos: "TE" },
+    { slot: "SFLEX", pos: "QB" },
+    { slot: "FLEX", pos: "RB" },
+    { slot: "K", pos: "K" },
+    { slot: "DST", pos: "DST" }
+  ];
+  const used = /* @__PURE__ */ new Set();
+  const starters = [];
+  for (const { slot, pos } of slotDef) {
+    const candidate = sortedByAdp.find((p) => p.position === pos && !used.has(p.id));
+    if (candidate) {
+      starters.push({ slot, player: candidate });
+      used.add(candidate.id);
+    }
+  }
+  return starters;
+}
+var STARTER_SLOT_ORDER = ["QB", "RB", "RB", "WR", "WR", "TE", "SFLEX", "FLEX", "K", "DST"];
+var STARTER_SLOT_ELIGIBLE = {
+  QB: ["QB"],
+  RB: ["RB"],
+  WR: ["WR"],
+  TE: ["TE"],
+  SFLEX: ["QB", "RB", "WR", "TE"],
+  FLEX: ["RB", "WR", "TE"],
+  K: ["K"],
+  DST: ["DST"]
+};
+function fillEmptyStarterSlots(starters, bench, slotOrder, nflTeamPool) {
+  const adpByName = /* @__PURE__ */ new Map();
+  for (const p of nflTeamPool) adpByName.set(normalizePlayerName(p.name), p.adp);
+  const adpOf = (name) => adpByName.get(normalizePlayerName(name)) ?? 9999;
+  const used = new Set(starters.map((s) => s.player.id));
+  const filled = /* @__PURE__ */ new Map();
+  for (const s of starters) filled.set(s.slot, (filled.get(s.slot) ?? 0) + 1);
+  const gaps = [];
+  for (const slot of slotOrder) {
+    const have = filled.get(slot) ?? 0;
+    if (have > 0) {
+      filled.set(slot, have - 1);
+      continue;
+    }
+    gaps.push(slot);
+  }
+  const flexRank = { SFLEX: 2, FLEX: 1 };
+  gaps.sort((a, b) => (flexRank[a] ?? 0) - (flexRank[b] ?? 0));
+  const outStarters = [...starters];
+  for (const slot of gaps) {
+    const eligible = STARTER_SLOT_ELIGIBLE[slot] ?? [];
+    const candidate = bench.filter((p) => !used.has(p.id) && eligible.includes(p.position)).sort((a, b) => adpOf(a.name) - adpOf(b.name))[0];
+    if (!candidate) continue;
+    outStarters.push({ slot, player: candidate });
+    used.add(candidate.id);
+  }
+  return { starters: outStarters, bench: bench.filter((p) => !used.has(p.id)) };
+}
+
+// shared/effectiveStarters.ts
+function buildEffectiveStarters(savedRows, roster, pool2) {
+  if (savedRows.length === 0) return buildDefaultStarters(roster, pool2);
+  const byId = new Map(roster.map((p) => [p.id, p]));
+  const byName = new Map(roster.map((p) => [normalizePlayerName(p.name), p]));
+  const used = /* @__PURE__ */ new Set();
+  const starters = [];
+  for (const row of savedRows) {
+    if (row.is_bench) continue;
+    const player = resolveRosterPlayerForLineupEntry(row, byId, byName, [...roster]);
+    if (!player || used.has(player.id)) continue;
+    used.add(player.id);
+    starters.push({ slot: row.slot.replace(/^(RB|WR|TE)\d+$/, "$1"), player });
+  }
+  const bench = roster.filter((p) => !used.has(p.id));
+  return fillEmptyStarterSlots(starters, bench, STARTER_SLOT_ORDER, pool2).starters;
+}
+
 // server/weeklyResultsFinalize.ts
 var HOST = "tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
 var n2 = (value) => Number.parseFloat(String(value ?? "0")) || 0;
@@ -82256,7 +82348,7 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
     // Live Scoring show them. Reading the exact week only (the old
     // behavior) scored such a team as zero.
     resolveLineupsForWeek(week2, season).then((rows) => ({ data: rows, error: null })),
-    supabaseAdmin.from("players").select("name, position, nfl_team, team_id"),
+    supabaseAdmin.from("players").select("id, name, position, nfl_team, team_id"),
     supabaseAdmin.from("teams").select("id, owner, name")
   ]);
   if (lineupsError || playersError || teamsError || !teams) {
@@ -82317,19 +82409,26 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
       dstStatLines[teamAbv] = { ...normalizeTankSeasonStats({ Defense: statLineStats }, "DST"), wrcPts: points };
     });
   }
-  const playerByNormalizedName = new Map((players ?? []).map((player) => [normalizePlayerName(player.name), player]));
-  const emptyPlayerById = /* @__PURE__ */ new Map();
   const teamScores = /* @__PURE__ */ new Map();
   const idByOwnerForLog = new Map(teams.map((team) => [team.id, team.owner]));
+  const rosterByTeam = /* @__PURE__ */ new Map();
+  for (const player of players ?? []) {
+    if (!rosterByTeam.has(player.team_id)) rosterByTeam.set(player.team_id, []);
+    rosterByTeam.get(player.team_id).push(player);
+  }
+  const lineupRowsByTeam = /* @__PURE__ */ new Map();
   for (const lineup of lineups ?? []) {
-    if (lineup.is_bench) continue;
-    const player = resolveRosterPlayerForLineupEntry(lineup, emptyPlayerById, playerByNormalizedName, players ?? []);
-    if (!player) {
-      console.log(`[weeklyResultsFinalize] ${idByOwnerForLog.get(lineup.team_id)}'s starter still not found in players table: "${lineup.player_name}" (slot=${lineup.slot})`);
-      continue;
+    if (!lineupRowsByTeam.has(lineup.team_id)) lineupRowsByTeam.set(lineup.team_id, []);
+    lineupRowsByTeam.get(lineup.team_id).push(lineup);
+  }
+  for (const team of teams) {
+    const starters = buildEffectiveStarters(lineupRowsByTeam.get(team.id) ?? [], rosterByTeam.get(team.id) ?? [], CURRENT_DRAFT_PLAYER_UNIVERSE_2026);
+    if (starters.length < 10) console.log(`[weeklyResultsFinalize] ${idByOwnerForLog.get(team.id)} has only ${starters.length} of 10 scoreable starters`);
+    let total = 0;
+    for (const { player } of starters) {
+      total += player.position === "DST" ? dstScores[teamCode(player.nfl_team)] ?? 0 : individualScores[normalizePlayerName(player.name)] ?? 0;
     }
-    const score = player.position === "DST" ? dstScores[teamCode(player.nfl_team)] ?? 0 : individualScores[normalizePlayerName(String(lineup.player_name))] ?? 0;
-    teamScores.set(lineup.team_id, Math.round(((teamScores.get(lineup.team_id) ?? 0) + score) * 10) / 10);
+    teamScores.set(team.id, Math.round(total * 10) / 10);
   }
   const rowInputsByName = buildWeeklyStatRowInputs(players ?? [], individualStatLines, dstStatLines);
   const weeklyStatRows = Array.from(rowInputsByName.values()).map(
