@@ -1256,3 +1256,15 @@
 # Current 2026 NFL Team and Bye-Week Reconciliation
 
 - [x] Re-run the Tank01 player-list and 2026 schedule comparison, apply any new differences, and verify the player table.
+
+# Latest 2026 NFL Team and Bye-Week Reconciliation
+
+- [x] Run the latest Tank01 player-list and 2026 schedule comparison, apply new differences, and verify the player table.
+
+# Fresh Current 2026 NFL Team and Bye-Week Reconciliation
+
+- [x] Compare all WRC player records against current Tank01 player-team and 2026 schedule data, apply verified differences, and confirm final alignment.
+
+# Latest Full 2026 NFL Team and Bye-Week Reconciliation
+
+- [x] Compare the full WRC player table against Tank01, apply new verified team and bye changes, and confirm final alignment.
