@@ -56,6 +56,7 @@ export function __clearGamesCacheForTests(): void {
 async function readGamesCache(cacheKey: string): Promise<Tank01Game[] | null> {
   const mem = gamesMemo.get(cacheKey);
   if (mem && Date.now() - mem.ts < GAMES_CACHE_TTL_MS) return mem.games;
+  if (process.env.NODE_ENV === "test") return null;
   try {
     const { data, error } = await supabaseAdmin
       .from(SHARED_CACHE_TABLE)
@@ -82,6 +83,7 @@ async function writeGamesCache(cacheKey: string, rawBody: string, games: Tank01G
   // answer and the next call refetches.
   if (games.length === 0) return;
   gamesMemo.set(cacheKey, { ts: Date.now(), games });
+  if (process.env.NODE_ENV === "test") return;
   try {
     await supabaseAdmin
       .from(SHARED_CACHE_TABLE)
