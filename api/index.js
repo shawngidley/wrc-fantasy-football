@@ -92599,7 +92599,12 @@ var appRouter = router({
       if (error46) throw new Error("Unable to remove team media.");
       return { removed: true };
     }),
-    finalizeWeeklyResultsFromTank: teamProcedure.input(external_exports.object({ week: external_exports.number().int().min(1).max(22), season: external_exports.number().int().min(2020).max(2100) })).mutation(async ({ input }) => finalizeWeeklyResultsFromTank(input.week, input.season)),
+    // Commissioner-only: re-finalizing a week recomputes every team's official
+    // score and rewrites the standings, so it is not an ordinary owner action.
+    // The scheduled job doesn't come through here -- it calls
+    // finalizeWeeklyResultsFromTank directly (scheduledWeeklyResultsFinalize.ts),
+    // gated by CRON_SECRET -- and nothing in the client calls this procedure.
+    finalizeWeeklyResultsFromTank: commissionerProcedure.input(external_exports.object({ week: external_exports.number().int().min(1).max(22), season: external_exports.number().int().min(2020).max(2100) })).mutation(async ({ input }) => finalizeWeeklyResultsFromTank(input.week, input.season)),
     commissionerSaveMoneyOwed: commissionerProcedure.input(external_exports.object({ updates: external_exports.array(external_exports.object({ id: external_exports.string().min(1).max(128), name: external_exports.string().min(1).max(80), owed: external_exports.number().finite().min(0).max(1e5) })).min(1).max(50) })).mutation(async ({ input }) => {
       const { error: error46 } = await supabaseAdmin.from("money_owed").upsert(input.updates, { onConflict: "id" });
       if (error46) throw new Error("Unable to save money owed.");

@@ -134,12 +134,19 @@ describe("private league procedures", () => {
       .rejects.toMatchObject({ code: "UNAUTHORIZED" });
   });
 
-  it("rejects unauthenticated weekly result finalization", async () => {
-    readWrcTeamSession.mockResolvedValue(null);
+  // Re-finalizing recomputes every team's official score and rewrites the
+  // standings, so it is commissioner-only: a signed-in owner is rejected too,
+  // and in both cases before any database access or scoring work happens.
+  it("rejects weekly result finalization by anyone but the commissioner", async () => {
     const caller = appRouter.createCaller({ req: {} as never, res: {} as never, user: null });
 
+    readWrcTeamSession.mockResolvedValue(null);
     await expect(caller.league.finalizeWeeklyResultsFromTank({ week: 1, season: 2026 }))
-      .rejects.toMatchObject({ code: "UNAUTHORIZED" });
+      .rejects.toMatchObject({ code: "FORBIDDEN" });
+
+    readWrcTeamSession.mockResolvedValue({ teamId: "team-owner", isCommissioner: false });
+    await expect(caller.league.finalizeWeeklyResultsFromTank({ week: 6, season: 2026 }))
+      .rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
   it("rejects unauthenticated commissioner money-management edits", async () => {

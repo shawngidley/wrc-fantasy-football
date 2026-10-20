@@ -2607,7 +2607,12 @@ export const appRouter = router({
         if (error) throw new Error("Unable to remove team media.");
         return { removed: true };
       }),
-    finalizeWeeklyResultsFromTank: teamProcedure
+    // Commissioner-only: re-finalizing a week recomputes every team's official
+    // score and rewrites the standings, so it is not an ordinary owner action.
+    // The scheduled job doesn't come through here -- it calls
+    // finalizeWeeklyResultsFromTank directly (scheduledWeeklyResultsFinalize.ts),
+    // gated by CRON_SECRET -- and nothing in the client calls this procedure.
+    finalizeWeeklyResultsFromTank: commissionerProcedure
       .input(z.object({ week: z.number().int().min(1).max(22), season: z.number().int().min(2020).max(2100) }))
       .mutation(async ({ input }) => finalizeWeeklyResultsFromTank(input.week, input.season)),
     commissionerSaveMoneyOwed: commissionerProcedure
