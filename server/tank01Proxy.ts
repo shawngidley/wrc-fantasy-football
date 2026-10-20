@@ -41,6 +41,7 @@ const responseCache = new Map<string, { ts: number; status: number; contentType:
 const SHARED_CACHE_TABLE = "tank01_response_cache";
 
 async function readSharedCache(cacheKey: string): Promise<{ status: number; contentType: string; body: string } | null> {
+  if (process.env.NODE_ENV === "test") return null;
   try {
     const { data, error } = await supabaseAdmin
       .from(SHARED_CACHE_TABLE)
@@ -56,6 +57,7 @@ async function readSharedCache(cacheKey: string): Promise<{ status: number; cont
 }
 
 async function writeSharedCache(cacheKey: string, status: number, contentType: string, body: string): Promise<void> {
+  if (process.env.NODE_ENV === "test") return;
   try {
     await supabaseAdmin
       .from(SHARED_CACHE_TABLE)

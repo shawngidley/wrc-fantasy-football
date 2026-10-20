@@ -56,15 +56,24 @@ function isFreeAgent(record) {
 
 async function tankFetch(endpoint, params = {}) {
   const query = new URLSearchParams(params);
-  const response = await fetch(`https://${TANK01_HOST}/${endpoint}?${query.toString()}`, {
-    headers: {
-      "x-rapidapi-key": process.env.TANK01_API_KEY,
-      "x-rapidapi-host": TANK01_HOST,
-    },
-    signal: AbortSignal.timeout(30_000),
-  });
-  if (!response.ok) throw new Error(`Tank01 ${endpoint} failed: ${response.status} ${await response.text()}`);
-  return response.json();
+  let lastError;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      const response = await fetch(`https://${TANK01_HOST}/${endpoint}?${query.toString()}`, {
+        headers: {
+          "x-rapidapi-key": process.env.TANK01_API_KEY,
+          "x-rapidapi-host": TANK01_HOST,
+        },
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (response.ok) return response.json();
+      lastError = new Error(`Tank01 ${endpoint} failed: ${response.status} ${await response.text()}`);
+    } catch (error) {
+      lastError = error;
+    }
+    if (attempt < 3) await new Promise(resolve => setTimeout(resolve, attempt * 1_000));
+  }
+  throw lastError;
 }
 
 function choosePlayerMatch(player, candidates) {
