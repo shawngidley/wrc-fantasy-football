@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { hasWeekKickedOff, hasPlayerTeamGameStarted } from "./nflWeekKickoffCheck";
+import { hasWeekKickedOff, hasPlayerTeamGameStarted, __clearGamesCacheForTests } from "./nflWeekKickoffCheck";
 
 describe("hasWeekKickedOff", () => {
   const originalFetch = global.fetch;
@@ -7,6 +7,7 @@ describe("hasWeekKickedOff", () => {
 
   beforeEach(() => {
     process.env.TANK01_API_KEY = "test-key";
+    __clearGamesCacheForTests();
   });
 
   afterEach(() => {
@@ -52,6 +53,32 @@ describe("hasWeekKickedOff", () => {
     await expect(hasWeekKickedOff(1, 2026)).rejects.toThrow(/credential is unavailable/);
   });
 
+  it("caches the week's game list so repeated lock checks don't re-hit Tank01", async () => {
+    mockGames([{ gameStatus: "Scheduled" }]);
+    await hasWeekKickedOff(1, 2026);
+    await hasWeekKickedOff(1, 2026);           // same week+season -> served from cache
+    await hasPlayerTeamGameStarted("KC", 1, 2026); // same key, shares the cached list
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  // Caching an empty list would hold the locks open for the whole TTL: with no
+  // games to inspect hasWeekKickedOff is false, so the rivalry window would stay
+  // declarable past a real kickoff. An empty in-season week is a bad upstream
+  // response, not a real answer, so it must not be cached.
+  it("does not cache an empty game list", async () => {
+    mockGames([]);
+    await hasWeekKickedOff(1, 2026);
+    await hasWeekKickedOff(1, 2026);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("caches per week and season, not globally", async () => {
+    mockGames([{ gameStatus: "Scheduled" }]);
+    await hasWeekKickedOff(1, 2026);
+    await hasWeekKickedOff(2, 2026);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
   describe("time-based fallback signal", () => {
     afterEach(() => {
       vi.useRealTimers();
@@ -89,6 +116,7 @@ describe("hasPlayerTeamGameStarted", () => {
 
   beforeEach(() => {
     process.env.TANK01_API_KEY = "test-key";
+    __clearGamesCacheForTests();
   });
 
   afterEach(() => {

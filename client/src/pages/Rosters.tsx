@@ -255,7 +255,13 @@ export default function Rosters() {
 
 function PlayerRow({ player, alt, protectedRound, injuryDesignation }: { player: SupabasePlayer; alt: boolean; protectedRound?: number; injuryDesignation?: string }) {
   const c = POS_COLORS[player.position] ?? { bg: "oklch(0.93 0.02 150)", text: "oklch(0.4 0.04 150)" };
-  const displayRound = protectedRound ?? player.draft_round;
+  // A player picked up off waivers/free agency is a free agent even if a stale
+  // draft_round lingers on their row from when they were originally drafted.
+  // acquisition is the source of truth for how they're on this roster now, so
+  // an "FA" acquisition shows FA regardless of draft_round (a protected pick,
+  // which carries a real forfeited round, still wins).
+  const draftRound = player.acquisition === "FA" ? null : player.draft_round;
+  const displayRound = protectedRound ?? draftRound;
   const isFa = !displayRound;
   const roundLabel = displayRound ? `Rd ${displayRound}` : "FA";
   return (

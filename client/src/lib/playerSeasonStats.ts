@@ -27,6 +27,30 @@ const num = (value: string | number | undefined): number => {
 
 export type SeasonStatKey = keyof PlayerSeasonStats;
 
+/**
+ * Merges the Tank01 live season-to-date stat map with WRC's own finalized-DB
+ * stat map for the CURRENT season (Lineup page). The DB map is drift-free but
+ * covers only already-finalized weeks, so once a week has finished and hasn't
+ * been finalized into player_weekly_stats yet, the DB is a game behind the live
+ * Tank01 total. A blind `{ ...tank, ...db }` then lets the stale DB value
+ * override the complete one -- the "page loads with the right stats, then
+ * flashes back to fewer games" bug. This keeps the drift-free DB value per
+ * player EXCEPT when the Tank01 total has more games played, in which case the
+ * live total is the more complete/current one and wins. Equal game counts keep
+ * the DB (the reason it's preferred in the first place).
+ */
+export function mergeSeasonStatMapsPreferComplete(
+  tankMap: Record<string, PlayerSeasonStats>,
+  dbMap: Record<string, PlayerSeasonStats>,
+): Record<string, PlayerSeasonStats> {
+  const merged: Record<string, PlayerSeasonStats> = { ...tankMap };
+  for (const [key, dbStat] of Object.entries(dbMap)) {
+    const tankStat = merged[key];
+    merged[key] = tankStat && (tankStat.gp ?? 0) > (dbStat.gp ?? 0) ? tankStat : dbStat;
+  }
+  return merged;
+}
+
 export interface SeasonStatColumn {
   label: string;
   key: SeasonStatKey;

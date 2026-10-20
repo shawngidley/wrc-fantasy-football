@@ -8,18 +8,24 @@
  * - This week's matchup: NFL opponent + week number
  */
 import { useParams, useLocation } from "wouter";
-import { useTank01PlayerByName, getTeamLogoUrl } from "@/hooks/useTank01Player";
+import { useTank01PlayerByName, getTeamLogoUrl, type Tank01Player } from "@/hooks/useTank01Player";
+import { resolveDstTeam, dstTeamFullName, dstTeamPlayerId } from "@/lib/nflDstTeams";
+import { useDbSeasonStats } from "@/hooks/useDbSeasonStats";
+import { useDbWeeklyStats, type WeeklyStatLine } from "@/hooks/useDbWeeklyStats";
+import { useNFLTeamRecord } from "@/hooks/useNFLTeamRecord";
+import type { PlayerSeasonStats } from "@shared/playerSeasonStats";
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { calcFantasyPoints, injuryColor, injuryLabel } from "@/lib/scoringEngine";
 import type { Tank01Stats } from "@/lib/scoringEngine";
 import { formatSeasonStatColumn, getSeasonStatColumns, normalizeTankSeasonStats } from "@/lib/playerSeasonStats";
 import { siteAssetUrl } from "@/lib/siteAssetUrl";
-import { getLineupDefaultWeek } from "@/lib/scheduleData2026";
+import { getLineupDefaultWeek, nflWeekForDate } from "@/lib/scheduleData2026";
+import { getDraftUniversePlayerByName } from "@shared/draftPlayerUniverse";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Star, TrendingUp, Shield, Zap, AlertCircle, Calendar, User, ListOrdered, BarChart2 } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import FAABBidModal from "@/components/FAABBidModal";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNFLMatchups, formatMatchup, formatGameTime } from "@/hooks/useNFLMatchups";
@@ -470,6 +476,91 @@ function GameLogTable({ games, pos }: { games: GameLogEntry[]; pos: string }) {
   );
 }
 
+// ── D/ST season stats table (one finalized-DB row of defensive totals) ───────
+function DstSeasonStatsTable({ stat }: { stat: PlayerSeasonStats | null }) {
+  if (!stat || !stat.gp) {
+    return <div className="px-6 py-8 text-center text-slate-400 text-sm">No 2026 defensive stats yet.</div>;
+  }
+  const columns = getSeasonStatColumns("DST");
+  return (
+    <div className="overflow-x-auto">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100">
+        <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">2026 Season</span>
+        <span className="text-sm text-slate-500 whitespace-nowrap">{stat.gp} games</span>
+      </div>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="bg-slate-50 border-b border-slate-100">
+            {columns.map((col) => (
+              <th key={col.key} className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">{col.label}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            {columns.map((col) => (
+              <td key={col.key} className={`px-3 py-3 whitespace-nowrap ${col.gold ? "font-bold text-amber-700" : col.highlight ? "font-semibold text-slate-800" : "text-slate-600"}`}>
+                {formatSeasonStatColumn(stat, col)}
+              </td>
+            ))}
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ── D/ST game log (per-week defensive line + the week's matchup & result) ────
+function DstGameLogTable({ weeks, schedule }: { weeks: WeeklyStatLine[]; schedule: ScheduleGame[] }) {
+  const gameByWeek = new Map(schedule.map((g) => [g.weekNum, g]));
+  const headers = ["Wk", "Opp", "Result", "SACK", "INT", "FR", "TD", "PA", "WRC"];
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="bg-slate-50 border-b border-slate-100">
+          {headers.map((h) => (
+            <th key={h} className="px-3 py-2.5 text-left text-xs font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {weeks.map((w, i) => {
+          const g = gameByWeek.get(w.week);
+          const isFinal = g && (g.gameStatus === "Final" || g.gameStatus === "Completed");
+          let result: { outcome: string; my: number; opp: number } | null = null;
+          if (g && isFinal && g.homeScore !== undefined && g.awayScore !== undefined) {
+            const my = g.isHome ? Number(g.homeScore) : Number(g.awayScore);
+            const opp = g.isHome ? Number(g.awayScore) : Number(g.homeScore);
+            if (Number.isFinite(my) && Number.isFinite(opp)) {
+              result = { outcome: my > opp ? "W" : my < opp ? "L" : "T", my, opp };
+            }
+          }
+          const td = (w.defTD ?? 0) + (w.returnTD ?? 0);
+          return (
+            <tr key={w.week} className={`border-b border-slate-50 ${i % 2 ? "bg-slate-50/40" : "bg-white"}`}>
+              <td className="px-3 py-2.5 font-bold text-slate-700 whitespace-nowrap">{w.week}</td>
+              <td className="px-3 py-2.5 text-slate-700 whitespace-nowrap">{g ? `${g.isHome ? "vs" : "@"} ${g.opponent}` : "—"}</td>
+              <td className="px-3 py-2.5">
+                {result ? (
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded ${result.outcome === "W" ? "bg-emerald-100 text-emerald-700" : result.outcome === "L" ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"}`}>
+                    {result.outcome} {result.my}–{result.opp}
+                  </span>
+                ) : <span className="text-slate-400 text-xs">—</span>}
+              </td>
+              <td className="px-3 py-2.5 text-slate-600">{w.sacks ?? 0}</td>
+              <td className="px-3 py-2.5 text-slate-600">{w.defInt ?? 0}</td>
+              <td className="px-3 py-2.5 text-slate-600">{w.fumblesRecovered ?? 0}</td>
+              <td className="px-3 py-2.5 text-slate-600">{td}</td>
+              <td className="px-3 py-2.5 text-slate-600">{w.ptsAgainst ?? 0}</td>
+              <td className="px-3 py-2.5 font-bold text-amber-700">{(w.wrcPts ?? 0).toFixed(1)}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
+  );
+}
+
 // ── Main PlayerPage ──────────────────────────────────────────────────────────
 export default function PlayerPage() {
   const params = useParams<{ playerName: string }>();
@@ -488,7 +579,28 @@ export default function PlayerPage() {
   const playerName = decodeURIComponent(rawName.replace(/-/g, " "));
   const providerPlayerName = playerName.trim().toLowerCase() === "kenneth gainwell" ? "Kenny Gainwell" : playerName;
 
-  const { player, loading, error } = useTank01PlayerByName(providerPlayerName || null);
+  // A team defense (D/ST) is rostered under its team name and has no Tank01
+  // player record, so look it up as a team instead. When the name resolves to an
+  // NFL team, skip the Tank01 player fetch and synthesize a player-shaped object
+  // from the team code so the rest of the card renders team-level data.
+  const dstTeamCode = resolveDstTeam(playerName);
+  const isDst = Boolean(dstTeamCode);
+  const tank = useTank01PlayerByName(isDst ? null : (providerPlayerName || null));
+  const dstPlayer = useMemo<Tank01Player | null>(
+    () => (isDst && dstTeamCode
+      ? ({
+          playerID: dstTeamPlayerId(dstTeamCode), longName: dstTeamFullName(dstTeamCode), firstName: "", lastName: "",
+          pos: "DST", team: dstTeamCode, teamID: "", jerseyNum: "", height: "", weight: "",
+          age: "", exp: "", school: "", espnHeadshot: getTeamLogoUrl(dstTeamCode),
+          espnLink: "", espnID: "", isFreeAgent: "",
+          injury: { designation: "", description: "", injDate: "", injReturnDate: "" },
+        } as Tank01Player)
+      : null),
+    [isDst, dstTeamCode],
+  );
+  const player = isDst ? dstPlayer : tank.player;
+  const loading = isDst ? false : tank.loading;
+  const error = isDst ? null : tank.error;
   const canonicalTeam = normalizeNFLTeamCode(player?.team);
 
   // Find WRC ownership via live Supabase query
@@ -546,6 +658,86 @@ export default function PlayerPage() {
     player?.playerID ?? null,
     player?.pos ?? "",
     gameLogSeason
+  );
+
+  // D/ST data: season totals and per-week lines come from WRC's own DB (team
+  // defenses have no Tank01 per-player feed); the record comes from the teams feed.
+  const dstName = isDst ? (player?.longName ?? "") : "";
+  const { statMap: dstSeasonMap } = useDbSeasonStats(dstName ? [dstName] : [], 2026, isDst);
+  const dstSeasonStat = dstName ? (dstSeasonMap[dstName.toLowerCase()] ?? null) : null;
+  const { weeksByPlayer: dstWeeksMap } = useDbWeeklyStats(dstName ? [dstName] : [], gameLogSeason, isDst);
+  const dstWeeks = dstName ? (dstWeeksMap[dstName.toLowerCase()] ?? []) : [];
+  const dstRecord = useNFLTeamRecord(isDst ? dstTeamCode : null);
+
+  // Kicker WRC points per week come from WRC's own finalized results, not from
+  // recomputing the Tank01 per-game line. WRC's kicker scoring credits a made
+  // field goal only through its yardage (0.1/yd, see scoringEngine), and the
+  // game-log feed's Kicking block carries fgMade/fgAtt/xpMade/xpAtt but no FG
+  // yardage -- so recomputing here scores every made field goal as zero while
+  // still applying the -2 per miss. A 3-FG game shows only its extra points.
+  // The weekly finalize already stores the correct per-week points (scored from
+  // ESPN play-by-play distances) in player_weekly_stats for every player who
+  // played, free agents included, so read those back and key them by week.
+  const isKicker = (player?.pos ?? "") === "K";
+  // player_weekly_stats is keyed by the pool/roster name, and the query filters
+  // on an exact name, so canonicalize Tank01's longName through the draft
+  // universe first -- the same thing the D/ST path does by looking up the pool's
+  // own name. Anyone the pool doesn't know falls back to the Tank01 name.
+  const kickerName = isKicker
+    ? (getDraftUniversePlayerByName(player?.longName ?? "")?.name ?? player?.longName ?? "")
+    : "";
+  const { weeksByPlayer: kickerWeeksMap } = useDbWeeklyStats(kickerName ? [kickerName] : [], gameLogSeason, isKicker);
+  const kickerWrcByWeek = useMemo(() => {
+    const m = new Map<number, number>();
+    if (!kickerName) return m;
+    for (const w of kickerWeeksMap[kickerName.toLowerCase()] ?? []) m.set(w.week, w.wrcPts);
+    return m;
+  }, [kickerWeeksMap, kickerName]);
+
+  // The per-player game-log feed (getNFLGamesForPlayer) carries each game's stat
+  // line but not the final score, so the RESULT column was always blank. The
+  // team schedule (getNFLTeamSchedule) does carry scores, keyed by the same
+  // Tank01 gameID, so fill in each game's W/L from there. Only the current
+  // season's schedule is loaded, so a past-season row finds no match and stays
+  // blank, as before.
+  const scheduleScoreByGameId = useMemo(() => {
+    const m = new Map<string, { home: number; away: number }>();
+    for (const g of schedule) {
+      if (g.gameStatus !== "Final" && g.gameStatus !== "Completed") continue;
+      const home = Number(g.homeScore);
+      const away = Number(g.awayScore);
+      if (!Number.isFinite(home) || !Number.isFinite(away)) continue;
+      m.set(g.gameID, { home, away });
+    }
+    return m;
+  }, [schedule]);
+
+  // Each row's own isHome comes from the gameID matchup and the stat line's own
+  // team, so it holds even for a player who has since changed teams -- the
+  // schedule's isHome is relative to his current team and would invert the
+  // result for a game he played against it.
+  const gameLogWithResults = useMemo(
+    () => gameLog.map(g => {
+      let row = g;
+      if (!row.result) {
+        const score = scheduleScoreByGameId.get(g.gameID);
+        if (score) {
+          const myScore = g.isHome ? score.home : score.away;
+          const oppScore = g.isHome ? score.away : score.home;
+          const outcome = myScore > oppScore ? "W" : myScore < oppScore ? "L" : "T";
+          row = { ...row, result: `${outcome} ${myScore}-${oppScore}` };
+        }
+      }
+      // Override the recomputed WRC PTS for kickers with the finalized value for
+      // that week (distance-accurate; see kickerWrcByWeek above). Only 2026 is in
+      // player_weekly_stats; past seasons find no row and keep the recomputed value.
+      if (isKicker && gameLogSeason === 2026) {
+        const dbPts = kickerWrcByWeek.get(nflWeekForDate(g.gameDate));
+        if (dbPts !== undefined) row = { ...row, wrcPts: dbPts };
+      }
+      return row;
+    }),
+    [gameLog, scheduleScoreByGameId, isKicker, gameLogSeason, kickerWrcByWeek],
   );
 
   // Depth chart position from Tank01
@@ -698,6 +890,12 @@ export default function PlayerPage() {
                         />
                         <span className="text-slate-300 text-sm font-medium">{canonicalTeam}</span>
                       </div>
+                      {/* D/ST season record */}
+                      {isDst && dstRecord && (
+                        <span className="text-slate-300 text-sm font-semibold">
+                          {dstRecord.wins}-{dstRecord.losses}{dstRecord.ties ? `-${dstRecord.ties}` : ""}
+                        </span>
+                      )}
                       {/* Depth chart position */}
                       {depthPosition && (
                         <span style={{
@@ -766,15 +964,17 @@ export default function PlayerPage() {
                 )}
                 <div className="flex-1" />
                 <span className="text-[10px] text-slate-400 font-medium">FantasyPros data</span>
-                {/* ESPN link */}
-                <a
-                  href={player.espnLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-blue-600 hover:underline font-medium"
-                >
-                  ESPN →
-                </a>
+                {/* ESPN link (individual players only; a D/ST has no ESPN player page) */}
+                {player.espnLink && (
+                  <a
+                    href={player.espnLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-blue-600 hover:underline font-medium"
+                  >
+                    ESPN →
+                  </a>
+                )}
                 {/* Watchlist button */}
                 {franchise && (
                   <button
@@ -945,12 +1145,16 @@ export default function PlayerPage() {
               {/* ── Stats tab ── */}
               {activeTab === "stats" && (
                 <div className="p-0">
-                 <MultiSeasonStatsTable
-                    pos={player.pos}
-                    espnId={player.espnID || player.playerID}
-                    currentStats={player.stats}
-                    currentNflTeam={canonicalTeam}
-                  />
+                  {isDst ? (
+                    <DstSeasonStatsTable stat={dstSeasonStat} />
+                  ) : (
+                    <MultiSeasonStatsTable
+                      pos={player.pos}
+                      espnId={player.espnID || player.playerID}
+                      currentStats={player.stats}
+                      currentNflTeam={canonicalTeam}
+                    />
+                  )}
                 </div>
               )}
 
@@ -1073,7 +1277,17 @@ export default function PlayerPage() {
                     </div>
                   </div>
                   <div className="overflow-x-auto">
-                    {gameLog.length === 0 ? (
+                    {isDst ? (
+                      dstWeeks.length === 0 ? (
+                        <div className="px-6 py-8 text-center text-slate-400 text-sm">
+                          {gameLogSeason === 2026
+                            ? "No 2026 game log yet — defensive lines appear here as each week is finalized."
+                            : `No game log found for ${gameLogSeason}.`}
+                        </div>
+                      ) : (
+                        <DstGameLogTable weeks={dstWeeks} schedule={schedule} />
+                      )
+                    ) : gameLog.length === 0 ? (
                       <div className="px-6 py-8 text-center text-slate-400 text-sm">
                         {gameLogLoading
                           ? `Loading ${gameLogSeason} game log…`
@@ -1082,7 +1296,7 @@ export default function PlayerPage() {
                           : `No game log found for ${gameLogSeason}.`}
                       </div>
                     ) : (
-                      <GameLogTable games={gameLog} pos={player.pos} />
+                      <GameLogTable games={gameLogWithResults} pos={player.pos} />
                     )}
                   </div>
                 </div>

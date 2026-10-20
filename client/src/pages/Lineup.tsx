@@ -25,7 +25,7 @@ import { InjuryTag } from "@/components/InjuryTag";
 import { useNFLSeasonStats } from "@/hooks/useNFLSeasonStats";
 import { useDbSeasonStats } from "@/hooks/useDbSeasonStats";
 import { fetchSeasonStats, type SeasonStatRow } from "@/hooks/useESPNSeasonStats";
-import { formatSeasonStat, type PlayerSeasonStats } from "@/lib/playerSeasonStats";
+import { formatSeasonStat, mergeSeasonStatMapsPreferComplete, type PlayerSeasonStats } from "@/lib/playerSeasonStats";
 import { getNflTeamLogoUrl } from "@/lib/nflTeamLogo";
 import { fetchTeamSchedule } from "@/hooks/useNFLTeamSchedule";
 import { normalizePlayerName } from "@shared/playerNameMatch";
@@ -775,7 +775,12 @@ export default function Lineup() {
     Boolean(viewTeamName) && !draftLoading,
   );
   const lineupStatMap = useMemo(
-    () => ({ ...tankLineupStatMap, ...dbLineupStatMap }),
+    // Prefer WRC's finalized-DB stats, but never let them override the live
+    // Tank01 total when Tank01 has more games -- i.e. a week finished but isn't
+    // finalized into player_weekly_stats yet. A blind spread ({...tank,...db})
+    // let the stale DB win, which is the "loads correct, then flashes back to
+    // fewer games" bug. See mergeSeasonStatMapsPreferComplete.
+    () => mergeSeasonStatMapsPreferComplete(tankLineupStatMap, dbLineupStatMap),
     [tankLineupStatMap, dbLineupStatMap],
   );
 
@@ -919,7 +924,26 @@ export default function Lineup() {
   // ── Best Lineup Optimizer ──────────────────────────────────────────────────
   // For each slot (in order), find the highest-projected eligible player from
   // the combined pool, assign them, then remove from available pool.
-  const runOptimizer = () => {
+  // Shared row builder for persisting a lineup -- used by both the manual Save
+  // and the optimizer's auto-save so the two can't drift. Empty placeholder
+  // slots (name: "") are excluded: the server rejects an empty player_name, and
+  // that would surface as a generic "Failed to save".
+  const buildLineupRows = (startersList: Player[], benchList: Player[]) => [
+    ...startersList.filter(p => p.name !== "").map((p, i) => ({
+      slot: p.slot ?? `STARTER_${i}`,
+      player_id: p.id,
+      player_name: p.name,
+      is_bench: false,
+    })),
+    ...benchList.map((p, i) => ({
+      slot: `BENCH_${i}`,
+      player_id: p.id,
+      player_name: p.name,
+      is_bench: true,
+    })),
+  ];
+
+  const runOptimizer = async () => {
     const allPlayers = [...starters, ...bench];
     const available  = [...allPlayers]; // pool shrinks as we assign
     const newStarters: Player[] = [];
@@ -943,8 +967,27 @@ export default function Lineup() {
     setStarters(newStarters);
     setBench(newBench);
     setSelectedId(null);
-    setOptimized(true);
-    setTimeout(() => setOptimized(false), 2500);
+
+    // Auto-save in the same click. The optimizer used to only rearrange the
+    // on-screen lineup, and the "Optimized!" flash read like a save, so owners
+    // left without hitting Save and lost the change. Build the rows from the
+    // freshly-optimized arrays (the setState calls above haven't flushed yet, so
+    // reading starters/bench here would be stale). A read-only viewer can't save
+    // anyone's lineup, so for them it stays a preview.
+    if (isReadOnly) {
+      setOptimized(true);
+      setTimeout(() => setOptimized(false), 2500);
+      return;
+    }
+    const ok = await saveLineup(buildLineupRows(newStarters, newBench));
+    if (ok) {
+      toast.success("Best lineup set and saved!");
+      setOptimized(true);
+      setSaved(true);
+      setTimeout(() => { setOptimized(false); setSaved(false); }, 2500);
+    } else {
+      toast.error(saveError ? `Optimized, but couldn't save — ${saveError}` : "Optimized, but couldn't save — tap Save Lineup to retry");
+    }
   };
 
   // ── Swap helpers ──────────────────────────────────────────────────────────
@@ -1032,20 +1075,7 @@ export default function Lineup() {
     // player_name as non-empty, so trying to save one of these would fail
     // that validation and surface as a generic "Failed to save" with no
     // indication of why -- exactly this class of silent failure.
-    const rows = [
-      ...starters.filter(p => p.name !== "").map((p, i) => ({
-        slot: p.slot ?? `STARTER_${i}`,
-        player_id: p.id,
-        player_name: p.name,
-        is_bench: false,
-      })),
-      ...bench.map((p, i) => ({
-        slot: `BENCH_${i}`,
-        player_id: p.id,
-        player_name: p.name,
-        is_bench: true,
-      })),
-    ];
+    const rows = buildLineupRows(starters, bench);
     console.log("[Lineup] handleSave — ownerTeamId:", ownerTeamId, "starters:", starters.length, "bench:", bench.length);
     const ok = await saveLineup(rows);
     if (ok) {
@@ -1165,19 +1195,21 @@ export default function Lineup() {
               {!lineupLocked && (
                 <button
                   onClick={runOptimizer}
+                  disabled={saving}
                   style={{
                     background: optimized ? "oklch(0.55 0.16 85)" : "oklch(0.55 0.18 85)",
                     color: "white", border: "none", borderRadius: 8,
                     padding: "0.5rem 1.1rem",
                     fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: 600,
                     letterSpacing: "0.06em", textTransform: "uppercase" as const,
-                    cursor: "pointer", display: "flex", alignItems: "center", gap: "0.35rem",
+                    cursor: saving ? "wait" : "pointer", display: "flex", alignItems: "center", gap: "0.35rem",
                     transition: "background 0.2s",
                     boxShadow: "0 2px 8px oklch(0.55 0.16 85 / 0.35)",
+                    opacity: saving ? 0.7 : 1,
                   }}
                 >
                   <Zap size={13} />
-                  {optimized ? "Optimized!" : "Best Lineup"}
+                  {saving ? "Saving..." : optimized ? "Optimized!" : "Best Lineup"}
                 </button>
               )}
               {/* Save button */}
@@ -1235,7 +1267,7 @@ export default function Lineup() {
               </div>
             )}
             <span style={{ fontSize: "0.72rem", color: "oklch(0.75 0.06 150)" }}>
-              {bypassLocks ? "Commissioner override · locked players can be moved · ⚡ Best Lineup auto-optimizes" : lineupLocked ? "All starters locked — games in progress" : "Players lock at kickoff · ⚡ Best Lineup auto-optimizes"}
+              {bypassLocks ? "Commissioner override · locked players can be moved · ⚡ Best Lineup optimizes and saves" : lineupLocked ? "All starters locked — games in progress" : "Players lock at kickoff · ⚡ Best Lineup optimizes and saves"}
             </span>
           </div>
         </div>

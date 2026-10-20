@@ -10,14 +10,14 @@
  * - "Bid" button opens FAABBidModal for signed-in users
  * - Commissioner sees all pending bids in a separate tab
  */
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Link } from "wouter";
 import { type NFLPlayer } from "@/lib/nflPlayers2026";
 import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026 } from "@shared/currentDraftPlayerUniverse2026";
 import { CURRENT_TANK01_KICKERS_2026 } from "@/lib/currentKickers2026";
 import { getTeamLogoUrl } from "@/hooks/useTank01Player";
 import { useAuth } from "@/contexts/AuthContext";
-import { getLineupDefaultWeek, getDefaultStatsYear, AVAILABLE_STATS_YEARS } from "@/lib/scheduleData2026";
+import { getLineupDefaultWeek, getFaabBiddingWeek, getDefaultStatsYear, AVAILABLE_STATS_YEARS } from "@/lib/scheduleData2026";
 import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections";
 import { useNFLMatchups, formatGameTime } from "@/hooks/useNFLMatchups";
 import { hasTeamGameStarted } from "@/lib/playerGameLock";
@@ -32,8 +32,7 @@ import { Search, DollarSign, UserPlus, ChevronRight, Trophy, Clock, ArrowUpDown,
 import { useWatchlist } from "@/hooks/useWatchlist";
 import { toast } from "sonner";
 import Navigation from "@/components/Navigation";
-import { useNFLDepthCharts } from "@/hooks/useNFLDepthCharts";
-import { useDbSeasonStats } from "@/hooks/useDbSeasonStats";
+import { useDbSeasonStats, useDbDstSeasonStats } from "@/hooks/useDbSeasonStats";
 import { useHistoricalSeasonStats } from "@/hooks/useHistoricalSeasonStats";
 import { formatSeasonStatColumn, type PlayerSeasonStats, type SeasonStatColumn, type SeasonStatKey } from "@/lib/playerSeasonStats";
 import { normalizeNFLTeamCode } from "@shared/nflTeamCodes";
@@ -645,7 +644,11 @@ export default function FreeAgents() {
   }, [franchise, columnPreferencesQuery.data]);
 
   const currentWeek = getLineupDefaultWeek();
-  const week = currentWeek > 0 ? currentWeek : 1;
+  // The week FAAB bidding is for: normally the current week, but from 1pm Sunday
+  // through Tue 9am it's next week (this week's awards have run). Drives the per-
+  // player lock, the matchup/projection columns, the bid lists and the bid modal
+  // so they all agree on the week a bid will be awarded for.
+  const week = getFaabBiddingWeek();
   const rosteredPlayersQuery = trpc.league.rosteredPlayers.useQuery(undefined, { staleTime: 60_000 });
   const recentlyDroppedQuery = trpc.league.recentlyDroppedPlayers.useQuery(undefined, { staleTime: 60_000, refetchInterval: 60_000 });
   const droppedAtMap = useMemo(
@@ -667,7 +670,6 @@ export default function FreeAgents() {
 
   // Injury designations
   const { injuries } = useNFLInjuries();
-  const { depthMap } = useNFLDepthCharts();
 
   const allPlayers = useMemo(() => getFreeAgentPlayerPool(draftPlayerPool as unknown as readonly NFLPlayer[]), [draftPlayerPool]);
 
@@ -727,6 +729,24 @@ export default function FreeAgents() {
   );
   const seasonStatMap = selectedStatsYear === defaultStatsYear ? currentSeasonStatMap : historicalStatMap;
   const activeSeasonStatsLoading = selectedStatsYear === defaultStatsYear ? currentSeasonStatsLoading : historicalStatsLoading;
+  // Team defenses are resolved by team, not name: their finalized rows can be
+  // stored under a different name than this page's label, and a defense rostered
+  // for part of the season has its weeks split across both (see
+  // useDbDstSeasonStats), so a name lookup misses some or all of it. Current
+  // season only; the historical tables stay name-based.
+  const { byTeam: dstSeasonByTeam } = useDbDstSeasonStats(
+    defaultStatsYear,
+    selectedStatsYear === defaultStatsYear && baseFiltered.length > 0,
+  );
+  const seasonStatsFor = useCallback(
+    (player: { name: string; pos: string; nflTeam: string }) => {
+      if (player.pos === "DST" && selectedStatsYear === defaultStatsYear) {
+        return dstSeasonByTeam[normalizeNFLTeamCode(player.nflTeam)] ?? seasonStatMap[player.name.toLowerCase()];
+      }
+      return seasonStatMap[player.name.toLowerCase()];
+    },
+    [dstSeasonByTeam, seasonStatMap, selectedStatsYear, defaultStatsYear],
+  );
   const seasonColumns = useMemo(
     () => getFreeAgentStatColumns(posFilter),
     [posFilter]
@@ -791,7 +811,7 @@ export default function FreeAgents() {
         return matchup ? formatGameTime(matchup) : "";
       }
       if (sortKey === "proj") return getProjectedPoints(projections, player.name, player.pos, player.nflTeam);
-      return freeAgentStatValue(seasonStatMap[player.name.toLowerCase()], sortKey);
+      return freeAgentStatValue(seasonStatsFor(player), sortKey);
     };
 
     return [...baseFiltered].sort((a, b) => {
@@ -802,7 +822,7 @@ export default function FreeAgents() {
         : Number(aValue) - Number(bValue);
       return sortDirection === "asc" ? comparison : -comparison;
     });
-  }, [baseFiltered, projections, matchupMap, ownershipMap, seasonStatMap, sortDirection, sortKey]);
+  }, [baseFiltered, projections, matchupMap, ownershipMap, seasonStatMap, seasonStatsFor, sortDirection, sortKey]);
 
   const handleSort = (nextKey: SortKey) => {
     if (nextKey === sortKey) {
@@ -1229,7 +1249,7 @@ export default function FreeAgents() {
                     const proj = getProjectedPoints(projections, player.name, player.pos, player.nflTeam);
                     const ownerTeam = ownershipMap[player.name.toLowerCase()];
                     const isOwned = !!ownerTeam;
-                    const seasonStats = seasonStatMap[player.name.toLowerCase()];
+                    const seasonStats = seasonStatsFor(player);
                     const matchup = matchupMap[normalizeNFLTeamCode(player.nflTeam)];
                     const playerGameStarted = hasTeamGameStarted(player.nflTeam, matchupMap);
                     const droppedAt = droppedAtMap[player.name.toLowerCase()] ?? null;
@@ -1276,16 +1296,6 @@ export default function FreeAgents() {
                             <div style={{ display: "flex", alignItems: "center", gap: "0.35rem", marginTop: 1 }}>
                               <PosBadge pos={player.pos} />
                               <span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.06 150)" }}>{player.nflTeam}</span>
-                              {depthMap.get(player.name.toLowerCase())?.depthPosition && (
-                                <span style={{
-                                  fontSize: "0.62rem", fontWeight: 700, fontFamily: "Barlow Condensed, sans-serif",
-                                  padding: "1px 4px", borderRadius: 3, flexShrink: 0,
-                                  background: "oklch(0.22 0.08 150)", color: "oklch(0.78 0.15 85)",
-                                  border: "1px solid oklch(0.35 0.1 150)",
-                                }}>
-                                  {depthMap.get(player.name.toLowerCase())?.depthPosition}
-                                </span>
-                              )}
                             </div>
                           </div>
                           <ChevronRight size={12} color="oklch(0.75 0.06 150)" style={{ flexShrink: 0 }} />
@@ -1305,7 +1315,7 @@ export default function FreeAgents() {
                             <span style={{ fontSize: "0.65rem", color: "oklch(0.6 0.04 150)", textAlign: "center" as const, fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600 }}>Game started</span>
                           ) : marketState === "open_waiver" ? (
                             freePickupBlocked ? (
-                              <span title={droppedAt ? `Cut ${new Date(droppedAt).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" })} ET. Free pickup needs 48 hours on waivers; you can bid on this player when bidding reopens Tue 9am ET.` : undefined} style={{ fontSize: "0.65rem", color: "oklch(0.6 0.04 150)", textAlign: "center" as const, fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600 }}>Bid opens Tue</span>
+                              <span title={droppedAt ? `Cut ${new Date(droppedAt).toLocaleString("en-US", { weekday: "short", hour: "numeric", minute: "2-digit", timeZone: "America/New_York" })} ET. Free pickup needs 48 hours on waivers; you can bid on this player when bidding reopens at 1pm ET (the 48h hold is then checked at the award).` : undefined} style={{ fontSize: "0.65rem", color: "oklch(0.6 0.04 150)", textAlign: "center" as const, fontFamily: "Barlow Condensed, sans-serif", fontWeight: 600 }}>Bid opens 1pm</span>
                             ) : (
                               <button onClick={() => setInstantAddPlayer(player)} style={{ background: "oklch(0.5 0.16 150)", color: "white", border: "none", borderRadius: 7, padding: "0.3rem 0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.72rem", letterSpacing: "0.04em", cursor: "pointer", display: "flex", alignItems: "center", gap: "0.25rem", justifyContent: "center" }}><UserPlus size={11} />Add</button>
                             )

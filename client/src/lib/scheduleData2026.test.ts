@@ -1,5 +1,81 @@
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
-import { getCurrentWeek, resolveWeeklyOpponentTeamName, isSeason2026Underway, getLineupDefaultWeek } from "./scheduleData2026";
+import { getCurrentWeek, resolveWeeklyOpponentTeamName, isSeason2026Underway, getLineupDefaultWeek, getFaabBiddingWeek, nflWeekForDate, WEEK_START_TIMESTAMPS } from "./scheduleData2026";
+
+describe("getFaabBiddingWeek", () => {
+  // Week 5's weekend is Oct 8-12, 2026 (getLineupDefaultWeek advances to 5 at
+  // 9am ET Tue Oct 6, and to 6 at 9am ET Tue Oct 13). EDT (UTC-4) throughout.
+  it("matches the current week during the Tue 9am -> Sun 1pm bidding window", () => {
+    expect(getLineupDefaultWeek(new Date("2026-10-10T16:00:00Z"))).toBe(5); // Sat 12pm ET
+    expect(getFaabBiddingWeek(new Date("2026-10-10T16:00:00Z"))).toBe(5); // Sat: current week
+    expect(getFaabBiddingWeek(new Date("2026-10-11T14:00:00Z"))).toBe(5); // Sun 10am ET (open-waiver hour)
+  });
+
+  it("is next week from 1pm Sunday through Tue 9am, so bids are for the upcoming slate", () => {
+    expect(getFaabBiddingWeek(new Date("2026-10-11T17:00:00Z"))).toBe(6); // Sun 1pm ET
+    expect(getFaabBiddingWeek(new Date("2026-10-11T23:00:00Z"))).toBe(6); // Sun 7pm ET
+    expect(getFaabBiddingWeek(new Date("2026-10-12T16:00:00Z"))).toBe(6); // Mon 12pm ET
+    expect(getFaabBiddingWeek(new Date("2026-10-13T12:00:00Z"))).toBe(6); // Tue 8am ET (default week still 5)
+  });
+
+  it("stays on the same week when the default week catches up at Tue 9am", () => {
+    expect(getLineupDefaultWeek(new Date("2026-10-13T14:00:00Z"))).toBe(6); // Tue 10am ET
+    expect(getFaabBiddingWeek(new Date("2026-10-13T14:00:00Z"))).toBe(6); // Tue 10am: now the current week
+    expect(getFaabBiddingWeek(new Date("2026-10-14T16:00:00Z"))).toBe(6); // Wed 12pm ET
+  });
+
+  // The 1pm boundary is 1pm LOCAL, so its UTC time moves by an hour when EDT
+  // ends on Nov 1, 2026. A fixed UTC-4 offset would read 17:59Z as 1:59pm and
+  // flip to next week an hour early for the rest of the season.
+  it("holds the 1pm Sunday boundary at 1pm ET after DST ends", () => {
+    expect(getLineupDefaultWeek(new Date("2026-12-06T17:59:00Z"))).toBe(13); // Sun Dec 6, EST
+    expect(getFaabBiddingWeek(new Date("2026-12-06T17:59:00Z"))).toBe(13); // 12:59pm EST: still week 13
+    expect(getFaabBiddingWeek(new Date("2026-12-06T18:00:00Z"))).toBe(14); // 1:00pm EST: week 14
+  });
+
+  // Midnight is the hour this app has gotten wrong repeatedly (ET hour 0 vs a
+  // runtime that reports 24). Sunday's small hours are still the window that
+  // started Thursday, and Monday's are already next week's.
+  it("treats the midnight hour as hour 0, not hour 24", () => {
+    expect(getFaabBiddingWeek(new Date("2026-10-11T04:00:00Z"))).toBe(5); // Sun 12am ET
+    expect(getFaabBiddingWeek(new Date("2026-10-11T04:30:00Z"))).toBe(5); // Sun 12:30am ET
+    expect(getFaabBiddingWeek(new Date("2026-10-12T04:00:00Z"))).toBe(6); // Mon 12am ET
+  });
+});
+
+describe("nflWeekForDate", () => {
+  it("maps a game date to its NFL week by week-start boundaries", () => {
+    expect(nflWeekForDate("20260913")).toBe(1); // Sun Sep 13, within week 1 (starts Sep 9)
+    expect(nflWeekForDate("20260920")).toBe(2); // Sun Sep 20, week 2 (starts Sep 17)
+    expect(nflWeekForDate("20260927")).toBe(3); // week 3 (starts Sep 24)
+    expect(nflWeekForDate("20261004")).toBe(4); // week 4 (starts Oct 1)
+    expect(nflWeekForDate("20261008")).toBe(5); // Thu Oct 8, exactly week 5's start
+  });
+
+  it("returns 0 for an empty, short, unparseable, or pre-season date so a week join finds no match", () => {
+    expect(nflWeekForDate("")).toBe(0);
+    expect(nflWeekForDate("2026")).toBe(0);
+    expect(nflWeekForDate("not-a-date")).toBe(0);
+    expect(nflWeekForDate("20269999")).toBe(0);
+    expect(nflWeekForDate("20260901")).toBe(0); // before week 1 starts (Sep 9)
+  });
+
+  // The join only works if a gameID date lands on the same week getCurrentWeek
+  // would report at that moment -- they must read the same boundaries.
+  it("agrees with getCurrentWeek on every week-start boundary", () => {
+    vi.useFakeTimers();
+    try {
+      WEEK_START_TIMESTAMPS.forEach((ts, i) => {
+        vi.setSystemTime(new Date(ts));
+        const d = new Date(ts);
+        const yyyymmdd = `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, "0")}${String(d.getUTCDate()).padStart(2, "0")}`;
+        expect(nflWeekForDate(yyyymmdd)).toBe(i + 1);
+        expect(nflWeekForDate(yyyymmdd)).toBe(getCurrentWeek());
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
 
 describe("getCurrentWeek", () => {
   afterEach(() => {

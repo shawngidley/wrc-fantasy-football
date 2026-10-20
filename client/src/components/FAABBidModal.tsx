@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useAuth } from "@/contexts/AuthContext";
 import { trpc } from "@/lib/trpc";
-import { getLineupDefaultWeek } from "@/lib/scheduleData2026";
+import { getFaabBiddingWeek } from "@/lib/scheduleData2026";
 import { getFaabAwardDate } from "@shared/freeAgentCutRestriction";
 import { toast } from "sonner";
 import { DollarSign, X, Loader2 } from "lucide-react";
@@ -54,8 +54,10 @@ export default function FAABBidModal({ player, onClose }: FAABBidModalProps) {
   const submitBidMutation = trpc.league.submitFaabBid.useMutation();
   const utils = trpc.useUtils();
 
-  const currentWeek = getLineupDefaultWeek();
-  const week = currentWeek > 0 ? currentWeek : 1;
+  // The week this bid is for: next week once it's past 1pm Sunday (this week's
+  // awards have run), the current week otherwise. Matches the server and the
+  // bid lists so existing groups and the stored bid line up on the same week.
+  const week = getFaabBiddingWeek();
 
   // The owner's existing pending groups for this week, so a new bid can join
   // one. Each is labeled by its first couple of players.
@@ -149,7 +151,7 @@ export default function FAABBidModal({ player, onClose }: FAABBidModalProps) {
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <DollarSign className="w-5 h-5 text-amber-600" />

@@ -4,10 +4,21 @@
  * Caches in sessionStorage for 6 hours.
  */
 import { useState, useEffect } from "react";
+import { normalizeNFLTeamCode } from "@shared/nflTeamCodes";
 
 const BASE_URL = "/api/tank01";
 const HEADERS = {};
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+// getNFLTeamSchedule's teamAbv matches the app's team codes for every team
+// except Jacksonville: the app stores it as "JAC" (it normalizes Tank01's "JAX"
+// to "JAC" everywhere), but the schedule endpoint only knows "JAX", so convert
+// it back for the request. Confirmed against getNFLTeams: KC, TB, ARI and WSH
+// are identical in both. (KAN/TAM/ARZ/WAS are Tank01's response-only codes and
+// are NOT valid teamAbv values -- mapping to them returns an empty schedule.)
+const APP_TO_TANK01_TEAM: Record<string, string> = {
+  JAC: "JAX",
+};
 
 export interface ScheduleGame {
   gameID: string;
@@ -51,12 +62,16 @@ function cacheSet(key: string, data: unknown) {
 }
 
 export async function fetchTeamSchedule(teamAbv: string, season = 2026): Promise<ScheduleGame[]> {
-  const cacheKey = `wrc_schedule_${teamAbv}_${season}`;
+  const appTeam = teamAbv.toUpperCase();
+  const tankTeam = APP_TO_TANK01_TEAM[appTeam] ?? appTeam;
+  // v2: the v1 key cached empty results from the earlier wrong team-code mapping;
+  // bumping the version discards those so the corrected request is used.
+  const cacheKey = `wrc_schedule_v2_${appTeam}_${season}`;
   const cached = cacheGet<ScheduleGame[]>(cacheKey);
   if (cached) return cached;
 
   const res = await fetch(
-    `${BASE_URL}/getNFLTeamSchedule?teamAbv=${teamAbv}&season=${season}`,
+    `${BASE_URL}/getNFLTeamSchedule?teamAbv=${tankTeam}&season=${season}`,
     { headers: HEADERS }
   );
   if (!res.ok) return [];
@@ -68,16 +83,18 @@ export async function fetchTeamSchedule(teamAbv: string, season = 2026): Promise
     .map((g) => {
       const weekMatch = g.gameWeek?.match(/Week (\d+)/);
       const weekNum = weekMatch ? parseInt(weekMatch[1], 10) : 0;
-      const isHome = g.home === teamAbv;
-      const opponent = isHome ? g.away : g.home;
+      const homeCode = normalizeNFLTeamCode(g.home);
+      const awayCode = normalizeNFLTeamCode(g.away);
+      const isHome = homeCode === appTeam;
+      const opponent = isHome ? awayCode : homeCode;
       return {
         gameID: g.gameID,
         week: g.gameWeek ?? "",
         weekNum,
         gameDate: g.gameDate ?? "",
         gameTime: g.gameTime ?? "",
-        home: g.home ?? "",
-        away: g.away ?? "",
+        home: homeCode,
+        away: awayCode,
         gameStatus: g.gameStatus ?? "Scheduled",
         homeScore: g.homePts,
         awayScore: g.awayPts,

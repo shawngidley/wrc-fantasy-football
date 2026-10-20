@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { moneyOwedIdForOwner, resolveTeamStatsKey, sacksFrom, defensePoints, attributeOffenseFramedDefenseStats, playerPoints, isGameFinal, weeklyRecordDelta, buildWeeklyStatRowInputs, buildWeeklyStatRow, type WeeklyStatRowInput } from "./weeklyResultsFinalize";
+import { moneyOwedIdForOwner, resolveTeamStatsKey, sacksFrom, defensePoints, attributeOffenseFramedDefenseStats, playerPoints, isGameFinal, pointsAllowedFor, weeklyRecordDelta, buildWeeklyStatRowInputs, buildWeeklyStatRow, type WeeklyStatRowInput } from "./weeklyResultsFinalize";
 import type { RosterPlayerRow } from "../shared/rosterPlayerResolution";
 import type { PlayerSeasonStats } from "../shared/playerSeasonStats";
 
@@ -166,6 +166,42 @@ describe("playerPoints TE reception bonus", () => {
   it("does not apply any reception bonus for a non-TE position", () => {
     const pts = playerPoints({ Receiving: { receptions: 8, recYds: 68 } }, "WR");
     expect(pts).toBe(14.8); // 8*1.0 + 6.8
+  });
+});
+
+describe("pointsAllowedFor", () => {
+  // A defense allowed what the OTHER team scored, so the side has to be
+  // crossed. Getting this backwards reads plausibly on any blowout and only
+  // shows up as a defense credited with its own offense's output.
+  const body = { homePts: "24", awayPts: "10" };
+
+  it("takes the opponent's score, not its own team's", () => {
+    expect(pointsAllowedFor("home", body)).toBe(10);
+    expect(pointsAllowedFor("away", body)).toBe(24);
+  });
+
+  it("handles a numeric wire type and a real shutout", () => {
+    expect(pointsAllowedFor("home", { homePts: 31, awayPts: 0 })).toBe(0);
+    expect(pointsAllowedFor("away", { homePts: 0, awayPts: 17 })).toBe(0);
+  });
+
+  // undefined leaves the stat line's existing value alone rather than
+  // overwriting it with a wrong 0.
+  it("is undefined when the box score carries no score", () => {
+    expect(pointsAllowedFor("home", {})).toBeUndefined();
+    expect(pointsAllowedFor("home", { awayPts: "" })).toBeUndefined();
+    expect(pointsAllowedFor("home", { awayPts: null })).toBeUndefined();
+    expect(pointsAllowedFor("home", { awayPts: "n/a" })).toBeUndefined();
+    expect(pointsAllowedFor("home", undefined)).toBeUndefined();
+  });
+});
+
+describe("defensePoints with points allowed attached", () => {
+  // WRC's D/ST rules have no points-allowed tier, so carrying the stat must
+  // not shift a defense's score.
+  it("scores a defense identically with and without ptsAgainst", () => {
+    const stats = { sacksAndYardsLost: "3-18", defensiveInterceptions: 1, fumblesRecovered: 1, safeties: 0 };
+    expect(defensePoints({ ...stats, ptsAgainst: 31 })).toBe(defensePoints(stats));
   });
 });
 

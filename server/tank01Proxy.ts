@@ -27,7 +27,145 @@ const ALLOWED_ENDPOINTS = new Set([
 // at once). 20s is deliberately just under the 30s client poll interval,
 // so legitimate polling still gets reasonably fresh data while
 // overlapping/duplicate requests within that window share one response.
-const CACHE_TTL_MS = 20_000;
+// Per-endpoint cache TTL. Live box scores stay near-real-time on a 50s window,
+// just under the 60s client poll (raised from 30s/20s to roughly halve game-day
+// box-score calls -- the dominant cost -- for a once-a-minute scoreboard). But the
+// slow-changing feeds were being re-fetched on that same 20s window even
+// though they barely change and are identical for every viewer -- pure waste
+// on a game-day Sunday with all 12 owners watching. Giving those a much longer
+// TTL collapses "N viewers x every load" into ONE upstream call per window:
+//   - news every 15 min (fresh enough for injury/inactive updates, but no
+//     longer re-fetched per browser -- getNFLNews is a league-wide feed,
+//     the same payload for everyone),
+//   - player info (bio/photo/season stats behind the avatars) every 15 min --
+//     this was the single biggest driver of the weekend spikes,
+//   - near-static reference data (teams, ADP, depth charts, schedules) only a
+//     few times a day.
+// Anything not listed falls back to the safe 20s default.
+const DEFAULT_CACHE_TTL_MS = 20_000;
+const MINUTE_MS = 60_000;
+const CACHE_TTL_BY_ENDPOINT: Record<string, number> = {
+  getNFLBoxScore: 50_000,             // live in-game scoring; just under the 60s client poll
+  // Matchups and kickoff times are static once the week is set, and nothing
+  // time-sensitive reads this endpoint's own status field: the client lineup
+  // lock (hasTeamGameStarted) and the poller's in-progress check
+  // (isLikelyStillInProgress) both compute off the static kickoff time, while
+  // the rivalry-declaration and free-agent-bid locks (nflWeekKickoffCheck) and
+  // weekly finalization call Tank01 directly, bypassing this cache entirely.
+  // Only the cosmetic NFL game score in the matchup header goes staler.
+  getNFLGamesForWeek: 5 * MINUTE_MS,
+  getNFLNews: 15 * MINUTE_MS,         // league-wide news feed (same for all viewers)
+  getNFLPlayerInfo: 15 * MINUTE_MS,   // player bio/photo/season stats (avatars)
+  getNFLGamesForPlayer: 15 * MINUTE_MS,
+  getNFLProjections: 60 * MINUTE_MS,
+  getNFLTeamSchedule: 6 * 60 * MINUTE_MS,
+  getNFLTeams: 6 * 60 * MINUTE_MS,
+  getNFLADP: 6 * 60 * MINUTE_MS,
+  getNFLDepthCharts: 6 * 60 * MINUTE_MS,
+};
+// The two live endpoints keep their 20s TTL only while a game could actually be
+// in progress. Outside NFL game windows the weekly schedule and the (now-final)
+// box scores are static, so a 20s TTL just re-fetches identical data on every
+// page load and Live Scoring open -- the bulk of the quiet-day API spend. The
+// window is intentionally generous so live scoring is never under-cached.
+const LIVE_ENDPOINTS = new Set(["getNFLBoxScore", "getNFLGamesForWeek"]);
+const OFF_WINDOW_TTL_MS = 15 * MINUTE_MS;
+// Outside game windows the weekly schedule is static (kickoff times are set),
+// so there's no reason to re-pull it every 15 min on every page load.
+const OFF_WINDOW_SCHEDULE_TTL_MS = 60 * MINUTE_MS;
+// A finished game's box score is immutable, so once its slate day (ET) is in
+// the past it can be cached for far longer than the live window. This is the
+// big quiet-day saver: opening Live Scoring re-pulls every game from roughly
+// the last 10 days to populate finals, and before this each of those past games
+// fell back to the 15-min off-window TTL -- so every page open, for every owner,
+// re-fetched last week's finished games upstream. Now the first load of the day
+// warms them and the rest of the day is served from cache. (Official weekly
+// scoring reads Tank01 directly, bypassing this cache, so a rare next-day stat
+// correction is never blocked by it -- only the display lags.)
+const FINAL_GAME_TTL_MS = 12 * 60 * MINUTE_MS;
+const ET_DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+
+/**
+ * Whether an NFL game could plausibly be in progress right now, in ET (so it
+ * follows the EST/EDT shift on its own): roughly 9am to 2am on any day that has
+ * a slate, which covers a 9:30am London kickoff through a night game in
+ * overtime.
+ *
+ * The 12am-2am hours are attributed to the PREVIOUS day's slate -- a Monday
+ * night game in overtime is still Monday football at 12:30am Tuesday -- because
+ * otherwise the day rolling over to Tuesday would drop a live late game out of
+ * the window and leave Live Scoring up to 15 minutes stale during the fourth
+ * quarter. Same for a Thursday nighter running into Friday.
+ *
+ * Tue/Wed slates are treated as impossible. The league does occasionally move a
+ * game there (weather, scheduling emergencies); the cost if that happens is
+ * 15-minute-stale scores for that one game, not a broken page.
+ */
+export function isLiveGameWindow(now: Date = new Date()): boolean {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York", weekday: "short", hour: "numeric", hour12: false,
+  }).formatToParts(now);
+  const weekday = parts.find(p => p.type === "weekday")?.value ?? "";
+  let hour = Number(parts.find(p => p.type === "hour")?.value ?? "0");
+  if (hour >= 24) hour = 0; // some runtimes emit "24" for midnight
+
+  if (hour >= 2 && hour < 9) return false; // overnight: nothing can be in progress
+  const dayIndex = ET_DAYS.indexOf(weekday as (typeof ET_DAYS)[number]);
+  if (dayIndex < 0) return true; // unparseable weekday: fail toward fresh data
+  const slateDay = hour < 2 ? ET_DAYS[(dayIndex + 6) % 7] : ET_DAYS[dayIndex];
+  return slateDay !== "Tue" && slateDay !== "Wed";
+}
+
+/**
+ * The date (YYYYMMDD, ET) of the slate currently in play, for comparing against
+ * a box score's gameID date prefix (e.g. "20261004_DAL@HOU").
+ *
+ * The 12am-2am hours count as the PREVIOUS day, exactly as in isLiveGameWindow.
+ * Without that, a Sunday night game in overtime at 12:30am Monday would look
+ * like "yesterday's game" the moment the date rolled over, and its box score
+ * would freeze for FINAL_GAME_TTL_MS while it was still being played -- Live
+ * Scoring would simply stop updating that game for the rest of the night.
+ */
+export function etSlateDate(now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit", hour: "numeric", hour12: false,
+  }).formatToParts(now);
+  const get = (type: string) => parts.find(p => p.type === type)?.value ?? "";
+  let hour = Number(get("hour") || "0");
+  if (hour >= 24) hour = 0; // some runtimes emit "24" for midnight
+  // Step back through a UTC-anchored date so a 12am-2am rollback crosses month
+  // and year boundaries correctly (Nov 1 at 00:30 ET -> Oct 31).
+  const day = new Date(`${get("year")}-${get("month")}-${get("day")}T00:00:00Z`);
+  if (hour < 2) day.setUTCDate(day.getUTCDate() - 1);
+  const mm = String(day.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(day.getUTCDate()).padStart(2, "0");
+  return `${day.getUTCFullYear()}${mm}${dd}`;
+}
+
+/**
+ * True for a getNFLBoxScore whose game belongs to a slate day already in the
+ * past -- a final game whose stats won't change. Today's games (live or just
+ * finished) keep the normal live/off-window TTL.
+ *
+ * The date comes from the gameID, which is the SCHEDULED date, so a game
+ * postponed to a later day while keeping its original gameID would be read as
+ * final. That is rare enough (weather, scheduling emergencies) to accept: the
+ * cost would be a stale box score for that one game.
+ */
+function isPastDayBoxScore(endpoint: string, query: URLSearchParams, now: Date): boolean {
+  if (endpoint !== "getNFLBoxScore") return false;
+  const datePart = (query.get("gameID") ?? "").slice(0, 8);
+  if (!/^\d{8}$/.test(datePart)) return false;
+  return datePart < etSlateDate(now);
+}
+
+function cacheTtlMs(endpoint: string, query: URLSearchParams, now: Date = new Date()): number {
+  if (isPastDayBoxScore(endpoint, query, now)) return FINAL_GAME_TTL_MS;
+  if (LIVE_ENDPOINTS.has(endpoint) && !isLiveGameWindow(now)) {
+    return endpoint === "getNFLGamesForWeek" ? OFF_WINDOW_SCHEDULE_TTL_MS : OFF_WINDOW_TTL_MS;
+  }
+  return CACHE_TTL_BY_ENDPOINT[endpoint] ?? DEFAULT_CACHE_TTL_MS;
+}
 const responseCache = new Map<string, { ts: number; status: number; contentType: string; body: string }>();
 
 // Shared L2 cache in Supabase, so the 20s dedup window actually holds
@@ -40,7 +178,7 @@ const responseCache = new Map<string, { ts: number; status: number; contentType:
 // Run supabase_tank01_cache_table.sql to create the table.
 const SHARED_CACHE_TABLE = "tank01_response_cache";
 
-async function readSharedCache(cacheKey: string): Promise<{ status: number; contentType: string; body: string } | null> {
+async function readSharedCache(cacheKey: string, ttlMs: number): Promise<{ status: number; contentType: string; body: string } | null> {
   if (process.env.NODE_ENV === "test") return null;
   try {
     const { data, error } = await supabaseAdmin
@@ -49,7 +187,7 @@ async function readSharedCache(cacheKey: string): Promise<{ status: number; cont
       .eq("cache_key", cacheKey)
       .maybeSingle();
     if (error || !data) return null;
-    if (Date.now() - new Date(data.updated_at as string).getTime() >= CACHE_TTL_MS) return null;
+    if (Date.now() - new Date(data.updated_at as string).getTime() >= ttlMs) return null;
     return { status: data.status as number, contentType: data.content_type as string, body: data.body as string };
   } catch {
     return null;
@@ -126,16 +264,17 @@ export async function proxyTank01Request(req: Request, res: Response) {
     if (typeof value === "string" && key.length <= 64 && value.length <= 256) query.set(key, value);
   }
 
+  const ttlMs = cacheTtlMs(endpoint, query);
   const cacheKey = `${endpoint}?${query.toString()}`;
   const cached = responseCache.get(cacheKey);
-  if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+  if (cached && Date.now() - cached.ts < ttlMs) {
     res.status(cached.status).type(cached.contentType).send(cached.body);
     return;
   }
 
   // L2: shared across instances/viewers. Warm this instance's L1 from it
   // so subsequent same-instance requests skip the Supabase round trip.
-  const shared = await readSharedCache(cacheKey);
+  const shared = await readSharedCache(cacheKey, ttlMs);
   if (shared) {
     responseCache.set(cacheKey, { ts: Date.now(), status: shared.status, contentType: shared.contentType, body: shared.body });
     res.status(shared.status).type(shared.contentType).send(shared.body);

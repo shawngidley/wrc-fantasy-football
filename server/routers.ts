@@ -15,7 +15,7 @@ import { clearWrcTeamSession, readWrcTeamSession, writeWrcTeamSession } from "./
 import { supabaseAdmin } from "./supabaseAdmin";
 import { loadPlayerRows, makePlayerId, rosterPlayerForTeam } from "./rosterPlayerForTeam";
 import { resolveLineupsForWeek } from "./lineupResolution";
-import { getLineupDefaultWeek, SCHEDULE_2026 } from "../client/src/lib/scheduleData2026";
+import { getLineupDefaultWeek, getFaabBiddingWeek, SCHEDULE_2026 } from "../client/src/lib/scheduleData2026";
 import { hasWeekKickedOff, hasPlayerTeamGameStarted } from "./nflWeekKickoffCheck";
 import { hasClearedWaiverHold } from "../shared/freeAgentCutRestriction";
 import { getFreeAgentMarketState } from "./faabMarketState";
@@ -26,6 +26,8 @@ import { releaseUnprotectedPlayers } from "./protectionRelease";
 import { isProtectionDeadlinePassed } from "../shared/protectionSchedule";
 import { findDraftUniversePlayer } from "../shared/draftPlayerUniverse";
 import { normalizePlayerName } from "../shared/playerNameMatch";
+import { normalizeNFLTeamCode } from "../shared/nflTeamCodes";
+import { TRADEABLE_PICK_YEARS, isTradeablePickYear } from "../shared/tradeablePickYears";
 import { DRAFT_LOTTERY_OWNERS, isValidDraftLotteryResult } from "../shared/draftLottery";
 import { applyDraftLottery } from "../shared/draftLottery";
 import { DRAFT_PICKS_2026 } from "../client/src/lib/draftData2026";
@@ -222,6 +224,31 @@ export function aggregateWeeklyStatRows(rows: Array<Record<string, unknown>>) {
   };
 }
 
+/**
+ * Groups player_weekly_stats DST rows by normalized NFL team code and sums each
+ * team's weeks into one season line.
+ *
+ * Keying by team rather than by name is the whole point: the same defense is
+ * stored under different names in different places (draft pool "KC Chiefs" vs
+ * roster "Kansas City Chiefs"), and whichever name it carried in a given week is
+ * what that week's row holds -- so a defense that was rostered for some weeks
+ * and a free agent for others has its season split across two names, and a
+ * lookup by either one sees only part of it. Grouping by team puts those weeks
+ * back together.
+ */
+export function groupDstRowsByTeam(rows: Array<Record<string, unknown>>) {
+  const rowsByTeam = new Map<string, Array<Record<string, unknown>>>();
+  for (const row of rows) {
+    const team = normalizeNFLTeamCode(String(row.nfl_team));
+    if (!team) continue;
+    if (!rowsByTeam.has(team)) rowsByTeam.set(team, []);
+    rowsByTeam.get(team)!.push(row);
+  }
+  const result: Record<string, ReturnType<typeof aggregateWeeklyStatRows>> = {};
+  for (const [team, teamRows] of Array.from(rowsByTeam.entries())) result[team] = aggregateWeeklyStatRows(teamRows);
+  return result;
+}
+
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
@@ -244,6 +271,41 @@ export const appRouter = router({
         if (error) throw new Error("Unable to load player season stats.");
         const result: Record<string, ReturnType<typeof aggregateWeeklyStatRows>> = {};
         for (const row of data ?? []) result[row.player_name] = aggregateWeeklyStatRows([row]);
+        return result;
+      }),
+    // Season-to-date stats for every team defense, keyed by normalized NFL team
+    // code rather than by name -- see groupDstRowsByTeam for why a name lookup
+    // is unreliable for a D/ST (confirmed live: KC's season stats showing blank
+    // on Free Agents). At most one row per team per week, so a full 18-week
+    // season is ~576 rows, well under the 1000-row select cap.
+    dstSeasonStats: publicProcedure
+      .input(z.object({ season: z.number().int() }))
+      .query(async ({ input }) => {
+        const { data, error } = await supabaseAdmin.from("player_weekly_stats")
+          .select("*").eq("season", input.season).eq("position", "DST");
+        if (error) throw new Error("Unable to load DST season stats.");
+        return groupDstRowsByTeam((data ?? []) as Array<Record<string, unknown>>);
+      }),
+    // Reads a set of players' per-week stat lines for a season from
+    // player_weekly_stats, each week's row reshaped into the same camelCase
+    // stat shape as seasonStats (via aggregateWeeklyStatRows on that single
+    // row). Used by the player card's game log for team defenses, which have
+    // no Tank01 per-player game feed to read from. Scoped by player name, so
+    // a single D/ST's handful of weekly rows stays well under the 1000-row cap.
+    weeklyStats: publicProcedure
+      .input(z.object({ playerNames: z.array(z.string()), season: z.number().int() }))
+      .query(async ({ input }) => {
+        if (!input.playerNames.length) return {};
+        const { data, error } = await supabaseAdmin.from("player_weekly_stats")
+          .select("*").eq("season", input.season).in("player_name", input.playerNames)
+          .order("week", { ascending: true });
+        if (error) throw new Error("Unable to load player weekly stats.");
+        const result: Record<string, Array<{ week: number } & ReturnType<typeof aggregateWeeklyStatRows>>> = {};
+        for (const row of data ?? []) {
+          const name = String(row.player_name);
+          if (!result[name]) result[name] = [];
+          result[name].push({ week: Number(row.week), ...aggregateWeeklyStatRows([row]) });
+        }
         return result;
       }),
     // Reads a set of players' stats for a completed historical season
@@ -795,14 +857,19 @@ export const appRouter = router({
         if (marketState === "closed") {
           throw new Error("The free agent market is closed until Tuesday 9am ET.");
         }
-        // Once a specific free agent's own game has kicked off this week,
-        // they're locked for the rest of the week regardless of whether
-        // the overall market is still open -- same reasoning as a
-        // rostered player locking the moment their game starts, just
-        // applied to free agent pickups instead of lineup edits.
+        // The week this bid is FOR, computed server-side (not trusted from the
+        // client): normally the current week, but from 1pm Sunday through Tue
+        // 9am it's next week, since this week's awards have already run. The
+        // kickoff lock and the stored row both use it, so a Sunday-afternoon bid
+        // checks next week's slate -- which hasn't started -- rather than this
+        // week's, which is why every free agent is biddable then.
+        const biddingWeek = getFaabBiddingWeek();
+        // A specific free agent is locked once their own game in the bidding
+        // week has kicked off -- same reasoning as a rostered player locking the
+        // moment their game starts, applied to pickups.
         let playerGameStarted: boolean;
         try {
-          playerGameStarted = await hasPlayerTeamGameStarted(input.playerNflTeam, input.week, input.season);
+          playerGameStarted = await hasPlayerTeamGameStarted(input.playerNflTeam, biddingWeek, input.season);
         } catch {
           // Fail safe: if this can't be verified, treat the player as
           // locked rather than risking a bid on someone who's already
@@ -921,7 +988,7 @@ export const appRouter = router({
           drop_player_id: dropPlayer?.id ?? null,
           drop_player_name: dropPlayer?.name ?? null,
           status: "pending",
-          week: input.week,
+          week: biddingWeek,
           season: input.season,
           group_id: groupId,
           group_rank: groupRank,
@@ -941,7 +1008,16 @@ export const appRouter = router({
           .from("faab_bids")
           .select("id, team_id, team_name, player_id, player_name, player_pos, player_nfl_team, bid_amount, drop_player_id, drop_player_name, status, week, season, created_at, group_id, group_rank, group_max_wins")
           .eq("team_id", ctx.teamSession.teamId)
-          .eq("week", input.week)
+          // This week's bids, plus EVERY still-pending bid whatever week it was
+          // placed for. A pending bid is never week-scoped anywhere it actually
+          // matters -- the award (scheduledFaabAward) processes all pending bids
+          // with no week filter, and so do this bid's own budget, shared-drop
+          // and group checks -- and a bid the Sunday award left pending (a
+          // player still inside their 48h waiver hold) keeps its original week.
+          // Filtering strictly by week would hide such a bid from its owner
+          // from 1pm Sunday on, once getFaabBiddingWeek moves to next week:
+          // still live, still committing FAAB, but impossible to see or cancel.
+          .or(`week.eq.${input.week},status.eq.pending`)
           .eq("season", input.season)
           .order("created_at", { ascending: false });
         if (error) throw new Error("Unable to load your FAAB bids.");
@@ -1176,7 +1252,7 @@ export const appRouter = router({
           if (existingPlayer.team_id) throw new Error("This player was already added by another team.");
           const { data: claimed, error: claimError } = await supabaseAdmin
             .from("players")
-            .update({ team_id: teamId, acquisition: "FA" })
+            .update({ team_id: teamId, acquisition: "FA", draft_round: null, draft_pick: null })
             .eq("id", existingPlayer.id)
             .is("team_id", null)
             .select("id");
@@ -1200,7 +1276,7 @@ export const appRouter = router({
 
         if (dropPlayer) {
           const { error: dropError } = await supabaseAdmin.from("players")
-            .update({ team_id: null, acquisition: "FA", dropped_at: new Date().toISOString() })
+            .update({ team_id: null, acquisition: "FA", draft_round: null, draft_pick: null, dropped_at: new Date().toISOString() })
             .eq("id", dropPlayer.id)
             .eq("team_id", teamId);
           if (dropError) throw new Error("Unable to drop the selected player");
@@ -1419,7 +1495,10 @@ export const appRouter = router({
         const { data, error } = await supabaseAdmin
           .from("faab_bids")
           .select("id, team_id, team_name, player_id, player_name, player_pos, player_nfl_team, bid_amount, drop_player_id, drop_player_name, status, week, season, created_at")
-          .eq("week", input.week)
+          // Same as myFaabBids: this week's bids plus every still-pending one,
+          // since the award the commissioner is about to run from this screen
+          // processes all pending bids regardless of the week they carry.
+          .or(`week.eq.${input.week},status.eq.pending`)
           .eq("season", input.season)
           .order("player_name", { ascending: true })
           .order("bid_amount", { ascending: false });
@@ -1503,7 +1582,7 @@ export const appRouter = router({
         });
         if (bid.drop_player_id) {
           const { error: dropError } = await supabaseAdmin.from("players")
-            .update({ team_id: null, acquisition: "FA", dropped_at: new Date().toISOString() })
+            .update({ team_id: null, acquisition: "FA", draft_round: null, draft_pick: null, dropped_at: new Date().toISOString() })
             .eq("id", bid.drop_player_id)
             .eq("team_id", bid.team_id);
           if (dropError) throw new Error("Unable to drop the selected player");
@@ -1609,7 +1688,7 @@ export const appRouter = router({
         if (teamError || !team) throw new Error("Trade team was not found");
         const [{ data: roster, error: rosterError }, { data: picks, error: picksError }] = await Promise.all([
           supabaseAdmin.from("players").select("id, name, position, nfl_team").eq("team_id", team.id).order("position").order("name"),
-          supabaseAdmin.from("traded_picks").select("year, round, original_team_id").eq("current_owner_team_id", team.id).in("year", [2026, 2027]).order("year").order("round"),
+          supabaseAdmin.from("traded_picks").select("year, round, original_team_id").eq("current_owner_team_id", team.id).in("year", TRADEABLE_PICK_YEARS as number[]).order("year").order("round"),
         ]);
         if (rosterError || picksError) throw new Error("Unable to load trade assets");
         return {
@@ -1641,6 +1720,27 @@ export const appRouter = router({
       if (error) throw new Error("Unable to load sent trade proposals");
       return data ?? [];
     }),
+    // Withdraw an outgoing proposal the acting team made that's still pending.
+    // The from_team_id + status="pending" filter is the guard: it's what stops
+    // a team cancelling another team's proposal, or cancelling one the recipient
+    // has already accepted/declined/countered (same shape as cancelFaabBid). No
+    // roster/FAAB/pick changes happen on a pending proposal, so cancelling it is
+    // purely a status flip -- nothing to unwind.
+    cancelTradeProposal: teamProcedure
+      .input(z.object({ proposalId: z.string().uuid() }))
+      .mutation(async ({ input, ctx }) => {
+        const { data, error } = await supabaseAdmin
+          .from("trade_proposals")
+          .update({ status: "cancelled" })
+          .eq("id", input.proposalId)
+          .eq("from_team_id", ctx.teamSession.teamId)
+          .eq("status", "pending")
+          .select("id")
+          .maybeSingle();
+        if (error) throw new Error(`Unable to withdraw this proposal: ${error.message}`);
+        if (!data) throw new Error("This proposal can't be withdrawn -- it may have already been responded to, or doesn't belong to your team.");
+        return { cancelled: true };
+      }),
     createTradeProposal: teamProcedure
       .input(z.object({
         toTeamId: z.string().min(1).max(128),
@@ -1648,8 +1748,8 @@ export const appRouter = router({
         receivePlayerNames: z.array(z.string().min(1).max(128)).max(30),
         giveFaab: z.number().int().min(0).max(10_000),
         receiveFaab: z.number().int().min(0).max(10_000),
-        givePicks: z.array(z.object({ year: z.number().int().min(2026).max(2027), round: z.number().int().min(1).max(18), originalTeamId: z.string().min(1).max(128).optional() })).max(36),
-        receivePicks: z.array(z.object({ year: z.number().int().min(2026).max(2027), round: z.number().int().min(1).max(18), originalTeamId: z.string().min(1).max(128).optional() })).max(36),
+        givePicks: z.array(z.object({ year: z.number().int().refine(isTradeablePickYear, "Picks for that draft are no longer tradeable"), round: z.number().int().min(1).max(18), originalTeamId: z.string().min(1).max(128).optional() })).max(36),
+        receivePicks: z.array(z.object({ year: z.number().int().refine(isTradeablePickYear, "Picks for that draft are no longer tradeable"), round: z.number().int().min(1).max(18), originalTeamId: z.string().min(1).max(128).optional() })).max(36),
         note: z.string().max(1_000),
         counterToId: z.string().uuid().nullable(),
       }))

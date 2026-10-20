@@ -1,5 +1,37 @@
 import { describe, expect, it } from "vitest";
-import { normalizeCompletedDstSeasonStats, normalizeCompletedKickerSeasonStats, normalizeTankTeamSeasonStats } from "./playerSeasonStats";
+import { mergeSeasonStatMapsPreferComplete, normalizeCompletedDstSeasonStats, normalizeCompletedKickerSeasonStats, normalizeTankTeamSeasonStats } from "./playerSeasonStats";
+import type { PlayerSeasonStats } from "@shared/playerSeasonStats";
+
+describe("mergeSeasonStatMapsPreferComplete", () => {
+  const stat = (gp: number, recYds = 0): PlayerSeasonStats => ({ gp, recYds } as PlayerSeasonStats);
+
+  it("keeps the live Tank01 total when a finished week isn't finalized into the DB yet (no flash-back)", () => {
+    // Tank01 has all 3 games; the DB only has the 2 finalized weeks. The DB
+    // must NOT override the more complete live total.
+    const tank = { "amon-ra st. brown": stat(3, 228) };
+    const db = { "amon-ra st. brown": stat(2, 209) };
+    const merged = mergeSeasonStatMapsPreferComplete(tank, db);
+    expect(merged["amon-ra st. brown"].gp).toBe(3);
+    expect(merged["amon-ra st. brown"].recYds).toBe(228);
+  });
+
+  it("prefers the drift-free DB value when both cover the same number of games", () => {
+    const tank = { p: stat(3, 100) };
+    const db = { p: stat(3, 105) }; // finalized, drift-free -- wins on a tie
+    expect(mergeSeasonStatMapsPreferComplete(tank, db).p.recYds).toBe(105);
+  });
+
+  it("keeps a Tank01-only player (no DB row yet) untouched", () => {
+    const tank = { rookie: stat(1, 40) };
+    const merged = mergeSeasonStatMapsPreferComplete(tank, {});
+    expect(merged.rookie.gp).toBe(1);
+  });
+
+  it("uses the DB value for a player Tank01 doesn't have", () => {
+    const merged = mergeSeasonStatMapsPreferComplete({}, { p: stat(2, 50) });
+    expect(merged.p.gp).toBe(2);
+  });
+});
 import { DST_SEASON_STATS_2025 } from "./dstSeasonStats2025";
 import { getCompletedKickerSeasonStats } from "./kickerSeasonStats2025";
 

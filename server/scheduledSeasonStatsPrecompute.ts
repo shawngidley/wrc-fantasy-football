@@ -4,6 +4,32 @@ import { aggregateWeeklyStatRows } from "./routers";
 
 const SEASON = 2026;
 
+// Supabase caps a single .select() at 1000 rows. player_weekly_stats crosses
+// that mid-season (~480 players x 3+ weeks = 1400+ rows), so a plain select
+// silently returned only the first 1000 -- all of the earliest weeks plus a
+// sliver of the newest -- which froze most players' season total a game short
+// (confirmed live in week 3: only the ~54 players whose newest-week row landed
+// inside the first 1000 ever updated). Page through every row in a stable order
+// so all weeks are aggregated regardless of how many rows the season has.
+async function loadAllPlayerWeeklyStatsForSeason(season: number): Promise<Array<Record<string, unknown>>> {
+  const PAGE = 1000;
+  const all: Array<Record<string, unknown>> = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabaseAdmin
+      .from("player_weekly_stats")
+      .select("*")
+      .eq("season", season)
+      .order("player_name", { ascending: true })
+      .order("week", { ascending: true })
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error(`Unable to load player_weekly_stats: ${error.message}`);
+    if (!data || data.length === 0) break;
+    all.push(...(data as Array<Record<string, unknown>>));
+    if (data.length < PAGE) break;
+  }
+  return all;
+}
+
 /**
  * Runs once each morning (see vercel.json). Reads every player_weekly_stats
  * row for the current season, aggregates each player's rows into a season
@@ -17,16 +43,16 @@ const SEASON = 2026;
  */
 export async function precomputeSeasonStatsSchedule(_req: Request, res: Response): Promise<void> {
   try {
-    const { data, error } = await supabaseAdmin.from("player_weekly_stats").select("*").eq("season", SEASON);
-    if (error) throw new Error(`Unable to load player_weekly_stats: ${error.message}`);
+    const data = await loadAllPlayerWeeklyStatsForSeason(SEASON);
 
-    const rowsByPlayer = new Map<string, { position: string; nflTeam: string; rows: typeof data }>();
-    for (const row of data ?? []) {
-      const existing = rowsByPlayer.get(row.player_name);
+    const rowsByPlayer = new Map<string, { position: string; nflTeam: string; rows: Array<Record<string, unknown>> }>();
+    for (const row of data) {
+      const playerName = String(row.player_name);
+      const existing = rowsByPlayer.get(playerName);
       if (existing) {
         existing.rows.push(row);
       } else {
-        rowsByPlayer.set(row.player_name, { position: row.position, nflTeam: row.nfl_team, rows: [row] });
+        rowsByPlayer.set(playerName, { position: String(row.position ?? ""), nflTeam: String(row.nfl_team ?? ""), rows: [row] });
       }
     }
 

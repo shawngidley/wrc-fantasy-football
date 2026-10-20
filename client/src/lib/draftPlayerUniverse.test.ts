@@ -8,7 +8,7 @@ import {
 
 describe("2026 WRC Draft player universe", () => {
   it("covers all NFL teams using validated active rosters and dated 2026 PPR ADP", () => {
-    expect(CURRENT_DRAFT_PLAYER_UNIVERSE_2026).toHaveLength(1002);
+    expect(CURRENT_DRAFT_PLAYER_UNIVERSE_2026).toHaveLength(1003);
     expect(new Set(CURRENT_DRAFT_PLAYER_UNIVERSE_2026.map(player => player.nflTeam)).size).toBe(32);
     expect(CURRENT_DRAFT_PLAYER_UNIVERSE_2026.filter(player => player.pos === "K")).toHaveLength(41);
     expect(CURRENT_DRAFT_PLAYER_UNIVERSE_2026_METADATA.adpSource).toBe("Tank01 getNFLADP PPR");
@@ -40,6 +40,24 @@ describe("2026 WRC Draft player universe", () => {
     expect(available.some(player => player.name === "Fernando Mendoza")).toBe(false);
     expect(available.some(player => player.name === "Jeremiyah Love")).toBe(false);
     expect(available.some(player => player.name === "Carnell Tate")).toBe(true);
+  });
+
+  // Players added by hand after the 2026-08-18 snapshot, for a signing the
+  // daily nflverse refresh cannot introduce (it only updates the team and bye
+  // of players already present). A regeneration of the pool would silently drop
+  // them, taking them back out of Free Agents and making them unbiddable, since
+  // submitFaabBid validates against this same universe.
+  it("keeps the manually added post-snapshot signings", () => {
+    expect(findDraftUniversePlayer({ name: "Brandin Cooks", pos: "WR", nflTeam: "SF" }))
+      .toMatchObject({ name: "Brandin Cooks", pos: "WR", nflTeam: "SF", bye: 8 });
+  });
+
+  // No 2026 PPR ADP exists for a player the snapshot never saw, so they carry
+  // the 9999 sentinel every other unranked entry uses -- below 9999 is read as a
+  // real ADP and displayed as one (draftBoardPlayerBoard, DraftRecap).
+  it("gives a post-snapshot signing the unranked-ADP sentinel", () => {
+    const cooks = CURRENT_DRAFT_PLAYER_UNIVERSE_2026.find(player => player.name === "Brandin Cooks");
+    expect(cooks?.adp).toBe(9999);
   });
 
   it("rejects a player not in the validated universe", () => {

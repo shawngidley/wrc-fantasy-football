@@ -14,18 +14,18 @@ describe("getFreeAgentMarketState", () => {
     expect(getFreeAgentMarketState(new Date("2026-09-13T16:59:00Z"))).toBe("open_waiver"); // 12:59pm ET
   });
 
-  it("is closed from 1pm Sunday onward", () => {
-    expect(getFreeAgentMarketState(new Date("2026-09-13T17:00:00Z"))).toBe("closed"); // 1:00pm ET
-    expect(getFreeAgentMarketState(new Date("2026-09-13T23:00:00Z"))).toBe("closed"); // 7pm ET
+  it("is bidding (for next week) from 1pm Sunday onward", () => {
+    expect(getFreeAgentMarketState(new Date("2026-09-13T17:00:00Z"))).toBe("bidding"); // 1:00pm ET
+    expect(getFreeAgentMarketState(new Date("2026-09-13T23:00:00Z"))).toBe("bidding"); // 7pm ET
   });
 
-  it("is closed all day Monday", () => {
-    expect(getFreeAgentMarketState(new Date("2026-09-14T05:00:00Z"))).toBe("closed"); // 1am ET
-    expect(getFreeAgentMarketState(new Date("2026-09-14T23:00:00Z"))).toBe("closed"); // 7pm ET
+  it("is bidding all day Monday", () => {
+    expect(getFreeAgentMarketState(new Date("2026-09-14T05:00:00Z"))).toBe("bidding"); // 1am ET
+    expect(getFreeAgentMarketState(new Date("2026-09-14T23:00:00Z"))).toBe("bidding"); // 7pm ET
   });
 
-  it("is closed on Tuesday before 9am, then switches to bidding at 9am", () => {
-    expect(getFreeAgentMarketState(new Date("2026-09-15T12:59:00Z"))).toBe("closed"); // 8:59am ET
+  it("is bidding on Tuesday (before and after 9am alike -- no closed window anymore)", () => {
+    expect(getFreeAgentMarketState(new Date("2026-09-15T12:59:00Z"))).toBe("bidding"); // 8:59am ET
     expect(getFreeAgentMarketState(new Date("2026-09-15T13:00:00Z"))).toBe("bidding"); // 9:00am ET
   });
 
@@ -40,6 +40,6 @@ describe("getFreeAgentMarketState", () => {
     // December 6, 2026 is a Sunday, after DST ends (Nov 1, 2026) -- 9am ET = 14:00 UTC.
     expect(getFreeAgentMarketState(new Date("2026-12-06T13:59:00Z"))).toBe("bidding"); // 8:59am ET
     expect(getFreeAgentMarketState(new Date("2026-12-06T14:00:00Z"))).toBe("open_waiver"); // 9:00am ET
-    expect(getFreeAgentMarketState(new Date("2026-12-06T18:00:00Z"))).toBe("closed"); // 1:00pm ET
+    expect(getFreeAgentMarketState(new Date("2026-12-06T19:00:00Z"))).toBe("bidding"); // 2:00pm ET
   });
 });

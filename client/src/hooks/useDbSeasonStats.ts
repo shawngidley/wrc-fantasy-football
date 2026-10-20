@@ -34,3 +34,23 @@ export function useDbSeasonStats(playerNames: string[], season: number, enabled:
 
   return { statMap, loading: query.isLoading, loadedCount: Object.keys(statMap).length };
 }
+
+/**
+ * Season-to-date stats for every team defense, keyed by normalized NFL team
+ * code. Team defenses are stored under inconsistent names (draft pool
+ * "KC Chiefs" vs roster "Kansas City Chiefs"), so a name lookup misses a D/ST
+ * whose finalized rows carry a different name than the page's own label, and a
+ * defense rostered for part of the season has its weeks split across both. The
+ * server sums its weekly rows by team, so this is immune to that mismatch.
+ */
+export function useDbDstSeasonStats(season: number, enabled: boolean) {
+  const query = trpc.playerStats.dstSeasonStats.useQuery(
+    { season },
+    { enabled, staleTime: 5 * 60_000 },
+  );
+  const byTeam = useMemo(
+    () => (query.data ?? {}) as Record<string, PlayerSeasonStats>,
+    [query.data],
+  );
+  return { byTeam, loading: query.isLoading };
+}

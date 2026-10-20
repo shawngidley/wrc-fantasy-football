@@ -144,14 +144,21 @@ export function useDraftedRoster(): DraftedRosterResult {
           const poolPlayer = draftPlayerPool.find(
             candidate => normalizePlayerName(candidate.name) === normalizePlayerName(p.name)
           );
+          // A player picked up off waivers/free agency keeps a stale draft_round
+          // on their row from when they were originally drafted, so draft_round
+          // alone can't tell a current draft pick from a re-add. acquisition is
+          // the source of truth -- every waiver/FA add and every drop sets it to
+          // "FA", while a draft pick sets "Rd N" -- so an "FA" acquisition is a
+          // free agent regardless of a lingering draft_round.
+          const isFreeAgent = p.acquisition === "FA";
           map[teamName].push({
             id: p.id,
             name: poolPlayer?.name ?? p.name,
             pos: p.position as RosterPlayer["pos"],
             nflTeam: poolPlayer?.nflTeam ?? p.nfl_team,
             byeWeek: p.bye_week || null,
-            acquisition: p.draft_round ? "Draft" : "FA",
-            round: p.draft_round ?? undefined,
+            acquisition: isFreeAgent ? "FA" : (p.draft_round ? "Draft" : "FA"),
+            round: isFreeAgent ? undefined : (p.draft_round ?? undefined),
           } as RosterPlayer & { round?: number });
         }
         return map;
