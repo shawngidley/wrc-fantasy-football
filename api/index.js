@@ -81199,6 +81199,7 @@ var gamesMemo = /* @__PURE__ */ new Map();
 async function readGamesCache(cacheKey) {
   const mem = gamesMemo.get(cacheKey);
   if (mem && Date.now() - mem.ts < GAMES_CACHE_TTL_MS) return mem.games;
+  if (process.env.NODE_ENV === "test") return null;
   try {
     const { data, error: error46 } = await supabaseAdmin.from(SHARED_CACHE_TABLE).select("body, updated_at").eq("cache_key", cacheKey).maybeSingle();
     if (error46 || !data) return null;
@@ -81214,6 +81215,7 @@ async function readGamesCache(cacheKey) {
 async function writeGamesCache(cacheKey, rawBody, games) {
   if (games.length === 0) return;
   gamesMemo.set(cacheKey, { ts: Date.now(), games });
+  if (process.env.NODE_ENV === "test") return;
   try {
     await supabaseAdmin.from(SHARED_CACHE_TABLE).upsert({ cache_key: cacheKey, status: 200, content_type: "application/json", body: rawBody, updated_at: (/* @__PURE__ */ new Date()).toISOString() }, { onConflict: "cache_key" });
   } catch {
@@ -92857,6 +92859,7 @@ function cacheTtlMs(endpoint, query, now = /* @__PURE__ */ new Date()) {
 var responseCache = /* @__PURE__ */ new Map();
 var SHARED_CACHE_TABLE2 = "tank01_response_cache";
 async function readSharedCache(cacheKey, ttlMs) {
+  if (process.env.NODE_ENV === "test") return null;
   try {
     const { data, error: error46 } = await supabaseAdmin.from(SHARED_CACHE_TABLE2).select("status, content_type, body, updated_at").eq("cache_key", cacheKey).maybeSingle();
     if (error46 || !data) return null;
@@ -92867,6 +92870,7 @@ async function readSharedCache(cacheKey, ttlMs) {
   }
 }
 async function writeSharedCache(cacheKey, status, contentType, body) {
+  if (process.env.NODE_ENV === "test") return;
   try {
     await supabaseAdmin.from(SHARED_CACHE_TABLE2).upsert({ cache_key: cacheKey, status, content_type: contentType, body, updated_at: (/* @__PURE__ */ new Date()).toISOString() }, { onConflict: "cache_key" });
   } catch {
