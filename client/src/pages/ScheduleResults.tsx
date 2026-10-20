@@ -15,7 +15,7 @@ import {
   SCHEDULE_2026, OWNER_TO_TEAM, ownerToTeam, getLineupDefaultWeek,
   derivePlayoffSeeds,
 } from "@/lib/scheduleData2026";
-import { getOwnerRegularSeasonWeeks } from "@/lib/scheduleOwnerView";
+import { getOwnerRegularSeasonWeeks, getScheduleOwnerOptions, resolveViewedOwner } from "@/lib/scheduleOwnerView";
 import { useNFLMatchups } from "@/hooks/useNFLMatchups";
 import { useWeeklyResultsWriter } from "@/hooks/useWeeklyResultsWriter";
 import { CheckCircle2, Clock, Edit3, Trophy, X, Zap, RefreshCw, Calendar, User } from "lucide-react";
@@ -285,6 +285,11 @@ export default function ScheduleResults() {
   );
   const [forceWeek, setForceWeek] = useState<number>(currentWeek);
   const [myScheduleOnly, setMyScheduleOnly] = useState(false);
+  // Which team the schedule view shows. Defaults to the logged-in owner.
+  const [pickedOwner, setPickedOwner] = useState<string | null>(null);
+  const viewedOwner = resolveViewedOwner(pickedOwner, myOwner, OWNER_TO_TEAM);
+  const viewingSelf = viewedOwner === myOwner;
+  const ownerOptions = getScheduleOwnerOptions(OWNER_TO_TEAM, myOwner);
 
   const [allResults, setAllResults] = useState<WeeklyResult[]>([]);
   const [loading, setLoading] = useState(true);
@@ -355,17 +360,17 @@ export default function ScheduleResults() {
   const visibleMatchups = myScheduleOnly && myOwner
     ? weekMatchups.filter(m => m[0] === myOwner || m[1] === myOwner)
     : weekMatchups;
-  const myScheduleWeeks = getOwnerRegularSeasonWeeks(SCHEDULE_2026, myOwner);
+  const myScheduleWeeks = getOwnerRegularSeasonWeeks(SCHEDULE_2026, viewedOwner);
 
   // Running W/L record for "My Schedule" view
   const myRecord = (() => {
-    if (!myOwner) return { w: 0, l: 0 };
+    if (!viewedOwner) return { w: 0, l: 0 };
     let w = 0, l = 0;
     for (const r of allResults) {
       if (!r.is_final) continue;
       if (!myScheduleOnly && r.week > displayWeek) continue;
-      const isHome = r.home_owner === myOwner;
-      const isAway = r.away_owner === myOwner;
+      const isHome = r.home_owner === viewedOwner;
+      const isAway = r.away_owner === viewedOwner;
       if (!isHome && !isAway) continue;
       const myScore = isHome ? r.home_score : r.away_score;
       const oppScore = isHome ? r.away_score : r.home_score;
@@ -399,7 +404,9 @@ export default function ScheduleResults() {
               >
                 <User size={12} />
                 My Schedule
-                {myScheduleOnly && <span style={{ fontSize: "0.68rem", opacity: 0.85 }}>{myRecord.w}–{myRecord.l}</span>}
+                {/* Only my own record belongs on a button labelled "My Schedule"; the
+                    viewed team's record is in the header line below. */}
+                {myScheduleOnly && viewingSelf && <span style={{ fontSize: "0.68rem", opacity: 0.85 }}>{myRecord.w}–{myRecord.l}</span>}
               </button>
             )}
           </div>
@@ -428,11 +435,19 @@ export default function ScheduleResults() {
 
         {/* ── Week header ── */}
         {myScheduleOnly ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.75rem" }}>
-            <div>
-              <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1.05rem", fontWeight: 800, letterSpacing: "0.04em", color: "oklch(0.22 0.08 150)" }}>My 2026 Schedule</span>
-              <span style={{ marginLeft: "0.5rem", fontSize: "0.72rem", color: "oklch(0.5 0.04 150)" }}>{myScheduleWeeks.length} regular-season games</span>
+          <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap" as const, gap: "0.5rem", marginBottom: "0.75rem" }}>
+            <div style={{ flex: "1 1 100%" }}>
+              <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1.05rem", fontWeight: 800, letterSpacing: "0.04em", color: "white" }}>{viewingSelf ? "My 2026 Schedule" : `${viewedOwner ? (OWNER_TO_TEAM[viewedOwner] ?? viewedOwner) : "Team"} 2026 Schedule`}</span>
+              <span style={{ marginLeft: "0.5rem", fontSize: "0.72rem", color: "oklch(0.88 0.04 150)" }}>{myScheduleWeeks.length} regular-season games · {myRecord.w}–{myRecord.l}</span>
             </div>
+            <select
+              aria-label="Choose a team's schedule"
+              value={viewedOwner ?? ""}
+              onChange={e => setPickedOwner(e.target.value === myOwner ? null : e.target.value)}
+              style={{ flex: "1 1 auto", minWidth: 0, border: "1.5px solid oklch(0.82 0.08 150)", background: "white", color: "oklch(0.3 0.08 150)", borderRadius: 7, padding: "0.3rem 0.4rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, letterSpacing: "0.03em", cursor: "pointer" }}
+            >
+              {ownerOptions.map(o => <option key={o.owner} value={o.owner}>{o.label}</option>)}
+            </select>
             <button
               onClick={() => setMyScheduleOnly(false)}
               style={{ border: "1.5px solid oklch(0.82 0.08 150)", background: "white", color: "oklch(0.35 0.08 150)", borderRadius: 7, padding: "0.3rem 0.6rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.05em", cursor: "pointer" }}
@@ -480,7 +495,7 @@ export default function ScheduleResults() {
           myScheduleOnly ? (
             <div style={{ display: "grid", gap: "0.75rem", marginBottom: "1.25rem" }}>
               {myScheduleWeeks.map(week => {
-                const matchup = week.matchups.find(([ownerA, ownerB]) => ownerA === myOwner || ownerB === myOwner);
+                const matchup = week.matchups.find(([ownerA, ownerB]) => ownerA === viewedOwner || ownerB === viewedOwner);
                 if (!matchup) return null;
                 const [ownerA, ownerB] = matchup;
                 const result = allResults.find(r => r.week === week.week && (
