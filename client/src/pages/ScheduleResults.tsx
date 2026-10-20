@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { Link, useLocation } from "wouter";
 import TeamLogo from "@/components/TeamLogo";
 import { trpc } from "@/lib/trpc";
+import { beatWeekMedian, officialWeekMedian } from "@/lib/weekMedian";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -138,10 +139,28 @@ function ScoreModal({ result, onClose, onSaved }: {
   );
 }
 
+// ── Median label ──────────────────────────────────────────────────────────────
+
+/** Whether a finalized score beat the week's median. Same rule Standings use
+ * for a median win: strictly above. Renders nothing until there is a median. */
+function MedianTag({ beat }: { beat: boolean | null }) {
+  if (beat === null) return null;
+  return (
+    <div
+      title={beat ? "Scored above the league median" : "Scored at or below the league median"}
+      style={{ fontSize: "0.56rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.06em", lineHeight: 1.2, marginTop: 1, color: beat ? "oklch(0.42 0.15 150)" : "oklch(0.55 0.22 25)" }}
+    >
+      {beat ? "▲ ABOVE" : "▼ BELOW"}
+      {/* "median" is spelled out where there is room; on a phone the header chip gives the context. */}
+      <span className="hidden sm:inline"> MEDIAN</span>
+    </div>
+  );
+}
+
 // ── Matchup Card ──────────────────────────────────────────────────────────────
 
 function MatchupCard({
-  weekNum, ownerA, ownerB, result, isCommissioner, myOwner, isCurrent, isFuture, onEdit, seeds, displayWeek,
+  weekNum, ownerA, ownerB, result, isCommissioner, myOwner, isCurrent, isFuture, onEdit, seeds, displayWeek, median,
 }: {
   weekNum: number;
   ownerA: string;
@@ -154,6 +173,8 @@ function MatchupCard({
   onEdit: (r: WeeklyResult) => void;
   seeds: string[];
   displayWeek: number;
+  /** The week's official league median, or null until the week is final. */
+  median: number | null;
 }) {
   const [, navigate] = useLocation();
 
@@ -167,6 +188,9 @@ function MatchupCard({
   const awayScore = result?.away_score;
   const homeWon = isFinal && homeScore != null && awayScore != null && homeScore > awayScore;
   const awayWon = isFinal && homeScore != null && awayScore != null && awayScore > homeScore;
+  // Each side's result against the league median, for finalized games only.
+  const homeBeat = isFinal ? beatWeekMedian(homeScore, median) : null;
+  const awayBeat = isFinal ? beatWeekMedian(awayScore, median) : null;
 
   // For display: home = ownerA, away = ownerB (matches weekly_results convention)
   const displayHome = result ? (OWNER_TO_TEAM[result.home_owner] ?? result.home_owner) : teamA;
@@ -198,6 +222,7 @@ function MatchupCard({
             {displayHome}
           </div>
           <div style={{ fontSize: "0.6rem", color: "oklch(0.55 0.04 150)" }}>{homeOwner}</div>
+          <MedianTag beat={homeBeat} />
         </div>
       </div>
 
@@ -236,6 +261,7 @@ function MatchupCard({
             {displayAway}
           </div>
           <div style={{ fontSize: "0.6rem", color: "oklch(0.55 0.04 150)" }}>{awayOwner}</div>
+          <MedianTag beat={awayBeat} />
         </div>
         <TeamLogo teamName={displayAway} size={28} style={{ borderRadius: 5, flexShrink: 0 }} />
       </div>
@@ -317,6 +343,8 @@ export default function ScheduleResults() {
   const isFuture = displayWeek > currentWeek;
 
   const weekResults = allResults.filter(r => r.week === displayWeek);
+  // The official median saved when the week was finalized (null until then).
+  const weekMedian = officialWeekMedian(weekResults);
   const finalGames = allResults.filter(r => r.is_final).length;
   const totalGames = allResults.length;
 
@@ -416,7 +444,15 @@ export default function ScheduleResults() {
               <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "1.05rem", fontWeight: 800, letterSpacing: "0.04em", color: "oklch(0.22 0.08 150)" }}>{displayWeekData.label}</span>
               <span style={{ marginLeft: "0.5rem", fontSize: "0.72rem", color: "oklch(0.5 0.04 150)" }}>{displayWeekData.dates}</span>
             </div>
-            <div>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              {weekMedian !== null && (
+                <span
+                  title="Official league median for this week. Beat it for a median win."
+                  style={{ display: "flex", alignItems: "center", gap: "0.3rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" as const, color: "oklch(0.3 0.08 150)", background: "oklch(0.94 0.03 150)", padding: "0.2rem 0.6rem", borderRadius: 20 }}
+                >
+                  Median {weekMedian.toFixed(1)}
+                </span>
+              )}
               {isCurrent && (
                 <span style={{ display: "flex", alignItems: "center", gap: "0.3rem", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" as const, color: "oklch(0.38 0.14 85)", background: "oklch(0.96 0.04 85)", padding: "0.2rem 0.6rem", borderRadius: 20 }}>
                   <span style={{ width: 6, height: 6, borderRadius: "50%", background: "oklch(0.55 0.18 85)", display: "inline-block" }} />
@@ -452,13 +488,15 @@ export default function ScheduleResults() {
                   (r.home_owner === ownerB && r.away_owner === ownerA)
                 ));
                 const weekIsCurrent = week.week === currentWeek;
+                const cardMedian = officialWeekMedian(allResults.filter(r => r.week === week.week));
                 return (
                   <div key={week.week} className="wrc-card" style={{ overflow: "hidden" }}>
                     <div className="wrc-card-gold-stripe" />
                     <div className="wrc-card-header" style={{ padding: "0.45rem 0.75rem" }}>
                       <span>WEEK {week.week}</span>
                       <span style={{ marginLeft: "0.5rem", opacity: 0.62, fontSize: "0.7rem", fontWeight: 400 }}>{week.dates}</span>
-                      {weekIsCurrent && <span style={{ marginLeft: "auto", color: "oklch(0.78 0.15 85)", fontSize: "0.62rem", fontWeight: 800, letterSpacing: "0.06em" }}>CURRENT</span>}
+                      {cardMedian !== null && <span title="Official league median for this week" style={{ marginLeft: "auto", fontSize: "0.62rem", fontWeight: 800, letterSpacing: "0.06em" }}>MEDIAN {cardMedian.toFixed(1)}</span>}
+                      {weekIsCurrent && <span style={{ marginLeft: cardMedian !== null ? "0.75rem" : "auto", color: "oklch(0.78 0.15 85)", fontSize: "0.62rem", fontWeight: 800, letterSpacing: "0.06em" }}>CURRENT</span>}
                     </div>
                     <div style={{ padding: "0.5rem 0.75rem 0.75rem" }}>
                       <MatchupCard
@@ -473,6 +511,7 @@ export default function ScheduleResults() {
                         onEdit={setEditTarget}
                         seeds={seeds}
                         displayWeek={week.week}
+                        median={cardMedian}
                       />
                     </div>
                   </div>
@@ -508,6 +547,7 @@ export default function ScheduleResults() {
                         onEdit={setEditTarget}
                         seeds={seeds}
                         displayWeek={displayWeek}
+                        median={weekMedian}
                       />
                     );
                   })
