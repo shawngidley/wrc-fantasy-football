@@ -18,6 +18,7 @@ import { useNFLMatchups, formatMatchup, formatGameTime, type NFLMatchupMap } fro
 import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections";
 import { useLineupPersistence } from "@/hooks/useLineupPersistence";
 import { createLineupAutosaver, type AutosaveStatus } from "@/lib/lineupAutosaver";
+import { seedStartersFromSaved } from "@/lib/lineupSeed";
 import { useNFLLiveScores, getLivePoints } from "@/hooks/useNFLLiveScores";
 import { useWeeklyResultsWriter } from "@/hooks/useWeeklyResultsWriter";
 import { useLeagueWeekMedian } from "@/hooks/useLeagueWeekMedian";
@@ -899,28 +900,20 @@ export default function Lineup() {
 
     // If we have a saved lineup, apply it; otherwise use default order
     if (savedLineup && Object.keys(savedLineup).length > 0) {
-      const pool = [...allPlayers];
-      const reorderedStarters: typeof newStarters = [];
-      for (const slotDef of STARTER_SLOTS) {
-        // Match the saved player by normalized name, not an exact string
-        // comparison -- a saved lineup entry could easily mismatch on
-        // suffix/spacing differences (e.g. "James Cook" vs "James Cook III")
-        // between when it was saved and how the roster's current player
-        // list spells the same name, silently falling through to the
-        // greedy default below and making it look like the saved slot
-        // was never actually held.
-        const savedName = savedLineup[slotDef.slot];
-        let idx = savedName ? pool.findIndex(p => lineupPlayerKey(p.name) === lineupPlayerKey(savedName)) : -1;
-        if (idx === -1) idx = pool.findIndex(p => slotDef.eligible.includes(p.pos));
-        if (idx !== -1) {
-          const [player] = pool.splice(idx, 1);
-          reorderedStarters.push({ ...player, slot: slotDef.slot, isBench: false });
-        } else {
-          reorderedStarters.push({ id: `empty-${slotDef.slot}`, name: "", pos: "", nflTeam: "", pts: 0, proj: 0, status: "Empty", slot: slotDef.slot, isBench: false });
-        }
-      }
+      // Saved players keep their slots (matched by normalized name, so a
+      // suffix/spacing difference between the saved entry and the roster's
+      // current spelling -- "James Cook" vs "James Cook III" -- still holds
+      // the slot); any gap is filled by best ADP, the same fill scoring and
+      // the server's lock check use (see lineupSeed.ts).
+      const { bySlot, bench: seededBench } = seedStartersFromSaved(allPlayers, savedLineup, STARTER_SLOTS, draftPlayerPool, lineupPlayerKey);
+      const reorderedStarters: typeof newStarters = STARTER_SLOTS.map(slotDef => {
+        const player = bySlot.get(slotDef.slot);
+        return player
+          ? { ...player, slot: slotDef.slot, isBench: false }
+          : { id: `empty-${slotDef.slot}`, name: "", pos: "", nflTeam: "", pts: 0, proj: 0, status: "Empty", slot: slotDef.slot, isBench: false };
+      });
       setStarters(reorderedStarters);
-      setBench(pool.map(p => ({ ...p, slot: undefined, isBench: true })));
+      setBench(seededBench.map(p => ({ ...p, slot: undefined, isBench: true })));
     } else {
       setStarters(newStarters);
       setBench(newBench);

@@ -33,15 +33,19 @@ const defaultDeps: LineupLockDeps = {
  * player's kickoff can't be verified, the save is refused, the same fail safe
  * the FAAB bid lock uses.
  *
- * Deliberately NOT compared against buildEffectiveStarters: scoring backfills
- * an empty starter slot by best ADP, while the Lineup page fills it with the
- * first eligible player in roster order, so the two can promote different
- * players into the same gap. Treating scoring's pick as "currently starting"
- * would refuse an owner's untouched save with the name of a player their page
- * never showed as a starter, and nothing they could do would clear it. The
- * cost is that a player occupying a slot only by backfill can be benched after
- * his game starts; that is a narrower hole than having no server check at all,
- * and it closes as soon as the owner saves a complete lineup.
+ * Deliberately NOT compared against buildEffectiveStarters, which is what
+ * scoring uses. The two used to disagree outright: scoring backfills an empty
+ * starter slot by best ADP while the Lineup page took the first eligible
+ * player in roster order, so treating scoring's pick as "currently starting"
+ * would refuse an owner's untouched save naming a player their page never
+ * showed as a starter. The page now uses the same fill (client/src/lib/
+ * lineupSeed.ts), so that disagreement is gone and this baseline could be
+ * switched to buildEffectiveStarters -- which would also close the one hole
+ * the saved-lineup baseline leaves: a player holding a slot only by backfill
+ * can be benched after his game starts. Worth doing only once the two are
+ * confirmed to agree on live data, not just in logic; a mismatch here refuses
+ * a save with a name the owner cannot act on. The hole closes by itself as
+ * soon as the owner saves a complete lineup.
  *
  * Callers skip this for the commissioner, who can override locks.
  */
