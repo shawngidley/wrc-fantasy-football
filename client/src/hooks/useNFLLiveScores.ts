@@ -16,6 +16,7 @@ import { type NFLMatchupMap } from "@/hooks/useNFLMatchups";
 import { calculateWrcKickerPoints, getKickerEventsForPlayer, parseEspnKickerEvents, type KickerPlayEvent } from "@/lib/espnKickerEvents";
 import { calcFantasyPoints, type Tank01Stats } from "@/lib/scoringEngine";
 import { normalizePlayerName } from "@shared/playerNameMatch";
+import { parseEasternKickoffToUTC } from "@shared/nflKickoffTime";
 
 const TANK01_BASE_URL = "/api/tank01";
 const POLL_INTERVAL_MS = 60_000; // 60s -- a once-a-minute scoreboard (like ESPN/Yahoo); halves game-day box-score calls vs the old 30s, the dominant Tank01 cost
@@ -119,27 +120,9 @@ export function attributeOffenseFramedDefenseStats(
  */
 export function isGameActive(gameDate: string, gameTime: string): boolean {
   if (!gameDate || !gameTime) return false;
-  const d = gameDate;
-  const year = parseInt(d.slice(0,4), 10);
-  const month = parseInt(d.slice(4,6), 10) - 1; // Date.UTC months are 0-indexed
-  const day = parseInt(d.slice(6,8), 10);
-  const timeMatch = gameTime.match(/(\d+):(\d+)([ap])/i);
-  if (!timeMatch) return false;
-  let hours = parseInt(timeMatch[1], 10);
-  const mins = parseInt(timeMatch[2], 10);
-  const ampm = timeMatch[3].toLowerCase();
-  if (ampm === "p" && hours !== 12) hours += 12;
-  if (ampm === "a" && hours === 12) hours = 0;
-  const offsetHours = 4; // EDT
-  // Date.UTC correctly rolls hour overflow into the next day (e.g. an
-  // 8:20pm ET kickoff -> 20+4=24 -> the next day at 00:20 UTC) --
-  // constructing this same value as an ISO string ("...T24:20:00Z")
-  // does NOT handle that overflow and silently produces an Invalid
-  // Date instead, which was making every game at 8pm ET or later
-  // (a large share of all NFL games, including every primetime slot)
-  // never register as active, so live scores were never fetched for
-  // them at all.
-  const kickoffUTC = new Date(Date.UTC(year, month, day, hours + offsetHours, mins, 0));
+  // Real Eastern offset for that date (EDT before Nov 1, EST after); see shared/nflKickoffTime.ts.
+  const kickoffUTC = parseEasternKickoffToUTC(gameDate, gameTime);
+  if (!kickoffUTC) return false;
   const windowEndUTC = new Date(kickoffUTC.getTime() + 10 * 24 * 60 * 60 * 1000); // +10 days
   const now = Date.now();
   return now >= kickoffUTC.getTime() && now <= windowEndUTC.getTime();
@@ -169,19 +152,8 @@ export function isGameActive(gameDate: string, gameTime: string): boolean {
  */
 function isLikelyStillInProgress(gameDate: string, gameTime: string): boolean {
   if (!gameDate || !gameTime) return false;
-  const d = gameDate;
-  const year = parseInt(d.slice(0,4), 10);
-  const month = parseInt(d.slice(4,6), 10) - 1;
-  const day = parseInt(d.slice(6,8), 10);
-  const timeMatch = gameTime.match(/(\d+):(\d+)([ap])/i);
-  if (!timeMatch) return false;
-  let hours = parseInt(timeMatch[1], 10);
-  const mins = parseInt(timeMatch[2], 10);
-  const ampm = timeMatch[3].toLowerCase();
-  if (ampm === "p" && hours !== 12) hours += 12;
-  if (ampm === "a" && hours === 12) hours = 0;
-  const offsetHours = 4; // EDT
-  const kickoffUTC2 = new Date(Date.UTC(year, month, day, hours + offsetHours, mins, 0));
+  const kickoffUTC2 = parseEasternKickoffToUTC(gameDate, gameTime);
+  if (!kickoffUTC2) return false;
   const likelyEndUTC = new Date(kickoffUTC2.getTime() + 4.5 * 60 * 60 * 1000); // +4.5h
   const now2 = Date.now();
   return now2 >= kickoffUTC2.getTime() && now2 <= likelyEndUTC.getTime();

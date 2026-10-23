@@ -81190,6 +81190,43 @@ function normalizeNFLTeamCode(team) {
   return TEAM_CODE_ALIASES[code] ?? code;
 }
 
+// shared/nflKickoffTime.ts
+var ET_PARTS = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/New_York",
+  hourCycle: "h23",
+  year: "numeric",
+  month: "numeric",
+  day: "numeric",
+  hour: "numeric",
+  minute: "numeric"
+});
+function easternWallClockAsUTC(instant) {
+  const parts = Object.fromEntries(ET_PARTS.formatToParts(instant).map((p) => [p.type, p.value]));
+  return Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour) % 24, Number(parts.minute));
+}
+function parseEasternKickoffToUTC(gameDate, gameTime) {
+  if (!gameDate || !gameTime || gameDate.length < 8) return null;
+  const year2 = parseInt(gameDate.slice(0, 4), 10);
+  const month = parseInt(gameDate.slice(4, 6), 10) - 1;
+  const day2 = parseInt(gameDate.slice(6, 8), 10);
+  const timeMatch = gameTime.match(/(\d+):(\d+)([ap])/i);
+  if (!timeMatch || [year2, month, day2].some(Number.isNaN)) return null;
+  let hours = parseInt(timeMatch[1], 10);
+  const mins = parseInt(timeMatch[2], 10);
+  const ampm = timeMatch[3].toLowerCase();
+  if (ampm === "p" && hours !== 12) hours += 12;
+  if (ampm === "a" && hours === 12) hours = 0;
+  const wallClockAsUTC = Date.UTC(year2, month, day2, hours, mins);
+  const guess = new Date(wallClockAsUTC + 4 * 36e5);
+  const offsetMs = guess.getTime() - easternWallClockAsUTC(guess);
+  const kickoff = new Date(wallClockAsUTC + offsetMs);
+  return Number.isNaN(kickoff.getTime()) ? null : kickoff;
+}
+function hasEasternKickoffPassed(gameDate, gameTime, now = Date.now()) {
+  const kickoff = parseEasternKickoffToUTC(gameDate, gameTime);
+  return kickoff !== null && now >= kickoff.getTime();
+}
+
 // server/nflWeekKickoffCheck.ts
 init_supabaseAdmin();
 var TANK01_BASE_URL = "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
@@ -81222,20 +81259,7 @@ async function writeGamesCache(cacheKey, rawBody, games) {
   }
 }
 function hasKickoffTimePassed(gameDate, gameTime) {
-  if (!gameDate || !gameTime || gameDate.length < 8) return false;
-  const year2 = parseInt(gameDate.slice(0, 4), 10);
-  const month = parseInt(gameDate.slice(4, 6), 10) - 1;
-  const day2 = parseInt(gameDate.slice(6, 8), 10);
-  const timeMatch = gameTime.match(/(\d+):(\d+)([ap])/i);
-  if (!timeMatch) return false;
-  let hours = parseInt(timeMatch[1], 10);
-  const mins = parseInt(timeMatch[2], 10);
-  const ampm = timeMatch[3].toLowerCase();
-  if (ampm === "p" && hours !== 12) hours += 12;
-  if (ampm === "a" && hours === 12) hours = 0;
-  const offsetHours = 4;
-  const kickoffUTC = new Date(Date.UTC(year2, month, day2, hours + offsetHours, mins, 0));
-  return Date.now() >= kickoffUTC.getTime();
+  return hasEasternKickoffPassed(gameDate, gameTime);
 }
 function hasGameStarted(game) {
   return Boolean(game.gameStatus && game.gameStatus !== "Scheduled") || hasKickoffTimePassed(game.gameDate, game.gameTime);

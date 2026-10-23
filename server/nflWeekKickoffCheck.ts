@@ -17,6 +17,7 @@
  */
 
 import { normalizeNFLTeamCode } from "../shared/nflTeamCodes";
+import { hasEasternKickoffPassed } from "../shared/nflKickoffTime";
 import { supabaseAdmin } from "./supabaseAdmin";
 
 const TANK01_BASE_URL = "https://tank01-nfl-live-in-game-real-time-statistics-nfl.p.rapidapi.com";
@@ -93,25 +94,10 @@ async function writeGamesCache(cacheKey: string, rawBody: string, games: Tank01G
   }
 }
 
-/** Same Date.UTC-based kickoff computation as the client-side
- * isGameActive/isPlayerLocked fixes -- string-interpolated ISO
- * construction doesn't handle hour overflow (8pm+ ET kickoffs) and
- * silently produces an Invalid Date instead. */
+/** Has this game's Eastern kickoff time passed? Uses the real Eastern offset for
+ * that date (EDT before Nov 1 2026, EST after) -- see shared/nflKickoffTime.ts. */
 function hasKickoffTimePassed(gameDate: string | undefined, gameTime: string | undefined): boolean {
-  if (!gameDate || !gameTime || gameDate.length < 8) return false;
-  const year = parseInt(gameDate.slice(0, 4), 10);
-  const month = parseInt(gameDate.slice(4, 6), 10) - 1; // Date.UTC months are 0-indexed
-  const day = parseInt(gameDate.slice(6, 8), 10);
-  const timeMatch = gameTime.match(/(\d+):(\d+)([ap])/i);
-  if (!timeMatch) return false;
-  let hours = parseInt(timeMatch[1], 10);
-  const mins = parseInt(timeMatch[2], 10);
-  const ampm = timeMatch[3].toLowerCase();
-  if (ampm === "p" && hours !== 12) hours += 12;
-  if (ampm === "a" && hours === 12) hours = 0;
-  const offsetHours = 4; // EDT
-  const kickoffUTC = new Date(Date.UTC(year, month, day, hours + offsetHours, mins, 0));
-  return Date.now() >= kickoffUTC.getTime();
+  return hasEasternKickoffPassed(gameDate, gameTime);
 }
 
 function hasGameStarted(game: Tank01Game): boolean {
