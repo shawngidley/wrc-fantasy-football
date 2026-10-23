@@ -33,6 +33,7 @@ import { applyDraftLottery } from "../shared/draftLottery";
 import { DRAFT_PICKS_2026 } from "../client/src/lib/draftData2026";
 import { createTeamMediaSignedUploadUrl, TEAM_MEDIA_BUCKET_NAME } from "./storage";
 import { finalizeWeeklyResultsFromTank, weeklyRecordDelta } from "./weeklyResultsFinalize";
+import { replaceLineupRows } from "./lineupSave";
 import { assertLoginAllowed, assertStrongLeaguePin, clearLoginFailures, getClientIp, recordLoginFailure } from "./leagueLoginSecurity";
 import { nanoid } from "nanoid";
 import { randomInt } from "node:crypto";
@@ -585,18 +586,7 @@ export const appRouter = router({
       }))
       .mutation(async ({ input, ctx }) => {
         const teamId = ctx.teamSession.teamId;
-        const { error: deleteError } = await supabaseAdmin
-          .from("lineups")
-          .delete()
-          .eq("team_id", teamId)
-          .eq("week", input.week)
-          .eq("season", input.season);
-        if (deleteError) throw new Error("Unable to replace lineup");
-
-        const { error: insertError } = await supabaseAdmin.from("lineups").insert(
-          input.rows.map(row => ({ ...row, team_id: teamId, week: input.week, season: input.season })),
-        );
-        if (insertError) throw new Error("Unable to save lineup");
+        await replaceLineupRows(teamId, input.week, input.season, input.rows);
         return { teamId, saved: input.rows.length };
       }),
     commissionerSaveLineup: commissionerProcedure
@@ -616,18 +606,7 @@ export const appRouter = router({
         // specifies -- lets the commissioner set lineups on behalf of an
         // owner who's unavailable, rather than being limited to their own
         // team like every other teamProcedure caller.
-        const { error: deleteError } = await supabaseAdmin
-          .from("lineups")
-          .delete()
-          .eq("team_id", input.teamId)
-          .eq("week", input.week)
-          .eq("season", input.season);
-        if (deleteError) throw new Error("Unable to replace lineup");
-
-        const { error: insertError } = await supabaseAdmin.from("lineups").insert(
-          input.rows.map(row => ({ ...row, team_id: input.teamId, week: input.week, season: input.season })),
-        );
-        if (insertError) throw new Error("Unable to save lineup");
+        await replaceLineupRows(input.teamId, input.week, input.season, input.rows);
         return { teamId: input.teamId, saved: input.rows.length };
       }),
     draftQueue: teamProcedure

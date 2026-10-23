@@ -82515,6 +82515,24 @@ async function recomputeStandingsFromFinalizedResults(season) {
   return { season, teamsUpdated: totals.size };
 }
 
+// server/lineupSave.ts
+init_supabaseAdmin();
+function isMissingFunction(error46) {
+  return error46.code === "PGRST202" || error46.code === "42883" || /could not find the function|function [^]*? does not exist/i.test(error46.message ?? "");
+}
+async function replaceLineupRows(teamId, week2, season, rows, client2 = supabaseAdmin) {
+  const { error: error46 } = await client2.rpc("replace_lineup", { p_team_id: teamId, p_week: week2, p_season: season, p_rows: rows });
+  if (!error46) return;
+  if (!isMissingFunction(error46)) throw new Error("Unable to save lineup");
+  console.log(`[lineupSave] replace_lineup is unavailable (${error46.code ?? "no code"}: ${error46.message ?? ""}) -- falling back to delete+insert. Run supabase_replace_lineup.sql to restore the atomic save.`);
+  const { error: deleteError } = await client2.from("lineups").delete().eq("team_id", teamId).eq("week", week2).eq("season", season);
+  if (deleteError) throw new Error("Unable to replace lineup");
+  const { error: insertError } = await client2.from("lineups").insert(
+    rows.map((row) => ({ ...row, team_id: teamId, week: week2, season }))
+  );
+  if (insertError) throw new Error("Unable to save lineup");
+}
+
 // server/leagueLoginSecurity.ts
 var MAX_FAILURES = 5;
 var FAILURE_WINDOW_MS = 15 * 6e4;
@@ -91205,12 +91223,7 @@ var appRouter = router({
       })).min(1).max(30)
     })).mutation(async ({ input, ctx }) => {
       const teamId = ctx.teamSession.teamId;
-      const { error: deleteError } = await supabaseAdmin.from("lineups").delete().eq("team_id", teamId).eq("week", input.week).eq("season", input.season);
-      if (deleteError) throw new Error("Unable to replace lineup");
-      const { error: insertError } = await supabaseAdmin.from("lineups").insert(
-        input.rows.map((row) => ({ ...row, team_id: teamId, week: input.week, season: input.season }))
-      );
-      if (insertError) throw new Error("Unable to save lineup");
+      await replaceLineupRows(teamId, input.week, input.season, input.rows);
       return { teamId, saved: input.rows.length };
     }),
     commissionerSaveLineup: commissionerProcedure.input(external_exports.object({
@@ -91224,12 +91237,7 @@ var appRouter = router({
         is_bench: external_exports.boolean()
       })).min(1).max(30)
     })).mutation(async ({ input }) => {
-      const { error: deleteError } = await supabaseAdmin.from("lineups").delete().eq("team_id", input.teamId).eq("week", input.week).eq("season", input.season);
-      if (deleteError) throw new Error("Unable to replace lineup");
-      const { error: insertError } = await supabaseAdmin.from("lineups").insert(
-        input.rows.map((row) => ({ ...row, team_id: input.teamId, week: input.week, season: input.season }))
-      );
-      if (insertError) throw new Error("Unable to save lineup");
+      await replaceLineupRows(input.teamId, input.week, input.season, input.rows);
       return { teamId: input.teamId, saved: input.rows.length };
     }),
     draftQueue: teamProcedure.input(external_exports.object({ season: external_exports.number().int().min(2020).max(2100) })).query(async ({ input, ctx }) => {

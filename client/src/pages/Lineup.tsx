@@ -17,6 +17,7 @@ import TeamLogo from "@/components/TeamLogo";
 import { useNFLMatchups, formatMatchup, formatGameTime, type NFLMatchupMap } from "@/hooks/useNFLMatchups";
 import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections";
 import { useLineupPersistence } from "@/hooks/useLineupPersistence";
+import { createLineupAutosaver, type AutosaveStatus } from "@/lib/lineupAutosaver";
 import { useNFLLiveScores, getLivePoints } from "@/hooks/useNFLLiveScores";
 import { useWeeklyResultsWriter } from "@/hooks/useWeeklyResultsWriter";
 import { useLeagueWeekMedian } from "@/hooks/useLeagueWeekMedian";
@@ -667,6 +668,41 @@ export default function Lineup() {
     ownerTeamId, currentWeek, 2026, isCommissionerEditingOtherTeam
   );
 
+  // Autosave. Every save (manual, optimizer, autosave) goes through one
+  // single-flight saver so two saves can never overlap on the server. An owner
+  // edit saves after a short pause. A commissioner editing another team's
+  // lineup keeps the manual Save button only, so a stray click can't rewrite
+  // someone else's lineup.
+  const autosaveEnabled = !isReadOnly && !isCommissionerEditingOtherTeam && Boolean(ownerTeamId);
+  const [autosaveStatus, setAutosaveStatus] = useState<AutosaveStatus>("idle");
+  const saveLineupRef = useRef(saveLineup);
+  saveLineupRef.current = saveLineup;
+  const autosaverRef = useRef<ReturnType<typeof createLineupAutosaver<Parameters<typeof saveLineup>[0]>> | null>(null);
+  if (autosaverRef.current === null) {
+    autosaverRef.current = createLineupAutosaver<Parameters<typeof saveLineup>[0]>({
+      delayMs: 1500,
+      save: rows => saveLineupRef.current(rows),
+      onStatus: setAutosaveStatus,
+    });
+  }
+  const autosaver = autosaverRef.current;
+  // Send a waiting edit when the page is hidden or leaves (best effort on close).
+  useEffect(() => {
+    const flush = () => { if (document.visibilityState === "hidden") autosaver.flush(); };
+    const flushOnLeave = () => autosaver.flush();
+    document.addEventListener("visibilitychange", flush);
+    window.addEventListener("pagehide", flushOnLeave);
+    return () => {
+      document.removeEventListener("visibilitychange", flush);
+      window.removeEventListener("pagehide", flushOnLeave);
+      autosaver.flush();
+    };
+  }, [autosaver]);
+  // Declared after the flush effect on purpose: on unmount cleanups run in
+  // order, so the waiting edit is sent first and only then is the queue cleared.
+  // A different team or week drops any waiting edit rather than writing it to the wrong lineup.
+  useEffect(() => () => { autosaver.cancel(); setAutosaveStatus("idle"); }, [autosaver, ownerTeamId, currentWeek]);
+
   // Live in-game score polling (Tank01 box scores)
   const { liveScores, liveStats, isPolling, lastUpdated, kickerEvents } = useNFLLiveScores(
     currentWeek, 2026, matchupMap
@@ -822,6 +858,7 @@ export default function Lineup() {
   const benchRef = useRef<Player[]>([]);
   const startersRef = useRef<Player[]>([]);
   const savedLineupRef = useRef<Record<string, string> | null>(null);
+  const lastSeededRosterRef = useRef<unknown>(null);
   useEffect(() => { benchRef.current = bench; }, [bench]);
   useEffect(() => { startersRef.current = starters; }, [starters]);
   useEffect(() => { savedLineupRef.current = savedLineup; }, [savedLineup]);
@@ -850,6 +887,12 @@ export default function Lineup() {
       }
       return;
     }
+    // While an autosave is waiting or running, the saved lineup coming back
+    // from the server is older than what is on screen. Re-applying it would
+    // undo the owner's latest swap, so skip it. A real roster change still goes through.
+    const rosterChanged = lastSeededRosterRef.current !== liveRoster;
+    lastSeededRosterRef.current = liveRoster;
+    if (!rosterChanged && autosaverRef.current?.isBusy() && startersRef.current.length > 0) return;
     const newStarters = withProj(liveRoster.starters);
     const newBench = withProj(liveRoster.bench);
     const allPlayers = [...newStarters, ...newBench];
@@ -979,7 +1022,7 @@ export default function Lineup() {
       setTimeout(() => setOptimized(false), 2500);
       return;
     }
-    const ok = await saveLineup(buildLineupRows(newStarters, newBench));
+    const ok = await autosaver.saveNow(buildLineupRows(newStarters, newBench));
     if (ok) {
       toast.success("Best lineup set and saved!");
       setOptimized(true);
@@ -1030,6 +1073,7 @@ export default function Lineup() {
     ns[bi] = { ...ns[bi], slot: slotA };
     setStarters(ns);
     setSelectedId(null);
+    if (autosaveEnabled) autosaver.schedule(buildLineupRows(ns, bench));
   };
 
   const doSwap = (starterId: string, benchId: string) => {
@@ -1045,6 +1089,7 @@ export default function Lineup() {
     setStarters(ns);
     setBench(nb);
     setSelectedId(null);
+    if (autosaveEnabled) autosaver.schedule(buildLineupRows(ns, nb));
   };
 
   const handleTableSelect = (player: Player) => {
@@ -1077,7 +1122,7 @@ export default function Lineup() {
     // indication of why -- exactly this class of silent failure.
     const rows = buildLineupRows(starters, bench);
     console.log("[Lineup] handleSave — ownerTeamId:", ownerTeamId, "starters:", starters.length, "bench:", bench.length);
-    const ok = await saveLineup(rows);
+    const ok = await autosaver.saveNow(rows);
     if (ok) {
       toast.success("Lineup saved!");
       setSaved(true);
@@ -1211,6 +1256,18 @@ export default function Lineup() {
                   <Zap size={13} />
                   {saving ? "Saving..." : optimized ? "Optimized!" : "Best Lineup"}
                 </button>
+              )}
+              {/* Autosave status */}
+              {autosaveEnabled && !lineupLocked && autosaveStatus !== "idle" && (
+                autosaveStatus === "error" ? (
+                  <button type="button" onClick={() => { void autosaver.retry(); }} style={{ background: "none", border: "none", color: "#ef4444", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", fontWeight: 700, letterSpacing: "0.04em", cursor: "pointer", textDecoration: "underline" }}>
+                    Couldn't save · Retry
+                  </button>
+                ) : (
+                  <span aria-live="polite" style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.78rem", letterSpacing: "0.04em", color: autosaveStatus === "saved" ? "oklch(0.42 0.15 150)" : "oklch(0.5 0.04 150)" }}>
+                    {autosaveStatus === "saved" ? "Saved ✓" : autosaveStatus === "saving" ? "Saving…" : "Saving soon…"}
+                  </span>
+                )
               )}
               {/* Save button */}
               {lineupLocked ? (
