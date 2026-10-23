@@ -34,6 +34,7 @@ import { DRAFT_PICKS_2026 } from "../client/src/lib/draftData2026";
 import { createTeamMediaSignedUploadUrl, TEAM_MEDIA_BUCKET_NAME } from "./storage";
 import { finalizeWeeklyResultsFromTank, weeklyRecordDelta } from "./weeklyResultsFinalize";
 import { replaceLineupRows } from "./lineupSave";
+import { assertLineupMovesAllowed } from "./lineupLockGuard";
 import { assertLoginAllowed, assertStrongLeaguePin, clearLoginFailures, getClientIp, recordLoginFailure } from "./leagueLoginSecurity";
 import { nanoid } from "nanoid";
 import { randomInt } from "node:crypto";
@@ -586,6 +587,12 @@ export const appRouter = router({
       }))
       .mutation(async ({ input, ctx }) => {
         const teamId = ctx.teamSession.teamId;
+        // The commissioner can override kickoff locks (the Lineup page does
+        // the same for them -- bypassLocks = isCommissioner); everyone else
+        // can't move a player whose game has started.
+        if (!ctx.teamSession.isCommissioner) {
+          await assertLineupMovesAllowed({ teamId, week: input.week, season: input.season, rows: input.rows });
+        }
         await replaceLineupRows(teamId, input.week, input.season, input.rows);
         return { teamId, saved: input.rows.length };
       }),

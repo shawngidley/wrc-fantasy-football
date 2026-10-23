@@ -82533,6 +82533,60 @@ async function replaceLineupRows(teamId, week2, season, rows, client2 = supabase
   if (insertError) throw new Error("Unable to save lineup");
 }
 
+// shared/lineupMoves.ts
+var BENCH = "BENCH";
+var normalizeSlot = (slot) => slot.replace(/^(RB|WR|TE)\d+$/, "$1");
+function findMovedLineupPlayers(baselineStarters, newRows, roster) {
+  const before = /* @__PURE__ */ new Map();
+  for (const { slot, player } of baselineStarters) before.set(player.id, normalizeSlot(slot));
+  const byName = new Map(roster.map((p) => [normalizePlayerName(p.name), p]));
+  const after = /* @__PURE__ */ new Map();
+  for (const row of newRows) {
+    const player = byName.get(normalizePlayerName(row.player_name));
+    if (!player) continue;
+    after.set(player.id, row.is_bench ? BENCH : normalizeSlot(row.slot));
+  }
+  return roster.filter((p) => (before.get(p.id) ?? BENCH) !== (after.get(p.id) ?? BENCH));
+}
+
+// server/lineupLockGuard.ts
+init_supabaseAdmin();
+var defaultDeps = {
+  async loadRoster(teamId) {
+    const { data, error: error46 } = await supabaseAdmin.from("players").select("id, name, position, nfl_team, team_id").eq("team_id", teamId);
+    if (error46) throw new Error("Unable to load your roster.");
+    return data ?? [];
+  },
+  loadSavedLineup: (week2, season, teamId) => resolveLineupsForWeek(week2, season, teamId),
+  hasGameStarted: hasPlayerTeamGameStarted
+};
+async function assertLineupMovesAllowed(input, deps = defaultDeps) {
+  const [roster, saved] = await Promise.all([
+    deps.loadRoster(input.teamId),
+    deps.loadSavedLineup(input.week, input.season, input.teamId)
+  ]);
+  const byName = new Map(roster.map((p) => [normalizePlayerName(p.name), p]));
+  const baseline = saved.flatMap((row) => {
+    if (row.is_bench) return [];
+    const player = byName.get(normalizePlayerName(row.player_name));
+    return player ? [{ slot: row.slot, player }] : [];
+  });
+  const moved = findMovedLineupPlayers(baseline, input.rows, roster);
+  if (moved.length === 0) return;
+  for (const nflTeam of Array.from(new Set(moved.map((p) => p.nfl_team)))) {
+    let started;
+    try {
+      started = await deps.hasGameStarted(nflTeam, input.week, input.season);
+    } catch {
+      throw new Error("Couldn't verify kickoff times to save this lineup. Please try again in a minute.");
+    }
+    if (started) {
+      const player = moved.find((p) => p.nfl_team === nflTeam);
+      throw new Error(`${player.name}'s game has already started, so they can't be moved in or out of your lineup this week.`);
+    }
+  }
+}
+
 // server/leagueLoginSecurity.ts
 var MAX_FAILURES = 5;
 var FAILURE_WINDOW_MS = 15 * 6e4;
@@ -91223,6 +91277,9 @@ var appRouter = router({
       })).min(1).max(30)
     })).mutation(async ({ input, ctx }) => {
       const teamId = ctx.teamSession.teamId;
+      if (!ctx.teamSession.isCommissioner) {
+        await assertLineupMovesAllowed({ teamId, week: input.week, season: input.season, rows: input.rows });
+      }
       await replaceLineupRows(teamId, input.week, input.season, input.rows);
       return { teamId, saved: input.rows.length };
     }),
