@@ -659,7 +659,21 @@ export default function Standings() {
               <div className="wrc-card-gold-stripe" />
               <div className="wrc-division-header">{division.name}</div>
               <div style={{ overflowX: "auto" }}>
-                <table className="wrc-table" style={{ minWidth: 680 }}>
+                <table className="wrc-table" style={{ minWidth: 700, tableLayout: "fixed" }}>
+                  {/* Fixed column widths, the same in every division's table, so the
+                      columns line up from one division to the next. With automatic
+                      widths each table sized itself to its own team names. The Team
+                      column takes whatever width is left. */}
+                  <colgroup>
+                    <col style={{ width: 28 }} />
+                    <col />
+                    <col style={{ width: 56 }} />
+                    <col style={{ width: 44 }} />
+                    <col style={{ width: 64 }} />
+                    {Array.from({ length: 6 }, (_, i) => <col key={i} style={{ width: 40 }} />)}
+                    <col style={{ width: 64 }} />
+                    <col style={{ width: 64 }} />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th style={{ width: 28, padding: "0.4rem 0.25rem", fontSize: "0.65rem" }}></th>
