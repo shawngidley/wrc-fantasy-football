@@ -7,9 +7,9 @@ describe("formatMinutesLeft", () => {
     expect(formatMinutesLeft(247.4)).toBe("247");
     expect(formatMinutesLeft(0.6)).toBe("1");
   });
-  it("says Done once every starter's game is over", () => {
-    expect(formatMinutesLeft(0)).toBe("Done");
-    expect(formatMinutesLeft(0.4)).toBe("Done");
+  it("shows 0 once every starter's game is over", () => {
+    expect(formatMinutesLeft(0)).toBe("0");
+    expect(formatMinutesLeft(0.4)).toBe("0");
   });
   it("shows a dash when there is no number", () => {
     expect(formatMinutesLeft(undefined)).toBe("—");
@@ -17,6 +17,6 @@ describe("formatMinutesLeft", () => {
     expect(formatMinutesLeft(Number.NaN)).toBe("—");
   });
   it("never shows a negative", () => {
-    expect(formatMinutesLeft(-3)).toBe("Done");
+    expect(formatMinutesLeft(-3)).toBe("0");
   });
 });

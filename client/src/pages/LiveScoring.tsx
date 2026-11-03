@@ -1654,7 +1654,7 @@ export default function LiveScoring() {
               })()}
             </div>
             <div style={{ padding: "0.45rem 0.75rem", fontSize: "0.68rem", color: "oklch(0.5 0.04 150)", background: "oklch(0.98 0.005 150)" }}>
-              Min left: game minutes still to play across each team's 10 starters (600 before kickoff, Done when every game is final).
+              Min left: game minutes still to play across each team's 10 starters (600 before kickoff, 0 when every game is final).
             </div>
           </div>
         )}
