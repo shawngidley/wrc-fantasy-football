@@ -63,12 +63,6 @@ type DbStanding = {
   streak: string;
 };
 
-const OWNER_DIVISION: Record<string, string> = {
-  "Jonas": "East", "David R.": "East", "Jason": "East", "Jamie": "East",
-  "Keith": "Central", "Dan": "Central", "Scott N.": "Central", "Bill": "Central",
-  "Scott M.": "West", "David S.": "West", "Shawn": "West", "Greg": "West",
-};
-
 function newStreak(current: string, won: boolean): string {
   const letter = won ? "W" : "L";
   const match = current?.match(/^([WL])(\d+)$/);

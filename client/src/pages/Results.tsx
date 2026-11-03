@@ -56,22 +56,6 @@ type DbStanding = {
   streak: string;
 };
 
-// Division lookup for each owner
-const OWNER_DIVISION: Record<string, string> = {
-  "Jonas":    "East",
-  "David R.": "East",
-  "Jason":    "East",
-  "Jamie":    "East",
-  "Keith":    "Central",
-  "Dan":      "Central",
-  "Scott N.": "Central",
-  "Bill":     "Central",
-  "Scott M.": "West",
-  "David S.": "West",
-  "Shawn":    "West",
-  "Greg":     "West",
-};
-
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function newStreak(current: string, won: boolean): string {

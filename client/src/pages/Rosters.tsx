@@ -38,25 +38,11 @@ const POS_COLORS: Record<string, { bg: string; text: string }> = {
   DST: { bg: "oklch(0.92 0.04 0)",   text: "oklch(0.35 0.08 0)"   },
 };
 
-// Division membership from wrcData (source of truth for division assignment)
-const TEAM_DIVISION: Record<string, "East" | "Central" | "West"> = {};
-for (const t of TEAMS) TEAM_DIVISION[t.id] = t.division;
-
-// team_id → division
-const TEAM_ID_DIVISION: Record<string, "East" | "Central" | "West"> = {
-  "team-jonas":   "East",
-  "team-davidr":  "East",
-  "team-jason":   "East",
-  "team-jamie":   "East",
-  "team-keith":   "Central",
-  "team-dan":     "Central",
-  "team-bill":    "Central",
-  "team-scottn":  "Central",
-  "team-shawn":   "West",
-  "team-davids":  "West",
-  "team-greg":    "West",
-  "team-scottm":  "West",
-};
+// Division membership comes from wrcData, the single source for it (and it
+// matches the schedule: teams in a division play each other twice).
+// team_id is "team-<id>", e.g. "team-keith".
+const TEAM_ID_DIVISION: Record<string, "East" | "Central" | "West"> = {};
+for (const t of TEAMS) TEAM_ID_DIVISION[`team-${t.id}`] = t.division;
 
 const DIVISIONS = ["East", "Central", "West"] as const;
 
