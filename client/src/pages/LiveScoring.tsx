@@ -16,6 +16,7 @@ import { supabase } from "@/lib/supabase";
 import { SCHEDULE_2026, OWNER_TO_TEAM, getLineupDefaultWeek } from "@/lib/scheduleData2026";
 import { useNFLMatchups, formatGameTime } from "@/hooks/useNFLMatchups";
 import { useNFLGameStatus, minutesRemainingInGame, type NFLGameStatusMap } from "@/hooks/useNFLGameStatus";
+import { formatMinutesLeft } from "@/lib/liveMinutes";
 import { normalizeNFLTeamCode as normalizeNFLTeam } from "@shared/nflTeamCodes";
 import { useNFLLiveScores, getLivePoints, getLiveStats } from "@/hooks/useNFLLiveScores";
 import { buildStatChips } from "@/lib/scoringEngine";
@@ -1580,13 +1581,22 @@ export default function LiveScoring() {
                 Median: {median.toFixed(1)} pts
               </span>
             </div>
+            {/* Column labels. Team names truncate on a phone, so the numbers keep fixed widths. */}
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.3rem 0.75rem", borderBottom: "1px solid oklch(0.93 0.01 150)", background: "oklch(0.98 0.005 150)", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.62rem", fontWeight: 700, letterSpacing: "0.08em", color: "oklch(0.55 0.04 150)", textTransform: "uppercase" as const }}>
+              <span style={{ width: 16, flexShrink: 0 }} />
+              <span style={{ width: 8, flexShrink: 0 }} />
+              <span style={{ flex: 1, minWidth: 0 }}>Team</span>
+              <span style={{ width: 44, textAlign: "right" as const, flexShrink: 0 }}>Pts</span>
+              <span style={{ width: 44, textAlign: "right" as const, flexShrink: 0 }}>Proj</span>
+              <span title="Game minutes left across a team's 10 starters (600 before kickoff)" style={{ width: 52, textAlign: "right" as const, flexShrink: 0, whiteSpace: "nowrap" as const }}>Min left</span>
+            </div>
             <div>
               {(() => {
                 // Build sorted list of all teams with their scores
                 const gamesStarted = displayMatchups.some(m => m.home.score > 0 || m.away.score > 0);
                 const allTeams = displayMatchups.flatMap(m => [
-                  { team: m.home.team, score: m.home.score, proj: m.home.projected },
-                  { team: m.away.team, score: m.away.score, proj: m.away.projected },
+                  { team: m.home.team, score: m.home.score, proj: m.home.projected, mins: m.home.minutesRemaining },
+                  { team: m.away.team, score: m.away.score, proj: m.away.projected, mins: m.away.minutesRemaining },
                 ]).sort((a, b) => gamesStarted ? b.score - a.score : b.proj - a.proj);
 
                 // Compute median based on same sort key
@@ -1609,8 +1619,8 @@ export default function LiveScoring() {
                   return (
                     <div key={t.team}>
                       <div style={{
-                        display: "flex", alignItems: "center", gap: "0.6rem",
-                        padding: "0.45rem 1rem",
+                        display: "flex", alignItems: "center", gap: "0.5rem",
+                        padding: "0.45rem 0.75rem",
                         borderBottom: "1px solid oklch(0.95 0.003 150)",
                         background: isAbove ? "oklch(0.97 0.02 150)" : "white",
                       }}>
@@ -1621,16 +1631,20 @@ export default function LiveScoring() {
                         {/* Team name */}
                         <span style={{ flex: 1, fontSize: "0.82rem", fontWeight: 600, color: "oklch(0.22 0.06 150)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{t.team}</span>
                         {/* Score */}
-                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1rem", color: "oklch(0.22 0.08 150)", flexShrink: 0 }}>
+                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "1rem", color: "oklch(0.22 0.08 150)", flexShrink: 0, width: 44, textAlign: "right" }}>
                           {gamesStarted ? t.score.toFixed(1) : <span style={{ color: "oklch(0.55 0.04 150)", fontSize: "0.82rem" }}>—</span>}
                         </span>
                         {/* Proj */}
-                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: gamesStarted ? "0.68rem" : "0.88rem", fontWeight: gamesStarted ? 400 : 700, color: gamesStarted ? "oklch(0.55 0.04 150)" : "oklch(0.22 0.08 150)", flexShrink: 0, minWidth: 52, textAlign: "right" }}>
-                          {gamesStarted ? `Proj ${t.proj.toFixed(1)}` : t.proj.toFixed(1)}
+                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: gamesStarted ? "0.68rem" : "0.88rem", fontWeight: gamesStarted ? 400 : 700, color: gamesStarted ? "oklch(0.55 0.04 150)" : "oklch(0.22 0.08 150)", flexShrink: 0, width: 44, textAlign: "right" }}>
+                          {t.proj.toFixed(1)}
+                        </span>
+                        {/* Game minutes left across the team's 10 starters */}
+                        <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.82rem", fontWeight: 700, color: t.mins > 0 ? "oklch(0.35 0.08 150)" : "oklch(0.6 0.04 150)", flexShrink: 0, width: 52, textAlign: "right" }}>
+                          {formatMinutesLeft(t.mins)}
                         </span>
                       </div>
                       {showMedianLine && (
-                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.25rem 1rem", background: "oklch(0.97 0.04 85 / 0.35)", borderTop: "1.5px dashed oklch(0.78 0.15 85)", borderBottom: "1.5px dashed oklch(0.78 0.15 85)" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.25rem 0.75rem", background: "oklch(0.97 0.04 85 / 0.35)", borderTop: "1.5px dashed oklch(0.78 0.15 85)", borderBottom: "1.5px dashed oklch(0.78 0.15 85)" }}>
                           <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.65rem", fontWeight: 700, letterSpacing: "0.08em", color: "oklch(0.45 0.12 85)", textTransform: "uppercase" }}>── MEDIAN LINE · {displayMedian.toFixed(1)} pts ──</span>
                         </div>
                       )}
@@ -1638,6 +1652,9 @@ export default function LiveScoring() {
                   );
                 });
               })()}
+            </div>
+            <div style={{ padding: "0.45rem 0.75rem", fontSize: "0.68rem", color: "oklch(0.5 0.04 150)", background: "oklch(0.98 0.005 150)" }}>
+              Min left: game minutes still to play across each team's 10 starters (600 before kickoff, Done when every game is final).
             </div>
           </div>
         )}
