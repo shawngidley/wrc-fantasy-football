@@ -322,7 +322,7 @@ describe("standingsThroughWeek head to head records", () => {
   const game = (week: number, h: number, a: number, hs: number, as: number): ResultRow =>
     ({ week, home_owner: `O${h}`, away_owner: `O${a}`, home_score: hs, away_score: as, is_final: true });
 
-  it("counts each game for the winner and loser, and ignores ties and playoff weeks", () => {
+  it("counts each game for the winner and loser, twice for division mates, and ignores ties and playoff weeks", () => {
     const lines = standingsThroughWeek(teams, [
       game(1, 0, 1, 100, 90),
       game(5, 1, 0, 110, 95),
