@@ -1,3 +1,4 @@
+import { isPlayoffWeek } from "@/lib/playoffPicture";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { useNFLMatchups } from "@/hooks/useNFLMatchups";
@@ -108,5 +109,6 @@ export function useLeagueWeekMedian(teamIds: readonly string[], week: number): U
     return scores.length % 2 === 0 ? (scores[mid - 1] + scores[mid]) / 2 : scores[mid];
   }, [scoresByTeam]);
 
-  return { median, scoresByTeam, loading };
+  // There is no league median in the playoffs.
+  return { median: isPlayoffWeek(week) ? null : median, scoresByTeam, loading };
 }

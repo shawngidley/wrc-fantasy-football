@@ -343,6 +343,45 @@ export const SCHEDULE_2026: ScheduleWeek[] = [
   },
 ];
 
+/** How many games each playoff week has: Wild Card 2, Divisional 2, Super Bowl 1. */
+const PLAYOFF_GAMES_PER_WEEK: Record<number, number> = { 15: 2, 16: 2, 17: 1 };
+
+export interface PlayoffMatchupRow {
+  week: number;
+  home_owner: string;
+  away_owner: string;
+}
+
+/**
+ * Replaces the "TBD" playoff matchups in a schedule with the real games once
+ * they exist. The playoff games aren't known until the regular season ends, so
+ * they are saved as weekly_results rows and read back here. Rows must come in
+ * the order they were created, so the first Wild Card row stays Game 1.
+ *
+ * Changes the schedule it is given, which is how every page that reads
+ * SCHEDULE_2026 sees the real games without needing its own change. A playoff
+ * week with no rows goes back to "TBD". Regular season weeks are never touched.
+ * Returns true if anything changed.
+ */
+export function applyPlayoffMatchups(schedule: ScheduleWeek[], rows: readonly PlayoffMatchupRow[]): boolean {
+  let changed = false;
+  for (const entry of schedule) {
+    const gameCount = PLAYOFF_GAMES_PER_WEEK[entry.week];
+    if (entry.type === "regular" || gameCount === undefined) continue;
+    const weekRows = rows.filter(row => row.week === entry.week);
+    const next: MatchupPair[] = weekRows.length > 0
+      ? weekRows.map(row => [row.home_owner, row.away_owner] as MatchupPair)
+      : Array.from({ length: gameCount }, () => ["TBD", "TBD"] as MatchupPair);
+    const same = next.length === entry.matchups.length
+      && next.every((pair, i) => pair[0] === entry.matchups[i][0] && pair[1] === entry.matchups[i][1]);
+    if (!same) {
+      entry.matchups = next;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 /** Returns the team name for a given owner key, or the key itself if not found */
 export function ownerToTeam(owner: string): string {
   return OWNER_TO_TEAM[owner] ?? owner;

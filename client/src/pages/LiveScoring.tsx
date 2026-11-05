@@ -14,6 +14,8 @@ import { toast } from "sonner";
 import TeamLogo from "@/components/TeamLogo";
 import { supabase } from "@/lib/supabase";
 import { SCHEDULE_2026, OWNER_TO_TEAM, getLineupDefaultWeek } from "@/lib/scheduleData2026";
+import { isPlayoffWeek } from "@/lib/playoffPicture";
+import { usePlayoffScheduleVersion } from "@/lib/playoffScheduleSync";
 import { useNFLMatchups, formatGameTime } from "@/hooks/useNFLMatchups";
 import { useNFLGameStatus, minutesRemainingInGame, type NFLGameStatusMap } from "@/hooks/useNFLGameStatus";
 import { formatMinutesLeft } from "@/lib/liveMinutes";
@@ -1363,6 +1365,8 @@ export default function LiveScoring() {
   const [currentWeek, setCurrentWeek] = useState<number>(getWeekFromUrl);
 
   // Live NFL matchup map (for game info + polling)
+  // Reload the matchups when the real playoff games get added to the schedule.
+  const playoffScheduleVersion = usePlayoffScheduleVersion();
   const { matchups: nflMatchupMap } = useNFLMatchups(currentWeek);
   // Live per-team game status (pre/in/post), for the playing-now/yet-to-play/time-left display
   const { gameStatus: nflGameStatus } = useNFLGameStatus(nflMatchupMap);
@@ -1390,6 +1394,7 @@ export default function LiveScoring() {
     // referencing it directly would recreate the callback (and trigger
     // one extra fetch) the moment the initial load completes.
     const isInitialLoad = !hasLoadedOnceRef.current;
+    void playoffScheduleVersion; // a new value means the playoff games changed; this callback re-runs
     if (isInitialLoad) setLoading(true);
     try {
       const lineupRows = await trpcUtils.league.lineupsForWeek.fetch({ week: currentWeek, season: 2026 });
@@ -1405,7 +1410,7 @@ export default function LiveScoring() {
     setLastRefresh(new Date());
     hasLoadedOnceRef.current = true;
     if (isInitialLoad) setLoading(false);
-  }, [currentWeek, liveScores, liveStats, kickerEvents, projections, nflMatchupMap, draftPlayerPool, nflGameStatus]);
+  }, [currentWeek, liveScores, liveStats, kickerEvents, projections, nflMatchupMap, draftPlayerPool, nflGameStatus, playoffScheduleVersion]);
 
   // Reload matchups whenever live scores or projections update
   useEffect(() => {
@@ -1577,9 +1582,11 @@ export default function LiveScoring() {
             <div className="wrc-card-gold-stripe" />
             <div className="wrc-card-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span>League Scoreboard</span>
-              <span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.16 85)", fontWeight: 700 }}>
-                Median: {median.toFixed(1)} pts
-              </span>
+              {!isPlayoffWeek(currentWeek) && (
+                <span style={{ fontSize: "0.72rem", color: "oklch(0.55 0.16 85)", fontWeight: 700 }}>
+                  Median: {median.toFixed(1)} pts
+                </span>
+              )}
             </div>
             {/* Column labels. Team names truncate on a phone, so the numbers keep fixed widths. */}
             <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.3rem 0.75rem", borderBottom: "1px solid oklch(0.93 0.01 150)", background: "oklch(0.98 0.005 150)", fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.62rem", fontWeight: 700, letterSpacing: "0.08em", color: "oklch(0.55 0.04 150)", textTransform: "uppercase" as const }}>
@@ -1603,7 +1610,8 @@ export default function LiveScoring() {
                 const sortKey = (t: { score: number; proj: number }) => gamesStarted ? t.score : t.proj;
                 const sortedVals = [...allTeams].map(sortKey).sort((a, b) => a - b);
                 const midIdx = Math.floor(sortedVals.length / 2);
-                const displayMedian = sortedVals.length > 0
+                // No median in the playoffs, so no median line or above/below dots.
+                const displayMedian = sortedVals.length > 0 && !isPlayoffWeek(currentWeek)
                   ? (sortedVals.length % 2 === 0 ? (sortedVals[midIdx - 1] + sortedVals[midIdx]) / 2 : sortedVals[midIdx])
                   : 0;
 

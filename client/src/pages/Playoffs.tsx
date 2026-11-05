@@ -5,7 +5,9 @@
  *   1. Seeding table: the six seeds, the playoff line, and everyone else
  *   2. Clinch tracker: clinched division / clinched playoff / eliminated
  *   3. Picture by week: pick any finished week, see seed moves since the week before
- *   4. Bracket: Wild Card (Wk 15), Semifinals (Wk 16), Championship (Wk 17)
+ *   4. Magic numbers and tiebreaker notes, shown under each team
+ *   5. Remaining schedule strength
+ *   6. Bracket: Wild Card (Wk 15), Semifinals (Wk 16), Championship (Wk 17)
  * Seeding is by most wins; see lib/playoffPicture.ts for the rules.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -13,18 +15,23 @@ import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { TEAMS } from "@/lib/wrcData";
+import { SCHEDULE_2026 } from "@/lib/scheduleData2026";
 import { Trophy } from "lucide-react";
 import {
   REGULAR_SEASON_WEEKS,
   buildBracket,
   clinchStatuses,
   finalRegularSeasonWeeks,
+  magicNumbers,
+  remainingSchedule,
   seedField,
   seedMovement,
   standingsThroughWeek,
+  tiebreakNotes,
   type BracketGame,
   type BracketSide,
   type ClinchStatus,
+  type MagicNumbers,
   type ResultRow,
 } from "@/lib/playoffPicture";
 
@@ -47,6 +54,17 @@ function StatusBadge({ status }: { status: ClinchStatus }) {
       {badge.text}
     </span>
   );
+}
+
+/** The "what does this team need" line shown under its name, or null if there is nothing to say. */
+function magicLine(status: ClinchStatus, magic: MagicNumbers | undefined, gamesLeft: number): string | null {
+  if (gamesLeft <= 0 || !magic || status === "eliminated" || status === "division") return null;
+  const wins = (n: number) => `${n} more ${n === 1 ? "win" : "wins"}`;
+  if (status === "playoff") return magic.toClinchDivision !== null ? `Division title with ${wins(magic.toClinchDivision)}` : null;
+  const parts: string[] = [];
+  parts.push(magic.toClinch !== null ? `Clinch with ${wins(magic.toClinch)}` : "Can't clinch yet");
+  if (magic.toStayAlive !== null && magic.toStayAlive > 0) parts.push(`needs ${wins(magic.toStayAlive)} to stay alive`);
+  return parts.join(" · ");
 }
 
 function Movement({ change, isNew }: { change: number; isNew: boolean }) {
@@ -173,7 +191,13 @@ export default function Playoffs() {
     const field = seedField(lines);
     const status = clinchStatuses(lines, REGULAR_SEASON_WEEKS - viewWeek);
     const before = viewWeek > 1 ? seedField(standingsThroughWeek(PLAYOFF_TEAMS, rows, viewWeek - 1)).seeds : null;
-    return { field, status, movement: seedMovement(before, field.seeds), hasBefore: before !== null };
+    return {
+      field, status, lines,
+      movement: seedMovement(before, field.seeds), hasBefore: before !== null,
+      magic: magicNumbers(lines, REGULAR_SEASON_WEEKS - viewWeek),
+      notes: tiebreakNotes(field),
+      remaining: remainingSchedule(SCHEDULE_2026, lines, viewWeek),
+    };
   }, [rows, viewWeek]);
 
   // The bracket always follows the newest standings, not the week being browsed.
@@ -192,6 +216,8 @@ export default function Playoffs() {
     const status = picture.status.get(line.owner) ?? "alive";
     const move = picture.movement.get(line.owner);
     const mine = myTeam === line.teamName;
+    const magicText = magicLine(status, picture.magic.get(line.owner), gamesLeft);
+    const tieNote = picture.notes.get(line.owner);
     return (
       <tr key={key} style={mine ? { background: "oklch(0.95 0.06 85)" } : undefined}>
         <td style={{ ...td, fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, fontSize: "1.05rem", textAlign: "center" }}>{seedLabel}</td>
@@ -201,6 +227,8 @@ export default function Playoffs() {
             {line.owner}{tag && ` · ${tag}`}{bye && " · Bye"}
           </div>
           <div style={{ marginTop: 3 }}><StatusBadge status={status} /></div>
+          {magicText && <div style={{ fontSize: "0.7rem", color: "oklch(0.38 0.06 150)", marginTop: 3, lineHeight: 1.3 }}>{magicText}</div>}
+          {tieNote && status !== "eliminated" && <div style={{ fontSize: "0.68rem", color: "oklch(0.45 0.08 85)", marginTop: 2, lineHeight: 1.3 }}>{tieNote}</div>}
         </td>
         <td style={{ ...td, fontWeight: 700, whiteSpace: "nowrap" }}>{line.wins}-{line.losses}</td>
         <td style={{ ...td, color: "oklch(0.4 0.1 85)", fontWeight: 600, whiteSpace: "nowrap" }}>{line.ptsFor.toFixed(1)}</td>
@@ -305,11 +333,59 @@ export default function Playoffs() {
           {latestWeek > 0 && (
             <div style={{ fontSize: "0.74rem", color: "oklch(0.4 0.03 150)", padding: "0.6rem 0.9rem 0.8rem", lineHeight: 1.5, background: "oklch(0.97 0.005 150)" }}>
               {gamesLeft > 0
-                ? `A team shows as clinched or eliminated only when nothing in the ${gamesLeft} remaining ${gamesLeft === 1 ? "week" : "weeks"} (up to 3 wins a week) can change it, with every tie going the wrong way. A clinch can appear a week after the real math allows it.`
+                ? `A team shows as clinched or eliminated only when nothing in the ${gamesLeft} remaining ${gamesLeft === 1 ? "week" : "weeks"} (up to 3 wins a week) can change it, with every tie going the wrong way. A clinch can appear a week after the real math allows it. Magic numbers count wins, and a week is worth up to 3.`
                 : "The regular season is over, so these are final."}
             </div>
           )}
         </div>
+
+        {/* Remaining schedule strength */}
+        {latestWeek > 0 && gamesLeft > 0 && (() => {
+          const strengthRows = picture.lines
+            .filter(l => picture.status.get(l.owner) !== "eliminated")
+            .map(l => ({ line: l, rest: picture.remaining.get(l.owner) }))
+            .filter(r => r.rest && r.rest.opponents.length > 0)
+            .sort((a, b) => (a.rest!.opponentWinPct ?? 0.5) - (b.rest!.opponentWinPct ?? 0.5));
+          if (strengthRows.length === 0) return null;
+          const pct = (value: number | null) => (value === null ? "–" : `${Math.round(value * 100)}%`);
+          return (
+            <div className="wrc-card" style={{ marginBottom: "1.5rem", overflow: "hidden" }}>
+              <div className="wrc-card-gold-stripe" />
+              <div className="wrc-card-header">Remaining schedule</div>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", minWidth: 340, borderCollapse: "collapse", tableLayout: "fixed" }}>
+                  <colgroup>
+                    <col />
+                    <col style={{ width: 54 }} />
+                    <col style={{ width: 76 }} />
+                  </colgroup>
+                  <thead>
+                    <tr style={{ background: "oklch(0.22 0.08 150)" }}>
+                      <th style={th}>Team (easiest first)</th>
+                      <th style={{ ...th, textAlign: "center" }}>Left</th>
+                      <th style={{ ...th, textAlign: "center" }}>Opp win %</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {strengthRows.map(({ line, rest }) => (
+                      <tr key={line.owner} style={myTeam === line.teamName ? { background: "oklch(0.95 0.06 85)" } : undefined}>
+                        <td style={td}>
+                          <div style={{ fontWeight: 700, color: "oklch(0.22 0.08 150)", lineHeight: 1.15 }}>{line.teamName}</div>
+                          <div style={{ fontSize: "0.7rem", color: "oklch(0.5 0.02 150)", marginTop: 2, lineHeight: 1.3 }}>vs {rest!.opponents.join(", ")}</div>
+                        </td>
+                        <td style={{ ...td, textAlign: "center", fontWeight: 700 }}>{rest!.opponents.length}</td>
+                        <td style={{ ...td, textAlign: "center", fontWeight: 700 }}>{pct(rest!.opponentWinPct)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div style={{ fontSize: "0.74rem", color: "oklch(0.4 0.03 150)", padding: "0.6rem 0.9rem 0.8rem", lineHeight: 1.5, background: "oklch(0.97 0.005 150)" }}>
+                Opp win % is the combined record so far of the opponents a team still has to play. Lower means an easier road. Teams that are already out are left off.
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Bracket */}
         <div style={{ background: "oklch(0.18 0.04 150 / 0.88)", borderRadius: 12, padding: "1rem 1rem 1.1rem", border: "1px solid oklch(0.75 0.12 85 / 0.4)" }}>

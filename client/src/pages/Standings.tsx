@@ -14,6 +14,7 @@ import { TrendingUp, TrendingDown, AlertTriangle, Newspaper, RefreshCw, ChevronD
 import { PlayerNewsRow, type PlayerNewsItem } from "@/components/PlayerNewsRow";
 import { supabase } from "@/lib/supabase";
 import { SCHEDULE_2026, OWNER_TO_TEAM, getLineupDefaultWeek } from "@/lib/scheduleData2026";
+import { isPlayoffWeek } from "@/lib/playoffPicture";
 import { Link } from "wouter";
 import { TEAM_NAME_TO_ID } from "@/pages/Lineup";
 import TeamLogo from "@/components/TeamLogo";
@@ -227,13 +228,15 @@ function MatchupWidget({ ownerKey, standings }: { ownerKey: string; standings: D
           </div>
         </div>
 
-        {/* League Median */}
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 0.75rem", background: "oklch(0.96 0.02 150)", borderRadius: 8, border: "1px solid oklch(0.88 0.04 150)" }}>
-          <span style={{ fontSize: "0.68rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.06em", color: "oklch(0.45 0.06 150)", textTransform: "uppercase" as const }}>League Median</span>
-          <span style={{ flex: 1 }} />
-          <span style={{ fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.28 0.09 150)" }}>{liveMedian !== null ? `${liveMedian.toFixed(1)} pts` : "—"}</span>
-          <span style={{ fontSize: "0.65rem", color: "oklch(0.55 0.04 150)" }}>· Beat median = +1W</span>
-        </div>
+        {/* League Median (not used in the playoffs) */}
+        {!isPlayoffWeek(currentWeek) && (
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", padding: "0.5rem 0.75rem", background: "oklch(0.96 0.02 150)", borderRadius: 8, border: "1px solid oklch(0.88 0.04 150)" }}>
+            <span style={{ fontSize: "0.68rem", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, letterSpacing: "0.06em", color: "oklch(0.45 0.06 150)", textTransform: "uppercase" as const }}>League Median</span>
+            <span style={{ flex: 1 }} />
+            <span style={{ fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.28 0.09 150)" }}>{liveMedian !== null ? `${liveMedian.toFixed(1)} pts` : "—"}</span>
+            <span style={{ fontSize: "0.65rem", color: "oklch(0.55 0.04 150)" }}>· Beat median = +1W</span>
+          </div>
+        )}
       </div>
     </div>
     </Link>

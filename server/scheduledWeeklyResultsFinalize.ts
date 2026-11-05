@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { getCurrentWeek } from "../client/src/lib/scheduleData2026";
 import { supabaseAdmin } from "./supabaseAdmin";
 import { finalizeWeeklyResultsFromTank } from "./weeklyResultsFinalize";
+import { ensurePlayoffRounds } from "./playoffSetup";
 
 const SEASON = 2026;
 
@@ -35,7 +36,12 @@ export async function autoFinalizeCompletedWeeklyResults() {
     }
   }
 
-  return { season: SEASON, currentWeek, finalizedWeeks, pendingWeeks };
+  // Every run also makes sure the playoff games exist and their prizes are
+  // paid. It does nothing until the regular season is over, and it makes up for
+  // a playoff setup that failed right after a week was finalized.
+  const playoffs = await ensurePlayoffRounds(SEASON);
+
+  return { season: SEASON, currentWeek, finalizedWeeks, pendingWeeks, playoffGamesCreated: playoffs.created.length, playoffPrizesPaid: playoffs.paid.length };
 }
 
 export async function finalizeWeeklyResultsSchedule(_req: Request, res: Response): Promise<void> {

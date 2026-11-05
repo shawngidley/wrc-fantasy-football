@@ -3,6 +3,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
 import { Route, Switch, Redirect, useLocation } from "wouter";
 import { useEffect } from "react";
+import { usePlayoffScheduleVersion } from "./lib/playoffScheduleSync";
 import { useAuth } from "./contexts/AuthContext";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -50,6 +51,8 @@ function ProtectedRoute({ component: Component }: { component: React.ComponentTy
   return <Component />;
 }
 function Router() {
+  // Re-renders every page when the real playoff games are added to the schedule.
+  usePlayoffScheduleVersion();
   // make sure to consider if you need authentication for certain routes
   return (
     <>

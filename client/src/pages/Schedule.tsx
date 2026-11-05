@@ -71,7 +71,9 @@ function MatchupRow({
   let seedA = "";
   let seedB = "";
 
-  if (isPlayoff && seeds.length === 6) {
+  // Real games (once they exist) show their real teams. Seeds only fill in games
+  // that are still TBD, as a preview of who would play.
+  if (isTBD && isPlayoff && seeds.length === 6) {
     if (weekNum === 15) {
       // Wild Card: 3v6 and 4v5
       const wc = [
@@ -84,12 +86,12 @@ function MatchupRow({
         displayB = wc[idx][1]; seedB = `#${idx === 0 ? 6 : 5}`;
       }
     } else if (weekNum === 16) {
-      // Divisional: 1 vs WC winner, 2 vs WC winner
+      // Divisional: the top seed plays the lowest remaining seed
       const idx = SCHEDULE_2026.find(w => w.week === weekNum)?.matchups.indexOf(matchup) ?? -1;
-      if (idx === 0) { displayA = seeds[0]; seedA = "#1 (bye)"; displayB = "WC Winner 1"; }
-      if (idx === 1) { displayA = seeds[1]; seedA = "#2 (bye)"; displayB = "WC Winner 2"; }
+      if (idx === 0) { displayA = seeds[0]; seedA = "#1 (bye)"; displayB = "Lowest remaining seed"; }
+      if (idx === 1) { displayA = seeds[1]; seedA = "#2 (bye)"; displayB = "Other wild card winner"; }
     } else if (weekNum === 17) {
-      displayA = "Div Winner 1"; displayB = "Div Winner 2";
+      displayA = "Divisional winner"; displayB = "Divisional winner";
     }
   }
 

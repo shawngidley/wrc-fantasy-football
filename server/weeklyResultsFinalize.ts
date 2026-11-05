@@ -1,4 +1,6 @@
 import { SCHEDULE_2026 } from "../client/src/lib/scheduleData2026";
+import { REGULAR_SEASON_WEEKS } from "../client/src/lib/playoffPicture";
+import { ensurePlayoffRounds } from "./playoffSetup";
 import { supabaseAdmin } from "./supabaseAdmin";
 import { creditPrizeEarnings } from "./prizeEarnings";
 import { resolveLineupsForWeek } from "./lineupResolution";
@@ -455,11 +457,25 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
     if (weeklyStatsError) console.log(`[weeklyResultsFinalize] Unable to persist player_weekly_stats: ${weeklyStatsError.message}`);
   }
 
-  const schedule = SCHEDULE_2026.find(entry => entry.week === week);
-  if (!schedule) throw new Error(`No WRC schedule exists for week ${week}.`);
+  // Playoff weeks (15 to 17) have no fixed schedule: their games are rows in
+  // weekly_results, created once the seeds and earlier rounds are known. There
+  // is no league median in the playoffs.
+  const isPlayoffWeek = week > REGULAR_SEASON_WEEKS;
+  let weekMatchups: Array<[string, string]>;
+  if (isPlayoffWeek) {
+    const { data: playoffRows, error: playoffRowsError } = await supabaseAdmin.from("weekly_results")
+      .select("home_owner, away_owner").eq("week", week).eq("season", season).order("id");
+    if (playoffRowsError) throw new Error(`Unable to load the week ${week} playoff games: ${playoffRowsError.message}`);
+    if (!playoffRows || playoffRows.length === 0) throw new Error(`No playoff games are set for week ${week} yet.`);
+    weekMatchups = playoffRows.map(row => [row.home_owner as string, row.away_owner as string]);
+  } else {
+    const schedule = SCHEDULE_2026.find(entry => entry.week === week);
+    if (!schedule) throw new Error(`No WRC schedule exists for week ${week}.`);
+    weekMatchups = schedule.matchups;
+  }
   const idByOwner = new Map(teams.map(team => [team.owner, team.id]));
-  const leagueMedian = median(Array.from(teamScores.values()));
-  for (const [homeOwner, awayOwner] of schedule.matchups) {
+  const leagueMedian = isPlayoffWeek ? null : median(Array.from(teamScores.values()));
+  for (const [homeOwner, awayOwner] of weekMatchups) {
     const homeTeamId = idByOwner.get(homeOwner);
     const awayTeamId = idByOwner.get(awayOwner);
     if (!homeTeamId || !awayTeamId) throw new Error("WRC team mapping is incomplete.");
@@ -514,12 +530,20 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
   }
 
   await recomputeStandingsFromFinalizedResults(season);
+  // The week is saved and final at this point, so a problem creating the next
+  // playoff round must not undo it. The scheduled run tries again every time.
+  try {
+    await ensurePlayoffRounds(season);
+  } catch (error) {
+    console.error("[weeklyResultsFinalize] Playoff setup did not complete:", error);
+  }
   return { finalized: true, week, season, leagueMedian };
 }
 
 /**
  * Recomputes every team's full-season wins/losses/points/streak from
- * every finalized (is_final=true) weekly_results row, and writes the
+ * every finalized (is_final=true) regular season weekly_results row (weeks
+ * 1 to 14; playoff games are not part of the season record), and writes the
  * result to team_standings. Extracted as its own function so it can be
  * re-run on demand -- e.g. after a division correction or a scoring
  * rule change -- without needing a specific week to newly become
@@ -529,7 +553,7 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
  */
 export async function recomputeStandingsFromFinalizedResults(season: number) {
   const { data: results, error: resultsError } = await supabaseAdmin.from("weekly_results")
-    .select("week, home_team_id, away_team_id, home_score, away_score").eq("season", season).eq("is_final", true).order("week");
+    .select("week, home_team_id, away_team_id, home_score, away_score").eq("season", season).eq("is_final", true).lte("week", REGULAR_SEASON_WEEKS).order("week");
   const { data: standings, error: standingsError } = await supabaseAdmin.from("team_standings").select("team_id, division");
   if (resultsError || standingsError || !standings) throw new Error("Standings could not be recalculated.");
   const totals = new Map(standings.map(row => [row.team_id, { wins: 0, losses: 0, ties: 0, pts_for: 0, pts_against: 0, h2h_wins: 0, h2h_losses: 0, median_wins: 0, median_losses: 0, div_wins: 0, div_losses: 0, streak: "" }]));

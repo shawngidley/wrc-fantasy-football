@@ -48,3 +48,22 @@ export async function creditPrizeEarnings(owner: string, column: PrizeColumn, se
   const { error: writeError } = await supabaseAdmin.from("earnings").upsert(row, { onConflict: "id" });
   if (writeError) throw new Error(`Unable to credit ${owner}'s ${column} earnings: ${writeError.message}`);
 }
+
+/**
+ * Pays a prize only if that owner's column on the Earnings table is still
+ * empty. Prizes tied to reaching a playoff round run on every finalization,
+ * so this is what keeps them from paying twice, and it also leaves alone any
+ * amount the commissioner already entered by hand. Returns true if it paid.
+ */
+export async function creditPrizeOnce(owner: string, column: PrizeColumn, season: number): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
+    .from("earnings")
+    .select(column)
+    .eq("id", earningsIdForOwner(owner))
+    .maybeSingle();
+  if (error) throw new Error(`Unable to read earnings for ${owner}: ${error.message}`);
+  const current = (data as Record<string, number | null> | null)?.[column] ?? null;
+  if (current !== null) return false;
+  await creditPrizeEarnings(owner, column, season);
+  return true;
+}

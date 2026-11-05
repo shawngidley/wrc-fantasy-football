@@ -33,6 +33,8 @@ import { applyDraftLottery } from "../shared/draftLottery";
 import { DRAFT_PICKS_2026 } from "../client/src/lib/draftData2026";
 import { createTeamMediaSignedUploadUrl, TEAM_MEDIA_BUCKET_NAME } from "./storage";
 import { finalizeWeeklyResultsFromTank, weeklyRecordDelta } from "./weeklyResultsFinalize";
+import { ensurePlayoffRounds } from "./playoffSetup";
+import { REGULAR_SEASON_WEEKS } from "../client/src/lib/playoffPicture";
 import { replaceLineupRows } from "./lineupSave";
 import { assertLineupMovesAllowed } from "./lineupLockGuard";
 import { assertLoginAllowed, assertStrongLeaguePin, clearLoginFailures, getClientIp, recordLoginFailure } from "./leagueLoginSecurity";
@@ -2175,7 +2177,7 @@ export const appRouter = router({
         if (resultError) throw new Error("Unable to finalize the weekly result.");
 
         const [{ data: seasonResults, error: seasonResultsError }, { data: standings, error: standingsError }] = await Promise.all([
-          supabaseAdmin.from("weekly_results").select("week, home_owner, away_owner, home_team_id, away_team_id, home_score, away_score, is_final").eq("season", target.season).eq("is_final", true).order("week"),
+          supabaseAdmin.from("weekly_results").select("week, home_owner, away_owner, home_team_id, away_team_id, home_score, away_score, is_final").eq("season", target.season).eq("is_final", true).lte("week", REGULAR_SEASON_WEEKS).order("week"),
           supabaseAdmin.from("team_standings").select("team_id, wins, losses, ties, pts_for, pts_against, h2h_wins, h2h_losses, median_wins, median_losses, div_wins, div_losses, streak, division"),
         ]);
         if (seasonResultsError || standingsError || !standings) throw new Error("Result saved, but standings could not be recalculated.");
@@ -2231,11 +2233,19 @@ export const appRouter = router({
           streak: values.streak || "—",
         }).eq("team_id", teamId)));
         if (updates.some(update => update.error)) throw new Error("Result saved, but one or more standings rows could not be updated.");
+        // No league median in the playoffs, and playoff weeks never count toward
+        // the regular season record. A playoff result can still start the next
+        // round, so set that up before returning.
+        if (target.week > REGULAR_SEASON_WEEKS) {
+          await ensurePlayoffRounds(target.season).catch(error => console.error("[commissionerFinalizeWeeklyResult] Playoff setup did not complete:", error));
+          return { saved: true, median: null };
+        }
         const targetWeekRows = resultsByWeek.get(target.week) ?? [];
         const targetScores: number[] = targetWeekRows.flatMap(row => [Number(row.home_score), Number(row.away_score)]).sort((a: number, b: number) => a - b);
         const targetMiddle = Math.floor(targetScores.length / 2);
         const median = targetScores.length % 2 ? targetScores[targetMiddle] : (targetScores[targetMiddle - 1] + targetScores[targetMiddle]) / 2;
         await supabaseAdmin.from("weekly_results").update({ league_median: median }).eq("season", target.season).eq("week", target.week);
+        await ensurePlayoffRounds(target.season).catch(error => console.error("[commissionerFinalizeWeeklyResult] Playoff setup did not complete:", error));
         return { saved: true, median };
       }),
     submitManualTransaction: teamProcedure

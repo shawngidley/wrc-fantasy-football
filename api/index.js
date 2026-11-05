@@ -14532,14 +14532,14 @@ var require_object_inspect = __commonJS({
     var gPO = (typeof Reflect === "function" ? Reflect.getPrototypeOf : Object.getPrototypeOf) || ([].__proto__ === Array.prototype ? function(O) {
       return O.__proto__;
     } : null);
-    function addNumericSeparator(num2, str) {
-      if (num2 === Infinity || num2 === -Infinity || num2 !== num2 || num2 && num2 > -1e3 && num2 < 1e3 || $test.call(/e/, str)) {
+    function addNumericSeparator(num3, str) {
+      if (num3 === Infinity || num3 === -Infinity || num3 !== num3 || num3 && num3 > -1e3 && num3 < 1e3 || $test.call(/e/, str)) {
         return str;
       }
       var sepRegex = /[0-9](?=(?:[0-9]{3})+(?![0-9]))/g;
-      if (typeof num2 === "number") {
-        var int2 = num2 < 0 ? -$floor(-num2) : $floor(num2);
-        if (int2 !== num2) {
+      if (typeof num3 === "number") {
+        var int2 = num3 < 0 ? -$floor(-num3) : $floor(num3);
+        if (int2 !== num3) {
           var intStr = String(int2);
           var dec = $slice.call(str, intStr.length + 1);
           return $replace.call(intStr, sepRegex, "$&_") + "." + $replace.call($replace.call(dec, /([0-9]{3})/g, "$&_"), /_$/, "");
@@ -53076,11 +53076,11 @@ var require_ip_converter = __commonJS({
           throw new Error("Invalid IPv4 address");
         }
         return parts.map((part) => {
-          const num2 = parseInt(part, 10);
-          if (isNaN(num2) || num2 < 0 || num2 > 255) {
+          const num3 = parseInt(part, 10);
+          if (isNaN(num3) || num3 < 0 || num3 > 255) {
             throw new Error("Invalid IPv4 address part");
           }
-          return num2;
+          return num3;
         });
       }
       static parseIPv6(ip) {
@@ -53090,12 +53090,12 @@ var require_ip_converter = __commonJS({
           throw new Error("Invalid IPv6 address");
         }
         return parts.reduce((bytes, part) => {
-          const num2 = parseInt(part, 16);
-          if (isNaN(num2) || num2 < 0 || num2 > 65535) {
+          const num3 = parseInt(part, 16);
+          if (isNaN(num3) || num3 < 0 || num3 > 65535) {
             throw new Error("Invalid IPv6 address part");
           }
-          bytes.push(num2 >> 8 & 255);
-          bytes.push(num2 & 255);
+          bytes.push(num3 >> 8 & 255);
+          bytes.push(num3 & 255);
           return bytes;
         }, []);
       }
@@ -81860,7 +81860,160 @@ var TOTAL_PICKS = DRAFT_PICKS_2026.length;
 // server/routers.ts
 init_storage();
 
-// server/weeklyResultsFinalize.ts
+// client/src/lib/playoffPicture.ts
+var REGULAR_SEASON_WEEKS = 14;
+var DIVISIONS = ["East", "Central", "West"];
+function weeklyRecordDelta(h2h, beatMedian) {
+  let winsDelta = 0;
+  let lossesDelta = 0;
+  if (h2h === "W") winsDelta += 2;
+  if (h2h === "L") lossesDelta += 2;
+  if (beatMedian) winsDelta += 1;
+  else lossesDelta += 1;
+  return { winsDelta, lossesDelta };
+}
+function num(value) {
+  const n3 = Number(value);
+  return Number.isFinite(n3) ? n3 : 0;
+}
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+function finalRegularSeasonWeeks(rows) {
+  const weeks = /* @__PURE__ */ new Set();
+  for (const row of rows) {
+    if (row.is_final && row.week >= 1 && row.week <= REGULAR_SEASON_WEEKS) weeks.add(row.week);
+  }
+  return Array.from(weeks).sort((a, b) => a - b);
+}
+function standingsThroughWeek(teams, rows, throughWeek) {
+  const lines = new Map(teams.map((t2) => [t2.owner, { ...t2, wins: 0, losses: 0, ptsFor: 0 }]));
+  const byWeek = /* @__PURE__ */ new Map();
+  for (const row of rows) {
+    if (!row.is_final || row.week < 1 || row.week > REGULAR_SEASON_WEEKS || row.week > throughWeek) continue;
+    const list = byWeek.get(row.week) ?? [];
+    list.push(row);
+    byWeek.set(row.week, list);
+  }
+  byWeek.forEach((weekRows) => {
+    const weekMedian = median(weekRows.flatMap((r) => [num(r.home_score), num(r.away_score)]));
+    for (const row of weekRows) {
+      const sides = [
+        { owner: row.home_owner, score: num(row.home_score), opp: num(row.away_score) },
+        { owner: row.away_owner, score: num(row.away_score), opp: num(row.home_score) }
+      ];
+      for (const side of sides) {
+        const line = lines.get(side.owner);
+        if (!line) continue;
+        const outcome = side.score > side.opp ? "W" : side.score < side.opp ? "L" : "T";
+        const { winsDelta, lossesDelta } = weeklyRecordDelta(outcome, side.score > weekMedian);
+        line.wins += winsDelta;
+        line.losses += lossesDelta;
+        line.ptsFor += side.score;
+      }
+    }
+  });
+  return Array.from(lines.values());
+}
+function makeComparator(mode) {
+  return (a, b) => {
+    if (b.wins !== a.wins) return b.wins - a.wins;
+    if (mode !== "actual") {
+      const subject = "favor" in mode ? mode.favor : mode.against;
+      const sign = "favor" in mode ? -1 : 1;
+      if (a.owner === subject) return sign;
+      if (b.owner === subject) return -sign;
+    }
+    return b.ptsFor - a.ptsFor || a.owner.localeCompare(b.owner);
+  };
+}
+function seedFieldWith(lines, compare2) {
+  const winners = [];
+  const others = [];
+  for (const division of DIVISIONS) {
+    const inDivision = lines.filter((l) => l.division === division).sort(compare2);
+    if (inDivision.length === 0) continue;
+    winners.push(inDivision[0]);
+    others.push(...inDivision.slice(1));
+  }
+  winners.sort(compare2);
+  others.sort(compare2);
+  const wildCards = others.slice(0, 3);
+  const seeds = [
+    ...winners.map((line) => ({ line, kind: "division" })),
+    ...wildCards.map((line) => ({ line, kind: "wildcard" }))
+  ].map((entry, i) => ({ seed: i + 1, line: entry.line, kind: entry.kind, bye: i < 2 }));
+  return { seeds, rest: others.slice(3) };
+}
+function seedField(lines) {
+  return seedFieldWith(lines, makeComparator("actual"));
+}
+var unknownSide = (label) => ({ label, seed: null, owner: null, teamName: null, score: null });
+function seedSide(entry) {
+  return { label: entry.line.teamName, seed: entry.seed, owner: entry.line.owner, teamName: entry.line.teamName, score: null };
+}
+function playGame(id, round, week2, title, a, b, rows) {
+  const [hi, lo] = a.seed < b.seed ? [a, b] : [b, a];
+  const top = seedSide(hi);
+  const bottom = seedSide(lo);
+  const row = rows.find((r) => r.week === week2 && (r.home_owner === hi.line.owner && r.away_owner === lo.line.owner || r.home_owner === lo.line.owner && r.away_owner === hi.line.owner));
+  let final = false;
+  let winnerSeed = null;
+  if (row) {
+    const scoreOf = (owner) => num(row.home_owner === owner ? row.home_score : row.away_score);
+    top.score = scoreOf(hi.line.owner);
+    bottom.score = scoreOf(lo.line.owner);
+    final = row.is_final;
+    if (final) winnerSeed = bottom.score > top.score ? lo.seed : hi.seed;
+  }
+  return { id, round, week: week2, title, top, bottom, final, winnerSeed };
+}
+function buildBracket(seeds, rows) {
+  if (seeds.length < 6) return [];
+  const s = (n3) => seeds[n3 - 1];
+  const wc1 = playGame("wc1", "wildcard", 15, "Wild Card 1", s(3), s(6), rows);
+  const wc2 = playGame("wc2", "wildcard", 15, "Wild Card 2", s(4), s(5), rows);
+  const winnerOf = (game) => game.winnerSeed === null ? null : s(game.winnerSeed);
+  const w1 = winnerOf(wc1);
+  const w2 = winnerOf(wc2);
+  let sf1;
+  let sf2;
+  if (w1 && w2) {
+    const [lower, higher] = w1.seed > w2.seed ? [w1, w2] : [w2, w1];
+    sf1 = playGame("sf1", "semifinal", 16, "Semifinal 1", s(1), lower, rows);
+    sf2 = playGame("sf2", "semifinal", 16, "Semifinal 2", s(2), higher, rows);
+  } else {
+    const pending = (id, title, top, label) => ({
+      id,
+      round: "semifinal",
+      week: 16,
+      title,
+      top: seedSide(top),
+      bottom: unknownSide(label),
+      final: false,
+      winnerSeed: null
+    });
+    sf1 = pending("sf1", "Semifinal 1", s(1), "Lowest remaining seed");
+    sf2 = pending("sf2", "Semifinal 2", s(2), "Other wild card winner");
+  }
+  const f1 = winnerOf(sf1);
+  const f2 = winnerOf(sf2);
+  const finalGame = f1 && f2 ? playGame("final", "final", 17, "Championship", f1, f2, rows) : {
+    id: "final",
+    round: "final",
+    week: 17,
+    title: "Championship",
+    top: f1 ? seedSide(f1) : unknownSide("Winner of Semifinal 1"),
+    bottom: f2 ? seedSide(f2) : unknownSide("Winner of Semifinal 2"),
+    final: false,
+    winnerSeed: null
+  };
+  return [wc1, wc2, sf1, sf2, finalGame];
+}
+
+// server/playoffSetup.ts
 init_supabaseAdmin();
 
 // server/prizeEarnings.ts
@@ -81893,6 +82046,115 @@ async function creditPrizeEarnings(owner, column, season, amount = PRIZE_AMOUNTS
   const { error: writeError } = await supabaseAdmin.from("earnings").upsert(row, { onConflict: "id" });
   if (writeError) throw new Error(`Unable to credit ${owner}'s ${column} earnings: ${writeError.message}`);
 }
+async function creditPrizeOnce(owner, column, season) {
+  const { data, error: error46 } = await supabaseAdmin.from("earnings").select(column).eq("id", earningsIdForOwner(owner)).maybeSingle();
+  if (error46) throw new Error(`Unable to read earnings for ${owner}: ${error46.message}`);
+  const current = data?.[column] ?? null;
+  if (current !== null) return false;
+  await creditPrizeEarnings(owner, column, season);
+  return true;
+}
+
+// server/playoffSetup.ts
+var GAMES_IN_WEEK = { 15: 2, 16: 2, 17: 1 };
+function planPlayoffRounds(teams, rows) {
+  const empty = { gamesToCreate: [], prizes: [] };
+  if (finalRegularSeasonWeeks(rows).length < REGULAR_SEASON_WEEKS) return empty;
+  const seeds = seedField(standingsThroughWeek(teams, rows, REGULAR_SEASON_WEEKS)).seeds;
+  if (seeds.length < 6) return empty;
+  const games = buildBracket(seeds, rows);
+  const weeksWithGames = new Set(rows.filter((r) => r.week > REGULAR_SEASON_WEEKS).map((r) => r.week));
+  const gamesToCreate = [];
+  for (const week2 of [15, 16, 17]) {
+    if (weeksWithGames.has(week2)) continue;
+    const ready = games.filter((g) => g.week === week2 && g.top.owner && g.bottom.owner).map((g) => ({ week: week2, home_owner: g.top.owner, away_owner: g.bottom.owner }));
+    if (ready.length === GAMES_IN_WEEK[week2]) gamesToCreate.push(...ready);
+  }
+  const prizes = [];
+  const reached = (column, owners) => {
+    for (const owner of owners) if (owner) prizes.push({ owner, column });
+  };
+  reached("wild_card", seeds.map((s) => s.line.owner));
+  const sfGames = games.filter((g) => g.round === "semifinal");
+  if (sfGames.every((g) => g.top.owner && g.bottom.owner)) {
+    reached("divisional", sfGames.flatMap((g) => [g.top.owner, g.bottom.owner]));
+  }
+  const final = games.find((g) => g.round === "final");
+  if (final && final.top.owner && final.bottom.owner) {
+    reached("super_bowl", [final.top.owner, final.bottom.owner]);
+    if (final.final && final.winnerSeed !== null) {
+      reached("champ", [final.winnerSeed === final.top.seed ? final.top.owner : final.bottom.owner]);
+    }
+  }
+  return { gamesToCreate, prizes };
+}
+function buildPlayoffRow(template, game, season, teamNameByOwner, teamIdByOwner) {
+  const row = { ...template };
+  for (const key of ["id", "created_at", "updated_at"]) delete row[key];
+  const setIfPresent = (key, value) => {
+    if (key in template) row[key] = value;
+  };
+  const idOf = (owner) => {
+    const id = teamIdByOwner.get(owner);
+    if (!id) throw new Error(`No team id is on file for ${owner}.`);
+    return id;
+  };
+  const nameOf = (owner) => {
+    const name = teamNameByOwner.get(owner);
+    if (!name) throw new Error(`No team name is on file for ${owner}.`);
+    return name;
+  };
+  Object.assign(row, {
+    week: game.week,
+    season,
+    home_owner: game.home_owner,
+    away_owner: game.away_owner,
+    home_score: null,
+    away_score: null,
+    is_final: false,
+    league_median: null
+  });
+  setIfPresent("home_team_id", idOf(game.home_owner));
+  setIfPresent("away_team_id", idOf(game.away_owner));
+  setIfPresent("home_team_name", nameOf(game.home_owner));
+  setIfPresent("away_team_name", nameOf(game.away_owner));
+  setIfPresent("dates", SCHEDULE_2026.find((w) => w.week === game.week)?.dates ?? null);
+  return row;
+}
+async function ensurePlayoffRounds(season) {
+  const [teamsResult, rowsResult] = await Promise.all([
+    supabaseAdmin.from("teams").select("owner, name, division"),
+    supabaseAdmin.from("weekly_results").select("*").eq("season", season).order("id")
+  ]);
+  if (teamsResult.error || !teamsResult.data) throw new Error(`Unable to load teams for playoff setup: ${teamsResult.error?.message ?? "no data"}`);
+  if (rowsResult.error || !rowsResult.data) throw new Error(`Unable to load weekly results for playoff setup: ${rowsResult.error?.message ?? "no data"}`);
+  const teams = teamsResult.data.map((t2) => ({ owner: t2.owner, teamName: t2.name, division: t2.division }));
+  const rows = rowsResult.data;
+  const plan = planPlayoffRounds(teams, rows);
+  if (plan.gamesToCreate.length > 0) {
+    const template = rows.find((r) => r.week <= REGULAR_SEASON_WEEKS);
+    if (!template) throw new Error("No regular season row to copy for the playoff games.");
+    const teamNameByOwner = new Map(teams.map((t2) => [t2.owner, t2.teamName]));
+    const teamIdByOwner = /* @__PURE__ */ new Map();
+    for (const row of rows) {
+      if (typeof row.home_team_id === "string") teamIdByOwner.set(row.home_owner, row.home_team_id);
+      if (typeof row.away_team_id === "string") teamIdByOwner.set(row.away_owner, row.away_team_id);
+    }
+    const newRows = plan.gamesToCreate.map((game) => buildPlayoffRow(template, game, season, teamNameByOwner, teamIdByOwner));
+    const { error: error46 } = await supabaseAdmin.from("weekly_results").insert(newRows);
+    if (error46) throw new Error(`Unable to create the playoff games: ${error46.message}`);
+    console.log(`[playoffSetup] created ${newRows.length} playoff game(s): ${plan.gamesToCreate.map((g) => `wk${g.week} ${g.home_owner} v ${g.away_owner}`).join("; ")}`);
+  }
+  const paid = [];
+  for (const prize of plan.prizes) {
+    if (await creditPrizeOnce(prize.owner, prize.column, season)) paid.push(`${prize.owner}:${prize.column}`);
+  }
+  if (paid.length > 0) console.log(`[playoffSetup] paid ${paid.join(", ")}`);
+  return { created: plan.gamesToCreate, paid };
+}
+
+// server/weeklyResultsFinalize.ts
+init_supabaseAdmin();
 
 // shared/scoringEngine.ts
 function n(v) {
@@ -82047,7 +82309,7 @@ function calculateWrcKickerPoints(events, rawStats) {
 }
 
 // shared/playerSeasonStats.ts
-var num = (value) => {
+var num2 = (value) => {
   const result = typeof value === "number" ? value : parseFloat(value ?? "0");
   return Number.isFinite(result) ? result : 0;
 };
@@ -82059,41 +82321,41 @@ function normalizeTankSeasonStats(stats, pos) {
   const kickingField = (...keys) => {
     for (const key of keys) {
       const value = kicking[key];
-      if (value !== void 0 && value !== null && String(value) !== "") return num(value);
+      if (value !== void 0 && value !== null && String(value) !== "") return num2(value);
     }
     return void 0;
   };
   const defense = stats?.Defense ?? {};
-  const defInt = num(defense.defensiveInterceptions);
-  const fumblesRecovered = num(defense.fumblesRecovered);
-  const defTD = num(defense.defTD);
-  const returnTD = num(defense.returnTD);
-  const gp = num(stats?.gamesPlayed);
+  const defInt = num2(defense.defensiveInterceptions);
+  const fumblesRecovered = num2(defense.fumblesRecovered);
+  const defTD = num2(defense.defTD);
+  const returnTD = num2(defense.returnTD);
+  const gp = num2(stats?.gamesPlayed);
   const wrcPts = stats ? calcFantasyPoints(stats, pos) : 0;
   return {
     gp,
-    passCmp: num(passing.passCompletions),
-    passAtt: num(passing.passAttempts),
-    passYds: num(passing.passYds),
-    passTD: num(passing.passTD),
-    passInt: num(passing.int),
-    passRating: num(passing.rtg),
-    rushAtt: num(rushing.carries),
-    rushYds: num(rushing.rushYds),
-    rushTD: num(rushing.rushTD),
-    receptions: num(receiving.receptions),
-    targets: num(receiving.targets),
-    recYds: num(receiving.recYds),
-    recTD: num(receiving.recTD),
-    fgMade: num(kicking.fgMade),
-    fgAtt: num(kicking.fgAttempts),
-    fgYds: num(kicking.fgYds),
+    passCmp: num2(passing.passCompletions),
+    passAtt: num2(passing.passAttempts),
+    passYds: num2(passing.passYds),
+    passTD: num2(passing.passTD),
+    passInt: num2(passing.int),
+    passRating: num2(passing.rtg),
+    rushAtt: num2(rushing.carries),
+    rushYds: num2(rushing.rushYds),
+    rushTD: num2(rushing.rushTD),
+    receptions: num2(receiving.receptions),
+    targets: num2(receiving.targets),
+    recYds: num2(receiving.recYds),
+    recTD: num2(receiving.recTD),
+    fgMade: num2(kicking.fgMade),
+    fgAtt: num2(kicking.fgAttempts),
+    fgYds: num2(kicking.fgYds),
     fgMade1To39: kickingField("fgMade1To39", "fgMade1_39", "fgMadeUnder40") ?? 0,
     fgMade40To49: kickingField("fgMade40To49", "fgMade40_49") ?? 0,
     fgMade50To59: kickingField("fgMade50To59", "fgMade50_59") ?? 0,
     fgMade60Plus: kickingField("fgMade60Plus", "fgMade60_99", "fgMade60OrMore") ?? 0,
-    xpMade: num(kicking.xpMade),
-    xpAtt: num(kicking.xpAttempts),
+    xpMade: num2(kicking.xpMade),
+    xpAtt: num2(kicking.xpAttempts),
     // Tank01 reports sacks as the combined "sacksAndYardsLost" string ("3-10"),
     // so read it the same way scoring does (sacksFrom) rather than a bare
     // defense.sacks, which is usually absent -- that left the stored D/ST sacks
@@ -82106,12 +82368,12 @@ function normalizeTankSeasonStats(stats, pos) {
     fumblesRecovered,
     takeaways: defInt + fumblesRecovered,
     defTD,
-    dstTD: num(defense.defensiveOrSpecialTeamsTds) || defTD + returnTD,
+    dstTD: num2(defense.defensiveOrSpecialTeamsTds) || defTD + returnTD,
     returnTD,
-    safeties: num(defense.safeties),
-    blockKicks: num(defense.blockKick),
-    ptsAgainst: num(defense.ptsAgainst),
-    fumblesLost: num(defense.fumblesLost),
+    safeties: num2(defense.safeties),
+    blockKicks: num2(defense.blockKick),
+    ptsAgainst: num2(defense.ptsAgainst),
+    fumblesLost: num2(defense.fumblesLost),
     wrcPts,
     ptsPerGame: gp > 0 ? Math.round(wrcPts / gp * 10) / 10 : 0
   };
@@ -82218,7 +82480,7 @@ function isGameFinal(body) {
   if (code !== void 0) return code === "2";
   return /final|completed/i.test(String(body?.gameStatus ?? ""));
 }
-function weeklyRecordDelta(h2hOutcome, beatMedian) {
+function weeklyRecordDelta2(h2hOutcome, beatMedian) {
   let winsDelta = 0;
   let lossesDelta = 0;
   if (h2hOutcome === "W") winsDelta += 2;
@@ -82341,7 +82603,7 @@ function playerPoints(stats, position) {
 function defensePoints(stats) {
   return calcFantasyPoints({ Defense: stats }, "DST");
 }
-function median(values) {
+function median2(values) {
   const sorted = [...values].sort((a, b) => a - b);
   const middle = Math.floor(sorted.length / 2);
   return sorted.length % 2 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
@@ -82462,11 +82724,21 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
     const { error: weeklyStatsError } = await supabaseAdmin.from("player_weekly_stats").upsert(weeklyStatRows, { onConflict: "week,season,player_name" });
     if (weeklyStatsError) console.log(`[weeklyResultsFinalize] Unable to persist player_weekly_stats: ${weeklyStatsError.message}`);
   }
-  const schedule = SCHEDULE_2026.find((entry) => entry.week === week2);
-  if (!schedule) throw new Error(`No WRC schedule exists for week ${week2}.`);
+  const isPlayoffWeek = week2 > REGULAR_SEASON_WEEKS;
+  let weekMatchups;
+  if (isPlayoffWeek) {
+    const { data: playoffRows, error: playoffRowsError } = await supabaseAdmin.from("weekly_results").select("home_owner, away_owner").eq("week", week2).eq("season", season).order("id");
+    if (playoffRowsError) throw new Error(`Unable to load the week ${week2} playoff games: ${playoffRowsError.message}`);
+    if (!playoffRows || playoffRows.length === 0) throw new Error(`No playoff games are set for week ${week2} yet.`);
+    weekMatchups = playoffRows.map((row) => [row.home_owner, row.away_owner]);
+  } else {
+    const schedule = SCHEDULE_2026.find((entry) => entry.week === week2);
+    if (!schedule) throw new Error(`No WRC schedule exists for week ${week2}.`);
+    weekMatchups = schedule.matchups;
+  }
   const idByOwner = new Map(teams.map((team) => [team.owner, team.id]));
-  const leagueMedian = median(Array.from(teamScores.values()));
-  for (const [homeOwner, awayOwner] of schedule.matchups) {
+  const leagueMedian = isPlayoffWeek ? null : median2(Array.from(teamScores.values()));
+  for (const [homeOwner, awayOwner] of weekMatchups) {
     const homeTeamId = idByOwner.get(homeOwner);
     const awayTeamId = idByOwner.get(awayOwner);
     if (!homeTeamId || !awayTeamId) throw new Error("WRC team mapping is incomplete.");
@@ -82494,10 +82766,15 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
     }
   }
   await recomputeStandingsFromFinalizedResults(season);
+  try {
+    await ensurePlayoffRounds(season);
+  } catch (error46) {
+    console.error("[weeklyResultsFinalize] Playoff setup did not complete:", error46);
+  }
   return { finalized: true, week: week2, season, leagueMedian };
 }
 async function recomputeStandingsFromFinalizedResults(season) {
-  const { data: results, error: resultsError } = await supabaseAdmin.from("weekly_results").select("week, home_team_id, away_team_id, home_score, away_score").eq("season", season).eq("is_final", true).order("week");
+  const { data: results, error: resultsError } = await supabaseAdmin.from("weekly_results").select("week, home_team_id, away_team_id, home_score, away_score").eq("season", season).eq("is_final", true).lte("week", REGULAR_SEASON_WEEKS).order("week");
   const { data: standings, error: standingsError } = await supabaseAdmin.from("team_standings").select("team_id, division");
   if (resultsError || standingsError || !standings) throw new Error("Standings could not be recalculated.");
   const totals = new Map(standings.map((row) => [row.team_id, { wins: 0, losses: 0, ties: 0, pts_for: 0, pts_against: 0, h2h_wins: 0, h2h_losses: 0, median_wins: 0, median_losses: 0, div_wins: 0, div_losses: 0, streak: "" }]));
@@ -82509,7 +82786,7 @@ async function recomputeStandingsFromFinalizedResults(season) {
     weekGroups.set(result.week, list);
   }
   Array.from(weekGroups.values()).forEach((rows) => {
-    const weekMedian = median(rows.flatMap((row) => [n2(row.home_score), n2(row.away_score)]));
+    const weekMedian = median2(rows.flatMap((row) => [n2(row.home_score), n2(row.away_score)]));
     rows.forEach((row) => [{ id: row.home_team_id, score: n2(row.home_score), opp: n2(row.away_score) }, { id: row.away_team_id, score: n2(row.away_score), opp: n2(row.home_score) }].forEach((entry) => {
       const total = totals.get(entry.id);
       if (!total) return;
@@ -82528,7 +82805,7 @@ async function recomputeStandingsFromFinalizedResults(season) {
       const beatMedian = entry.score > weekMedian;
       if (beatMedian) total.median_wins++;
       else total.median_losses++;
-      const { winsDelta, lossesDelta } = weeklyRecordDelta(outcome, beatMedian);
+      const { winsDelta, lossesDelta } = weeklyRecordDelta2(outcome, beatMedian);
       total.wins += winsDelta;
       total.losses += lossesDelta;
       total.streak = total.streak.startsWith(outcome) ? `${outcome}${n2(total.streak.slice(1)) + 1}` : `${outcome}1`;
@@ -85479,11 +85756,11 @@ var IpConverter = class {
       throw new Error("Invalid IPv4 address");
     }
     return parts.map((part) => {
-      const num2 = parseInt(part, 10);
-      if (isNaN(num2) || num2 < 0 || num2 > 255) {
+      const num3 = parseInt(part, 10);
+      if (isNaN(num3) || num3 < 0 || num3 > 255) {
         throw new Error("Invalid IPv4 address part");
       }
-      return num2;
+      return num3;
     });
   }
   static parseIPv6(ip) {
@@ -85493,12 +85770,12 @@ var IpConverter = class {
       throw new Error("Invalid IPv6 address");
     }
     return parts.reduce((bytes, part) => {
-      const num2 = parseInt(part, 16);
-      if (isNaN(num2) || num2 < 0 || num2 > 65535) {
+      const num3 = parseInt(part, 16);
+      if (isNaN(num3) || num3 < 0 || num3 > 65535) {
         throw new Error("Invalid IPv6 address part");
       }
-      bytes.push(num2 >> 8 & 255);
-      bytes.push(num2 & 255);
+      bytes.push(num3 >> 8 & 255);
+      bytes.push(num3 & 255);
       return bytes;
     }, []);
   }
@@ -92341,7 +92618,7 @@ var appRouter = router({
       }).eq("id", target.id);
       if (resultError) throw new Error("Unable to finalize the weekly result.");
       const [{ data: seasonResults, error: seasonResultsError }, { data: standings, error: standingsError }] = await Promise.all([
-        supabaseAdmin.from("weekly_results").select("week, home_owner, away_owner, home_team_id, away_team_id, home_score, away_score, is_final").eq("season", target.season).eq("is_final", true).order("week"),
+        supabaseAdmin.from("weekly_results").select("week, home_owner, away_owner, home_team_id, away_team_id, home_score, away_score, is_final").eq("season", target.season).eq("is_final", true).lte("week", REGULAR_SEASON_WEEKS).order("week"),
         supabaseAdmin.from("team_standings").select("team_id, wins, losses, ties, pts_for, pts_against, h2h_wins, h2h_losses, median_wins, median_losses, div_wins, div_losses, streak, division")
       ]);
       if (seasonResultsError || standingsError || !standings) throw new Error("Result saved, but standings could not be recalculated.");
@@ -92367,7 +92644,7 @@ var appRouter = router({
         rows.push(result);
         resultsByWeek.set(result.week, rows);
       }
-      const addOutcome = (teamId, ownScore, opponentScore, median3, divisionGame) => {
+      const addOutcome = (teamId, ownScore, opponentScore, median4, divisionGame) => {
         const row = recalculated.get(teamId);
         if (!row) return;
         row.pts_for += ownScore;
@@ -92385,23 +92662,23 @@ var appRouter = router({
           row.ties += 1;
           row.streak = row.streak.startsWith("T") ? `T${Number(row.streak.slice(1)) + 1}` : "T1";
         }
-        const beatMedian = ownScore > median3;
+        const beatMedian = ownScore > median4;
         if (beatMedian) row.median_wins += 1;
         else row.median_losses += 1;
-        const { winsDelta, lossesDelta } = weeklyRecordDelta(h2hOutcome, beatMedian);
+        const { winsDelta, lossesDelta } = weeklyRecordDelta2(h2hOutcome, beatMedian);
         row.wins += winsDelta;
         row.losses += lossesDelta;
       };
       Array.from(resultsByWeek.values()).forEach((rows) => {
         const scores = rows.flatMap((row) => [Number(row.home_score), Number(row.away_score)]).sort((a, b) => a - b);
         const middle = Math.floor(scores.length / 2);
-        const median3 = scores.length % 2 ? scores[middle] : (scores[middle - 1] + scores[middle]) / 2;
+        const median4 = scores.length % 2 ? scores[middle] : (scores[middle - 1] + scores[middle]) / 2;
         rows.forEach((row) => {
           const home = Number(row.home_score);
           const away = Number(row.away_score);
           const divisionGame = divisionByTeam.get(row.home_team_id) === divisionByTeam.get(row.away_team_id);
-          addOutcome(row.home_team_id, home, away, median3, divisionGame);
-          addOutcome(row.away_team_id, away, home, median3, divisionGame);
+          addOutcome(row.home_team_id, home, away, median4, divisionGame);
+          addOutcome(row.away_team_id, away, home, median4, divisionGame);
         });
       });
       const updates = await Promise.all(Array.from(recalculated.entries()).map(([teamId, values]) => supabaseAdmin.from("team_standings").update({
@@ -92409,12 +92686,17 @@ var appRouter = router({
         streak: values.streak || "\u2014"
       }).eq("team_id", teamId)));
       if (updates.some((update) => update.error)) throw new Error("Result saved, but one or more standings rows could not be updated.");
+      if (target.week > REGULAR_SEASON_WEEKS) {
+        await ensurePlayoffRounds(target.season).catch((error46) => console.error("[commissionerFinalizeWeeklyResult] Playoff setup did not complete:", error46));
+        return { saved: true, median: null };
+      }
       const targetWeekRows = resultsByWeek.get(target.week) ?? [];
       const targetScores = targetWeekRows.flatMap((row) => [Number(row.home_score), Number(row.away_score)]).sort((a, b) => a - b);
       const targetMiddle = Math.floor(targetScores.length / 2);
-      const median2 = targetScores.length % 2 ? targetScores[targetMiddle] : (targetScores[targetMiddle - 1] + targetScores[targetMiddle]) / 2;
-      await supabaseAdmin.from("weekly_results").update({ league_median: median2 }).eq("season", target.season).eq("week", target.week);
-      return { saved: true, median: median2 };
+      const median3 = targetScores.length % 2 ? targetScores[targetMiddle] : (targetScores[targetMiddle - 1] + targetScores[targetMiddle]) / 2;
+      await supabaseAdmin.from("weekly_results").update({ league_median: median3 }).eq("season", target.season).eq("week", target.week);
+      await ensurePlayoffRounds(target.season).catch((error46) => console.error("[commissionerFinalizeWeeklyResult] Playoff setup did not complete:", error46));
+      return { saved: true, median: median3 };
     }),
     submitManualTransaction: teamProcedure.input(external_exports.object({
       targetTeamId: external_exports.string().min(1).max(128),
@@ -95036,7 +95318,8 @@ async function autoFinalizeCompletedWeeklyResults() {
       throw error47;
     }
   }
-  return { season: SEASON2, currentWeek, finalizedWeeks, pendingWeeks };
+  const playoffs = await ensurePlayoffRounds(SEASON2);
+  return { season: SEASON2, currentWeek, finalizedWeeks, pendingWeeks, playoffGamesCreated: playoffs.created.length, playoffPrizesPaid: playoffs.paid.length };
 }
 async function finalizeWeeklyResultsSchedule(_req, res) {
   try {

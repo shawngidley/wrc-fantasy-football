@@ -3,6 +3,7 @@
  * Loads live matchup scores from Supabase weekly_results table.
  * Shows a week selector so owners can browse any completed week.
  */
+import { isPlayoffWeek } from "@/lib/playoffPicture";
 import { useState, useEffect } from "react";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -66,7 +67,8 @@ export default function Rundown() {
   const allScores = results.flatMap(r => [r.home_score, r.away_score]).filter(s => s > 0);
   const sorted = [...allScores].sort((a, b) => a - b);
   const mid = Math.floor(sorted.length / 2);
-  const median = sorted.length === 0 ? 0 :
+  // No league median in the playoffs.
+  const median = sorted.length === 0 || results.some(r => isPlayoffWeek(r.week)) ? 0 :
     sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
 
   const hasScores = results.some(r => r.home_score > 0 || r.away_score > 0);

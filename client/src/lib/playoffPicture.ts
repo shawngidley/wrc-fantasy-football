@@ -19,6 +19,11 @@
 export const REGULAR_SEASON_WEEKS = 14;
 export const MAX_WINS_PER_WEEK = 3;
 
+/** Weeks 15 to 17. There is no league median in the playoffs, and these weeks never count toward the season record. */
+export function isPlayoffWeek(week: number): boolean {
+  return week > REGULAR_SEASON_WEEKS;
+}
+
 export type Division = "East" | "Central" | "West";
 export const DIVISIONS: readonly Division[] = ["East", "Central", "West"];
 
@@ -196,6 +201,120 @@ export function clinchStatuses(lines: readonly TeamLine[], weeksLeft: number): M
     result.set(team.owner, bestField.seeds.some(s => s.line.owner === team.owner) ? "alive" : "eliminated");
   }
   return result;
+}
+
+export interface MagicNumbers {
+  /** More wins that guarantee a playoff spot, or null if even a sweep can't guarantee one yet. */
+  toClinch: number | null;
+  /** More wins that guarantee the division title, or null if even a sweep can't. */
+  toClinchDivision: number | null;
+  /** The fewest more wins a team can finish with and still be alive, or null if it is already out. */
+  toStayAlive: number | null;
+}
+
+/**
+ * Magic numbers, in wins (a week is worth up to 3). They use the same cautious
+ * scenarios as clinchStatuses: to clinch, every rival sweeps and every tie goes
+ * against the team; to stay alive, the team sweeps, every rival adds nothing,
+ * and every tie goes its way.
+ */
+export function magicNumbers(lines: readonly TeamLine[], weeksLeft: number): Map<string, MagicNumbers> {
+  const left = Math.max(0, weeksLeft);
+  const cap = MAX_WINS_PER_WEEK * left;
+  const out = new Map<string, MagicNumbers>();
+  for (const team of lines) {
+    const worstEntry = (extra: number) => {
+      const worst = lines.map(l => (l.owner === team.owner ? { ...l, wins: l.wins + extra } : { ...l, wins: l.wins + cap }));
+      return seedFieldWith(worst, makeComparator({ against: team.owner })).seeds.find(s => s.line.owner === team.owner);
+    };
+    const bestIn = (extra: number) => {
+      const best = lines.map(l => (l.owner === team.owner ? { ...l, wins: l.wins + extra } : l));
+      return seedFieldWith(best, makeComparator({ favor: team.owner })).seeds.some(s => s.line.owner === team.owner);
+    };
+    let toClinch: number | null = null;
+    let toClinchDivision: number | null = null;
+    let toStayAlive: number | null = null;
+    for (let extra = 0; extra <= cap; extra++) {
+      const entry = worstEntry(extra);
+      if (toClinch === null && entry) toClinch = extra;
+      if (toClinchDivision === null && entry?.kind === "division") toClinchDivision = extra;
+      if (toStayAlive === null && bestIn(extra)) toStayAlive = extra;
+    }
+    out.set(team.owner, { toClinch, toClinchDivision, toStayAlive });
+  }
+  return out;
+}
+
+/**
+ * A short note for each team that is tied on wins with a neighbor in the
+ * standings, saying who wins the tiebreaker (points for) and by how much.
+ * Only ties that decide something are noted: neighbors in the same group
+ * (both division winners, or both competing for wild cards), and a division
+ * winner against a division mate on the same record.
+ */
+export function tiebreakNotes(field: SeedField): Map<string, string> {
+  const ordered = [
+    ...field.seeds.map(s => ({ line: s.line, tier: s.kind })),
+    ...field.rest.map(line => ({ line, tier: "wildcard" as const })),
+  ];
+  const notes = new Map<string, string>();
+  const addPair = (hi: TeamLine, lo: TeamLine) => {
+    const gap = hi.ptsFor - lo.ptsFor;
+    const wins = `${hi.wins} ${hi.wins === 1 ? "win" : "wins"}`;
+    const detail = gap === 0 ? "Even on points too." : null;
+    if (!notes.has(hi.owner)) notes.set(hi.owner, `Tied with ${lo.teamName} at ${wins}. ${detail ?? `Ahead on points by ${gap.toFixed(1)}.`}`);
+    if (!notes.has(lo.owner)) notes.set(lo.owner, `Tied with ${hi.teamName} at ${wins}. ${detail ?? `Behind on points by ${gap.toFixed(1)}.`}`);
+  };
+  for (let i = 0; i < ordered.length - 1; i++) {
+    const a = ordered[i];
+    const b = ordered[i + 1];
+    if (a.line.wins === b.line.wins && a.tier === b.tier) addPair(a.line, b.line);
+  }
+  for (const entry of ordered.filter(e => e.tier === "division")) {
+    for (const mate of ordered) {
+      if (mate.line.division === entry.line.division && mate.line.owner !== entry.line.owner && mate.line.wins === entry.line.wins) {
+        addPair(entry.line, mate.line);
+      }
+    }
+  }
+  return notes;
+}
+
+export interface RemainingSchedule {
+  /** Opponent owners for the regular season weeks still to play, in order. */
+  opponents: string[];
+  /** The opponents' combined win percentage so far, or null if none have played. */
+  opponentWinPct: number | null;
+}
+
+interface ScheduleLike {
+  week: number;
+  type: string;
+  matchups: readonly (readonly [string, string])[];
+}
+
+/** Each team's remaining regular season opponents and how strong they have been. */
+export function remainingSchedule(schedule: readonly ScheduleLike[], lines: readonly TeamLine[], throughWeek: number): Map<string, RemainingSchedule> {
+  const byOwner = new Map(lines.map(l => [l.owner, l]));
+  const out = new Map<string, RemainingSchedule>();
+  for (const team of lines) {
+    const opponents: string[] = [];
+    for (const week of schedule) {
+      if (week.type !== "regular" || week.week <= throughWeek || week.week > REGULAR_SEASON_WEEKS) continue;
+      const game = week.matchups.find(m => m[0] === team.owner || m[1] === team.owner);
+      if (game) opponents.push(game[0] === team.owner ? game[1] : game[0]);
+    }
+    let wins = 0;
+    let total = 0;
+    for (const owner of opponents) {
+      const opp = byOwner.get(owner);
+      if (!opp) continue;
+      wins += opp.wins;
+      total += opp.wins + opp.losses;
+    }
+    out.set(team.owner, { opponents, opponentWinPct: total > 0 ? wins / total : null });
+  }
+  return out;
 }
 
 /** How each team's seed moved between two points in the season. */

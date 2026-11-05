@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { weeklyRecordDelta as serverWeeklyRecordDelta } from "../../../server/weeklyResultsFinalize";
 import {
-  buildBracket, clinchStatuses, finalRegularSeasonWeeks, seedField, seedMovement, standingsThroughWeek, weeklyRecordDelta,
+  buildBracket, clinchStatuses, finalRegularSeasonWeeks, magicNumbers, remainingSchedule, seedField, seedMovement, standingsThroughWeek, tiebreakNotes, weeklyRecordDelta,
   type Division, type ResultRow, type TeamLine,
 } from "./playoffPicture";
 
@@ -168,5 +168,92 @@ describe("buildBracket", () => {
 
   it("returns no games if there are fewer than six seeds", () => {
     expect(buildBracket(seeds.slice(0, 4), [])).toEqual([]);
+  });
+});
+
+describe("magicNumbers", () => {
+  const wins = [20, 15, 10, 9, 25, 22, 10, 9, 12, 21, 19, 3];
+  const lines = wins.map((w, i) => line(i, w));
+
+  it("agrees with clinchStatuses: the clinch number is the fewest extra wins that flips a team to clinched", () => {
+    const left = 3;
+    const magic = magicNumbers(lines, left);
+    for (const team of lines) {
+      const toClinch = magic.get(team.owner)?.toClinch;
+      if (toClinch === null || toClinch === undefined) continue;
+      const withExtra = (extra: number) => lines.map(l => (l.owner === team.owner ? { ...l, wins: l.wins + extra } : l));
+      const clinched = (extra: number) => {
+        const status = clinchStatuses(withExtra(extra), left).get(team.owner);
+        return status === "division" || status === "playoff";
+      };
+      expect(clinched(toClinch)).toBe(true);
+      if (toClinch > 0) expect(clinched(toClinch - 1)).toBe(false);
+    }
+  });
+
+  it("is zero for a team that has already clinched", () => {
+    expect(magicNumbers(lines, 1).get("O4")?.toClinch).toBe(0);
+  });
+
+  it("says a team can't stay alive when it is already out", () => {
+    const hopeless = [30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 30, 0].map((w, i) => line(i, w));
+    expect(magicNumbers(hopeless, 2).get("O11")?.toStayAlive).toBeNull();
+    expect(magicNumbers(hopeless, 2).get("O0")?.toStayAlive).toBe(0);
+  });
+
+  it("asks for more wins to stay alive the further a team is behind", () => {
+    const behind = [20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 14].map((w, i) => line(i, w));
+    const alive = magicNumbers(behind, 3).get("O11")?.toStayAlive;
+    expect(alive).not.toBeNull();
+    expect(alive).toBeGreaterThan(0);
+  });
+});
+
+describe("tiebreakNotes", () => {
+  it("names who wins a tie on wins and by how many points, for teams competing for the same spot", () => {
+    // O1 and O5 are both wild cards on 22 wins; O5 has more points.
+    const w = [30, 22, 10, 9, 30, 22, 10, 9, 30, 8, 7, 6];
+    const field = seedField(w.map((x, i) => line(i, x, i === 5 ? 1500 : 1000 + i)));
+    const notes = tiebreakNotes(field);
+    expect(notes.get("O5")).toMatch(/Ahead on points by 499\.0/);
+    expect(notes.get("O1")).toMatch(/Behind on points by 499\.0/);
+  });
+
+  it("does not compare a division winner with a wild card from another division", () => {
+    // O9 wins the West on 21; O0 is East winner on 21 too: both division winners, so noted.
+    // O1 (wild card, 21) is NOT noted against O9, because a division winner always outranks a wild card.
+    const w = [21, 21, 10, 9, 30, 12, 10, 9, 12, 21, 11, 3];
+    const field = seedField(w.map((x, i) => line(i, x, 1000 + i)));
+    const notes = tiebreakNotes(field);
+    expect(notes.has("O4")).toBe(false);
+    expect(notes.get("O0")).toMatch(/O9|Team 9|Team 1/);
+  });
+
+  it("notes a division winner tied with a division mate", () => {
+    const w = [20, 20, 10, 9, 25, 12, 10, 9, 12, 21, 11, 3];
+    const field = seedField(w.map((x, i) => line(i, x, i === 0 ? 2000 : 1000 + i)));
+    expect(tiebreakNotes(field).get("O0")).toMatch(/Team 1/);
+  });
+});
+
+describe("remainingSchedule", () => {
+  const schedule = [
+    { week: 1, type: "regular", matchups: [["O0", "O1"]] as const },
+    { week: 2, type: "regular", matchups: [["O0", "O2"]] as const },
+    { week: 3, type: "regular", matchups: [["O3", "O0"]] as const },
+    { week: 15, type: "wildcard", matchups: [["TBD", "TBD"]] as const },
+  ];
+  const lines = [line(0, 6), { ...line(1, 6), losses: 0 }, { ...line(2, 3), losses: 3 }, { ...line(3, 0), losses: 6 }];
+
+  it("lists only the weeks still to play, home or away, and skips the playoffs", () => {
+    const r = remainingSchedule(schedule, lines, 1).get("O0");
+    expect(r?.opponents).toEqual(["O2", "O3"]);
+  });
+
+  it("averages the opponents' records, and is null when none have played", () => {
+    // O2 is 3-3 and O3 is 0-6: 3 wins in 12 games.
+    expect(remainingSchedule(schedule, lines, 1).get("O0")?.opponentWinPct).toBeCloseTo(3 / 12);
+    expect(remainingSchedule(schedule, [line(0, 0), line(2, 0), line(3, 0)], 1).get("O0")?.opponentWinPct).toBeNull();
+    expect(remainingSchedule(schedule, lines, 14).get("O0")?.opponents).toEqual([]);
   });
 });
