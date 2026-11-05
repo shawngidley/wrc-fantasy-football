@@ -55,6 +55,7 @@ const DRAFT_SUB_ITEMS = [
 ];
 
 const LEAGUE_SUB_ITEMS = [
+  { label: "Playoffs", path: "/playoffs" },
   { label: "Rules", path: "/rules" },
   { label: "Money", path: "/money" },
   { label: "History", path: "/history" },
