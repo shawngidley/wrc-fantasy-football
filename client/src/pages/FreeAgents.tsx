@@ -38,6 +38,7 @@ import { formatSeasonStatColumn, type PlayerSeasonStats, type SeasonStatColumn, 
 import { normalizeNFLTeamCode } from "@shared/nflTeamCodes";
 import { getCompletedKickerSeasonStats } from "@/lib/kickerSeasonStats2025";
 import { trpc } from "@/lib/trpc";
+import { readFreeAgentViewState, writeFreeAgentViewState, type FreeAgentViewState } from "@/lib/freeAgentViewState";
 import { useDraftPlayerUniverse } from "@/hooks/useDraftPlayerUniverse";
 import {
   FREE_AGENT_CONFIGURABLE_COLUMNS,
@@ -611,20 +612,23 @@ function formatKickerFantasyStat(player: NFLPlayer, stats: PlayerSeasonStats | u
 export default function FreeAgents() {
   const { franchise } = useAuth();
   const draftPlayerPool = useDraftPlayerUniverse();
-  const [posFilter, setPosFilter] = useState<string>("SFLEX");
-  const [search, setSearch] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("wrcPts");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  // The view the owner left (position, sort, search, tab, scroll), so Back from a
+  // player page returns to it. Null on a first visit, which uses the defaults.
+  const [savedView] = useState(() => readFreeAgentViewState());
+  const [posFilter, setPosFilter] = useState<string>(savedView?.posFilter ?? "SFLEX");
+  const [search, setSearch] = useState(savedView?.search ?? "");
+  const [sortKey, setSortKey] = useState<SortKey>((savedView?.sortKey as SortKey | undefined) ?? "wrcPts");
+  const [sortDirection, setSortDirection] = useState<SortDirection>(savedView?.sortDirection ?? "desc");
   const [bidPlayer, setBidPlayer] = useState<NFLPlayer | null>(null);
   const [instantAddPlayer, setInstantAddPlayer] = useState<NFLPlayer | null>(null);
   const marketStateQuery = trpc.league.freeAgentMarketState.useQuery(undefined, { refetchInterval: 60_000 });
   const marketState = marketStateQuery.data?.state ?? "bidding";
-  const [activeTab, setActiveTab] = useState<"pool" | "bids" | "myBids">("pool");
+  const [activeTab, setActiveTab] = useState<"pool" | "bids" | "myBids">(savedView?.activeTab ?? "pool");
   const [ownedNames, setOwnedNames] = useState<Set<string>>(new Set());
   const [loadingOwned, setLoadingOwned] = useState(true);
-  const [playerScope, setPlayerScope] = useState<"fa" | "all">("fa");
+  const [playerScope, setPlayerScope] = useState<"fa" | "all">(savedView?.playerScope ?? "fa");
   const [ownershipMap, setOwnershipMap] = useState<Record<string, string>>({});
-  const [activeView, setActiveView] = useState<"pool" | "watchlist">("pool");
+  const [activeView, setActiveView] = useState<"pool" | "watchlist">(savedView?.activeView ?? "pool");
   const [columnChooserOpen, setColumnChooserOpen] = useState(false);
   const [visibleColumns, setVisibleColumns] = useState<FreeAgentConfigurableColumn[]>(() => [...FREE_AGENT_CONFIGURABLE_COLUMNS]);
   const tableStatsScrollRef = useRef<HTMLDivElement>(null);
@@ -702,7 +706,7 @@ export default function FreeAgents() {
     [baseFiltered]
   );
   const defaultStatsYear = useMemo(() => getDefaultStatsYear(), []);
-  const [selectedStatsYear, setSelectedStatsYear] = useState<number>(defaultStatsYear);
+  const [selectedStatsYear, setSelectedStatsYear] = useState<number>(savedView?.selectedStatsYear ?? defaultStatsYear);
   // Season stats read directly from WRC's own database (already-finalized
   // weeks, computed once server-side during official weekly finalization,
   // now covering free agents too) instead of independently recomputed
@@ -834,6 +838,38 @@ export default function FreeAgents() {
   };
 
   const tableHeaders = useMemo(() => getFreeAgentTableColumns(posFilter, visibleColumns), [posFilter, visibleColumns]);
+
+  // Remember the view so Back from a player page lands where the owner was.
+  const viewRef = useRef<FreeAgentViewState | null>(null);
+  const scrollYRef = useRef(savedView?.scrollY ?? 0);
+  viewRef.current = { posFilter, search, sortKey, sortDirection, playerScope, activeView, activeTab, selectedStatsYear, scrollY: scrollYRef.current };
+  useEffect(() => {
+    if (viewRef.current) writeFreeAgentViewState(viewRef.current);
+  }, [posFilter, search, sortKey, sortDirection, playerScope, activeView, activeTab, selectedStatsYear]);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const onScroll = () => {
+      scrollYRef.current = window.scrollY;
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (viewRef.current) writeFreeAgentViewState({ ...viewRef.current, scrollY: scrollYRef.current });
+      }, 150);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      clearTimeout(timer);
+      if (viewRef.current) writeFreeAgentViewState({ ...viewRef.current, scrollY: scrollYRef.current });
+    };
+  }, []);
+  // Return to the saved scroll spot once, after the list has rows to scroll through.
+  const restoredScrollRef = useRef(false);
+  useEffect(() => {
+    if (restoredScrollRef.current || loadingOwned || baseFiltered.length === 0) return;
+    restoredScrollRef.current = true;
+    const target = savedView?.scrollY ?? 0;
+    if (target > 0) requestAnimationFrame(() => window.scrollTo(0, target));
+  }, [loadingOwned, baseFiltered.length, savedView]);
 
   const positions = ["SFLEX", "QB", "RB", "WR", "TE", "K", "DST"];
   const isCommissioner = franchise?.is_commissioner;
