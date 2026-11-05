@@ -6,14 +6,13 @@
  * - Seeding is by most wins. A week is worth up to 3 wins: 2 for beating your
  *   opponent and 1 for beating the league median (see weeklyRecordDelta).
  * - 6 teams make it: the 3 division winners (seeds 1 to 3) and the 3 best
- *   other records (seeds 4 to 6). Ties go to points for.
+ *   other records (seeds 4 to 6). Ties on wins go to head to head first,
+ *   then points for.
  * - Seeds 1 and 2 skip Week 15. In Week 16 the top seed plays the lowest
  *   remaining seed. Week 17 is the championship.
  *
- * Only regular season weeks count toward seeding. Note that the official
- * team_standings recompute has no such ceiling -- it folds in every final
- * week, playoffs included -- so from Week 15 the Standings page's W-L can run
- * ahead of the records here.
+ * Only regular season weeks count toward seeding, and the official
+ * team_standings recompute caps at the same week 14.
  */
 
 export const REGULAR_SEASON_WEEKS = 14;
@@ -46,6 +45,12 @@ export interface TeamLine extends PlayoffTeam {
   wins: number;
   losses: number;
   ptsFor: number;
+  /**
+   * Head to head game results against each other team (owner to wins and
+   * losses). Only the game itself counts here, not the median. Used for the
+   * first tiebreaker. Optional so a line can be built without it.
+   */
+  vs?: Record<string, { w: number; l: number }>;
 }
 
 /**
@@ -84,7 +89,7 @@ export function finalRegularSeasonWeeks(rows: readonly ResultRow[]): number[] {
 
 /** Every team's record using only final regular season weeks up to `throughWeek`. */
 export function standingsThroughWeek(teams: readonly PlayoffTeam[], rows: readonly ResultRow[], throughWeek: number): TeamLine[] {
-  const lines = new Map<string, TeamLine>(teams.map(t => [t.owner, { ...t, wins: 0, losses: 0, ptsFor: 0 }]));
+  const lines = new Map<string, TeamLine>(teams.map(t => [t.owner, { ...t, wins: 0, losses: 0, ptsFor: 0, vs: {} }]));
   const byWeek = new Map<number, ResultRow[]>();
   for (const row of rows) {
     if (!row.is_final || row.week < 1 || row.week > REGULAR_SEASON_WEEKS || row.week > throughWeek) continue;
@@ -99,10 +104,15 @@ export function standingsThroughWeek(teams: readonly PlayoffTeam[], rows: readon
         { owner: row.home_owner, score: num(row.home_score), opp: num(row.away_score) },
         { owner: row.away_owner, score: num(row.away_score), opp: num(row.home_score) },
       ];
-      for (const side of sides) {
+      for (let index = 0; index < sides.length; index++) {
+        const side = sides[index];
         const line = lines.get(side.owner);
         if (!line) continue;
         const outcome = side.score > side.opp ? "W" : side.score < side.opp ? "L" : "T";
+        const opponent = sides[1 - index].owner;
+        const record = (line.vs![opponent] ??= { w: 0, l: 0 });
+        if (outcome === "W") record.w += 1;
+        if (outcome === "L") record.l += 1;
         const { winsDelta, lossesDelta } = weeklyRecordDelta(outcome, side.score > weekMedian);
         line.wins += winsDelta;
         line.losses += lossesDelta;
@@ -115,17 +125,58 @@ export function standingsThroughWeek(teams: readonly PlayoffTeam[], rows: readon
 
 type TieMode = "actual" | { favor: string } | { against: string };
 
-function makeComparator(mode: TieMode) {
-  return (a: TeamLine, b: TeamLine): number => {
-    if (b.wins !== a.wins) return b.wins - a.wins;
-    if (mode !== "actual") {
-      const subject = "favor" in mode ? mode.favor : mode.against;
-      const sign = "favor" in mode ? -1 : 1;
-      if (a.owner === subject) return sign;
-      if (b.owner === subject) return -sign;
+/**
+ * Each tied team's head to head win percentage against the other teams in its
+ * tied group, or the same number for everyone when the group can't be
+ * separated that way (some team never played anyone in the group).
+ */
+function headToHeadKeys(group: readonly TeamLine[]): Map<string, number> {
+  const owners = group.map(t => t.owner);
+  const records = group.map(team => {
+    let w = 0;
+    let l = 0;
+    for (const other of owners) {
+      if (other === team.owner) continue;
+      const record = team.vs?.[other];
+      if (record) { w += record.w; l += record.l; }
     }
-    return b.ptsFor - a.ptsFor || a.owner.localeCompare(b.owner);
-  };
+    return { owner: team.owner, w, l };
+  });
+  const usable = records.every(r => r.w + r.l > 0);
+  return new Map(records.map(r => [r.owner, usable ? r.w / (r.w + r.l) : 0.5]));
+}
+
+/**
+ * Puts teams in seed order: most wins first. Teams level on wins are ordered by
+ * head to head against the others in that tied group, then by points for. In
+ * the cautious clinch and elimination checks, one team is placed last (or
+ * first) among everyone it is tied with, whatever the tiebreakers would say.
+ *
+ * The head to head keys are worked out for the whole group BEFORE sorting, so
+ * the comparison stays transitive. Comparing two teams' head to head records
+ * inside the sort would not be, and a non-transitive comparator makes sort
+ * order arbitrary.
+ */
+function orderTeams(list: readonly TeamLine[], mode: TieMode): TeamLine[] {
+  const subject = mode === "actual" ? null : "favor" in mode ? mode.favor : mode.against;
+  const subjectFirst = mode !== "actual" && "favor" in mode;
+  const byWins = [...list].sort((a, b) => b.wins - a.wins);
+  const ordered: TeamLine[] = [];
+  for (let start = 0; start < byWins.length;) {
+    let end = start;
+    while (end < byWins.length && byWins[end].wins === byWins[start].wins) end++;
+    const group = byWins.slice(start, end);
+    start = end;
+    if (group.length === 1) { ordered.push(group[0]); continue; }
+    const keys = headToHeadKeys(group);
+    const rest = group
+      .filter(t => t.owner !== subject)
+      .sort((a, b) => ((keys.get(b.owner) ?? 0.5) - (keys.get(a.owner) ?? 0.5)) || b.ptsFor - a.ptsFor || a.owner.localeCompare(b.owner));
+    const subjectLine = group.find(t => t.owner === subject);
+    if (!subjectLine) ordered.push(...rest);
+    else ordered.push(...(subjectFirst ? [subjectLine, ...rest] : [...rest, subjectLine]));
+  }
+  return ordered;
 }
 
 export interface SeedEntry {
@@ -141,28 +192,28 @@ export interface SeedField {
   rest: TeamLine[];
 }
 
-function seedFieldWith(lines: readonly TeamLine[], compare: (a: TeamLine, b: TeamLine) => number): SeedField {
+function seedFieldWith(lines: readonly TeamLine[], mode: TieMode): SeedField {
   const winners: TeamLine[] = [];
   const others: TeamLine[] = [];
   for (const division of DIVISIONS) {
-    const inDivision = lines.filter(l => l.division === division).sort(compare);
+    const inDivision = orderTeams(lines.filter(l => l.division === division), mode);
     if (inDivision.length === 0) continue;
     winners.push(inDivision[0]);
     others.push(...inDivision.slice(1));
   }
-  winners.sort(compare);
-  others.sort(compare);
-  const wildCards = others.slice(0, 3);
+  const orderedWinners = orderTeams(winners, mode);
+  const orderedOthers = orderTeams(others, mode);
+  const wildCards = orderedOthers.slice(0, 3);
   const seeds: SeedEntry[] = [
-    ...winners.map(line => ({ line, kind: "division" as const })),
+    ...orderedWinners.map(line => ({ line, kind: "division" as const })),
     ...wildCards.map(line => ({ line, kind: "wildcard" as const })),
   ].map((entry, i) => ({ seed: i + 1, line: entry.line, kind: entry.kind, bye: i < 2 }));
-  return { seeds, rest: others.slice(3) };
+  return { seeds, rest: orderedOthers.slice(3) };
 }
 
-/** The six seeds and the rest, using the real tiebreaker (points for). */
+/** The six seeds and the rest, using the real tiebreakers (head to head, then points for). */
 export function seedField(lines: readonly TeamLine[]): SeedField {
-  return seedFieldWith(lines, makeComparator("actual"));
+  return seedFieldWith(lines, "actual");
 }
 
 export type ClinchStatus = "division" | "playoff" | "eliminated" | "alive";
@@ -190,14 +241,14 @@ export function clinchStatuses(lines: readonly TeamLine[], weeksLeft: number): M
       continue;
     }
     const worst = lines.map(l => (l.owner === team.owner ? l : { ...l, wins: l.wins + MAX_WINS_PER_WEEK * left }));
-    const worstField = seedFieldWith(worst, makeComparator({ against: team.owner }));
+    const worstField = seedFieldWith(worst, { against: team.owner });
     const worstEntry = worstField.seeds.find(s => s.line.owner === team.owner);
     if (worstEntry) {
       result.set(team.owner, worstEntry.kind === "division" ? "division" : "playoff");
       continue;
     }
     const best = lines.map(l => (l.owner === team.owner ? { ...l, wins: l.wins + MAX_WINS_PER_WEEK * left } : l));
-    const bestField = seedFieldWith(best, makeComparator({ favor: team.owner }));
+    const bestField = seedFieldWith(best, { favor: team.owner });
     result.set(team.owner, bestField.seeds.some(s => s.line.owner === team.owner) ? "alive" : "eliminated");
   }
   return result;
@@ -225,11 +276,11 @@ export function magicNumbers(lines: readonly TeamLine[], weeksLeft: number): Map
   for (const team of lines) {
     const worstEntry = (extra: number) => {
       const worst = lines.map(l => (l.owner === team.owner ? { ...l, wins: l.wins + extra } : { ...l, wins: l.wins + cap }));
-      return seedFieldWith(worst, makeComparator({ against: team.owner })).seeds.find(s => s.line.owner === team.owner);
+      return seedFieldWith(worst, { against: team.owner }).seeds.find(s => s.line.owner === team.owner);
     };
     const bestIn = (extra: number) => {
       const best = lines.map(l => (l.owner === team.owner ? { ...l, wins: l.wins + extra } : l));
-      return seedFieldWith(best, makeComparator({ favor: team.owner })).seeds.some(s => s.line.owner === team.owner);
+      return seedFieldWith(best, { favor: team.owner }).seeds.some(s => s.line.owner === team.owner);
     };
     let toClinch: number | null = null;
     let toClinchDivision: number | null = null;
@@ -247,8 +298,8 @@ export function magicNumbers(lines: readonly TeamLine[], weeksLeft: number): Map
 
 /**
  * A short note for each team that is tied on wins with a neighbor in the
- * standings, saying who wins the tiebreaker (points for) and by how much.
- * Only ties that decide something are noted: neighbors in the same group
+ * standings, saying how the tie is broken: head to head first, then points
+ * for. Only ties that decide something are noted: neighbors in the same group
  * (both division winners, or both competing for wild cards), and a division
  * winner against a division mate on the same record.
  */
@@ -259,11 +310,27 @@ export function tiebreakNotes(field: SeedField): Map<string, string> {
   ];
   const notes = new Map<string, string>();
   const addPair = (hi: TeamLine, lo: TeamLine) => {
-    const gap = hi.ptsFor - lo.ptsFor;
     const wins = `${hi.wins} ${hi.wins === 1 ? "win" : "wins"}`;
-    const detail = gap === 0 ? "Even on points too." : null;
-    if (!notes.has(hi.owner)) notes.set(hi.owner, `Tied with ${lo.teamName} at ${wins}. ${detail ?? `Ahead on points by ${gap.toFixed(1)}.`}`);
-    if (!notes.has(lo.owner)) notes.set(lo.owner, `Tied with ${hi.teamName} at ${wins}. ${detail ?? `Behind on points by ${gap.toFixed(1)}.`}`);
+    const hiVsLo = hi.vs?.[lo.owner] ?? { w: 0, l: 0 };
+    const gap = hi.ptsFor - lo.ptsFor;
+    let hiNote: string;
+    let loNote: string;
+    if (hiVsLo.w > hiVsLo.l) {
+      hiNote = `Wins the head to head tiebreaker (${hiVsLo.w}-${hiVsLo.l}).`;
+      loNote = `Loses the head to head tiebreaker (${hiVsLo.l}-${hiVsLo.w}).`;
+    } else if (hiVsLo.w < hiVsLo.l) {
+      // Seeded ahead anyway, which happens in a tie of three or more teams.
+      hiNote = "Seeded ahead on the tiebreakers.";
+      loNote = "Seeded behind on the tiebreakers.";
+    } else if (gap === 0) {
+      hiNote = loNote = "Even on points too.";
+    } else {
+      const played = hiVsLo.w + hiVsLo.l > 0 ? "Split the head to head. " : "No head to head. ";
+      hiNote = `${played}Ahead on points by ${gap.toFixed(1)}.`;
+      loNote = `${played}Behind on points by ${gap.toFixed(1)}.`;
+    }
+    if (!notes.has(hi.owner)) notes.set(hi.owner, `Tied with ${lo.teamName} at ${wins}. ${hiNote}`);
+    if (!notes.has(lo.owner)) notes.set(lo.owner, `Tied with ${hi.teamName} at ${wins}. ${loNote}`);
   };
   for (let i = 0; i < ordered.length - 1; i++) {
     const a = ordered[i];

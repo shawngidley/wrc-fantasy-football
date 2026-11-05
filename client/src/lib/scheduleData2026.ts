@@ -55,6 +55,10 @@ export function getResult(week: number, ownerA: string, ownerB: string): Matchup
  * Wild cards = best remaining records league-wide.
  *
  * Returns array of 6 team names in seed order [1..6].
+ *
+ * A rough preview only. The real seeding (head to head, then points for, as
+ * the tiebreakers) is seedField in playoffPicture.ts, which the Playoffs page
+ * and the playoff setup both use.
  */
 export interface StandingsTeam {
   teamName: string;

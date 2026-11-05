@@ -89,7 +89,14 @@ describe("clinchStatuses", () => {
     const rand = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
     for (let trial = 0; trial < 60; trial++) {
       const left = 1 + Math.floor(rand() * 3);
-      const lines = teams.map((t, i) => ({ ...t, wins: Math.floor(rand() * 12), losses: 0, ptsFor: Math.floor(rand() * 2000) + i / 100 }));
+      const lines: TeamLine[] = teams.map((t, i) => ({ ...t, wins: Math.floor(rand() * 12), losses: 0, ptsFor: Math.floor(rand() * 2000) + i / 100, vs: {} }));
+      // Random head to head records too, so the tiebreakers have something to use.
+      for (const x of lines) for (const y of lines) if (x.owner < y.owner && rand() < 0.5) {
+        const w = Math.floor(rand() * 3);
+        const l = Math.floor(rand() * 3);
+        x.vs![y.owner] = { w, l };
+        y.vs![x.owner] = { w: l, l: w };
+      }
       const status = clinchStatuses(lines, left);
       for (let outcome = 0; outcome < 400; outcome++) {
         const finals = lines.map(l => ({ ...l, wins: l.wins + Math.floor(rand() * (3 * left + 1)) }));
@@ -255,5 +262,76 @@ describe("remainingSchedule", () => {
     expect(remainingSchedule(schedule, lines, 1).get("O0")?.opponentWinPct).toBeCloseTo(3 / 12);
     expect(remainingSchedule(schedule, [line(0, 0), line(2, 0), line(3, 0)], 1).get("O0")?.opponentWinPct).toBeNull();
     expect(remainingSchedule(schedule, lines, 14).get("O0")?.opponents).toEqual([]);
+  });
+});
+
+describe("head to head is the first tiebreaker", () => {
+  const withVs = (i: number, wins: number, ptsFor: number, vs: Record<string, { w: number; l: number }>): TeamLine => ({ ...line(i, wins, ptsFor), vs });
+
+  it("seeds the head to head winner ahead of a team with more points", () => {
+    // O1 beat O2, but O2 scored far more. Same division, same wins.
+    const lines = teams.map((t, i) => withVs(i, i === 1 || i === 2 ? 20 : 5 - (i % 4), i === 2 ? 5000 : 1000 + i, {}));
+    lines[1].vs = { O2: { w: 1, l: 0 } };
+    lines[2].vs = { O1: { w: 0, l: 1 } };
+    const field = seedField(lines);
+    const order = [...field.seeds.map(s => s.line.owner), ...field.rest.map(l => l.owner)];
+    expect(order.indexOf("O1")).toBeLessThan(order.indexOf("O2"));
+    expect(field.seeds[0].line.owner).toBe("O1"); // East winner
+  });
+
+  it("falls back to points when the teams split their games", () => {
+    const lines = teams.map((t, i) => withVs(i, i === 1 || i === 2 ? 20 : 5, i === 2 ? 5000 : 1000 + i, {}));
+    lines[1].vs = { O2: { w: 1, l: 1 } };
+    lines[2].vs = { O1: { w: 1, l: 1 } };
+    expect(seedField(lines).seeds[0].line.owner).toBe("O2");
+  });
+
+  it("falls back to points when the teams never played", () => {
+    const lines = teams.map((t, i) => withVs(i, i === 1 || i === 2 ? 20 : 5, i === 2 ? 5000 : 1000 + i, {}));
+    expect(seedField(lines).seeds[0].line.owner).toBe("O2");
+  });
+
+  it("in a three way tie, only uses head to head when every team has played the others", () => {
+    // O0, O1, O2 tied. O0 beat O1 and O2; O1 beat O2. Clear head to head order.
+    const base = teams.map((t, i) => withVs(i, i < 3 ? 20 : 5, 1000 + i, {}));
+    base[0].vs = { O1: { w: 1, l: 0 }, O2: { w: 1, l: 0 } };
+    base[1].vs = { O0: { w: 0, l: 1 }, O2: { w: 1, l: 0 } };
+    base[2].vs = { O0: { w: 0, l: 1 }, O1: { w: 0, l: 1 } };
+    // Give O2 the most points: head to head should still put it last.
+    base[2].ptsFor = 9000;
+    const order = seedField(base).seeds.map(s => s.line.owner);
+    expect(order.indexOf("O0")).toBeLessThan(order.indexOf("O1"));
+    // Now O2 has not played anyone in the group: head to head is skipped for the whole group.
+    base[2].vs = {};
+    base[0].vs = { O1: { w: 1, l: 0 } };
+    base[1].vs = { O0: { w: 0, l: 1 } };
+    expect(seedField(base).seeds[0].line.owner).toBe("O2"); // most points wins
+  });
+
+  it("explains the tiebreaker in the note", () => {
+    const lines = teams.map((t, i) => withVs(i, i === 1 || i === 2 ? 20 : 5, i === 2 ? 5000 : 1000 + i, {}));
+    lines[1].vs = { O2: { w: 1, l: 0 } };
+    lines[2].vs = { O1: { w: 0, l: 1 } };
+    const notes = tiebreakNotes(seedField(lines));
+    expect(notes.get("O1")).toMatch(/Wins the head to head tiebreaker \(1-0\)/);
+    expect(notes.get("O2")).toMatch(/Loses the head to head tiebreaker \(0-1\)/);
+  });
+});
+
+describe("standingsThroughWeek head to head records", () => {
+  const game = (week: number, h: number, a: number, hs: number, as: number): ResultRow =>
+    ({ week, home_owner: `O${h}`, away_owner: `O${a}`, home_score: hs, away_score: as, is_final: true });
+
+  it("counts each game for the winner and loser, and ignores ties and playoff weeks", () => {
+    const lines = standingsThroughWeek(teams, [
+      game(1, 0, 1, 100, 90),
+      game(5, 1, 0, 110, 95),
+      game(6, 0, 1, 100, 100),
+      game(15, 0, 1, 200, 10),
+    ], 14);
+    const o0 = lines.find(l => l.owner === "O0")!;
+    const o1 = lines.find(l => l.owner === "O1")!;
+    expect(o0.vs?.O1).toEqual({ w: 1, l: 1 });
+    expect(o1.vs?.O0).toEqual({ w: 1, l: 1 });
   });
 });

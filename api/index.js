@@ -81889,7 +81889,7 @@ function finalRegularSeasonWeeks(rows) {
   return Array.from(weeks).sort((a, b) => a - b);
 }
 function standingsThroughWeek(teams, rows, throughWeek) {
-  const lines = new Map(teams.map((t2) => [t2.owner, { ...t2, wins: 0, losses: 0, ptsFor: 0 }]));
+  const lines = new Map(teams.map((t2) => [t2.owner, { ...t2, wins: 0, losses: 0, ptsFor: 0, vs: {} }]));
   const byWeek = /* @__PURE__ */ new Map();
   for (const row of rows) {
     if (!row.is_final || row.week < 1 || row.week > REGULAR_SEASON_WEEKS || row.week > throughWeek) continue;
@@ -81904,10 +81904,15 @@ function standingsThroughWeek(teams, rows, throughWeek) {
         { owner: row.home_owner, score: num(row.home_score), opp: num(row.away_score) },
         { owner: row.away_owner, score: num(row.away_score), opp: num(row.home_score) }
       ];
-      for (const side of sides) {
+      for (let index = 0; index < sides.length; index++) {
+        const side = sides[index];
         const line = lines.get(side.owner);
         if (!line) continue;
         const outcome = side.score > side.opp ? "W" : side.score < side.opp ? "L" : "T";
+        const opponent = sides[1 - index].owner;
+        const record2 = line.vs[opponent] ??= { w: 0, l: 0 };
+        if (outcome === "W") record2.w += 1;
+        if (outcome === "L") record2.l += 1;
         const { winsDelta, lossesDelta } = weeklyRecordDelta(outcome, side.score > weekMedian);
         line.wins += winsDelta;
         line.losses += lossesDelta;
@@ -81917,38 +81922,66 @@ function standingsThroughWeek(teams, rows, throughWeek) {
   });
   return Array.from(lines.values());
 }
-function makeComparator(mode) {
-  return (a, b) => {
-    if (b.wins !== a.wins) return b.wins - a.wins;
-    if (mode !== "actual") {
-      const subject = "favor" in mode ? mode.favor : mode.against;
-      const sign = "favor" in mode ? -1 : 1;
-      if (a.owner === subject) return sign;
-      if (b.owner === subject) return -sign;
+function headToHeadKeys(group) {
+  const owners = group.map((t2) => t2.owner);
+  const records = group.map((team) => {
+    let w = 0;
+    let l = 0;
+    for (const other of owners) {
+      if (other === team.owner) continue;
+      const record2 = team.vs?.[other];
+      if (record2) {
+        w += record2.w;
+        l += record2.l;
+      }
     }
-    return b.ptsFor - a.ptsFor || a.owner.localeCompare(b.owner);
-  };
+    return { owner: team.owner, w, l };
+  });
+  const usable = records.every((r) => r.w + r.l > 0);
+  return new Map(records.map((r) => [r.owner, usable ? r.w / (r.w + r.l) : 0.5]));
 }
-function seedFieldWith(lines, compare2) {
+function orderTeams(list, mode) {
+  const subject = mode === "actual" ? null : "favor" in mode ? mode.favor : mode.against;
+  const subjectFirst = mode !== "actual" && "favor" in mode;
+  const byWins = [...list].sort((a, b) => b.wins - a.wins);
+  const ordered = [];
+  for (let start = 0; start < byWins.length; ) {
+    let end = start;
+    while (end < byWins.length && byWins[end].wins === byWins[start].wins) end++;
+    const group = byWins.slice(start, end);
+    start = end;
+    if (group.length === 1) {
+      ordered.push(group[0]);
+      continue;
+    }
+    const keys = headToHeadKeys(group);
+    const rest = group.filter((t2) => t2.owner !== subject).sort((a, b) => (keys.get(b.owner) ?? 0.5) - (keys.get(a.owner) ?? 0.5) || b.ptsFor - a.ptsFor || a.owner.localeCompare(b.owner));
+    const subjectLine = group.find((t2) => t2.owner === subject);
+    if (!subjectLine) ordered.push(...rest);
+    else ordered.push(...subjectFirst ? [subjectLine, ...rest] : [...rest, subjectLine]);
+  }
+  return ordered;
+}
+function seedFieldWith(lines, mode) {
   const winners = [];
   const others = [];
   for (const division of DIVISIONS) {
-    const inDivision = lines.filter((l) => l.division === division).sort(compare2);
+    const inDivision = orderTeams(lines.filter((l) => l.division === division), mode);
     if (inDivision.length === 0) continue;
     winners.push(inDivision[0]);
     others.push(...inDivision.slice(1));
   }
-  winners.sort(compare2);
-  others.sort(compare2);
-  const wildCards = others.slice(0, 3);
+  const orderedWinners = orderTeams(winners, mode);
+  const orderedOthers = orderTeams(others, mode);
+  const wildCards = orderedOthers.slice(0, 3);
   const seeds = [
-    ...winners.map((line) => ({ line, kind: "division" })),
+    ...orderedWinners.map((line) => ({ line, kind: "division" })),
     ...wildCards.map((line) => ({ line, kind: "wildcard" }))
   ].map((entry, i) => ({ seed: i + 1, line: entry.line, kind: entry.kind, bye: i < 2 }));
-  return { seeds, rest: others.slice(3) };
+  return { seeds, rest: orderedOthers.slice(3) };
 }
 function seedField(lines) {
-  return seedFieldWith(lines, makeComparator("actual"));
+  return seedFieldWith(lines, "actual");
 }
 var unknownSide = (label) => ({ label, seed: null, owner: null, teamName: null, score: null });
 function seedSide(entry) {

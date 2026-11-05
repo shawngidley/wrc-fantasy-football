@@ -257,7 +257,7 @@ export default function Playoffs() {
               {latestWeek === 0 ? "No weeks are final yet" : seasonOver ? "Regular season complete · seeds are set" : `Through Week ${latestWeek} · ${REGULAR_SEASON_WEEKS - latestWeek} regular season ${REGULAR_SEASON_WEEKS - latestWeek === 1 ? "week" : "weeks"} left`}
             </div>
             <div style={{ fontSize: "0.84rem", color: "rgba(255,255,255,0.82)" }}>
-              Seeded by most wins: 2 for beating your opponent, 1 for beating the league median. Ties go to points for.
+              Seeded by most wins: 2 for beating your opponent, 1 for beating the league median. Ties go to head to head first, then points for.
               Three division winners are seeds 1 to 3, the next three best records are seeds 4 to 6, and seeds 1 and 2 get a Week 15 bye.
             </div>
           </div>
@@ -347,7 +347,8 @@ export default function Playoffs() {
             .filter(r => r.rest && r.rest.opponents.length > 0)
             .sort((a, b) => (a.rest!.opponentWinPct ?? 0.5) - (b.rest!.opponentWinPct ?? 0.5));
           if (strengthRows.length === 0) return null;
-          const pct = (value: number | null) => (value === null ? "–" : `${Math.round(value * 100)}%`);
+          // Shown like a batting average: .356
+          const pct = (value: number | null) => (value === null ? "–" : value.toFixed(3).replace(/^0/, ""));
           return (
             <div className="wrc-card" style={{ marginBottom: "1.5rem", overflow: "hidden" }}>
               <div className="wrc-card-gold-stripe" />
@@ -356,13 +357,11 @@ export default function Playoffs() {
                 <table style={{ width: "100%", minWidth: 340, borderCollapse: "collapse", tableLayout: "fixed" }}>
                   <colgroup>
                     <col />
-                    <col style={{ width: 54 }} />
-                    <col style={{ width: 76 }} />
+                    <col style={{ width: 88 }} />
                   </colgroup>
                   <thead>
                     <tr style={{ background: "oklch(0.22 0.08 150)" }}>
                       <th style={th}>Team (easiest first)</th>
-                      <th style={{ ...th, textAlign: "center" }}>Left</th>
                       <th style={{ ...th, textAlign: "center" }}>Opp win %</th>
                     </tr>
                   </thead>
@@ -373,7 +372,6 @@ export default function Playoffs() {
                           <div style={{ fontWeight: 700, color: "oklch(0.22 0.08 150)", lineHeight: 1.15 }}>{line.teamName}</div>
                           <div style={{ fontSize: "0.7rem", color: "oklch(0.5 0.02 150)", marginTop: 2, lineHeight: 1.3 }}>vs {rest!.opponents.join(", ")}</div>
                         </td>
-                        <td style={{ ...td, textAlign: "center", fontWeight: 700 }}>{rest!.opponents.length}</td>
                         <td style={{ ...td, textAlign: "center", fontWeight: 700 }}>{pct(rest!.opponentWinPct)}</td>
                       </tr>
                     ))}
@@ -381,7 +379,7 @@ export default function Playoffs() {
                 </table>
               </div>
               <div style={{ fontSize: "0.74rem", color: "oklch(0.4 0.03 150)", padding: "0.6rem 0.9rem 0.8rem", lineHeight: 1.5, background: "oklch(0.97 0.005 150)" }}>
-                Opp win % is the combined record so far of the opponents a team still has to play. Lower means an easier road. Teams that are already out are left off.
+                Opp win % is the combined record so far of the opponents a team still has to play (.500 is average). Lower means an easier road. Teams that are already out are left off.
               </div>
             </div>
           );

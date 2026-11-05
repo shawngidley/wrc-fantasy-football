@@ -114,7 +114,7 @@ const sections = [
   {
     title: "Playoffs",
     items: [
-      "6 teams qualify: 3 division winners + 3 wild cards (by record, then FPts tiebreaker)",
+      "6 teams qualify: 3 division winners + 3 wild cards (by record; ties go to head to head, then FPts)",
       "Seeds 1–2 receive a bye in Wild Card Round (Week 15)",
       "Semifinals: Week 16 · Championship: Week 17",
       "Highest seed is the home team in each round",
