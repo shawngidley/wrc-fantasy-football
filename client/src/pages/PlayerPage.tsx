@@ -39,6 +39,7 @@ import TeamLogo from "@/components/TeamLogo";
 import { PlayerNewsRow, type PlayerNewsItem } from "@/components/PlayerNewsRow";
 import { trpc } from "@/lib/trpc";
 import { getVisiblePlayerNews } from "@/lib/playerNewsDisplay";
+import { selectPlayerNews } from "@/lib/playerNewsSelect";
 import { getOverallEcrDisplay } from "@/lib/playerRankDisplay";
 import { calculateStatAverage } from "@/lib/playerStatMath";
 import { normalizeNFLTeamCode } from "@shared/nflTeamCodes";
@@ -760,8 +761,17 @@ export default function PlayerPage() {
   useEffect(() => {
     const name = normalizePlayerName(player?.longName ?? "");
     const injuryWords = /injur|questionable|doubtful|out|ir|limited|missed practice|dnp|hamstring|knee|ankle|shoulder|concussion/i;
-    const playerSpecificNews = fantasyProsPlayerNews.data ?? (fantasyProsNews.data ?? []).filter(item => normalizePlayerName(item.playerName) === name);
-    setPlayerNews(playerSpecificNews.map(item => ({ playerName: item.playerName, pos: player?.pos ?? "", nflTeam: normalizeNFLTeamCode(item.team), headline: item.title, description: [item.description, item.impact].filter(Boolean).join(" "), published: item.published, url: item.link, isInjury: injuryWords.test(`${item.title} ${item.description} ${item.impact}`), source: "FantasyPros" } as PlayerNewsItem)));
+    // Combine the id lookup with the name-matched league feed. See playerNewsSelect.ts.
+    const playerSpecificNews = selectPlayerNews(
+      fantasyProsPlayerNews.data,
+      fantasyProsNews.data,
+      candidate => normalizePlayerName(candidate) === name,
+    );
+    // The id lookup's rows skip the league feed's name enrichment, so their
+    // playerName is blank -- which left the row with no name, no initials and
+    // an avatar lookup for "". Every item here is this player's by
+    // construction, so fall back to the page's own player.
+    setPlayerNews(playerSpecificNews.map(item => ({ playerName: item.playerName || (player?.longName ?? ""), pos: player?.pos ?? "", nflTeam: normalizeNFLTeamCode(item.team), headline: item.title, description: [item.description, item.impact].filter(Boolean).join(" "), published: item.published, url: item.link, isInjury: injuryWords.test(`${item.title} ${item.description} ${item.impact}`), source: "FantasyPros" } as PlayerNewsItem)));
   }, [player?.longName, player?.pos, fantasyProsNews.data, fantasyProsPlayerNews.data]);
 
   // Injury info
