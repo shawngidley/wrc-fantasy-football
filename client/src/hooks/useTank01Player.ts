@@ -180,9 +180,18 @@ export async function fetchPlayerByName(rawName: string): Promise<Tank01Player |
   const name = rawName.trim();
   const canonicalName = normalizePlayerName(name) === normalizePlayerName("Kenny Gainwell") ? "Kenny Gainwell" : name;
   const cacheKey = `name_${canonicalName.toLowerCase().replace(/\s+/g, "_")}`;
-  // Several NFL players can share a name (Antonio Williams WR WSH vs RB NYG).
-  // The draft universe knows which one this league uses, so it wins.
+  // Several NFL players can share a name (Antonio Williams: the league's man is
+  // on WSH, while Tank01's name search also returns the journeyman RB who was
+  // on BUF in 2020 and NYG in 2022). The draft universe knows exactly which one
+  // this league means, so when it has an id we ask for THAT PLAYER by id and
+  // never run the name search at all -- a search can't return the wrong player
+  // if it never happens. The name path below is only for players the universe
+  // doesn't know (and for when the id lookup itself fails).
   const universeId = getDraftUniversePlayerByName(canonicalName)?.sourcePlayerId ?? null;
+  if (universeId) {
+    const byId = await fetchPlayerById(String(universeId));
+    if (byId) return byId;
+  }
   const cached = cacheGet<Tank01Player>(cacheKey);
   if (cached && (!universeId || String(cached.playerID) === String(universeId))) return normalizeTankPlayer(cached);
 
