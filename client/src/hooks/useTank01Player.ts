@@ -167,13 +167,24 @@ export async function fetchPlayerById(playerID: string): Promise<Tank01Player | 
   }
 }
 
+export function pickPlayerForName<T extends { playerID?: string | number }>(sameName: T[], preferredId: string | null): T | undefined {
+  if (preferredId) {
+    const hit = sameName.find(c => String(c.playerID) === String(preferredId));
+    if (hit) return hit;
+  }
+  return sameName[0];
+}
+
 // ── Fetch player by name ─────────────────────────────────────────────────────
 export async function fetchPlayerByName(rawName: string): Promise<Tank01Player | null> {
   const name = rawName.trim();
   const canonicalName = normalizePlayerName(name) === normalizePlayerName("Kenny Gainwell") ? "Kenny Gainwell" : name;
   const cacheKey = `name_${canonicalName.toLowerCase().replace(/\s+/g, "_")}`;
+  // Several NFL players can share a name (Antonio Williams WR WSH vs RB NYG).
+  // The draft universe knows which one this league uses, so it wins.
+  const universeId = getDraftUniversePlayerByName(canonicalName)?.sourcePlayerId ?? null;
   const cached = cacheGet<Tank01Player>(cacheKey);
-  if (cached) return normalizeTankPlayer(cached);
+  if (cached && (!universeId || String(cached.playerID) === String(universeId))) return normalizeTankPlayer(cached);
 
   let res: Response;
   let json: any;
@@ -198,7 +209,12 @@ export async function fetchPlayerByName(rawName: string): Promise<Tank01Player |
     // normalizePlayerName strips generational suffixes (Jr/Sr/II/III/IV/V), so
     // a roster name uploaded as e.g. "James Cook" still matches Tank01
     // returning "James Cook III" for the same person.
-    const player = list.find(candidate => normalizePlayerName(candidate.longName || `${candidate.firstName} ${candidate.lastName}`) === normalizedName) ?? list[0];
+    const sameName = list.filter(candidate => candidate && normalizePlayerName(candidate.longName || `${candidate.firstName} ${candidate.lastName}`) === normalizedName);
+    const player = pickPlayerForName(sameName, universeId) ?? list[0];
+    if (universeId && player?.playerID && String(player.playerID) !== String(universeId)) {
+      const byId = await fetchPlayerById(String(universeId));
+      if (byId) { if (hasRealStats(byId)) cacheSet(cacheKey, byId); return byId; }
+    }
     if (!player || !player.playerID) {
       const universePlayer = getDraftUniversePlayerByName(canonicalName);
       return universePlayer?.sourcePlayerId ? fetchPlayerById(universePlayer.sourcePlayerId) : null;

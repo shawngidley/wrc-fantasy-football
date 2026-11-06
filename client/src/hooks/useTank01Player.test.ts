@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { acquirePlayerInfoSlot, releasePlayerInfoSlot } from "./useTank01Player";
-
+import { acquirePlayerInfoSlot, pickPlayerForName, releasePlayerInfoSlot } from "./useTank01Player";
 describe("Tank01 player-info concurrency limiter", () => {
   it("allows up to the concurrency limit (5) to acquire a slot immediately", async () => {
     const acquiredOrder: number[] = [];
@@ -35,5 +34,13 @@ describe("Tank01 player-info concurrency limiter", () => {
 
     // Clean up: release the remaining 4 original slots plus the 6th's slot.
     for (let i = 0; i < 5; i++) releasePlayerInfoSlot();
+  });
+});
+
+describe("pickPlayerForName", () => {
+  it("prefers the league's player when names collide", () => {
+    const nyg = { playerID: "111" }, wsh = { playerID: "5081432" };
+    expect(pickPlayerForName([nyg, wsh], "5081432")).toBe(wsh);
+    expect(pickPlayerForName([nyg, wsh], null)).toBe(nyg);
   });
 });
