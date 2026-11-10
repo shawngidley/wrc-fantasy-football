@@ -5,6 +5,7 @@
  * Falls back to a "Draft not yet complete" state when no picks exist.
  */
 import { useState, useEffect, useMemo } from "react";
+import { DstLogo } from "@/components/DstLogo";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
@@ -187,7 +188,7 @@ function TeamDraftCard({ teamName, owner, picks }: { teamName: string; owner: st
                         `R${p.round}.${p.pick}`
                       )}
                     </td>
-                    <td style={{ fontWeight: 600 }}>{p.player_name}</td>
+                    <td style={{ fontWeight: 600 }}><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><DstLogo pos={p.player_pos} nflTeam={p.player_nfl_team} />{p.player_name}</span></td>
                     <td>
                       <span style={{ fontFamily: "Barlow Condensed, sans-serif", fontSize: "0.7rem", fontWeight: 700, background: pc.bg, color: pc.text, borderRadius: 4, padding: "1px 5px" }}>
                         {p.player_pos}

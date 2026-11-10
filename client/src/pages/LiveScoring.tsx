@@ -28,6 +28,7 @@ import { useNFLProjections, getProjectedPoints } from "@/hooks/useNFLProjections
 import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } from "@/hooks/useNFLInjuries";
 import { fetchPlayerByName } from "@/hooks/useTank01Player";
 import { getEspnHeadshotUrl } from "@/lib/playerHeadshot";
+import { getNflTeamLogoUrl } from "@/lib/nflTeamLogo";
 import { normalizePlayerName } from "@shared/playerNameMatch";
 import { buildDefaultStarters, fillEmptyStarterSlots, STARTER_SLOT_ORDER } from "@/lib/defaultLineup";
 import { useDraftPlayerUniverse } from "@/hooks/useDraftPlayerUniverse";
@@ -370,7 +371,7 @@ const MOCK_MATCHUPS: Matchup[] = [
 ];
 
 // ── Headshot avatar with initials fallback ─────────────────────────────────────
-function PlayerAvatar({ name, pos, size = 36 }: { name: string; pos: string; size?: number }) {
+function PlayerAvatar({ name, pos, nflTeam, size = 36 }: { name: string; pos: string; nflTeam?: string; size?: number }) {
   const initials = name.split(" ").map(w => w[0]).join("").slice(0, 2).toUpperCase();
   const [headshotUrl, setHeadshotUrl] = useState<string | null>(null);
   const [headshotFailed, setHeadshotFailed] = useState(false);
@@ -387,6 +388,10 @@ function PlayerAvatar({ name, pos, size = 36 }: { name: string; pos: string; siz
     return () => { cancelled = true; };
   }, [name, pos]);
 
+  const dstLogo = pos === "DST" && nflTeam ? getNflTeamLogoUrl(nflTeam) : null;
+  const [dstLogoFailed, setDstLogoFailed] = useState(false);
+  useEffect(() => { setDstLogoFailed(false); }, [dstLogo]);
+
   return (
     <div style={{
       width: size, height: size, borderRadius: "50%",
@@ -398,7 +403,14 @@ function PlayerAvatar({ name, pos, size = 36 }: { name: string; pos: string; siz
       fontSize: size * 0.35, color: "oklch(0.32 0.09 150)",
       letterSpacing: "0.02em",
     }}>
-      {headshotUrl && !headshotFailed ? (
+      {dstLogo && !dstLogoFailed ? (
+        <img
+          src={dstLogo}
+          alt={name}
+          style={{ width: "78%", height: "78%", objectFit: "contain" }}
+          onError={() => setDstLogoFailed(true)}
+        />
+      ) : headshotUrl && !headshotFailed ? (
         <img
           src={headshotUrl}
           alt={name}
@@ -461,7 +473,7 @@ function PlayerCell({ player, side, injuries = {} }: { player: SlotPlayer | null
         width: "100%",
         flexDirection: isHome ? "row" : "row-reverse",
       }}>
-        <PlayerAvatar name={player.fullName} pos={player.pos} size={34} />
+        <PlayerAvatar name={player.fullName} pos={player.pos} nflTeam={player.nflTeam} size={34} />
           <div style={{ flex: 1, minWidth: 0, textAlign: isHome ? "left" : "right" }}>
             <div style={{
               fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700,

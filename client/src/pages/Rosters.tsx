@@ -5,6 +5,7 @@
  * Falls back to static wrcData only if Supabase is unavailable.
  */
 import { useState } from "react";
+import { DstLogo } from "@/components/DstLogo";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { TEAMS } from "@/lib/wrcData";
@@ -265,6 +266,7 @@ function PlayerRow({ player, alt, protectedRound, injuryDesignation }: { player:
         fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.04em",
         minWidth: 28, textAlign: "center", flexShrink: 0,
       }}>{player.position}</span>
+      <DstLogo pos={player.position} nflTeam={player.nfl_team} />
       <a
         href={`/player/${encodeURIComponent(player.name)}`}
         style={{

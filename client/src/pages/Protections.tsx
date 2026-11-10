@@ -21,6 +21,7 @@
  * - Jamie: traded away own Rd 1; received David R.'s Rd 12 → owns Rd 6, 7, 8 (no impact)
  */
 import { useState, useEffect } from "react";
+import { DstLogo } from "@/components/DstLogo";
 import Navigation from "@/components/Navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import {
@@ -565,6 +566,7 @@ export default function Protections() {
                         {entry.pos}
                       </div>
 
+                      <DstLogo pos={entry.pos} nflTeam={entry.nflTeam} size={26} />
                       {/* Name + acquisition */}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: "0.9rem", color: "oklch(0.18 0.05 150)", lineHeight: 1.25 }}>

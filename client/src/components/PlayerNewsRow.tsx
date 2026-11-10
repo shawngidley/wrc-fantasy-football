@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { fetchPlayerByName } from "@/hooks/useTank01Player";
 import { getEspnHeadshotUrl } from "@/lib/playerHeadshot";
+import { getNflTeamLogoUrl } from "@/lib/nflTeamLogo";
 import { getNewsDisplayName } from "@/lib/newsDisplayName";
 import { useNFLInjuries, getInjuryDesignation } from "@/hooks/useNFLInjuries";
 import { InjuryTag } from "@/components/InjuryTag";
@@ -56,7 +57,8 @@ export function PlayerNewsRow({ item, isFirst = false, showDetails = false }: { 
     if (showDetails && detailsRef.current) detailsRef.current.open = true;
   }, [showDetails]);
 
-  const headshotUrl = getEspnHeadshotUrl(item.athleteId) || resolvedHeadshot;
+  const isDst = item.pos === "DST" && !!item.nflTeam;
+  const headshotUrl = isDst ? getNflTeamLogoUrl(item.nflTeam) : getEspnHeadshotUrl(item.athleteId) || resolvedHeadshot;
   const initials = item.playerName.split(" ").filter(Boolean).map(part => part[0]).slice(0, 2).join("");
 
   return (
@@ -72,7 +74,7 @@ export function PlayerNewsRow({ item, isFirst = false, showDetails = false }: { 
 
         <div className="news-row-avatar" style={{ flexShrink: 0, borderRadius: "50%", overflow: "hidden", background: "oklch(0.93 0.02 150)", border: "1.5px solid oklch(0.88 0.03 150)" }}>
           {headshotUrl && !headshotFailed ? (
-            <img src={headshotUrl} alt={item.playerName} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={() => setHeadshotFailed(true)} />
+            <img src={headshotUrl} alt={item.playerName} style={{ width: "100%", height: "100%", objectFit: isDst ? "contain" : "cover", padding: isDst ? 3 : 0, boxSizing: "border-box" }} onError={() => setHeadshotFailed(true)} />
           ) : (
             <div className="news-row-initials" style={{ width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Barlow Condensed, sans-serif", fontWeight: 800, color: "oklch(0.45 0.06 150)" }}>{initials}</div>
           )}
