@@ -14,6 +14,7 @@ import { useDraftedRoster } from "@/hooks/useDraftedRoster";
 import { Link } from "wouter";
 import TeamLogo from "@/components/TeamLogo";
 import { trpc } from "@/lib/trpc";
+import { faabForTeam } from "@/lib/faabBadge";
 import { useNFLInjuries, getInjuryDesignation } from "@/hooks/useNFLInjuries";
 import { InjuryTag } from "@/components/InjuryTag";
 
@@ -63,6 +64,13 @@ export default function Rosters() {
   for (const p of protectionsQuery.data ?? []) {
     if (p.forfeited_round != null) protectionRoundByPlayerId[p.player_id] = p.forfeited_round;
   }
+
+  // Remaining FAAB per franchise. publicTeams is already in flight on this page
+  // -- every card's <TeamLogo> goes through useTeamLogos, which queries it with
+  // this same key and staleTime -- so React Query serves both observers from one
+  // request and the badge costs no extra round trip.
+  const publicTeamsQuery = trpc.league.publicTeams.useQuery(undefined, { staleTime: 5 * 60_000 });
+  const faabRows = publicTeamsQuery.data ?? [];
 
   // Secondary: if draft has started, live draft picks override the players table
   const { rostersByTeam, hasPicks, draftComplete, loading: draftLoading } = useDraftedRoster();
@@ -178,6 +186,10 @@ export default function Rosters() {
                   }
 
                   const allPlayers = sortPlayers(displayPlayers);
+                  // teams.id is "team-<owner>" (e.g. "team-keith") -- the same
+                  // id the roster grouping and the lineup links use -- so this
+                  // matches publicTeams rows directly.
+                  const faabRemaining = faabForTeam(faabRows, team.team_id);
 
                   return (
                     <div
@@ -200,6 +212,18 @@ export default function Rosters() {
                           <div style={{ fontSize: "0.72rem", color: "oklch(0.5 0.04 150)" }}>
                             {team.owner} · {allPlayers.length} players
                           </div>
+                          {faabRemaining != null && (
+                            <span
+                              title="FAAB remaining (pending bids not counted)"
+                              style={{
+                                display: "inline-block", marginTop: 3,
+                                fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700,
+                                fontSize: "0.68rem", letterSpacing: "0.05em",
+                                background: "oklch(0.95 0.07 85)", color: "oklch(0.40 0.10 70)",
+                                border: "1px solid oklch(0.82 0.10 85)", borderRadius: 4, padding: "1px 6px",
+                              }}
+                            >${faabRemaining} FAAB</span>
+                          )}
                         </div>
                         <Link
                           href={`/lineup/${team.team_id}`}

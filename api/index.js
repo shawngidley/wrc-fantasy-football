@@ -92847,6 +92847,11 @@ var appRouter = router({
         name: team.name,
         owner: team.owner,
         division: team.division,
+        // Remaining FAAB. listPublicLeagueTeams already reads this column and
+        // redactLeagueTeam already normalizes it, so carrying it through here
+        // widens nothing on the database side -- it only stops dropping a
+        // field this endpoint already had in hand.
+        faab: team.faab,
         wins: team.wins,
         losses: team.losses,
         ties: team.ties,
