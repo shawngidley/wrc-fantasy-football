@@ -10,6 +10,7 @@
 import { useParams, useLocation } from "wouter";
 import { useTank01PlayerByName, getTeamLogoUrl, type Tank01Player } from "@/hooks/useTank01Player";
 import { resolveDstTeam, dstTeamFullName, dstTeamPlayerId } from "@/lib/nflDstTeams";
+import { formatPlayChance } from "@/lib/playProbability";
 import { useDbSeasonStats } from "@/hooks/useDbSeasonStats";
 import { useDbWeeklyStats, type WeeklyStatLine } from "@/hooks/useDbWeeklyStats";
 import { useNFLTeamRecord } from "@/hooks/useNFLTeamRecord";
@@ -1042,7 +1043,7 @@ export default function PlayerPage() {
                 <AlertCircle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-bold text-amber-900">Injury & Availability · {fantasyInjury?.shortStatus || injuryLabel(injury?.designation ?? "")}</p>
-                  <p className="text-xs text-amber-800 mt-0.5">{fantasyInjury ? [fantasyInjury.injuryType, fantasyInjury.comment, fantasyInjury.probabilityOfPlaying != null ? `${fantasyInjury.probabilityOfPlaying}% chance to play` : "", fantasyInjury.practices.length ? `Practice: ${fantasyInjury.practices.join(" / ")}` : ""].filter(Boolean).join(" · ") : "Official status is shown above. FantasyPros has not published a separate availability note for this player."}</p>
+                  <p className="text-xs text-amber-800 mt-0.5">{fantasyInjury ? [fantasyInjury.injuryType, fantasyInjury.comment, formatPlayChance(fantasyInjury.probabilityOfPlaying, fantasyInjury.shortStatus || fantasyInjury.status), fantasyInjury.practices.length ? `Practice: ${fantasyInjury.practices.join(" / ")}` : ""].filter(Boolean).join(" · ") : "Official status is shown above. FantasyPros has not published a separate availability note for this player."}</p>
                 </div>
               </div>
             )}

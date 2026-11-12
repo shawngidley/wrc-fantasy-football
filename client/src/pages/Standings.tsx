@@ -25,6 +25,7 @@ import { fetchTank01News } from "@/hooks/useNFLNews";
 import { useDraftPlayerUniverse } from "@/hooks/useDraftPlayerUniverse";
 import { useOwnerMatchupScore } from "@/hooks/useOwnerMatchupScore";
 import { useLeagueWeekMedian } from "@/hooks/useLeagueWeekMedian";
+import { formatPlayChance } from "@/lib/playProbability";
 
 const normalizeRosterName = (name: string) => name.toLowerCase().replace(/[^a-z0-9]/g, "");
 
@@ -349,7 +350,7 @@ function InjuryReport({ ownerKey }: { ownerKey: string }) {
       const found = (fantasyProsInjuries.data ?? []).filter(i => roster.has(normalizeRosterName(i.name))).map(i => {
         const player = roster.get(normalizeRosterName(i.name));
         const status = i.shortStatus || i.status || "Injury update";
-        const context = [i.comment || `${i.name} is currently listed as ${status}.`, i.practiceInjuryType ? `Practice injury: ${i.practiceInjuryType}` : "", i.probabilityOfPlaying != null ? `${i.probabilityOfPlaying}% chance to play` : "", i.practices.length ? `Practice: ${i.practices.join(" / ")}` : ""].filter(Boolean).join(" · ");
+        const context = [i.comment || `${i.name} is currently listed as ${status}.`, i.practiceInjuryType ? `Practice injury: ${i.practiceInjuryType}` : "", formatPlayChance(i.probabilityOfPlaying, status), i.practices.length ? `Practice: ${i.practices.join(" / ")}` : ""].filter(Boolean).join(" · ");
         return { playerName: player?.name ?? i.name, pos: player?.pos ?? "", nflTeam: player?.nflTeam ?? i.team, headline: `${status}${i.injuryType ? ` · ${i.injuryType}` : ""}`, description: context, published: i.updated || new Date().toISOString(), isInjury: true, source: "FantasyPros" } as PlayerNewsItem;
       });
       // Most recent update first.
