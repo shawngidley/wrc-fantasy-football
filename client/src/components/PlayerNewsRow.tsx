@@ -24,6 +24,23 @@ export interface PlayerNewsItem {
   source?: "ESPN" | "Tank01" | "FantasyPros";
 }
 
+// Shared by both branches of the details-body link below. Block rather than
+// inline-block so the link starts its own line instead of trailing the last
+// line of the description (where it read as part of the sentence); width
+// fit-content so the click target still hugs the text rather than stretching
+// the full width of the details body. Hoisted because the two branches must
+// stay identical -- they differ only in <a href> vs <Link href>.
+const NEWS_ROW_LINK_STYLE: React.CSSProperties = {
+  display: "block",
+  width: "fit-content",
+  marginTop: "0.35rem",
+  color: "oklch(0.42 0.18 240)",
+  fontWeight: 700,
+  textDecoration: "none",
+  fontFamily: "Barlow Condensed, sans-serif",
+  letterSpacing: "0.03em",
+};
+
 function formatDate(iso: string): string {
   const d = new Date(iso);
   const now = new Date();
@@ -97,9 +114,9 @@ export function PlayerNewsRow({ item, isFirst = false, showDetails = false }: { 
       <div id={detailsId} className="news-row-details" style={{ color: "oklch(0.45 0.04 150)", lineHeight: 1.5 }}>
         {item.description || "No written summary is available from this news source for this headline."}
         {item.url ? (
-          <a href={item.url} target="_blank" rel="noopener noreferrer" className="news-row-link" style={{ display: "inline-block", marginTop: "0.35rem", color: "oklch(0.42 0.18 240)", fontWeight: 700, textDecoration: "none", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.03em" }}>Read full article →</a>
+          <a href={item.url} target="_blank" rel="noopener noreferrer" className="news-row-link" style={NEWS_ROW_LINK_STYLE}>Read full article →</a>
         ) : (
-          <Link href={`/player/${playerSlug}`} className="news-row-link" style={{ display: "inline-block", marginTop: "0.35rem", color: "oklch(0.42 0.18 240)", fontWeight: 700, textDecoration: "none", fontFamily: "Barlow Condensed, sans-serif", letterSpacing: "0.03em" }}>Open player card →</Link>
+          <Link href={`/player/${playerSlug}`} className="news-row-link" style={NEWS_ROW_LINK_STYLE}>Open player card →</Link>
         )}
       </div>
     </details>
