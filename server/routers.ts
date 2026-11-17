@@ -26,6 +26,7 @@ import { releaseUnprotectedPlayers } from "./protectionRelease";
 import { isProtectionDeadlinePassed } from "../shared/protectionSchedule";
 import { findDraftUniversePlayer } from "../shared/draftPlayerUniverse";
 import { normalizePlayerName } from "../shared/playerNameMatch";
+import { loadSeasonStatRows, matchRowsToRequestedNames } from "./seasonStatsByName";
 import { normalizeNFLTeamCode } from "../shared/nflTeamCodes";
 import { TRADEABLE_PICK_YEARS, isTradeablePickYear } from "../shared/tradeablePickYears";
 import { DRAFT_LOTTERY_OWNERS, isValidDraftLotteryResult } from "../shared/draftLottery";
@@ -275,6 +276,17 @@ export const appRouter = router({
         if (error) throw new Error("Unable to load player season stats.");
         const result: Record<string, ReturnType<typeof aggregateWeeklyStatRows>> = {};
         for (const row of data ?? []) result[row.player_name] = aggregateWeeklyStatRows([row]);
+        // An exact name match misses a player the page asks for by the pool's
+        // spelling ("James Cook III") whose row was stored under the WRC roster
+        // name ("James Cook") -- see seasonStatsByName for the full why. Retry
+        // those by normalized name.
+        const unmatched = input.playerNames.filter(name => !(name in result));
+        if (unmatched.length > 0) {
+          const rows = await loadSeasonStatRows("season_stats_current", input.season);
+          for (const { name, row } of matchRowsToRequestedNames(rows, unmatched)) {
+            result[name] = aggregateWeeklyStatRows([row]);
+          }
+        }
         return result;
       }),
     // Season-to-date stats for every team defense, keyed by normalized NFL team
@@ -324,8 +336,17 @@ export const appRouter = router({
         const { data, error } = await supabaseAdmin.from("season_stats_historical")
           .select("*").eq("season", input.season).in("player_name", input.playerNames);
         if (error) throw new Error(`Unable to load historical player season stats: ${error.message}`);
+        const toStats = (row: Record<string, any>) => aggregateWeeklyStatRows([{ ...row, fg_yds: 0, fg_made_1_to_39: 0, fg_made_40_to_49: 0, fg_made_50_to_59: 0, fg_made_60_plus: 0, dst_td: row.def_td, takeaways: row.def_int + row.fumbles_recovered, return_td: 0, safeties: 0, block_kicks: 0, pts_against: 0 }]);
         const result: Record<string, ReturnType<typeof aggregateWeeklyStatRows>> = {};
-        for (const row of data ?? []) result[row.player_name] = aggregateWeeklyStatRows([{ ...row, fg_yds: 0, fg_made_1_to_39: 0, fg_made_40_to_49: 0, fg_made_50_to_59: 0, fg_made_60_plus: 0, dst_td: row.def_td, takeaways: row.def_int + row.fumbles_recovered, return_td: 0, safeties: 0, block_kicks: 0, pts_against: 0 }]);
+        for (const row of data ?? []) result[row.player_name] = toStats(row);
+        // Same roster-name vs pool-name mismatch as seasonStats above.
+        const unmatched = input.playerNames.filter(name => !(name in result));
+        if (unmatched.length > 0) {
+          const rows = await loadSeasonStatRows("season_stats_historical", input.season);
+          for (const { name, row } of matchRowsToRequestedNames(rows, unmatched)) {
+            result[name] = toStats(row as Record<string, any>);
+          }
+        }
         return result;
       }),
   }),

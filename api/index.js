@@ -81500,6 +81500,36 @@ function getDraftUniversePlayerByName(name, pool2 = CURRENT_DRAFT_PLAYER_UNIVERS
   return pool2.find((player) => canonical(player.name) === candidateName) ?? null;
 }
 
+// server/seasonStatsByName.ts
+init_supabaseAdmin();
+function matchRowsToRequestedNames(rows, requestedNames) {
+  const exact = /* @__PURE__ */ new Map();
+  const normalized = /* @__PURE__ */ new Map();
+  for (const row of rows) {
+    const stored = String(row.player_name ?? "");
+    if (!exact.has(stored)) exact.set(stored, row);
+    const key = normalizePlayerName(stored);
+    if (key && !normalized.has(key)) normalized.set(key, row);
+  }
+  const matched = [];
+  for (const name of requestedNames) {
+    const hit = exact.get(name) ?? normalized.get(normalizePlayerName(name));
+    if (hit) matched.push({ name, row: hit });
+  }
+  return matched;
+}
+var STAT_PAGE_SIZE = 1e3;
+async function loadSeasonStatRows(table, season) {
+  const all = [];
+  for (let from = 0; ; from += STAT_PAGE_SIZE) {
+    const { data, error: error46 } = await supabaseAdmin.from(table).select("*").eq("season", season).order("player_name", { ascending: true }).range(from, from + STAT_PAGE_SIZE - 1);
+    if (error46) throw new Error(`Unable to load ${table}: ${error46.message}`);
+    const page = data ?? [];
+    all.push(...page);
+    if (page.length < STAT_PAGE_SIZE) return all;
+  }
+}
+
 // shared/tradeablePickYears.ts
 var TRADEABLE_PICK_YEARS = [2027];
 var DEFAULT_TRADEABLE_PICK_YEAR = TRADEABLE_PICK_YEARS[0];
@@ -91368,6 +91398,13 @@ var appRouter = router({
       if (error46) throw new Error("Unable to load player season stats.");
       const result = {};
       for (const row of data ?? []) result[row.player_name] = aggregateWeeklyStatRows([row]);
+      const unmatched = input.playerNames.filter((name) => !(name in result));
+      if (unmatched.length > 0) {
+        const rows = await loadSeasonStatRows("season_stats_current", input.season);
+        for (const { name, row } of matchRowsToRequestedNames(rows, unmatched)) {
+          result[name] = aggregateWeeklyStatRows([row]);
+        }
+      }
       return result;
     }),
     // Season-to-date stats for every team defense, keyed by normalized NFL team
@@ -91407,8 +91444,16 @@ var appRouter = router({
       if (!input.playerNames.length) return {};
       const { data, error: error46 } = await supabaseAdmin.from("season_stats_historical").select("*").eq("season", input.season).in("player_name", input.playerNames);
       if (error46) throw new Error(`Unable to load historical player season stats: ${error46.message}`);
+      const toStats = (row) => aggregateWeeklyStatRows([{ ...row, fg_yds: 0, fg_made_1_to_39: 0, fg_made_40_to_49: 0, fg_made_50_to_59: 0, fg_made_60_plus: 0, dst_td: row.def_td, takeaways: row.def_int + row.fumbles_recovered, return_td: 0, safeties: 0, block_kicks: 0, pts_against: 0 }]);
       const result = {};
-      for (const row of data ?? []) result[row.player_name] = aggregateWeeklyStatRows([{ ...row, fg_yds: 0, fg_made_1_to_39: 0, fg_made_40_to_49: 0, fg_made_50_to_59: 0, fg_made_60_plus: 0, dst_td: row.def_td, takeaways: row.def_int + row.fumbles_recovered, return_td: 0, safeties: 0, block_kicks: 0, pts_against: 0 }]);
+      for (const row of data ?? []) result[row.player_name] = toStats(row);
+      const unmatched = input.playerNames.filter((name) => !(name in result));
+      if (unmatched.length > 0) {
+        const rows = await loadSeasonStatRows("season_stats_historical", input.season);
+        for (const { name, row } of matchRowsToRequestedNames(rows, unmatched)) {
+          result[name] = toStats(row);
+        }
+      }
       return result;
     })
   }),
