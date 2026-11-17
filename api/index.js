@@ -92896,12 +92896,19 @@ var appRouter = router({
     playerOwnership: publicProcedure.input(external_exports.object({ playerName: external_exports.string().min(1).max(128) })).query(async ({ input }) => {
       const { data, error: error46 } = await supabaseAdmin.from("players").select("team_id, acquisition, draft_round, teams(name, owner)").ilike("name", input.playerName).limit(1).maybeSingle();
       if (error46) throw new Error("Unable to load player ownership.");
-      return data ? {
-        teamId: data.team_id,
-        acquisition: data.acquisition,
-        draftRound: data.draft_round,
-        teamName: data.teams?.name ?? null,
-        owner: data.teams?.owner ?? null
+      let row = data;
+      if (!row) {
+        const { data: rostered, error: rosteredError } = await supabaseAdmin.from("players").select("name, team_id, acquisition, draft_round, teams(name, owner)").not("team_id", "is", null);
+        if (rosteredError) throw new Error("Unable to load player ownership.");
+        const wanted = normalizePlayerName(input.playerName);
+        row = (rostered ?? []).find((candidate) => normalizePlayerName(String(candidate.name ?? "")) === wanted) ?? null;
+      }
+      return row ? {
+        teamId: row.team_id,
+        acquisition: row.acquisition,
+        draftRound: row.draft_round,
+        teamName: row.teams?.name ?? null,
+        owner: row.teams?.owner ?? null
       } : null;
     }),
     commissionerProtectionsOverview: commissionerProcedure.query(async () => {

@@ -2462,12 +2462,28 @@ export const appRouter = router({
           .limit(1)
           .maybeSingle();
         if (error) throw new Error("Unable to load player ownership.");
-        return data ? {
-          teamId: data.team_id,
-          acquisition: data.acquisition,
-          draftRound: data.draft_round,
-          teamName: (data.teams as { name?: string | null } | null)?.name ?? null,
-          owner: (data.teams as { owner?: string | null } | null)?.owner ?? null,
+        let row: typeof data = data;
+        if (!row) {
+          // No exact-name match: a defense can be stored as "Green Bay Packers"
+          // while the page asks for "GB Packers" (and likewise suffix/nickname
+          // variants). Fall back to the shared normalizer over rostered rows.
+          // Only runs on a miss, and only ever for one player at a time --
+          // playerOwnership has a single caller, the player card, with a 60s
+          // staleTime -- so the scan is a few hundred rostered rows, not a hot
+          // path.
+          const { data: rostered, error: rosteredError } = await supabaseAdmin.from("players")
+            .select("name, team_id, acquisition, draft_round, teams(name, owner)")
+            .not("team_id", "is", null);
+          if (rosteredError) throw new Error("Unable to load player ownership.");
+          const wanted = normalizePlayerName(input.playerName);
+          row = (rostered ?? []).find(candidate => normalizePlayerName(String(candidate.name ?? "")) === wanted) ?? null;
+        }
+        return row ? {
+          teamId: row.team_id,
+          acquisition: row.acquisition,
+          draftRound: row.draft_round,
+          teamName: (row.teams as { name?: string | null } | null)?.name ?? null,
+          owner: (row.teams as { owner?: string | null } | null)?.owner ?? null,
         } : null;
       }),
     commissionerProtectionsOverview: commissionerProcedure.query(async () => {

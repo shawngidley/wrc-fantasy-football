@@ -25,6 +25,7 @@ import { hasClearedWaiverHold, getFaabAwardDate } from "@shared/freeAgentCutRest
 import { useNFLInjuries, getInjuryDesignation, getInjuryColor, getInjuryLabel } from "@/hooks/useNFLInjuries";
 import { normalizePlayerName } from "@shared/playerNameMatch";
 import FAABBidModal from "@/components/FAABBidModal";
+import { buildOwnershipMap, ownerOf } from "@/lib/rosterOwnership";
 import InstantAddModal from "@/components/InstantAddModal";
 import { supabase } from "@/lib/supabase";
 import { Input } from "@/components/ui/input";
@@ -664,7 +665,7 @@ export default function FreeAgents() {
     const rosteredPlayers = rosteredPlayersQuery.data;
     if (!rosteredPlayers) return;
     setOwnedNames(new Set(rosteredPlayers.map(player => normalizePlayerName(player.name))));
-    setOwnershipMap(Object.fromEntries(rosteredPlayers.map(player => [player.name.toLowerCase(), player.teamName ?? player.teamId])));
+    setOwnershipMap(buildOwnershipMap(rosteredPlayers));
     setLoadingOwned(false);
   }, [rosteredPlayersQuery.data]);
 
@@ -804,7 +805,7 @@ export default function FreeAgents() {
   const filtered = useMemo(() => {
     const getValue = (player: NFLPlayer): string | number => {
       if (sortKey === "name") return player.name;
-      if (sortKey === "wrcTeam") return ownershipMap[player.name.toLowerCase()] ?? "Free Agent";
+      if (sortKey === "wrcTeam") return ownerOf(ownershipMap, player.name) ?? "Free Agent";
       if (sortKey === "bye") return player.bye ?? 99;
       if (sortKey === "opp") {
         const matchup = matchupMap[normalizeNFLTeamCode(player.nflTeam)];
@@ -1020,7 +1021,7 @@ export default function FreeAgents() {
                       id: wp.player_name, name: wp.player_name, pos: wp.pos, nflTeam: wp.nfl_team, adp: 999, bye: undefined,
                     } as unknown as NFLPlayer;
                     const proj = getProjectedPoints(projections, player.name, player.pos, player.nflTeam);
-                    const ownerTeam = ownershipMap[player.name.toLowerCase()];
+                    const ownerTeam = ownerOf(ownershipMap, player.name);
                     const isOwned = !!ownerTeam;
                     const isMyPlayer = franchise && ownerTeam === franchise.team_name;
                     return (
@@ -1283,7 +1284,7 @@ export default function FreeAgents() {
 
                     {filtered.map((player) => {
                     const proj = getProjectedPoints(projections, player.name, player.pos, player.nflTeam);
-                    const ownerTeam = ownershipMap[player.name.toLowerCase()];
+                    const ownerTeam = ownerOf(ownershipMap, player.name);
                     const isOwned = !!ownerTeam;
                     const seasonStats = seasonStatsFor(player);
                     const matchup = matchupMap[normalizeNFLTeamCode(player.nflTeam)];
