@@ -78,3 +78,41 @@ export function groupKickerEventsForDisplay(events: KickerPlayEvent[]): { key: s
 
   return chips;
 }
+
+/**
+ * The one definition of "is this the same kick?" for anything holding a list
+ * of KickerPlayEvents. Prefers the playKey the parser (and the live fetch
+ * loop, which scopes it by game) stamps on each event, and falls back to the
+ * event's fields only for an event built by hand.
+ *
+ * It exists because that question used to be answered in three places with
+ * three copies of the same string template. When parseEspnKickerEvents moved
+ * to de-duplicating on ESPN play id, two of the three were updated and the
+ * merge into the live-scoring hook's state was not -- so a kicker's two
+ * identical field goals survived parsing, survived the fetch loop, and were
+ * then collapsed back into one on the way into React state. Live Scoring went
+ * on showing a single kick. One definition, used everywhere, or it happens
+ * again.
+ */
+export function kickerEventKey(event: KickerPlayEvent): string {
+  return event.playKey ?? `${event.playerName}|${event.type}|${event.outcome}|${event.yards}|${event.text}`;
+}
+
+/**
+ * Adds newly fetched events to the ones already held, keeping the existing
+ * order and dropping only true repeats. Merging rather than replacing matters
+ * because a recurring poll only refetches in-progress games: replacing would
+ * discard the events captured for games that have already gone final.
+ */
+export function mergeKickerEvents(
+  previous: readonly KickerPlayEvent[],
+  incoming: readonly KickerPlayEvent[],
+): KickerPlayEvent[] {
+  const seen = new Set(previous.map(kickerEventKey));
+  const merged = previous.slice();
+  for (const event of incoming) {
+    const key = kickerEventKey(event);
+    if (!seen.has(key)) { seen.add(key); merged.push(event); }
+  }
+  return merged;
+}

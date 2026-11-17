@@ -13,7 +13,7 @@
  */
 import { useState, useEffect, useRef, useCallback } from "react";
 import { type NFLMatchupMap } from "@/hooks/useNFLMatchups";
-import { calculateWrcKickerPoints, getKickerEventsForPlayer, parseEspnKickerEvents, type KickerPlayEvent } from "@/lib/espnKickerEvents";
+import { calculateWrcKickerPoints, getKickerEventsForPlayer, mergeKickerEvents, parseEspnKickerEvents, type KickerPlayEvent } from "@/lib/espnKickerEvents";
 import { calcFantasyPoints, type Tank01Stats } from "@/lib/scoringEngine";
 import { normalizePlayerName } from "@shared/playerNameMatch";
 import { parseEasternKickoffToUTC } from "@shared/nflKickoffTime";
@@ -268,9 +268,12 @@ export function useNFLLiveScores(
           for (const play of parseEspnKickerEvents(await summary.json())) {
             // Scoped by game: a play from one game is never the same play as
             // one from another, and the parser's text-count fallback key is
-            // only unique within a single payload.
+            // only unique within a single payload. Stamped onto the event so
+            // that everything downstream -- above all the merge into
+            // kickerEvents state -- identifies this kick the same way instead
+            // of recomputing a key that can drift out of step with this one.
             const key = `${event.id}|${play.playKey ?? `${play.playerName}|${play.type}|${play.outcome}|${play.yards}|${play.text}`}`;
-            if (!seen.has(key)) { seen.add(key); events.push(play); }
+            if (!seen.has(key)) { seen.add(key); events.push({ ...play, playKey: key }); }
           }
         }
       } catch (error) {
@@ -359,17 +362,8 @@ export function useNFLLiveScores(
       setLiveStats(prev => ({ ...prev, ...statUpdates }));
       // Merge rather than replace: a recurring poll only fetches
       // in-progress games, so overwriting would wipe the kicker events
-      // captured for games that have already gone final. Dedup by the
-      // same key the fetch loop uses.
-      setKickerEvents(prev => {
-        const seen = new Set(prev.map(e => `${e.playerName}|${e.type}|${e.outcome}|${e.yards}|${e.text}`));
-        const merged = prev.slice();
-        for (const e of espnEvents) {
-          const key = `${e.playerName}|${e.type}|${e.outcome}|${e.yards}|${e.text}`;
-          if (!seen.has(key)) { seen.add(key); merged.push(e); }
-        }
-        return merged;
-      });
+      // captured for games that have already gone final.
+      setKickerEvents(prev => mergeKickerEvents(prev, espnEvents));
       setLastUpdated(new Date());
       return true;
     }

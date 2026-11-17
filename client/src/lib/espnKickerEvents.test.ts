@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { groupKickerEventsForDisplay } from "./espnKickerEvents";
+import { calculateWrcKickerPoints, groupKickerEventsForDisplay, kickerEventKey, mergeKickerEvents } from "./espnKickerEvents";
 
 describe("groupKickerEventsForDisplay", () => {
   it("filters out a missed FG of 50+ yards entirely -- it costs no points and isn't listed at all", () => {
@@ -90,5 +90,42 @@ describe("groupKickerEventsForDisplay", () => {
     ];
     const chips = groupKickerEventsForDisplay(events);
     expect(chips.find(c => c.key === "made-fgs-combined")).toBeUndefined();
+  });
+});
+
+describe("mergeKickerEvents", () => {
+  // The exact shape the live hook produces: parseEspnKickerEvents stamps a
+  // playKey, and fetchEspnKickerEvents re-stamps it scoped by game id.
+  const aubrey = (playKey: string) => ({
+    playerName: "B. Aubrey", type: "fg" as const, outcome: "made" as const, yards: 52,
+    text: "B.Aubrey 52 yard field goal is GOOD, Center-T.Sieg, Holder-B.Anger.", playKey,
+  });
+
+  // This is the regression that kept Live Scoring showing one kick after the
+  // parser was fixed: both of Aubrey's 52-yard field goals reached the merge,
+  // and the merge's own text-tuple key -- which no longer matched the key the
+  // rest of the pipeline used -- collapsed them back into one.
+  it("keeps two identical kicks that differ only by play id", () => {
+    const merged = mergeKickerEvents([], [aubrey("401873063|id:1"), aubrey("401873063|id:2")]);
+    expect(merged).toHaveLength(2);
+    expect(calculateWrcKickerPoints(merged)).toBe(10.4);
+  });
+
+  it("does not re-add an event already held from an earlier poll", () => {
+    const first = mergeKickerEvents([], [aubrey("401873063|id:1")]);
+    const second = mergeKickerEvents(first, [aubrey("401873063|id:1"), aubrey("401873063|id:2")]);
+    expect(second).toHaveLength(2);
+    expect(mergeKickerEvents(second, [aubrey("401873063|id:1")])).toHaveLength(2);
+  });
+
+  it("keeps events captured for a game that has gone final when a later poll returns nothing", () => {
+    const held = mergeKickerEvents([], [aubrey("401873063|id:1"), aubrey("401873063|id:2")]);
+    expect(mergeKickerEvents(held, [])).toHaveLength(2);
+  });
+
+  it("falls back to the event's fields for a hand-built event with no playKey", () => {
+    const bare = { playerName: "K", type: "fg" as const, outcome: "made" as const, yards: 45, text: "45 yard field goal is GOOD" };
+    expect(mergeKickerEvents([], [bare, bare])).toHaveLength(1);
+    expect(kickerEventKey(bare)).toBe("K|fg|made|45|45 yard field goal is GOOD");
   });
 });
