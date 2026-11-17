@@ -8,6 +8,10 @@
  *
  *   SUPABASE_SERVICE_ROLE_KEY=... npx tsx scripts/auditKickerDuplicateFgWeeks.ts
  *
+ * It answers three questions: who was short-changed, whether correcting it
+ * would change any result, and whether a correction can safely be applied by
+ * re-running finalization (usually: no -- see the roster-drift section).
+ *
  * AFFECTED below was produced by replaying every finalized 2026 regular-season
  * game through both the old parser (dedupe by play text) and the new one
  * (dedupe by ESPN play id) and keeping every kicker whose WRC field-goal
@@ -84,7 +88,30 @@ async function main() {
     }
   }
 
-  // ---- 2. Would any head-to-head or median result change?
+  // ---- 2. Could a re-finalize even re-credit the right player?
+  // buildEffectiveStarters resolves each saved starter against the team's
+  // CURRENT roster and backfills any slot it cannot fill. So re-running
+  // finalizeWeeklyResultsFromTank on an old week does not replay that week --
+  // it scores that week's saved lineups against today's rosters. A streamed
+  // kicker who has since been dropped is simply not scored, and somebody else
+  // is backfilled into the slot.
+  console.log("\n=== Is the affected kicker still rostered? ===\n");
+  const { data: players, error: playersError } = await supabaseAdmin.from("players").select("name, team_id");
+  if (playersError) throw new Error(`Unable to load players: ${playersError.message}`);
+  const holderByName = new Map<string, string | null>();
+  for (const p of players ?? []) holderByName.set(normalizePlayerName(String(p.name ?? "")), p.team_id ? String(p.team_id) : null);
+  for (const a of AFFECTED) {
+    const holder = holderByName.get(normalizePlayerName(a.kicker));
+    const where = holder === undefined ? "not in the players table at all"
+      : holder === null ? "on no roster (free agent)"
+      : `rostered by ${ownerById.get(holder) ?? holder}`;
+    console.log(`wk${String(a.week).padStart(2)}  ${a.kicker.padEnd(18)} is now ${where}`);
+  }
+  console.log("\nAny line above that is not 'rostered by <the owner who started him>' means a");
+  console.log("re-finalize of that week would NOT restore his points -- it would score a");
+  console.log("different player. Correct those weeks by updating the stored score instead.");
+
+  // ---- 3. Would any head-to-head or median result change?
   console.log("\n=== Effect on finalized results ===\n");
   for (const week of weeks) {
     const { data: results, error } = await supabaseAdmin.from("weekly_results")
@@ -126,15 +153,43 @@ async function main() {
         console.log(`  *** H2H FLIP: ${h} ${before.get(h)} - ${before.get(a)} ${a}  =>  ${after.get(h)} - ${after.get(a)}  (winner ${wB} -> ${wA})`);
       }
     }
+    let anyFlip = false;
     for (const owner of before.keys()) {
       const bB = before.get(owner)! > medBefore, bA = after.get(owner)! > medAfter;
       if (bB !== bA) {
+        anyFlip = true;
         console.log(`  *** MEDIAN FLIP: ${owner} ${before.get(owner)} vs ${medBefore} (${bB ? "win" : "loss"})  =>  ${after.get(owner)} vs ${medAfter} (${bA ? "win" : "loss"})`);
       }
+    }
+    // Even with no flip the correction still moves points-for, which is a
+    // standings tiebreaker, so it is reported either way.
+    for (const owner of before.keys()) {
+      if (before.get(owner) !== after.get(owner)) {
+        console.log(`  points-for: ${owner} ${before.get(owner)} -> ${after.get(owner)}`);
+      }
+    }
+    if (!anyFlip) console.log("  no head-to-head or median result changes this week.");
+
+    // A rivalry game pays $30 to the winner and is then marked resolved, and
+    // finalization skips a resolved row -- so if a flip lands on one, re-running
+    // anything will NOT move the money. It has to be corrected by hand.
+    const { data: rivalry, error: rivalryError } = await supabaseAdmin.from("rivalry_games")
+      .select("team_id, opponent_team_id, resolved").eq("season", SEASON).eq("week", week);
+    if (rivalryError) throw new Error(`Unable to load week ${week} rivalry games: ${rivalryError.message}`);
+    for (const rg of rivalry ?? []) {
+      const a1 = ownerById.get(String(rg.team_id)) ?? String(rg.team_id);
+      const a2 = ownerById.get(String(rg.opponent_team_id)) ?? String(rg.opponent_team_id);
+      console.log(`  rivalry game declared: ${a1} vs ${a2}${rg.resolved ? " (already resolved and paid)" : " (not yet resolved)"}`);
     }
     console.log("");
   }
   console.log("Done. Nothing was written.");
+  console.log("");
+  console.log("If a week needs correcting, prefer updating that week's weekly_results");
+  console.log("scores directly and then re-running the standings recompute:");
+  console.log("  curl -H \"Authorization: Bearer $CRON_SECRET\" https://wrcfantasyfootball.com/api/scheduled/standings-recompute");
+  console.log("That rebuilds every record and median from the stored scores without");
+  console.log("re-deriving any lineup, so it cannot be thrown off by roster drift.");
 }
 
 main().catch(err => { console.error(err); process.exit(1); });
