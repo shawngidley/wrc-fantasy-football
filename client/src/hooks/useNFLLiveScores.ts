@@ -266,7 +266,10 @@ export function useNFLLiveScores(
           const summary = await fetch(`/api/espn/summary?event=${event.id}`);
           if (!summary.ok) continue;
           for (const play of parseEspnKickerEvents(await summary.json())) {
-            const key = `${play.playerName}|${play.type}|${play.outcome}|${play.yards}|${play.text}`;
+            // Scoped by game: a play from one game is never the same play as
+            // one from another, and the parser's text-count fallback key is
+            // only unique within a single payload.
+            const key = `${event.id}|${play.playKey ?? `${play.playerName}|${play.type}|${play.outcome}|${play.yards}|${play.text}`}`;
             if (!seen.has(key)) { seen.add(key); events.push(play); }
           }
         }

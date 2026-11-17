@@ -9,9 +9,19 @@ export type KickerPlayEvent = {
   outcome: KickerPlayOutcome;
   yards: number | null;
   text: string;
+  /**
+   * Identifies this exact play (ESPN play id, or its text plus which repeat of
+   * that text it is) so that repeats of an identical play are not collapsed.
+   * Named playKey, not key, because groupKickerEventsForDisplay in
+   * client/src/lib/espnKickerEvents.ts emits a React `key` built from these
+   * events and the two are unrelated. Optional because callers (and a good
+   * many tests) build KickerPlayEvent literals directly; the parser always
+   * sets it.
+   */
+  playKey?: string;
 };
 
-type EspnPlay = { text?: string; type?: { text?: string } };
+type EspnPlay = { id?: string | number; text?: string; type?: { text?: string } };
 
 function normalName(name: string): string {
   return name.toLowerCase().replace(/[^a-z]/g, "");
@@ -23,40 +33,66 @@ function parseKickerName(raw: string): string {
 
 export function parseEspnKickerEvents(summary: unknown): KickerPlayEvent[] {
   const root = summary as { drives?: { previous?: Array<{ plays?: EspnPlay[] }> }; plays?: EspnPlay[] };
-  const plays = [
-    ...(root.plays ?? []),
-    ...((root.drives?.previous ?? []).flatMap(drive => drive.plays ?? [])),
+  // The same play can be listed in both arrays, so repeats are dropped -- but
+  // only TRUE repeats. Two real kicks can read byte-identically: a kicker who
+  // makes two field goals of the same distance with the same center and holder
+  // produces the same play text twice. That is not a rarity -- 2 of the 12
+  // games on Sunday 2026-11-15 contained one (B.Aubrey's two 52-yarders in
+  // SF @ DAL, C.Ryland's two 49-yarders in LAR @ ARI). Keying on text alone
+  // silently dropped the second kick, and this parser feeds official scoring
+  // in server/weeklyResultsFinalize.ts, not only the live display, so the
+  // dropped kick cost real points in the standings.
+  //
+  // A play is therefore identified by its ESPN play id, or, failing that, by
+  // its text plus how many times that same text occurred earlier in the SAME
+  // array. Counting per array is what keeps the cross-array dedup honest: each
+  // array can only contribute as many copies of a given text as it actually
+  // holds, so the result is the larger of the two counts rather than their sum.
+  //
+  // Observed live (summary?event=401873065, 2026-11-16): `plays` is absent
+  // from the payload entirely and every one of the 126 `drives.previous[]`
+  // plays carried a unique id, so the id branch is the live path and the
+  // text-count branch is the fallback for a payload that omits ids.
+  const sources: EspnPlay[][] = [
+    root.plays ?? [],
+    (root.drives?.previous ?? []).flatMap(drive => drive.plays ?? []),
   ];
   const seen = new Set<string>();
   const events: KickerPlayEvent[] = [];
 
-  for (const play of plays) {
-    const text = play.text?.trim() ?? "";
-    const type = play.type?.text?.toLowerCase() ?? "";
-    const fgMatch = text.match(/^(.+?)\s+(\d+)\s+yard field goal is\s+(good|no good|missed)/i);
-    if (fgMatch && (type.includes("field goal") || /field goal/i.test(text))) {
-      const event: KickerPlayEvent = {
-        playerName: parseKickerName(fgMatch[1]),
-        type: "fg",
-        outcome: fgMatch[3].toLowerCase() === "good" ? "made" : "missed",
-        yards: Number(fgMatch[2]),
-        text,
-      };
-      const key = `${event.playerName}|${event.type}|${event.outcome}|${event.yards}|${text}`;
-      if (!seen.has(key)) { seen.add(key); events.push(event); }
-      continue;
-    }
-    const xpMatch = text.match(/^(.+?)\s+(?:extra point|pat)\s+is\s+(good|no good|missed)/i);
-    if (xpMatch && (type.includes("extra point") || /extra point|\bpat\b/i.test(text))) {
-      const event: KickerPlayEvent = {
-        playerName: parseKickerName(xpMatch[1]),
-        type: "xp",
-        outcome: xpMatch[2].toLowerCase() === "good" ? "made" : "missed",
-        yards: null,
-        text,
-      };
-      const key = `${event.playerName}|${event.type}|${event.outcome}|${text}`;
-      if (!seen.has(key)) { seen.add(key); events.push(event); }
+  for (const source of sources) {
+    const textCounts = new Map<string, number>();
+    for (const play of source) {
+      const text = play.text?.trim() ?? "";
+      const nth = textCounts.get(text) ?? 0;
+      textCounts.set(text, nth + 1);
+      const playKey = play.id != null && String(play.id) !== "" ? `id:${play.id}` : `text:${text}#${nth}`;
+      const type = play.type?.text?.toLowerCase() ?? "";
+      const fgMatch = text.match(/^(.+?)\s+(\d+)\s+yard field goal is\s+(good|no good|missed)/i);
+      if (fgMatch && (type.includes("field goal") || /field goal/i.test(text))) {
+        const event: KickerPlayEvent = {
+          playerName: parseKickerName(fgMatch[1]),
+          type: "fg",
+          outcome: fgMatch[3].toLowerCase() === "good" ? "made" : "missed",
+          yards: Number(fgMatch[2]),
+          text,
+          playKey,
+        };
+        if (!seen.has(playKey)) { seen.add(playKey); events.push(event); }
+        continue;
+      }
+      const xpMatch = text.match(/^(.+?)\s+(?:extra point|pat)\s+is\s+(good|no good|missed)/i);
+      if (xpMatch && (type.includes("extra point") || /extra point|\bpat\b/i.test(text))) {
+        const event: KickerPlayEvent = {
+          playerName: parseKickerName(xpMatch[1]),
+          type: "xp",
+          outcome: xpMatch[2].toLowerCase() === "good" ? "made" : "missed",
+          yards: null,
+          text,
+          playKey,
+        };
+        if (!seen.has(playKey)) { seen.add(playKey); events.push(event); }
+      }
     }
   }
   return events;

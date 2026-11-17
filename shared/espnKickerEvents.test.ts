@@ -78,3 +78,75 @@ describe("calculateWrcKickerPoints with rawStats (XP scoring)", () => {
     expect(calculateWrcKickerPoints(events, rawStats)).toBe(1);
   });
 });
+
+describe("repeated identical kicks", () => {
+  // Real play text from SF @ DAL on 2026-11-15, where Brandon Aubrey made two
+  // 52-yard field goals with the same center and holder. ESPN's text for the
+  // two kicks is byte-identical, which is what the old text-only dedup key
+  // collapsed into a single event.
+  const fg = "B.Aubrey 52 yard field goal is GOOD, Center-T.Sieg, Holder-B.Anger.";
+
+  it("keeps both of two identical 52-yard field goals (no ids)", () => {
+    const events = parseEspnKickerEvents({ drives: { previous: [
+      { plays: [{ type: { text: "Field Goal Good" }, text: fg }] },
+      { plays: [{ type: { text: "Field Goal Good" }, text: fg }] },
+    ] } });
+    expect(events.filter(e => e.type === "fg")).toHaveLength(2);
+    expect(calculateWrcKickerPoints(events)).toBe(10.4);
+  });
+
+  it("keeps both kicks when ESPN gives each play an id", () => {
+    const events = parseEspnKickerEvents({ drives: { previous: [{ plays: [
+      { id: "1", type: { text: "Field Goal Good" }, text: fg },
+      { id: "2", type: { text: "Field Goal Good" }, text: fg },
+    ] }] } });
+    expect(events).toHaveLength(2);
+  });
+
+  // The shape the live endpoint actually returns, verified against
+  // summary?event=401873065 on 2026-11-16: no top-level `plays` array at all,
+  // and every drive play carrying its own id. This is the production path, so
+  // the points below are what official finalization now records.
+  it("scores the real SF @ DAL payload shape: two 52-yard makes, not one", () => {
+    const events = parseEspnKickerEvents({ drives: { previous: [
+      { plays: [
+        { id: "401873063455", type: { text: "Field Goal Good" }, text: fg },
+        { id: "401873063460", type: { text: "Punt" }, text: "B.Anger punts 44 yards to SF 20." },
+      ] },
+      { plays: [{ id: "401873063881", type: { text: "Field Goal Good" }, text: fg }] },
+    ] } });
+    expect(getKickerEventsForPlayer(events, "Brandon Aubrey")).toHaveLength(2);
+    // 52 * 0.1 twice. The old parser returned 5.2 -- a whole kick's worth of
+    // points missing from a finalized week.
+    expect(calculateWrcKickerPoints(events)).toBe(10.4);
+  });
+
+  it("still drops a play listed in both plays and drives", () => {
+    const play = { id: "9", type: { text: "Field Goal Good" }, text: fg };
+    const events = parseEspnKickerEvents({ plays: [play], drives: { previous: [{ plays: [play] }] } });
+    expect(events).toHaveLength(1);
+  });
+
+  it("still drops an id-less play listed in both lists", () => {
+    const play = { type: { text: "Field Goal Good" }, text: fg };
+    const events = parseEspnKickerEvents({ plays: [play, play], drives: { previous: [{ plays: [play, play] }] } });
+    expect(events).toHaveLength(2);
+  });
+
+  // Counting repeats per list, rather than across the concatenation, is what
+  // makes the line above work. If one list holds fewer copies than the other,
+  // the answer must be the larger count, not the sum and not the smaller.
+  it("takes the larger count when the two lists disagree about how many copies there are", () => {
+    const play = { type: { text: "Field Goal Good" }, text: fg };
+    const events = parseEspnKickerEvents({ plays: [play], drives: { previous: [{ plays: [play, play] }] } });
+    expect(events).toHaveLength(2);
+  });
+
+  it("tags every parsed event with a playKey so callers can dedupe across games", () => {
+    const events = parseEspnKickerEvents({ drives: { previous: [{ plays: [
+      { id: "1", type: { text: "Field Goal Good" }, text: fg },
+      { id: "2", type: { text: "Field Goal Good" }, text: fg },
+    ] }] } });
+    expect(events.map(e => e.playKey)).toEqual(["id:1", "id:2"]);
+  });
+});

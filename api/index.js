@@ -82267,44 +82267,50 @@ function parseKickerName(raw) {
 }
 function parseEspnKickerEvents(summary) {
   const root = summary;
-  const plays = [
-    ...root.plays ?? [],
-    ...(root.drives?.previous ?? []).flatMap((drive) => drive.plays ?? [])
+  const sources = [
+    root.plays ?? [],
+    (root.drives?.previous ?? []).flatMap((drive) => drive.plays ?? [])
   ];
   const seen = /* @__PURE__ */ new Set();
   const events = [];
-  for (const play of plays) {
-    const text = play.text?.trim() ?? "";
-    const type = play.type?.text?.toLowerCase() ?? "";
-    const fgMatch = text.match(/^(.+?)\s+(\d+)\s+yard field goal is\s+(good|no good|missed)/i);
-    if (fgMatch && (type.includes("field goal") || /field goal/i.test(text))) {
-      const event = {
-        playerName: parseKickerName(fgMatch[1]),
-        type: "fg",
-        outcome: fgMatch[3].toLowerCase() === "good" ? "made" : "missed",
-        yards: Number(fgMatch[2]),
-        text
-      };
-      const key = `${event.playerName}|${event.type}|${event.outcome}|${event.yards}|${text}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        events.push(event);
+  for (const source of sources) {
+    const textCounts = /* @__PURE__ */ new Map();
+    for (const play of source) {
+      const text = play.text?.trim() ?? "";
+      const nth = textCounts.get(text) ?? 0;
+      textCounts.set(text, nth + 1);
+      const playKey = play.id != null && String(play.id) !== "" ? `id:${play.id}` : `text:${text}#${nth}`;
+      const type = play.type?.text?.toLowerCase() ?? "";
+      const fgMatch = text.match(/^(.+?)\s+(\d+)\s+yard field goal is\s+(good|no good|missed)/i);
+      if (fgMatch && (type.includes("field goal") || /field goal/i.test(text))) {
+        const event = {
+          playerName: parseKickerName(fgMatch[1]),
+          type: "fg",
+          outcome: fgMatch[3].toLowerCase() === "good" ? "made" : "missed",
+          yards: Number(fgMatch[2]),
+          text,
+          playKey
+        };
+        if (!seen.has(playKey)) {
+          seen.add(playKey);
+          events.push(event);
+        }
+        continue;
       }
-      continue;
-    }
-    const xpMatch = text.match(/^(.+?)\s+(?:extra point|pat)\s+is\s+(good|no good|missed)/i);
-    if (xpMatch && (type.includes("extra point") || /extra point|\bpat\b/i.test(text))) {
-      const event = {
-        playerName: parseKickerName(xpMatch[1]),
-        type: "xp",
-        outcome: xpMatch[2].toLowerCase() === "good" ? "made" : "missed",
-        yards: null,
-        text
-      };
-      const key = `${event.playerName}|${event.type}|${event.outcome}|${text}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        events.push(event);
+      const xpMatch = text.match(/^(.+?)\s+(?:extra point|pat)\s+is\s+(good|no good|missed)/i);
+      if (xpMatch && (type.includes("extra point") || /extra point|\bpat\b/i.test(text))) {
+        const event = {
+          playerName: parseKickerName(xpMatch[1]),
+          type: "xp",
+          outcome: xpMatch[2].toLowerCase() === "good" ? "made" : "missed",
+          yards: null,
+          text,
+          playKey
+        };
+        if (!seen.has(playKey)) {
+          seen.add(playKey);
+          events.push(event);
+        }
       }
     }
   }
