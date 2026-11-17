@@ -21,6 +21,7 @@ import { hasClearedWaiverHold } from "../shared/freeAgentCutRestriction";
 import { getFreeAgentMarketState } from "./faabMarketState";
 import { committedFaab, findSharedDropConflict, type BudgetBid } from "./faabBidValidation";
 import { sendSms } from "./twilioSms";
+import { TRADE_ALERT_TEXT, isMissingAlertColumnError, tradeAlertRecipients, type AlertTeam } from "./tradeAlert";
 import { validateProtectionSubmission } from "./protectionRules";
 import { releaseUnprotectedPlayers } from "./protectionRelease";
 import { isProtectionDeadlinePassed } from "../shared/protectionSchedule";
@@ -1923,6 +1924,34 @@ export const appRouter = router({
             fromTeamResponse.data.phone_number,
             `🏈 WRC Fantasy: ${toTeam.name} accepted your trade proposal! It's now final.`,
           ).catch(error => console.error("[respondToTradeProposal] SMS notification failed:", error));
+        }
+        // League wide alert. Awaited (not fire and forget) so a serverless
+        // function can't end before the texts go out; sendSms returns a result
+        // rather than throwing, and the whole block is guarded so it can't undo
+        // a finished trade. Safe to reach this point more than once only in
+        // theory: the status !== "pending" check at the top of this mutation
+        // already rejects a second accept of the same proposal.
+        try {
+          // Until supabase_league_trade_alerts.sql has run the column is missing
+          // and the first select errors; retry without it so everyone still gets
+          // the alert. Only for that specific error -- retrying on any failure
+          // would drop the opt-out field from the rows and text owners who had
+          // switched alerts off.
+          let alertTeams: AlertTeam[] | null = null;
+          const withColumn = await supabaseAdmin.from("teams").select("id, phone_number, sms_league_trade_alerts");
+          if (!withColumn.error) {
+            alertTeams = withColumn.data as AlertTeam[];
+          } else if (isMissingAlertColumnError(withColumn.error)) {
+            const withoutColumn = await supabaseAdmin.from("teams").select("id, phone_number");
+            if (withoutColumn.error) throw new Error(withoutColumn.error.message);
+            alertTeams = withoutColumn.data as AlertTeam[];
+          } else {
+            throw new Error(withColumn.error.message);
+          }
+          const numbers = tradeAlertRecipients(alertTeams ?? [], [proposal.from_team_id]);
+          await Promise.allSettled(numbers.map(number => sendSms(number, TRADE_ALERT_TEXT)));
+        } catch (error) {
+          console.error("[respondToTradeProposal] trade alert failed:", error);
         }
         return { status: "accepted" as const, fromTeamName: fromTeam.name, toTeamName: toTeam.name };
       }),

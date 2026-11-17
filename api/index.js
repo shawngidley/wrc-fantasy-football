@@ -81395,6 +81395,27 @@ function normalizeToE164(raw) {
   return null;
 }
 
+// server/tradeAlert.ts
+var TRADE_ALERT_TEXT = "\u{1F6A8}\u{1F6A8} TRADE ALERT \u{1F6A8}\u{1F6A8} A trade has been completed in the WRC!";
+function tradeAlertRecipients(teams, excludeTeamIds = []) {
+  const skip = new Set(excludeTeamIds);
+  const seen = /* @__PURE__ */ new Set();
+  const numbers = [];
+  for (const team of teams) {
+    if (skip.has(team.id)) continue;
+    if (team.sms_league_trade_alerts === false) continue;
+    const number4 = team.phone_number?.trim();
+    if (!number4 || seen.has(number4)) continue;
+    seen.add(number4);
+    numbers.push(number4);
+  }
+  return numbers;
+}
+function isMissingAlertColumnError(error46) {
+  if (!error46) return false;
+  return error46.code === "42703" || /sms_league_trade_alerts/.test(error46.message ?? "");
+}
+
 // server/protectionRules.ts
 function protectionTier(draftRound) {
   if (draftRound === null) return "tier2";
@@ -92512,6 +92533,23 @@ var appRouter = router({
           fromTeamResponse.data.phone_number,
           `\u{1F3C8} WRC Fantasy: ${toTeam.name} accepted your trade proposal! It's now final.`
         ).catch((error46) => console.error("[respondToTradeProposal] SMS notification failed:", error46));
+      }
+      try {
+        let alertTeams = null;
+        const withColumn = await supabaseAdmin.from("teams").select("id, phone_number, sms_league_trade_alerts");
+        if (!withColumn.error) {
+          alertTeams = withColumn.data;
+        } else if (isMissingAlertColumnError(withColumn.error)) {
+          const withoutColumn = await supabaseAdmin.from("teams").select("id, phone_number");
+          if (withoutColumn.error) throw new Error(withoutColumn.error.message);
+          alertTeams = withoutColumn.data;
+        } else {
+          throw new Error(withColumn.error.message);
+        }
+        const numbers = tradeAlertRecipients(alertTeams ?? [], [proposal.from_team_id]);
+        await Promise.allSettled(numbers.map((number4) => sendSms(number4, TRADE_ALERT_TEXT)));
+      } catch (error46) {
+        console.error("[respondToTradeProposal] trade alert failed:", error46);
       }
       return { status: "accepted", fromTeamName: fromTeam.name, toTeamName: toTeam.name };
     }),
