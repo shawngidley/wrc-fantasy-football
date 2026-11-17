@@ -8,6 +8,7 @@ import { Link, useLocation } from "wouter";
 import { X, Menu, Settings, ChevronDown, ChevronRight } from "lucide-react";
 import TeamLogo from "@/components/TeamLogo";
 import { siteAssetUrl } from "@/lib/siteAssetUrl";
+import { isNavGroupActive } from "@/lib/navGroupActive";
 
 type NavLink = { label: string; path: string; live?: boolean };
 
@@ -20,10 +21,10 @@ const primaryLinks: NavLink[] = [
   { label: "Free Agents", path: "/free-agents" },
   { label: "Transactions", path: "/transactions" },
   { label: "Schedule", path: "/schedule" },
+  { label: "Playoffs", path: "/playoffs" },
   { label: "News", path: "/news" },
   { label: "Trades", path: "/trades" },
   { label: "Draft", path: "/2027-draft-order" },
-  { label: "Draft Recap", path: "/draft-recap" },
   { label: "NFL Sites", path: "/nfl-sites" },
 ];
 
@@ -37,10 +38,10 @@ const navLinks: NavLink[] = [
   { label: "Free Agents", path: "/free-agents" },
   { label: "Transactions", path: "/transactions" },
   { label: "Schedule & Results", path: "/schedule" },
+  { label: "Playoffs", path: "/playoffs" },
   { label: "News", path: "/news" },
   { label: "Trades", path: "/trades" },
   { label: "Draft", path: "/draft" }, // expandable group
-  { label: "Draft Recap", path: "/draft-recap" },
   { label: "League", path: "/league" }, // expandable group
   { label: "NFL Sites", path: "/nfl-sites" },
 ];
@@ -50,12 +51,12 @@ const DRAFT_SUB_ITEMS = [
   { label: "2027 Draft Order", path: "/2027-draft-order" },
   { label: "Draft Order", path: "/draft" },
   { label: "Draft Lottery", path: "/draft-lottery" },
+  { label: "Draft Recap", path: "/draft-recap" },
   { label: "Draft Players", path: "/draft?tab=players" },
   { label: "Protections", path: "/draft?tab=protections" },
 ];
 
 const LEAGUE_SUB_ITEMS = [
-  { label: "Playoffs", path: "/playoffs" },
   { label: "Rules", path: "/rules" },
   { label: "Money", path: "/money" },
   { label: "History", path: "/history" },
@@ -65,8 +66,8 @@ function MobileNavList({ location, setMobileOpen }: { location: string; setMobil
   const [draftOpen, setDraftOpen] = useState(false);
   const [leagueOpen, setLeagueOpen] = useState(false);
 
-  const isDraftActive = location === "/draft" || location.startsWith("/draft?");
-  const isLeagueActive = LEAGUE_SUB_ITEMS.some((item) => location === item.path);
+  const isDraftActive = isNavGroupActive(location, DRAFT_SUB_ITEMS);
+  const isLeagueActive = isNavGroupActive(location, LEAGUE_SUB_ITEMS);
 
   return (
     <>
@@ -209,7 +210,7 @@ export default function Navigation({
   const [location] = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [leagueOpen, setLeagueOpen] = useState(false);
-  const isLeagueActive = LEAGUE_SUB_ITEMS.some((item) => location === item.path);
+  const isLeagueActive = isNavGroupActive(location, LEAGUE_SUB_ITEMS);
 
   // Each message can be a plain string or a full React node (e.g. a
   // sequence of text and inline team logo <img> tags) -- rendered as a

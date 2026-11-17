@@ -7,6 +7,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { DstLogo } from "@/components/DstLogo";
 import Navigation from "@/components/Navigation";
+import DraftSubNav from "@/components/DraftSubNav";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 import { trpc } from "@/lib/trpc";
@@ -321,6 +322,7 @@ export default function DraftRecap() {
   return (
     <div className="bg-turf bg-overlay" style={{ minHeight: "100vh" }}>
       <Navigation teamName={franchise?.team_name} />
+      <DraftSubNav active="recap" />
 
       <div style={{ maxWidth: 960, margin: "0 auto", padding: "1.5rem 1rem 3rem" }}>
         {/* Page Title */}

@@ -1,13 +1,14 @@
 /**
  * WRC Fantasy Football - Draft Sub-Nav
- * Shared tab bar for the four Draft-related pages (Draft Order, Draft Players,
- * Protections, Draft Lottery). Previously only rendered inside DraftHub.tsx,
+ * Shared tab bar for the Draft-related pages (2027 Draft Order, Draft Order,
+ * Draft Players, Protections, Draft Lottery, Draft Recap). Previously only
+ * rendered inside DraftHub.tsx,
  * so navigating to Draft Lottery (a separate route/page) lost the tab bar
  * entirely with no easy way back. Both pages now render this same component.
  */
 import { useLocation } from "wouter";
 
-export type DraftSubNavTab = "board" | "players" | "protections" | "lottery" | "order2027";
+export type DraftSubNavTab = "board" | "players" | "protections" | "lottery" | "recap" | "order2027";
 
 const TABS: { id: DraftSubNavTab; label: string; path: string }[] = [
   { id: "order2027", label: "2027 Draft Order", path: "/2027-draft-order" },
@@ -15,11 +16,12 @@ const TABS: { id: DraftSubNavTab; label: string; path: string }[] = [
   { id: "players", label: "Draft Players", path: "/draft?tab=players" },
   { id: "protections", label: "Protections", path: "/draft?tab=protections" },
   { id: "lottery", label: "Draft Lottery", path: "/draft-lottery" },
+  { id: "recap", label: "Draft Recap", path: "/draft-recap" },
 ];
 
 // Tabs that are their own route (a full navigation), not an in-place tab
 // switch inside DraftHub.
-const FULL_NAV_TABS = new Set<DraftSubNavTab>(["lottery", "order2027"]);
+const FULL_NAV_TABS = new Set<DraftSubNavTab>(["lottery", "recap", "order2027"]);
 
 interface DraftSubNavProps {
   active: DraftSubNavTab;
