@@ -44,3 +44,21 @@ export function isMissingAlertColumnError(
   if (!error) return false;
   return error.code === "42703" || /sms_league_trade_alerts/.test(error.message ?? "");
 }
+
+/**
+ * The message to surface when saving an owner's league-alert preference
+ * fails. Names the migration for the one cause that is a setup step rather
+ * than a fault: until supabase_league_trade_alerts.sql has run the column
+ * does not exist, so the toggle reads as on (teamSettings falls back to on
+ * when it cannot read the column) and then refuses every attempt to switch
+ * it off. "Unable to save" alone gives no hint that the fix is a one-line
+ * migration.
+ */
+export function leagueAlertSaveErrorMessage(
+  error: { code?: string | null; message?: string | null } | null | undefined,
+): string {
+  if (isMissingAlertColumnError(error)) {
+    return "League trade alerts aren't set up yet — run supabase_league_trade_alerts.sql on the database first.";
+  }
+  return "Unable to save league trade alert setting.";
+}

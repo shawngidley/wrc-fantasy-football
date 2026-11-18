@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { TRADE_ALERT_TEXT, isMissingAlertColumnError, tradeAlertRecipients } from "./tradeAlert";
+import { TRADE_ALERT_TEXT, isMissingAlertColumnError, leagueAlertSaveErrorMessage, tradeAlertRecipients } from "./tradeAlert";
 
 const teams = [
   { id: "team-a", phone_number: "216-555-0001", sms_league_trade_alerts: true },
@@ -58,5 +58,17 @@ describe("isMissingAlertColumnError", () => {
   it("is false for no error at all", () => {
     expect(isMissingAlertColumnError(null)).toBe(false);
     expect(isMissingAlertColumnError(undefined)).toBe(false);
+  });
+});
+
+describe("leagueAlertSaveErrorMessage", () => {
+  it("names the migration when the column does not exist yet", () => {
+    const message = leagueAlertSaveErrorMessage({ code: "42703", message: "column does not exist" });
+    expect(message).toContain("supabase_league_trade_alerts.sql");
+  });
+
+  it("stays generic for any other failure", () => {
+    expect(leagueAlertSaveErrorMessage({ code: "57014", message: "statement timeout" }))
+      .toBe("Unable to save league trade alert setting.");
   });
 });

@@ -591,6 +591,8 @@ export default function Settings() {
   // ── SMS trade notification state ──
   const [phoneNumber, setPhoneNumber] = useState("");
   const [smsEnabled, setSmsEnabled] = useState(false);
+  const [leagueAlertsEnabled, setLeagueAlertsEnabled] = useState(true);
+  const [savingLeagueAlerts, setSavingLeagueAlerts] = useState(false);
   const [phoneError, setPhoneError] = useState("");
   const [phoneSuccess, setPhoneSuccess] = useState("");
   const [savingPhone, setSavingPhone] = useState(false);
@@ -605,6 +607,7 @@ export default function Settings() {
   const removeMediaMutation = trpc.league.removeTeamMedia.useMutation();
   const updatePhoneSettingsMutation = trpc.league.updatePhoneSettings.useMutation();
   const sendTestSmsMutation = trpc.league.sendTestSms.useMutation();
+  const updateLeagueTradeAlertsMutation = trpc.league.updateLeagueTradeAlerts.useMutation();
   const passkeysQuery = trpc.league.passkeys.useQuery(undefined, { enabled: Boolean(franchise?.id), retry: false });
   const startPasskeyRegistrationMutation = trpc.league.startPasskeyRegistration.useMutation();
   const finishPasskeyRegistrationMutation = trpc.league.finishPasskeyRegistration.useMutation();
@@ -616,6 +619,7 @@ export default function Settings() {
     setThemeSongUrl(settingsQuery.data.themeSongUrl);
     setPhoneNumber(settingsQuery.data.phoneNumber ?? "");
     setSmsEnabled(settingsQuery.data.smsTradeNotifications);
+    setLeagueAlertsEnabled(settingsQuery.data.smsLeagueTradeAlerts);
     if (settingsQuery.data.themeSongUrl) {
       const parts = settingsQuery.data.themeSongUrl.split("/");
       setThemeSongName(decodeURIComponent(parts[parts.length - 1]));
@@ -652,6 +656,21 @@ export default function Settings() {
       setPhoneError(error instanceof Error ? error.message : "Unable to save.");
     } finally {
       setSavingPhone(false);
+    }
+  };
+
+  const handleToggleLeagueAlerts = async () => {
+    setPhoneError(""); setPhoneSuccess("");
+    const next = !leagueAlertsEnabled;
+    setSavingLeagueAlerts(true);
+    try {
+      await updateLeagueTradeAlertsMutation.mutateAsync({ enabled: next });
+      setLeagueAlertsEnabled(next);
+      setPhoneSuccess(next ? "League trade alerts turned on." : "League trade alerts turned off.");
+    } catch (error) {
+      setPhoneError(error instanceof Error ? error.message : "Unable to save.");
+    } finally {
+      setSavingLeagueAlerts(false);
     }
   };
 
@@ -1078,6 +1097,27 @@ export default function Settings() {
                 }}
               >
                 <span style={{ position: "absolute", top: 3, left: smsEnabled ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "white", transition: "left 0.15s", boxShadow: "0 1px 2px rgba(0,0,0,0.25)" }} />
+              </button>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: "1rem", marginBottom: "1rem" }}>
+              <div>
+                <div style={{ fontFamily: "Barlow Condensed, sans-serif", fontWeight: 700, fontSize: "0.88rem", color: "oklch(0.22 0.08 150)" }}>🚨 League trade alerts</div>
+                <div style={{ fontSize: "0.76rem", color: "oklch(0.55 0.04 150)" }}>On by default. A text to everyone when any trade is accepted.</div>
+              </div>
+              <button
+                type="button"
+                onClick={handleToggleLeagueAlerts}
+                disabled={savingLeagueAlerts}
+                role="switch"
+                aria-checked={leagueAlertsEnabled}
+                aria-label="League trade alerts"
+                style={{
+                  flexShrink: 0, width: 44, height: 26, borderRadius: 13, border: "none", cursor: savingLeagueAlerts ? "not-allowed" : "pointer",
+                  background: leagueAlertsEnabled ? "oklch(0.42 0.15 150)" : "oklch(0.85 0.01 150)", position: "relative", transition: "background 0.15s", opacity: savingLeagueAlerts ? 0.6 : 1,
+                }}
+              >
+                <span style={{ position: "absolute", top: 3, left: leagueAlertsEnabled ? 21 : 3, width: 20, height: 20, borderRadius: "50%", background: "white", transition: "left 0.15s", boxShadow: "0 1px 2px rgba(0,0,0,0.25)" }} />
               </button>
             </div>
 

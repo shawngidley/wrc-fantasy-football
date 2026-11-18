@@ -21,7 +21,7 @@ import { hasClearedWaiverHold } from "../shared/freeAgentCutRestriction";
 import { getFreeAgentMarketState } from "./faabMarketState";
 import { committedFaab, findSharedDropConflict, type BudgetBid } from "./faabBidValidation";
 import { sendSms } from "./twilioSms";
-import { TRADE_ALERT_TEXT, isMissingAlertColumnError, tradeAlertRecipients, type AlertTeam } from "./tradeAlert";
+import { TRADE_ALERT_TEXT, isMissingAlertColumnError, leagueAlertSaveErrorMessage, tradeAlertRecipients, type AlertTeam } from "./tradeAlert";
 import { validateProtectionSubmission } from "./protectionRules";
 import { releaseUnprotectedPlayers } from "./protectionRelease";
 import { isProtectionDeadlinePassed } from "../shared/protectionSchedule";
@@ -2393,7 +2393,20 @@ export const appRouter = router({
         .eq("id", ctx.teamSession.teamId)
         .single();
       if (error || !data) throw new Error("Unable to load team settings.");
+      // Read on its own so Settings still loads if this column is ever missing
+      // (i.e. before supabase_league_trade_alerts.sql has run), in which case
+      // the toggle reads as on -- matching the column's own default. A failure
+      // for any OTHER reason is logged rather than silently shown as on, so a
+      // real fault is not mistaken for a setup step.
+      const { data: alertRow, error: alertError } = await supabaseAdmin.from("teams")
+        .select("sms_league_trade_alerts")
+        .eq("id", ctx.teamSession.teamId)
+        .single();
+      if (alertError && !isMissingAlertColumnError(alertError)) {
+        console.error("[teamSettings] league trade alert preference unreadable:", alertError.message);
+      }
       return {
+        smsLeagueTradeAlerts: (alertRow as { sms_league_trade_alerts?: boolean | null } | null)?.sms_league_trade_alerts !== false,
         logoUrl: data.logo_url ?? null,
         themeSongUrl: data.theme_song_url ?? null,
         phoneNumber: data.phone_number ?? null,
@@ -2416,6 +2429,18 @@ export const appRouter = router({
           .eq("id", ctx.teamSession.teamId);
         if (error) throw new Error("Unable to save phone settings.");
         return { ok: true };
+      }),
+    updateLeagueTradeAlerts: teamProcedure
+      .input(z.object({ enabled: z.boolean() }))
+      .mutation(async ({ input, ctx }) => {
+        const { error } = await supabaseAdmin.from("teams")
+          .update({ sms_league_trade_alerts: input.enabled })
+          .eq("id", ctx.teamSession.teamId);
+        // Until the migration has run this column does not exist, so every
+        // attempt to switch the toggle off fails; say that rather than
+        // "Unable to save", which reads like a fault.
+        if (error) throw new Error(leagueAlertSaveErrorMessage(error));
+        return { enabled: input.enabled };
       }),
     sendTestSms: teamProcedure.mutation(async ({ ctx }) => {
       const { data, error } = await supabaseAdmin.from("teams")

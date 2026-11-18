@@ -81415,6 +81415,12 @@ function isMissingAlertColumnError(error46) {
   if (!error46) return false;
   return error46.code === "42703" || /sms_league_trade_alerts/.test(error46.message ?? "");
 }
+function leagueAlertSaveErrorMessage(error46) {
+  if (isMissingAlertColumnError(error46)) {
+    return "League trade alerts aren't set up yet \u2014 run supabase_league_trade_alerts.sql on the database first.";
+  }
+  return "Unable to save league trade alert setting.";
+}
 
 // server/protectionRules.ts
 function protectionTier(draftRound) {
@@ -92901,7 +92907,12 @@ var appRouter = router({
     teamSettings: teamProcedure.query(async ({ ctx }) => {
       const { data, error: error46 } = await supabaseAdmin.from("teams").select("logo_url, theme_song_url, phone_number, sms_trade_notifications").eq("id", ctx.teamSession.teamId).single();
       if (error46 || !data) throw new Error("Unable to load team settings.");
+      const { data: alertRow, error: alertError } = await supabaseAdmin.from("teams").select("sms_league_trade_alerts").eq("id", ctx.teamSession.teamId).single();
+      if (alertError && !isMissingAlertColumnError(alertError)) {
+        console.error("[teamSettings] league trade alert preference unreadable:", alertError.message);
+      }
       return {
+        smsLeagueTradeAlerts: alertRow?.sms_league_trade_alerts !== false,
         logoUrl: data.logo_url ?? null,
         themeSongUrl: data.theme_song_url ?? null,
         phoneNumber: data.phone_number ?? null,
@@ -92918,6 +92929,11 @@ var appRouter = router({
       const { error: error46 } = await supabaseAdmin.from("teams").update({ phone_number: input.phoneNumber, sms_trade_notifications: input.smsTradeNotifications }).eq("id", ctx.teamSession.teamId);
       if (error46) throw new Error("Unable to save phone settings.");
       return { ok: true };
+    }),
+    updateLeagueTradeAlerts: teamProcedure.input(external_exports.object({ enabled: external_exports.boolean() })).mutation(async ({ input, ctx }) => {
+      const { error: error46 } = await supabaseAdmin.from("teams").update({ sms_league_trade_alerts: input.enabled }).eq("id", ctx.teamSession.teamId);
+      if (error46) throw new Error(leagueAlertSaveErrorMessage(error46));
+      return { enabled: input.enabled };
     }),
     sendTestSms: teamProcedure.mutation(async ({ ctx }) => {
       const { data, error: error46 } = await supabaseAdmin.from("teams").select("phone_number").eq("id", ctx.teamSession.teamId).single();
