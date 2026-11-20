@@ -11,9 +11,9 @@ import type { PlayerSeasonStats } from "@shared/playerSeasonStats";
 
 export type WeeklyStatLine = { week: number } & PlayerSeasonStats;
 
-export function useDbWeeklyStats(playerNames: string[], season: number, enabled: boolean) {
+export function useDbWeeklyStats(playerNames: string[], season: number, enabled: boolean, position?: string) {
   const query = trpc.playerStats.weeklyStats.useQuery(
-    { playerNames, season },
+    { playerNames, season, position },
     { enabled: enabled && playerNames.length > 0, staleTime: 5 * 60_000 },
   );
 

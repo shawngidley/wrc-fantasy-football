@@ -721,7 +721,7 @@ export default function PlayerPage() {
   // derived here belongs to the Stats tab's current-season row. Keyed off the
   // picker instead, choosing 2025 in the game log would total 2025's weeks and
   // show them as this season's.
-  const { weeksByPlayer: kickerWeeksMap } = useDbWeeklyStats(kickerName ? [kickerName] : [], 2026, isKicker);
+  const { weeksByPlayer: kickerWeeksMap } = useDbWeeklyStats(kickerName ? [kickerName] : [], 2026, isKicker, "K");
   const kickerWrcByWeek = useMemo(() => {
     const m = new Map<number, number>();
     if (!kickerName) return m;

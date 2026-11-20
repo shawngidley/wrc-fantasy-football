@@ -81556,6 +81556,28 @@ async function loadSeasonStatRows(table, season) {
     if (page.length < STAT_PAGE_SIZE) return all;
   }
 }
+function collectWeeklyRowsForNames(rows, requestedNames) {
+  const result = {};
+  for (const { name, row } of matchRowsToRequestedNames(rows, requestedNames)) {
+    const stored = String(row.player_name ?? "");
+    result[name] = rows.filter((candidate) => String(candidate.player_name ?? "") === stored);
+  }
+  return result;
+}
+var SCANNABLE_POSITIONS = /* @__PURE__ */ new Set(["K", "DST"]);
+function canScanPositionRows(position) {
+  return Boolean(position && SCANNABLE_POSITIONS.has(position));
+}
+async function loadWeeklyRowsForPosition(season, position) {
+  const all = [];
+  for (let from = 0; ; from += STAT_PAGE_SIZE) {
+    const { data, error: error46 } = await supabaseAdmin.from("player_weekly_stats").select("*").eq("season", season).eq("position", position).order("player_name", { ascending: true }).order("week", { ascending: true }).range(from, from + STAT_PAGE_SIZE - 1);
+    if (error46) throw new Error(`Unable to load player_weekly_stats: ${error46.message}`);
+    const page = data ?? [];
+    all.push(...page);
+    if (page.length < STAT_PAGE_SIZE) return all;
+  }
+}
 
 // shared/tradeablePickYears.ts
 var TRADEABLE_PICK_YEARS = [2027];
@@ -91450,7 +91472,7 @@ var appRouter = router({
     // row). Used by the player card's game log for team defenses, which have
     // no Tank01 per-player game feed to read from. Scoped by player name, so
     // a single D/ST's handful of weekly rows stays well under the 1000-row cap.
-    weeklyStats: publicProcedure.input(external_exports.object({ playerNames: external_exports.array(external_exports.string()), season: external_exports.number().int() })).query(async ({ input }) => {
+    weeklyStats: publicProcedure.input(external_exports.object({ playerNames: external_exports.array(external_exports.string()), season: external_exports.number().int(), position: external_exports.string().max(8).optional() })).query(async ({ input }) => {
       if (!input.playerNames.length) return {};
       const { data, error: error46 } = await supabaseAdmin.from("player_weekly_stats").select("*").eq("season", input.season).in("player_name", input.playerNames).order("week", { ascending: true });
       if (error46) throw new Error("Unable to load player weekly stats.");
@@ -91459,6 +91481,13 @@ var appRouter = router({
         const name = String(row.player_name);
         if (!result[name]) result[name] = [];
         result[name].push({ week: Number(row.week), ...aggregateWeeklyStatRows([row]) });
+      }
+      const unmatched = input.playerNames.filter((name) => !(name in result));
+      if (unmatched.length > 0 && canScanPositionRows(input.position)) {
+        const rows = await loadWeeklyRowsForPosition(input.season, input.position);
+        for (const [name, matchedRows] of Object.entries(collectWeeklyRowsForNames(rows, unmatched))) {
+          result[name] = matchedRows.map((row) => ({ week: Number(row.week), ...aggregateWeeklyStatRows([row]) })).sort((a, b) => a.week - b.week);
+        }
       }
       return result;
     }),

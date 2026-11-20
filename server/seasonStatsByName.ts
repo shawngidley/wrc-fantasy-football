@@ -71,3 +71,63 @@ export async function loadSeasonStatRows(
     if (page.length < STAT_PAGE_SIZE) return all;
   }
 }
+
+/**
+ * Every weekly row for each requested name, keyed by the name asked for.
+ *
+ * Same spelling problem as matchRowsToRequestedNames, but per week: a rostered
+ * player's weeks are stored under the roster name ("Kaimi Fairbairn") while the
+ * page asks with the pool name ("Ka'imi Fairbairn"). The requested name is
+ * paired with one stored name (exact spelling first, then normalized), and then
+ * ALL rows stored under that name are returned, so no week is dropped.
+ */
+export function collectWeeklyRowsForNames<T extends NamedStatRow>(
+  rows: readonly T[],
+  requestedNames: readonly string[],
+): Record<string, T[]> {
+  const result: Record<string, T[]> = {};
+  for (const { name, row } of matchRowsToRequestedNames(rows, requestedNames)) {
+    const stored = String(row.player_name ?? "");
+    result[name] = rows.filter(candidate => String(candidate.player_name ?? "") === stored);
+  }
+  return result;
+}
+
+/**
+ * Positions whose weekly rows are few enough to scan: at most one player per
+ * NFL team, so about 32 x 18 = 576 rows for a full season.
+ *
+ * weeklyStats is a publicProcedure and takes the position from the caller, so
+ * without this any client could ask for "WR" (roughly 200 players x 18 weeks)
+ * and make the server page through thousands of rows. The fallback exists for
+ * the small sets the player card actually needs.
+ */
+const SCANNABLE_POSITIONS = new Set(["K", "DST"]);
+
+export function canScanPositionRows(position: string | undefined): boolean {
+  return Boolean(position && SCANNABLE_POSITIONS.has(position));
+}
+
+/** All weekly rows for one season and position, paged past the 1000-row cap.
+ * Ordered by (player_name, week), which is a total order within a season --
+ * player_weekly_stats is unique on (week, season, player_name) -- so the pages
+ * tile without gaps or repeats. */
+export async function loadWeeklyRowsForPosition(
+  season: number,
+  position: string,
+): Promise<Array<Record<string, unknown> & NamedStatRow>> {
+  const all: Array<Record<string, unknown> & NamedStatRow> = [];
+  for (let from = 0; ; from += STAT_PAGE_SIZE) {
+    const { data, error } = await supabaseAdmin.from("player_weekly_stats")
+      .select("*")
+      .eq("season", season)
+      .eq("position", position)
+      .order("player_name", { ascending: true })
+      .order("week", { ascending: true })
+      .range(from, from + STAT_PAGE_SIZE - 1);
+    if (error) throw new Error(`Unable to load player_weekly_stats: ${error.message}`);
+    const page = (data ?? []) as Array<Record<string, unknown> & NamedStatRow>;
+    all.push(...page);
+    if (page.length < STAT_PAGE_SIZE) return all;
+  }
+}

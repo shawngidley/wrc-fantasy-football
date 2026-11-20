@@ -27,7 +27,7 @@ import { releaseUnprotectedPlayers } from "./protectionRelease";
 import { isProtectionDeadlinePassed } from "../shared/protectionSchedule";
 import { findDraftUniversePlayer } from "../shared/draftPlayerUniverse";
 import { normalizePlayerName } from "../shared/playerNameMatch";
-import { loadSeasonStatRows, matchRowsToRequestedNames } from "./seasonStatsByName";
+import { canScanPositionRows, collectWeeklyRowsForNames, loadSeasonStatRows, loadWeeklyRowsForPosition, matchRowsToRequestedNames } from "./seasonStatsByName";
 import { normalizeNFLTeamCode } from "../shared/nflTeamCodes";
 import { TRADEABLE_PICK_YEARS, isTradeablePickYear } from "../shared/tradeablePickYears";
 import { DRAFT_LOTTERY_OWNERS, isValidDraftLotteryResult } from "../shared/draftLottery";
@@ -310,7 +310,7 @@ export const appRouter = router({
     // no Tank01 per-player game feed to read from. Scoped by player name, so
     // a single D/ST's handful of weekly rows stays well under the 1000-row cap.
     weeklyStats: publicProcedure
-      .input(z.object({ playerNames: z.array(z.string()), season: z.number().int() }))
+      .input(z.object({ playerNames: z.array(z.string()), season: z.number().int(), position: z.string().max(8).optional() }))
       .query(async ({ input }) => {
         if (!input.playerNames.length) return {};
         const { data, error } = await supabaseAdmin.from("player_weekly_stats")
@@ -322,6 +322,20 @@ export const appRouter = router({
           const name = String(row.player_name);
           if (!result[name]) result[name] = [];
           result[name].push({ week: Number(row.week), ...aggregateWeeklyStatRows([row]) });
+        }
+        // A rostered player's weeks are stored under the roster name, which can
+        // be spelled differently from the name the page asks with. When the
+        // caller says the position, and that position is small enough to scan
+        // (see canScanPositionRows), match the misses by normalized name over
+        // that position's rows instead of returning nothing.
+        const unmatched = input.playerNames.filter(name => !(name in result));
+        if (unmatched.length > 0 && canScanPositionRows(input.position)) {
+          const rows = await loadWeeklyRowsForPosition(input.season, input.position!);
+          for (const [name, matchedRows] of Object.entries(collectWeeklyRowsForNames(rows, unmatched))) {
+            result[name] = matchedRows
+              .map(row => ({ week: Number(row.week), ...aggregateWeeklyStatRows([row]) }))
+              .sort((a, b) => a.week - b.week);
+          }
         }
         return result;
       }),

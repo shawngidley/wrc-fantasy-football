@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchRowsToRequestedNames } from "./seasonStatsByName";
+import { canScanPositionRows, collectWeeklyRowsForNames, matchRowsToRequestedNames } from "./seasonStatsByName";
 
 const row = (player_name: string, fpg = 0) => ({ player_name, fpg });
 
@@ -44,5 +44,51 @@ describe("matchRowsToRequestedNames", () => {
   it("handles empty inputs", () => {
     expect(matchRowsToRequestedNames([], ["A B"])).toEqual([]);
     expect(matchRowsToRequestedNames([row("A B")], [])).toEqual([]);
+  });
+});
+
+describe("collectWeeklyRowsForNames", () => {
+  const week = (player_name: string, w: number) => ({ player_name, week: w });
+
+  it("returns every week stored under the roster spelling, keyed by the name asked for", () => {
+    const rows = [week("Kaimi Fairbairn", 1), week("Kaimi Fairbairn", 2), week("Tyler Bass", 1)];
+    const result = collectWeeklyRowsForNames(rows, ["Ka'imi Fairbairn"]);
+    expect(result["Ka'imi Fairbairn"]).toEqual([week("Kaimi Fairbairn", 1), week("Kaimi Fairbairn", 2)]);
+  });
+
+  it("prefers an exact spelling and leaves unknown names out", () => {
+    const rows = [week("Tyler Bass", 1), week("Tyler Bass", 2)];
+    const result = collectWeeklyRowsForNames(rows, ["Tyler Bass", "Nobody Here"]);
+    expect(result["Tyler Bass"]).toHaveLength(2);
+    expect("Nobody Here" in result).toBe(false);
+  });
+
+  // The whole point of collecting by stored name rather than returning the one
+  // matched row: a season total built from a single week would be badly wrong.
+  it("does not stop at the first matching week", () => {
+    const rows = [week("Kaimi Fairbairn", 1), week("Kaimi Fairbairn", 7), week("Kaimi Fairbairn", 9)];
+    expect(collectWeeklyRowsForNames(rows, ["Ka'imi Fairbairn"])["Ka'imi Fairbairn"]).toHaveLength(3);
+  });
+
+  it("keeps two players apart when one's name merely normalizes close", () => {
+    const rows = [week("James Cook", 1), week("James Cook III", 2)];
+    const result = collectWeeklyRowsForNames(rows, ["James Cook III"]);
+    // Exact spelling wins, so the III rows are not merged with the plain ones.
+    expect(result["James Cook III"]).toEqual([week("James Cook III", 2)]);
+  });
+});
+
+describe("canScanPositionRows", () => {
+  it("allows the one-per-team positions the player card needs", () => {
+    expect(canScanPositionRows("K")).toBe(true);
+    expect(canScanPositionRows("DST")).toBe(true);
+  });
+
+  // weeklyStats is public and takes the position from the caller, so an
+  // unbounded position would let anyone trigger a multi-page scan.
+  it("refuses positions with hundreds of players, and a missing one", () => {
+    for (const pos of ["WR", "RB", "QB", "TE", "", undefined]) {
+      expect(canScanPositionRows(pos)).toBe(false);
+    }
   });
 });
