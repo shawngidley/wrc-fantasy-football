@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { acquirePlayerInfoSlot, fetchPlayerByName, pickPlayerForName, releasePlayerInfoSlot } from "./useTank01Player";
+import { canonicalTankPosition } from "./useTank01Player";
 describe("Tank01 player-info concurrency limiter", () => {
   it("allows up to the concurrency limit (5) to acquire a slot immediately", async () => {
     const acquiredOrder: number[] = [];
@@ -74,5 +75,14 @@ describe("fetchPlayerByName for a player the draft universe knows", () => {
     expect(urls).toHaveLength(1);
     expect(urls[0]).toContain("playerID=5081432");
     expect(urls.some(u => u.includes("playerName="))).toBe(false);
+  });
+});
+
+describe("canonicalTankPosition", () => {
+  it("maps Tank01's PK to the app's K and leaves other positions alone", () => {
+    expect(canonicalTankPosition("PK")).toBe("K");
+    expect(canonicalTankPosition("K")).toBe("K");
+    expect(canonicalTankPosition("WR")).toBe("WR");
+    expect(canonicalTankPosition(undefined)).toBe("");
   });
 });

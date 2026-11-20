@@ -137,8 +137,13 @@ export function releasePlayerInfoSlot(): void {
   }
 }
 
+/** Tank01 calls kickers "PK"; every position check in the app (columns, scoring, FantasyPros, WRC saved points) says "K". */
+export function canonicalTankPosition(pos: string | undefined): string {
+  return pos === "PK" ? "K" : (pos ?? "");
+}
+
 function normalizeTankPlayer(player: Tank01Player): Tank01Player {
-  return { ...player, team: normalizeNFLTeamCode(player.team) };
+  return { ...player, team: normalizeNFLTeamCode(player.team), pos: canonicalTankPosition(player.pos) };
 }
 
 // ── Fetch player by ESPN playerID ────────────────────────────────────────────

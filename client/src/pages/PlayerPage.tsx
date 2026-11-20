@@ -146,11 +146,20 @@ function MultiSeasonStatsTable({
   espnId,
   currentStats,
   currentNflTeam,
+  wrcPtsOverride,
+  wrcGamesOverride,
 }: {
   pos: string;
   espnId: string;
   currentStats?: Tank01Stats;
   currentNflTeam?: string;
+  /** Season WRC points from WRC's own finalized weeks (kickers: Tank01's box score has no FG distance). */
+  wrcPtsOverride?: number | null;
+  /** Games played across those same finalized weeks. The per-game figure divides
+   * by this rather than the row's ESPN games-played, which would mix a WRC
+   * numerator with an ESPN denominator -- with 9 weeks finalized and 10 games
+   * played, every kicker's per-game would read about 10% light. */
+  wrcGamesOverride?: number | null;
 }) {
   const { seasons, loading } = useESPNSeasonStats(espnId, pos);
 
@@ -196,9 +205,10 @@ function MultiSeasonStatsTable({
     currentRow.recAvg = calculateStatAverage(recYds, receptions);
     currentRow.passCmpPct = calculateStatAverage(passCmp * 100, passAtt);
     currentRow.fgPct = calculateStatAverage(fgMade * 100, fgAtt);
-    const wrcPts = calcFantasyPoints(currentStats, pos);
+    const wrcPts = wrcPtsOverride ?? calcFantasyPoints(currentStats, pos);
     currentRow.wrcPts = wrcPts;
-    currentRow.wrcPtsPerGame = Math.round((wrcPts / currentRow.gp) * 10) / 10;
+    const wrcGames = wrcPtsOverride != null && wrcGamesOverride ? wrcGamesOverride : currentRow.gp;
+    currentRow.wrcPtsPerGame = Math.round((wrcPts / wrcGames) * 10) / 10;
   }
 
   // Merge: Tank01 current row is authoritative for its season; ESPN fills prior years.
@@ -688,12 +698,30 @@ export default function PlayerPage() {
   const kickerName = isKicker
     ? (getDraftUniversePlayerByName(player?.longName ?? "")?.name ?? player?.longName ?? "")
     : "";
-  const { weeksByPlayer: kickerWeeksMap } = useDbWeeklyStats(kickerName ? [kickerName] : [], gameLogSeason, isKicker);
+  // Always 2026, never gameLogSeason: player_weekly_stats only holds 2026 (the
+  // game-log override below already guards on that), and the season total
+  // derived here belongs to the Stats tab's current-season row. Keyed off the
+  // picker instead, choosing 2025 in the game log would total 2025's weeks and
+  // show them as this season's.
+  const { weeksByPlayer: kickerWeeksMap } = useDbWeeklyStats(kickerName ? [kickerName] : [], 2026, isKicker);
   const kickerWrcByWeek = useMemo(() => {
     const m = new Map<number, number>();
     if (!kickerName) return m;
     for (const w of kickerWeeksMap[kickerName.toLowerCase()] ?? []) m.set(w.week, w.wrcPts);
     return m;
+  }, [kickerWeeksMap, kickerName]);
+
+  // Season total for the Stats tab, from the same finalized weeks, carrying the
+  // games those weeks actually count so the per-game figure divides by the same
+  // source it sums. Null until WRC has a saved week for him, so the card falls
+  // back to the box score.
+  const kickerSeasonWrc = useMemo(() => {
+    const weeks = kickerName ? kickerWeeksMap[kickerName.toLowerCase()] ?? [] : [];
+    if (weeks.length === 0) return null;
+    let pts = 0;
+    let gp = 0;
+    for (const w of weeks) { pts += w.wrcPts; gp += w.gp; }
+    return { pts: Math.round(pts * 10) / 10, gp };
   }, [kickerWeeksMap, kickerName]);
 
   // The per-player game-log feed (getNFLGamesForPlayer) carries each game's stat
@@ -1164,6 +1192,8 @@ export default function PlayerPage() {
                       espnId={player.espnID || player.playerID}
                       currentStats={player.stats}
                       currentNflTeam={canonicalTeam}
+                      wrcPtsOverride={isKicker ? kickerSeasonWrc?.pts ?? null : null}
+                      wrcGamesOverride={isKicker ? kickerSeasonWrc?.gp ?? null : null}
                     />
                   )}
                 </div>
