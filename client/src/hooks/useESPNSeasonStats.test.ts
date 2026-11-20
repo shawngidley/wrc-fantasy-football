@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { clearObsoleteHistoryCaches, currentNflSeason, extractFromGamelog, extractFromSeasonTotals, getPrimarySeasonTeam } from "./useESPNSeasonStats";
+import { extractKickingFromGameStats } from "@shared/espnSeasonStats";
 
 describe("currentNflSeason", () => {
   it("labels an in-season month (September) by that calendar year", () => {
@@ -68,8 +69,8 @@ describe("clearObsoleteHistoryCaches", () => {
     const values = new Map([
       ["wrc_espn_gl_v2_4361307_2024", "old"],
       ["wrc_espn_gl_v3_4361307_2024", "old"],
-      ["wrc_espn_gl_v8_4361307_2024", "old"],     // previous schema -- now obsolete
-      ["wrc_espn_gl_v9_4361307_2024", "current"], // current schema -- preserved
+      ["wrc_espn_gl_v9_4361307_2024", "old"],      // previous schema -- now obsolete
+      ["wrc_espn_gl_v10_4361307_2024", "current"], // current schema -- preserved
       ["unrelated", "keep"],
     ]);
     const storage = {
@@ -82,8 +83,8 @@ describe("clearObsoleteHistoryCaches", () => {
 
     expect(values.has("wrc_espn_gl_v2_4361307_2024")).toBe(false);
     expect(values.has("wrc_espn_gl_v3_4361307_2024")).toBe(false);
-    expect(values.has("wrc_espn_gl_v8_4361307_2024")).toBe(false);
-    expect(values.has("wrc_espn_gl_v9_4361307_2024")).toBe(true);
+    expect(values.has("wrc_espn_gl_v9_4361307_2024")).toBe(false);
+    expect(values.has("wrc_espn_gl_v10_4361307_2024")).toBe(true);
     expect(values.has("unrelated")).toBe(true);
   });
 });
@@ -113,5 +114,34 @@ describe("extractFromSeasonTotals", () => {
     expect(extractFromSeasonTotals(categories, teams, 2024)).toMatchObject({
       team: "NYJ", gp: 14, rec: 85, recTargets: 141, recYds: 1063, recAvg: 12.5, recTD: 8,
     });
+  });
+});
+
+describe("extractKickingFromGameStats", () => {
+  it("reads separate FGM/FGA/XPM/XPA columns", () => {
+    const events = [{ stats: ["2", "3", "66.7", "3", "3"] }, { stats: ["1", "1", "100", "2", "3"] }];
+    expect(extractKickingFromGameStats(events, ["FGM", "FGA", "FG%", "XPM", "XPA"])).toEqual({ fgMade: 3, fgAtt: 4, fgPct: 75, xpMade: 5, xpAtt: 6 });
+  });
+
+  it("reads paired FG and XP columns written as made/att or made-att", () => {
+    const events = [{ stats: ["2/3", "66.7", "52", "3/3"] }, { stats: ["1-1", "100", "41", "2-3"] }];
+    expect(extractKickingFromGameStats(events, ["FG", "FG%", "LNG", "XP"])).toEqual({ fgMade: 3, fgAtt: 4, fgPct: 75, xpMade: 5, xpAtt: 6 });
+  });
+
+  it("returns null when there are no kicking columns or no attempts", () => {
+    expect(extractKickingFromGameStats([{ stats: ["5", "60"] }], ["REC", "YDS"])).toBeNull();
+    expect(extractKickingFromGameStats([{ stats: ["0/0", "0/0"] }], ["FG", "XP"])).toBeNull();
+  });
+
+  // A paired cell has to be split, not parsed: parseFloat("2/3") is 2, which
+  // would silently report every attempt as made.
+  it("does not mistake a paired cell for a single number", () => {
+    const result = extractKickingFromGameStats([{ stats: ["2/5"] }], ["FG"]);
+    expect(result).toMatchObject({ fgMade: 2, fgAtt: 5, fgPct: 40 });
+  });
+
+  it("ignores a malformed paired cell rather than guessing", () => {
+    expect(extractKickingFromGameStats([{ stats: ["--"] }, { stats: ["3/4"] }], ["FG"]))
+      .toMatchObject({ fgMade: 3, fgAtt: 4 });
   });
 });

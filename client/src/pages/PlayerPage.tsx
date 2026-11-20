@@ -10,6 +10,7 @@
 import { useParams, useLocation } from "wouter";
 import { useTank01PlayerByName, getTeamLogoUrl, type Tank01Player } from "@/hooks/useTank01Player";
 import { resolveDstTeam, dstTeamFullName, dstTeamPlayerId } from "@/lib/nflDstTeams";
+import { getCompletedKickerSeasonStats } from "@/lib/kickerSeasonStats2025";
 import { formatPlayChance } from "@/lib/playProbability";
 import { useDbSeasonStats } from "@/hooks/useDbSeasonStats";
 import { useDbWeeklyStats, type WeeklyStatLine } from "@/hooks/useDbWeeklyStats";
@@ -148,7 +149,9 @@ function MultiSeasonStatsTable({
   currentNflTeam,
   wrcPtsOverride,
   wrcGamesOverride,
+  playerName,
 }: {
+  playerName?: string;
   pos: string;
   espnId: string;
   currentStats?: Tank01Stats;
@@ -184,6 +187,7 @@ function MultiSeasonStatsTable({
         fgMade:     Number(currentStats.Kicking?.fgMade ?? 0),
         fgAtt:      Number(currentStats.Kicking?.fgAttempts ?? 0),
         xpMade:     Number(currentStats.Kicking?.xpMade ?? 0),
+        xpAtt:      Number(currentStats.Kicking?.xpAttempts ?? 0),
         sacks:      Number(currentStats.Defense?.sacks ?? 0),
         defInt:     Number(currentStats.Defense?.defensiveInterceptions ?? 0),
         defTD:      Number(currentStats.Defense?.defTD ?? 0),
@@ -217,6 +221,20 @@ function MultiSeasonStatsTable({
     ...(currentRow && currentRow.gp > 0 ? [currentRow] : []),
     ...seasons.filter(s => !currentRow || s.season !== currentRow.season),
   ];
+  // 2025 kickers: exact totals (distance-accurate WRC points) from the completed
+  // play-by-play, the same data the Free Agents page uses. A kicker with no 2025
+  // kicks has a zero line there, which is left out rather than shown as a season.
+  const exact2025 = (pos === "K" && playerName) ? getCompletedKickerSeasonStats(playerName) : undefined;
+  if (exact2025 && exact2025.games > 0) {
+    const idx = merged.findIndex(row => row.season === 2025);
+    const exactRow: SeasonStatRow = {
+      season: 2025, team: idx >= 0 ? merged[idx].team : undefined, gp: exact2025.games,
+      fgMade: exact2025.fgm, fgAtt: exact2025.fga, fgPct: exact2025.fga > 0 ? Math.round((exact2025.fgm / exact2025.fga) * 1000) / 10 : 0,
+      xpMade: exact2025.xpm, xpAtt: exact2025.xpa,
+      wrcPts: exact2025.wrcPts, wrcPtsPerGame: Math.round((exact2025.wrcPts / exact2025.games) * 10) / 10,
+    };
+    if (idx >= 0) merged[idx] = exactRow; else merged.push(exactRow);
+  }
   const allRows: SeasonStatRow[] = merged.sort((a, b) => b.season - a.season);
 
   // Define columns per position
@@ -1194,6 +1212,7 @@ export default function PlayerPage() {
                       currentNflTeam={canonicalTeam}
                       wrcPtsOverride={isKicker ? kickerSeasonWrc?.pts ?? null : null}
                       wrcGamesOverride={isKicker ? kickerSeasonWrc?.gp ?? null : null}
+                      playerName={kickerName || player.longName}
                     />
                   )}
                 </div>

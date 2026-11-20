@@ -15,7 +15,7 @@
  */
 import { useState, useEffect } from "react";
 
-const CACHE_PREFIX = "wrc_espn_gl_v9_";
+const CACHE_PREFIX = "wrc_espn_gl_v10_";
 const CACHE_NAMESPACE = "wrc_espn_gl_";
 // Past seasons never change, so a day-long cache is fine. The CURRENT season's
 // game count and totals change every week (and during games), so caching it for
@@ -57,7 +57,7 @@ export {
   extractFromSeasonTotals,
 } from "@shared/espnSeasonStats";
 import type { SeasonStatRow, UseESPNSeasonStatsResult, ESPNGameEvent } from "@shared/espnSeasonStats";
-import { calculateSeasonRow, buildLabelMap, sumGameStats, extractFromGamelog, getPrimarySeasonTeam, extractFromSeasonTotals } from "@shared/espnSeasonStats";
+import { calculateSeasonRow, buildLabelMap, sumGameStats, extractFromGamelog, extractKickingFromGameStats, getPrimarySeasonTeam, extractFromSeasonTotals } from "@shared/espnSeasonStats";
 
 export async function fetchSeasonStats(
   espnId: string,
@@ -106,9 +106,38 @@ export async function fetchSeasonStats(
     const gp = regularEvents.length;
     const lm = buildLabelMap(labels);
     const totals = sumGameStats(regularEvents, Object.fromEntries(Object.entries(lm).map(([k, v]) => [k, v])));
-    const extracted = extractFromGamelog(totals, gp, labels);
+    let extracted = extractFromGamelog(totals, gp, labels);
+    const isKicker = pos === "K" || pos === "PK";
+    if (isKicker) {
+      const kicking = extractKickingFromGameStats(regularEvents, labels);
+      if (kicking) extracted = { ...extracted, ...kicking };
+      else {
+        // The per-game rows had no usable kicking columns: use the season totals
+        // feed, whose kicking labels extractFromSeasonTotals already reads.
+        try {
+          const totalsResponse = await fetch(`/api/espn/athlete/${espnId}/stats?season=${year}`);
+          if (totalsResponse.ok) {
+            const totalsData = await totalsResponse.json();
+            const fromTotals = extractFromSeasonTotals(totalsData.categories ?? [], totalsData.teams ?? {}, year);
+            if (fromTotals && ((fromTotals.fgAtt ?? 0) > 0 || (fromTotals.xpAtt ?? 0) > 0)) {
+              extracted = { ...extracted, fgMade: fromTotals.fgMade, fgAtt: fromTotals.fgAtt, xpMade: fromTotals.xpMade, xpAtt: fromTotals.xpAtt,
+                fgPct: (fromTotals.fgAtt ?? 0) > 0 ? Math.round(((fromTotals.fgMade ?? 0) / (fromTotals.fgAtt ?? 1)) * 1000) / 10 : 0 };
+            }
+          }
+        } catch (error) {
+          // Best effort: the row still renders without kicking columns. Logged
+          // rather than swallowed so a broken proxy route is visible.
+          console.warn(`[useESPNSeasonStats] kicking totals fallback failed for ${espnId} ${year}:`, error);
+        }
+      }
+    }
 
     const row = calculateSeasonRow(year, pos, { ...extracted, team: getPrimarySeasonTeam(regularEvents, d.events ?? {}) });
+    // WRC kicker points depend on each field goal's distance, which neither ESPN
+    // feed has, so a past season's total from counts alone would be wrong. Zero
+    // renders as an em dash (see n() on the player card), so the column reads
+    // blank rather than showing a number that ignores most of the points.
+    if (isKicker) { row.wrcPts = 0; row.wrcPtsPerGame = 0; }
 
     try { sessionStorage.setItem(cacheKey, JSON.stringify({ ts: Date.now(), data: row })); } catch {}
     return row;

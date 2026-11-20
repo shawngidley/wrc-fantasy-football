@@ -167,6 +167,45 @@ export function extractFromGamelog(
   return r;
 }
 
+/**
+ * Kicker totals from per-game rows. ESPN has labelled kicking either as separate
+ * FGM/FGA/XPM/XPA columns or as paired "FG" and "XP" columns holding "made/att"
+ * (or "made-att") text, so both are read. A paired value is summed by splitting
+ * it, since parseFloat on "2/3" would keep only the 2. Returns null when neither
+ * form is present or nothing was attempted.
+ */
+export function extractKickingFromGameStats(
+  events: Array<{ stats?: string[] }>,
+  labels: string[],
+): { fgMade: number; fgAtt: number; fgPct: number; xpMade: number; xpAtt: number } | null {
+  const idx = (label: string) => labels.indexOf(label);
+  const num = (value: string | undefined) => Number.parseFloat((value ?? "0").replace(/,/g, "")) || 0;
+  const pair = (value: string | undefined): [number, number] => {
+    const m = /^\s*(\d+)\s*[\/-]\s*(\d+)\s*$/.exec(value ?? "");
+    return m ? [Number(m[1]), Number(m[2])] : [0, 0];
+  };
+  let fgMade = 0, fgAtt = 0, xpMade = 0, xpAtt = 0, found = false;
+  for (const event of events) {
+    const stats = event.stats ?? [];
+    if (idx("FGM") >= 0 && idx("FGA") >= 0) {
+      found = true;
+      fgMade += num(stats[idx("FGM")]); fgAtt += num(stats[idx("FGA")]);
+    } else if (idx("FG") >= 0) {
+      found = true;
+      const [made, att] = pair(stats[idx("FG")]); fgMade += made; fgAtt += att;
+    }
+    if (idx("XPM") >= 0 && idx("XPA") >= 0) {
+      found = true;
+      xpMade += num(stats[idx("XPM")]); xpAtt += num(stats[idx("XPA")]);
+    } else if (idx("XP") >= 0) {
+      found = true;
+      const [made, att] = pair(stats[idx("XP")]); xpMade += made; xpAtt += att;
+    }
+  }
+  if (!found || (fgAtt === 0 && xpAtt === 0)) return null;
+  return { fgMade, fgAtt, fgPct: fgAtt > 0 ? Math.round((fgMade / fgAtt) * 1000) / 10 : 0, xpMade, xpAtt };
+}
+
 export type ESPNGameEvent = { eventId?: string; stats?: string[] };
 type ESPNEventMetadata = Record<string, { team?: { abbreviation?: string } }>;
 type ESPNSeasonStatistic = { teamId?: string; displayName?: string; season?: { year?: number }; stats?: string[] };
