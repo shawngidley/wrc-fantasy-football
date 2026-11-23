@@ -1,32 +1,37 @@
 /**
- * READ-ONLY audit: who was affected by the duplicate-field-goal parser bug
- * fixed in 4da203f, and would any Week 1-10 result change?
- *
- * This script SELECTs only. It never updates weekly_results, team_standings,
- * earnings or anything else. Nothing it prints is applied anywhere -- decide
- * what to do with the output yourself.
+ * READ-ONLY audit of the two 2026 scoring defects, and whether either changed a
+ * result. SELECTs only -- it never updates weekly_results, team_standings,
+ * earnings or anything else. Nothing it prints has been applied.
  *
  *   SUPABASE_SERVICE_ROLE_KEY=... npx tsx scripts/auditKickerDuplicateFgWeeks.ts
  *
- * It answers three questions: who was short-changed, whether correcting it
- * would change any result, and whether a correction can safely be applied by
- * re-running finalization (usually: no -- see the roster-drift section).
+ * 1. DUPLICATE FIELD GOALS (fixed in code by 4da203f + 3e28b28). ESPN writes two
+ *    real field goals of the same distance by the same kicker with byte-identical
+ *    play text; the old parser deduped on that text and dropped the second. WRC
+ *    scores a FG at 0.1/yd, so a dropped kick is worth yards/10. Only field goals
+ *    can move a finalized score: finalization passes Tank01 rawStats, so extra
+ *    points come from xpMade/xpAttempts and never from parsed text.
  *
- * AFFECTED below was produced by replaying every finalized 2026 regular-season
- * game through both the old parser (dedupe by play text) and the new one
- * (dedupe by ESPN play id) and keeping every kicker whose WRC field-goal
- * points differed. Only field goals matter: weeklyResultsFinalize always
- * passes Tank01 rawStats to calculateWrcKickerPoints, so extra-point scoring
- * comes from xpMade/xpAttempts and never from parsed play text.
+ * 2. SPECIAL-TEAMS RETURN TOUCHDOWNS (not yet fixed). WRC's published rules give
+ *    a D/ST +6 for a "Defensive/ST Touchdown", and scoringEngine's DST branch
+ *    would credit one, but nothing supplies it for 2026: Tank01's team-defense
+ *    block carries only defensive scores. The 2025 static dataset had to take
+ *    return touchdowns from nflverse play-by-play for exactly this reason.
+ *
+ * Both lists were produced by replaying every completed 2026 regular-season game
+ * through the live ESPN feed -- the kicker rows by running the old and new
+ * parsers side by side, the return touchdowns by scanning scoringPlays.
  */
 import { supabaseAdmin } from "../server/supabaseAdmin";
 import { normalizePlayerName } from "../shared/playerNameMatch";
+import { CURRENT_DRAFT_PLAYER_UNIVERSE_2026 } from "../shared/currentDraftPlayerUniverse2026";
 
 const SEASON = 2026;
 
-type Affected = { week: number; game: string; kicker: string; nflTeam: string; old: number; now: number; delta: number };
+type AffectedKicker = { week: number; game: string; kicker: string; nflTeam: string; old: number; now: number; delta: number };
+type AffectedDst = { week: number; nflTeam: string; play: string; delta: number };
 
-const AFFECTED: Affected[] = [
+const AFFECTED_KICKERS: AffectedKicker[] = [
   { week: 2, game: "CLE @ TB", kicker: "Chase McLaughlin", nflTeam: "TB", old: 13.5, now: 16.6, delta: 3.1 },
   { week: 2, game: "CLE @ TB", kicker: "Andre Szmyt", nflTeam: "CLE", old: 8.4, now: 11.8, delta: 3.4 },
   { week: 3, game: "TEN @ NYG", kicker: "Dominic Zvada", nflTeam: "NYG", old: 9.6, now: 13.5, delta: 3.9 },
@@ -36,12 +41,23 @@ const AFFECTED: Affected[] = [
   { week: 6, game: "NYJ @ NE", kicker: "Jason Sanders", nflTeam: "NYJ", old: 11.8, now: 15.4, delta: 3.6 },
   { week: 9, game: "DET @ MIA", kicker: "Zane Gonzalez", nflTeam: "MIA", old: 6.6, now: 10.0, delta: 3.4 },
   { week: 9, game: "NYG @ PHI", kicker: "Dominic Zvada", nflTeam: "NYG", old: 14.0, now: 18.9, delta: 4.9 },
-  // Week 10 is NOT finalized yet (LAC @ BAL was still in progress), so these
-  // two will be scored correctly the first time finalization runs. Listed for
-  // completeness; the flip analysis below skips any week that is not final.
   { week: 10, game: "LAR @ ARI", kicker: "Chad Ryland", nflTeam: "ARI", old: 4.9, now: 9.8, delta: 4.9 },
   { week: 10, game: "SF @ DAL", kicker: "Brandon Aubrey", nflTeam: "DAL", old: 5.2, now: 10.4, delta: 5.2 },
+  { week: 11, game: "MIA @ BUF", kicker: "Daniel Carlson", nflTeam: "MIA", old: 7.9, now: 13.1, delta: 5.2 },
 ];
+
+const AFFECTED_DST: AffectedDst[] = [
+  { week: 3, nflTeam: "MIN", play: "Myles Price 86 Yd Punt Return", delta: 6 },
+  { week: 6, nflTeam: "TEN", play: "Oluwafemi Oladejo 14 Yd return of blocked punt", delta: 6 },
+  { week: 8, nflTeam: "LV", play: "Dylan Laube 95 Yd Kickoff Return", delta: 6 },
+  { week: 11, nflTeam: "BAL", play: "Devontez Walker 86 Yd Kickoff Return", delta: 6 },
+];
+
+/** The draft pool's name for a team defense, e.g. LV -> "LV Raiders". */
+function dstPoolName(nflTeam: string): string | null {
+  const entry = CURRENT_DRAFT_PLAYER_UNIVERSE_2026.find(p => p.pos === "DST" && p.nflTeam === nflTeam);
+  return entry?.name ?? null;
+}
 
 const r1 = (v: number) => Math.round(v * 10) / 10;
 function median(values: number[]): number {
@@ -50,69 +66,98 @@ function median(values: number[]): number {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }
 
+type LineupRow = { team_id: string; slot: string; player_name: string; is_bench: boolean | null };
+
 async function main() {
   const { data: teams, error: teamsError } = await supabaseAdmin.from("teams").select("id, owner, name");
   if (teamsError || !teams) throw new Error(`Unable to load teams: ${teamsError?.message}`);
   const ownerById = new Map(teams.map(t => [String(t.id), String(t.owner)]));
 
-  const weeks = Array.from(new Set(AFFECTED.map(a => a.week))).sort((a, b) => a - b);
+  const weeks = Array.from(new Set([...AFFECTED_KICKERS.map(a => a.week), ...AFFECTED_DST.map(a => a.week)])).sort((a, b) => a - b);
 
-  // ---- 1. Who started each affected kicker, from that week's saved lineups.
-  // lineups is historical (keyed by week), so this is the week's real starter
-  // even for a kicker who has since been dropped.
-  const deltasByWeekOwner = new Map<string, number>();
-  console.log("=== Who started each affected kicker ===\n");
+  // lineups is historical (keyed by week), so it still resolves a player who has
+  // since been dropped -- which matters, since most of these kickers were
+  // one-week streams.
+  const lineupsByWeek = new Map<number, LineupRow[]>();
   for (const week of weeks) {
-    const { data: rows, error } = await supabaseAdmin.from("lineups")
+    const { data, error } = await supabaseAdmin.from("lineups")
       .select("team_id, slot, player_name, is_bench")
       .eq("season", SEASON).eq("week", week);
     if (error) throw new Error(`Unable to load week ${week} lineups: ${error.message}`);
-    for (const a of AFFECTED.filter(x => x.week === week)) {
-      const key = normalizePlayerName(a.kicker);
-      const hits = (rows ?? []).filter(r => normalizePlayerName(String(r.player_name ?? "")) === key);
-      const starters = hits.filter(r => !r.is_bench);
-      if (starters.length === 0) {
-        const benched = hits.length > 0 ? " (on a bench, not started)" : "";
-        console.log(`wk${week}  ${a.kicker.padEnd(18)} ${String(a.delta.toFixed(1)).padStart(5)}  -> no saved starter row${benched}`);
-        console.log(`        If no team saved a lineup that week the finalizer fills slots itself, so check`);
-        console.log(`        buildEffectiveStarters for week ${week} before concluding nobody started him.`);
-        continue;
-      }
-      for (const s of starters) {
-        const owner = ownerById.get(String(s.team_id)) ?? `team ${s.team_id}`;
-        console.log(`wk${week}  ${a.kicker.padEnd(18)} ${`+${a.delta.toFixed(1)}`.padStart(5)}  -> ${owner}  (${a.old} -> ${a.now})`);
-        const k = `${week}|${owner}`;
-        deltasByWeekOwner.set(k, r1((deltasByWeekOwner.get(k) ?? 0) + a.delta));
-      }
-      if (starters.length > 1) console.log(`        NOTE: ${starters.length} teams started him; only one can be right -- check manually.`);
+    lineupsByWeek.set(week, (data ?? []) as LineupRow[]);
+  }
+
+  // Combined, so a week carrying both corrections moves the median once with
+  // both applied -- a median shift can flip a team that neither correction
+  // touched directly.
+  const deltasByWeekOwner = new Map<string, number>();
+  const addDelta = (week: number, owner: string, delta: number) => {
+    const key = `${week}|${owner}`;
+    deltasByWeekOwner.set(key, r1((deltasByWeekOwner.get(key) ?? 0) + delta));
+  };
+
+  function startersFor(week: number, name: string): LineupRow[] {
+    const key = normalizePlayerName(name);
+    return (lineupsByWeek.get(week) ?? [])
+      .filter(r => normalizePlayerName(String(r.player_name ?? "")) === key && !r.is_bench);
+  }
+
+  console.log("=== 1. Duplicate field goals: who started the kicker ===\n");
+  for (const a of AFFECTED_KICKERS) {
+    const starters = startersFor(a.week, a.kicker);
+    if (starters.length === 0) {
+      const benched = (lineupsByWeek.get(a.week) ?? []).some(r => normalizePlayerName(String(r.player_name ?? "")) === normalizePlayerName(a.kicker));
+      console.log(`wk${String(a.week).padStart(2)}  ${a.kicker.padEnd(18)} +${a.delta.toFixed(1).padStart(4)}  -> ${benched ? "on a bench, not started" : "no saved starter row"}`);
+      continue;
+    }
+    for (const s of starters) {
+      const owner = ownerById.get(String(s.team_id)) ?? `team ${s.team_id}`;
+      console.log(`wk${String(a.week).padStart(2)}  ${a.kicker.padEnd(18)} +${a.delta.toFixed(1).padStart(4)}  -> ${owner}  (${a.old} -> ${a.now})`);
+      addDelta(a.week, owner, a.delta);
+    }
+    if (starters.length > 1) console.log(`        NOTE: ${starters.length} teams started him -- only one can be right, check by hand.`);
+  }
+
+  console.log("\n=== 2. Special-teams return touchdowns: who started the defense ===\n");
+  for (const a of AFFECTED_DST) {
+    const poolName = dstPoolName(a.nflTeam);
+    if (!poolName) { console.log(`wk${String(a.week).padStart(2)}  ${a.nflTeam} D/ST  -> not in the 2026 draft pool?`); continue; }
+    const starters = startersFor(a.week, poolName);
+    const label = `${poolName} (${a.nflTeam})`;
+    if (starters.length === 0) {
+      console.log(`wk${String(a.week).padStart(2)}  ${label.padEnd(26)} +${a.delta}  -> not started by anyone`);
+      console.log(`        ${a.play}`);
+      continue;
+    }
+    for (const s of starters) {
+      const owner = ownerById.get(String(s.team_id)) ?? `team ${s.team_id}`;
+      console.log(`wk${String(a.week).padStart(2)}  ${label.padEnd(26)} +${a.delta}  -> ${owner}`);
+      console.log(`        ${a.play}`);
+      addDelta(a.week, owner, a.delta);
     }
   }
 
-  // ---- 2. Could a re-finalize even re-credit the right player?
-  // buildEffectiveStarters resolves each saved starter against the team's
-  // CURRENT roster and backfills any slot it cannot fill. So re-running
-  // finalizeWeeklyResultsFromTank on an old week does not replay that week --
-  // it scores that week's saved lineups against today's rosters. A streamed
-  // kicker who has since been dropped is simply not scored, and somebody else
-  // is backfilled into the slot.
-  console.log("\n=== Is the affected kicker still rostered? ===\n");
+  console.log("\n=== 3. Is the affected kicker still rostered? ===\n");
+  console.log("buildEffectiveStarters resolves each saved starter against the team's CURRENT");
+  console.log("roster and backfills any slot it cannot fill, so re-running");
+  console.log("finalizeWeeklyResultsFromTank on an old week does NOT replay that week -- it");
+  console.log("scores that week's saved lineups against today's rosters.\n");
   const { data: players, error: playersError } = await supabaseAdmin.from("players").select("name, team_id");
   if (playersError) throw new Error(`Unable to load players: ${playersError.message}`);
   const holderByName = new Map<string, string | null>();
   for (const p of players ?? []) holderByName.set(normalizePlayerName(String(p.name ?? "")), p.team_id ? String(p.team_id) : null);
-  for (const a of AFFECTED) {
+  for (const a of AFFECTED_KICKERS) {
     const holder = holderByName.get(normalizePlayerName(a.kicker));
     const where = holder === undefined ? "not in the players table at all"
       : holder === null ? "on no roster (free agent)"
       : `rostered by ${ownerById.get(holder) ?? holder}`;
     console.log(`wk${String(a.week).padStart(2)}  ${a.kicker.padEnd(18)} is now ${where}`);
   }
-  console.log("\nAny line above that is not 'rostered by <the owner who started him>' means a");
+  console.log("\nAny line that is not 'rostered by <the owner who started him>' means a");
   console.log("re-finalize of that week would NOT restore his points -- it would score a");
   console.log("different player. Correct those weeks by updating the stored score instead.");
 
-  // ---- 3. Would any head-to-head or median result change?
-  console.log("\n=== Effect on finalized results ===\n");
+  console.log("\n=== 4. Effect on finalized results ===\n");
   for (const week of weeks) {
     const { data: results, error } = await supabaseAdmin.from("weekly_results")
       .select("week, home_owner, away_owner, home_score, away_score, is_final, league_median")
@@ -120,7 +165,12 @@ async function main() {
     if (error) throw new Error(`Unable to load week ${week} results: ${error.message}`);
     const rows = results ?? [];
     if (rows.length === 0) { console.log(`Week ${week}: no weekly_results rows.\n`); continue; }
-    if (!rows.every(r => r.is_final)) { console.log(`Week ${week}: not finalized yet -- it will be scored with the fixed parser. Nothing to correct.\n`); continue; }
+    if (!rows.every(r => r.is_final)) {
+      console.log(`Week ${week}: NOT finalized yet. The duplicate-FG fix is already deployed, so`);
+      console.log(`  its kicker scores will be right the first time. The return touchdown will`);
+      console.log(`  still be missing unless issue 2 is fixed before this week finalizes.\n`);
+      continue;
+    }
 
     const before = new Map<string, number>();
     for (const r of rows) {
@@ -129,8 +179,8 @@ async function main() {
     }
     const after = new Map(before);
     let touched = false;
-    for (const [k, delta] of deltasByWeekOwner) {
-      const [w, owner] = k.split("|");
+    for (const [key, delta] of deltasByWeekOwner) {
+      const [w, owner] = key.split("|");
       if (Number(w) !== week) continue;
       if (!after.has(owner)) { console.log(`Week ${week}: ${owner} has no weekly_results row?`); continue; }
       after.set(owner, r1(after.get(owner)! + delta));
@@ -142,18 +192,19 @@ async function main() {
     const medAfter = median([...after.values()]);
     console.log(`Week ${week}: league median ${medBefore} -> ${medAfter}${medBefore === medAfter ? " (unchanged)" : "  *** MOVED ***"}`);
 
+    let anyFlip = false;
     for (const r of rows) {
       const h = String(r.home_owner), a = String(r.away_owner);
-      const res = (m: Map<string, number>) => {
+      const winner = (m: Map<string, number>) => {
         const hs = m.get(h)!, as = m.get(a)!;
         return hs > as ? h : as > hs ? a : "tie";
       };
-      const wB = res(before), wA = res(after);
+      const wB = winner(before), wA = winner(after);
       if (wB !== wA) {
+        anyFlip = true;
         console.log(`  *** H2H FLIP: ${h} ${before.get(h)} - ${before.get(a)} ${a}  =>  ${after.get(h)} - ${after.get(a)}  (winner ${wB} -> ${wA})`);
       }
     }
-    let anyFlip = false;
     for (const owner of before.keys()) {
       const bB = before.get(owner)! > medBefore, bA = after.get(owner)! > medAfter;
       if (bB !== bA) {
@@ -161,12 +212,8 @@ async function main() {
         console.log(`  *** MEDIAN FLIP: ${owner} ${before.get(owner)} vs ${medBefore} (${bB ? "win" : "loss"})  =>  ${after.get(owner)} vs ${medAfter} (${bA ? "win" : "loss"})`);
       }
     }
-    // Even with no flip the correction still moves points-for, which is a
-    // standings tiebreaker, so it is reported either way.
     for (const owner of before.keys()) {
-      if (before.get(owner) !== after.get(owner)) {
-        console.log(`  points-for: ${owner} ${before.get(owner)} -> ${after.get(owner)}`);
-      }
+      if (before.get(owner) !== after.get(owner)) console.log(`  points-for: ${owner} ${before.get(owner)} -> ${after.get(owner)}`);
     }
     if (!anyFlip) console.log("  no head-to-head or median result changes this week.");
 
@@ -183,6 +230,7 @@ async function main() {
     }
     console.log("");
   }
+
   console.log("Done. Nothing was written.");
   console.log("");
   console.log("If a week needs correcting, prefer updating that week's weekly_results");

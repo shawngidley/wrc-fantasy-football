@@ -47,7 +47,7 @@ Plain `GET` routes registered in `server/_core/app.ts` under `/api/scheduled/*` 
 
 - **FantasyPros** (`server/fantasypros.ts`, `fantasyprosArchive.ts`, `fantasyprosNewsNames.ts`) — rankings, projections, injuries, news; archived into Supabase's `fantasypros_news_archive`/`fantasypros_news_archive_config` tables over time.
 - **Tank01** (`server/tank01Proxy.ts`) — NFL live scores/stats, proxied through `/api/tank01/:endpoint` so the API key never reaches the browser.
-- **ESPN** — used client-side for kicker live-scoring events only; see `ESPN_LIVE_KICKER_SOURCE.md`.
+- **ESPN** — kicker play-by-play, read through the `/api/espn/*` proxies in `server/espnProxy.ts` (athlete, athlete subresource, news, scoreboard, summary); see `ESPN_LIVE_KICKER_SOURCE.md`. **Not client-side only**: `server/weeklyResultsFinalize.ts` parses the same summary feed through `parseEspnKickerEvents` to score every kicker's OFFICIAL weekly points, because WRC scores a field goal per yard (0.1/yd, +1 at 60-64, +2 at 65+) and Tank01's box score carries no per-kick distance. A parser bug here changes finalized scores and standings, not just the live display. Extra points are the exception -- finalization passes Tank01 rawStats, so XP comes from `xpMade`/`xpAttempts` and never from parsed play text.
 - Season-stats snapshot caching (`server/seasonStatsSnapshot.ts`, `seasonStatsRefresh.ts`) persists to Supabase's `wrc_season_stats_cache` table; see `supabase_cache_tables.sql` for the schema of all three cache tables.
 
 Client hooks in `client/src/hooks/useNFL*.ts`, `useESPNSeasonStats.ts`, `useTank01Player.ts` wrap these.
