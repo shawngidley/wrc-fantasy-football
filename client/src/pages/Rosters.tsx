@@ -15,6 +15,7 @@ import { Link } from "wouter";
 import TeamLogo from "@/components/TeamLogo";
 import { trpc } from "@/lib/trpc";
 import { faabForTeam } from "@/lib/faabBadge";
+import { rosterRoundBadge } from "@/lib/rosterRoundLabel";
 import { useNFLInjuries, getInjuryDesignation } from "@/hooks/useNFLInjuries";
 import { InjuryTag } from "@/components/InjuryTag";
 
@@ -266,15 +267,11 @@ export default function Rosters() {
 
 function PlayerRow({ player, alt, protectedRound, injuryDesignation }: { player: SupabasePlayer; alt: boolean; protectedRound?: number; injuryDesignation?: string }) {
   const c = POS_COLORS[player.position] ?? { bg: "oklch(0.93 0.02 150)", text: "oklch(0.4 0.04 150)" };
-  // A player picked up off waivers/free agency is a free agent even if a stale
-  // draft_round lingers on their row from when they were originally drafted.
-  // acquisition is the source of truth for how they're on this roster now, so
-  // an "FA" acquisition shows FA regardless of draft_round (a protected pick,
-  // which carries a real forfeited round, still wins).
-  const draftRound = player.acquisition === "FA" ? null : player.draft_round;
-  const displayRound = protectedRound ?? draftRound;
-  const isFa = !displayRound;
-  const roundLabel = displayRound ? `Rd ${displayRound}` : "FA";
+  // acquisition is the source of truth for how this player is on the roster
+  // NOW -- including a protection, which stops applying once he is cut even
+  // though the protections row is kept as history. See rosterRoundLabel.
+  const { label: roundLabel, isProtected, isFreeAgent: isFa } =
+    rosterRoundBadge(player.acquisition, player.draft_round, protectedRound);
   return (
     <div className="wrc-row-hover" style={{
       display: "flex",
@@ -309,14 +306,14 @@ function PlayerRow({ player, alt, protectedRound, injuryDesignation }: { player:
         letterSpacing: "0.04em", flexShrink: 0,
       }}>{player.nfl_team}</span>
       <span
-        title={protectedRound ? "Protected — round shown is the forfeited pick cost, not the original draft round" : undefined}
+        title={isProtected ? "Protected — round shown is the forfeited pick cost, not the original draft round" : undefined}
         style={{
           fontSize: "10.9px", fontFamily: "Barlow Condensed, sans-serif",
           fontWeight: 700, letterSpacing: "0.04em",
           padding: "1px 5px", borderRadius: 3, flexShrink: 0,
-          background: protectedRound ? "oklch(0.95 0.06 85)" : isFa ? "oklch(0.93 0.06 250)" : "oklch(0.93 0.03 150)",
-          color: protectedRound ? "oklch(0.42 0.15 85)" : isFa ? "oklch(0.32 0.14 250)" : "oklch(0.35 0.08 150)",
-          border: protectedRound ? "1px solid oklch(0.78 0.15 85)" : "none",
+          background: isProtected ? "oklch(0.95 0.06 85)" : isFa ? "oklch(0.93 0.06 250)" : "oklch(0.93 0.03 150)",
+          color: isProtected ? "oklch(0.42 0.15 85)" : isFa ? "oklch(0.32 0.14 250)" : "oklch(0.35 0.08 150)",
+          border: isProtected ? "1px solid oklch(0.78 0.15 85)" : "none",
         }}
       >{roundLabel}</span>
     </div>
