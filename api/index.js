@@ -14532,14 +14532,14 @@ var require_object_inspect = __commonJS({
     var gPO = (typeof Reflect === "function" ? Reflect.getPrototypeOf : Object.getPrototypeOf) || ([].__proto__ === Array.prototype ? function(O) {
       return O.__proto__;
     } : null);
-    function addNumericSeparator(num3, str) {
-      if (num3 === Infinity || num3 === -Infinity || num3 !== num3 || num3 && num3 > -1e3 && num3 < 1e3 || $test.call(/e/, str)) {
+    function addNumericSeparator(num4, str) {
+      if (num4 === Infinity || num4 === -Infinity || num4 !== num4 || num4 && num4 > -1e3 && num4 < 1e3 || $test.call(/e/, str)) {
         return str;
       }
       var sepRegex = /[0-9](?=(?:[0-9]{3})+(?![0-9]))/g;
-      if (typeof num3 === "number") {
-        var int2 = num3 < 0 ? -$floor(-num3) : $floor(num3);
-        if (int2 !== num3) {
+      if (typeof num4 === "number") {
+        var int2 = num4 < 0 ? -$floor(-num4) : $floor(num4);
+        if (int2 !== num4) {
           var intStr = String(int2);
           var dec = $slice.call(str, intStr.length + 1);
           return $replace.call(intStr, sepRegex, "$&_") + "." + $replace.call($replace.call(dec, /([0-9]{3})/g, "$&_"), /_$/, "");
@@ -53076,11 +53076,11 @@ var require_ip_converter = __commonJS({
           throw new Error("Invalid IPv4 address");
         }
         return parts.map((part) => {
-          const num3 = parseInt(part, 10);
-          if (isNaN(num3) || num3 < 0 || num3 > 255) {
+          const num4 = parseInt(part, 10);
+          if (isNaN(num4) || num4 < 0 || num4 > 255) {
             throw new Error("Invalid IPv4 address part");
           }
-          return num3;
+          return num4;
         });
       }
       static parseIPv6(ip) {
@@ -53090,12 +53090,12 @@ var require_ip_converter = __commonJS({
           throw new Error("Invalid IPv6 address");
         }
         return parts.reduce((bytes, part) => {
-          const num3 = parseInt(part, 16);
-          if (isNaN(num3) || num3 < 0 || num3 > 65535) {
+          const num4 = parseInt(part, 16);
+          if (isNaN(num4) || num4 < 0 || num4 > 65535) {
             throw new Error("Invalid IPv6 address part");
           }
-          bytes.push(num3 >> 8 & 255);
-          bytes.push(num3 & 255);
+          bytes.push(num4 >> 8 & 255);
+          bytes.push(num4 & 255);
           return bytes;
         }, []);
       }
@@ -82426,8 +82426,51 @@ function calculateWrcKickerPoints(events, rawStats) {
   return Math.round((fgPoints + xpPoints) * 10) / 10;
 }
 
+// shared/espnReturnTouchdowns.ts
+function isSpecialTeamsReturnTouchdown(play) {
+  const type = (play.type?.text ?? "").toLowerCase();
+  const text = (play.text ?? "").toLowerCase();
+  const isTouchdown = type.includes("touchdown") || /\btouchdown\b/.test(text);
+  if (!isTouchdown) return false;
+  const specialTeamsType = /kickoff return|kick return|punt return|blocked punt|blocked field goal|missed field goal return/;
+  const specialTeamsText = /(kickoff|kick|punt)\s+return|returns? the (kickoff|kick|punt)|return of blocked (punt|field goal)|blocked (punt|field goal)|(punt|field goal)[^.]*\bblocked\b|missed field goal return/;
+  return specialTeamsType.test(type) || type === "" && specialTeamsText.test(text);
+}
+function parseEspnReturnTouchdowns(summary) {
+  const root = summary;
+  const counts = /* @__PURE__ */ new Map();
+  const seen = /* @__PURE__ */ new Set();
+  for (const play of root.scoringPlays ?? []) {
+    if (!isSpecialTeamsReturnTouchdown(play)) continue;
+    const team = (play.team?.abbreviation ?? "").trim().toUpperCase();
+    if (!team) continue;
+    const key = play.id !== void 0 && play.id !== null && String(play.id) !== "" ? `id:${play.id}` : `text:${team}|${play.text ?? ""}|${seen.size}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    counts.set(team, (counts.get(team) ?? 0) + 1);
+  }
+  return counts;
+}
+var BASELINE_KEY = "espnReturnTdBaseline";
+function num2(value) {
+  const parsed = Number.parseFloat(String(value ?? ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+function applyReturnTouchdownsToDefense(existingDefense, returnTouchdowns) {
+  const alreadyApplied = existingDefense[BASELINE_KEY] !== void 0;
+  if (!alreadyApplied && existingDefense.defensiveOrSpecialTeamsTds !== void 0 && existingDefense.defensiveOrSpecialTeamsTds !== null) {
+    return existingDefense;
+  }
+  const baseline = alreadyApplied ? num2(existingDefense[BASELINE_KEY]) : num2(existingDefense.defTD) + num2(existingDefense.returnTD);
+  return {
+    ...existingDefense,
+    [BASELINE_KEY]: baseline,
+    defensiveOrSpecialTeamsTds: baseline + returnTouchdowns
+  };
+}
+
 // shared/playerSeasonStats.ts
-var num2 = (value) => {
+var num3 = (value) => {
   const result = typeof value === "number" ? value : parseFloat(value ?? "0");
   return Number.isFinite(result) ? result : 0;
 };
@@ -82439,41 +82482,41 @@ function normalizeTankSeasonStats(stats, pos) {
   const kickingField = (...keys) => {
     for (const key of keys) {
       const value = kicking[key];
-      if (value !== void 0 && value !== null && String(value) !== "") return num2(value);
+      if (value !== void 0 && value !== null && String(value) !== "") return num3(value);
     }
     return void 0;
   };
   const defense = stats?.Defense ?? {};
-  const defInt = num2(defense.defensiveInterceptions);
-  const fumblesRecovered = num2(defense.fumblesRecovered);
-  const defTD = num2(defense.defTD);
-  const returnTD = num2(defense.returnTD);
-  const gp = num2(stats?.gamesPlayed);
+  const defInt = num3(defense.defensiveInterceptions);
+  const fumblesRecovered = num3(defense.fumblesRecovered);
+  const defTD = num3(defense.defTD);
+  const returnTD = num3(defense.returnTD);
+  const gp = num3(stats?.gamesPlayed);
   const wrcPts = stats ? calcFantasyPoints(stats, pos) : 0;
   return {
     gp,
-    passCmp: num2(passing.passCompletions),
-    passAtt: num2(passing.passAttempts),
-    passYds: num2(passing.passYds),
-    passTD: num2(passing.passTD),
-    passInt: num2(passing.int),
-    passRating: num2(passing.rtg),
-    rushAtt: num2(rushing.carries),
-    rushYds: num2(rushing.rushYds),
-    rushTD: num2(rushing.rushTD),
-    receptions: num2(receiving.receptions),
-    targets: num2(receiving.targets),
-    recYds: num2(receiving.recYds),
-    recTD: num2(receiving.recTD),
-    fgMade: num2(kicking.fgMade),
-    fgAtt: num2(kicking.fgAttempts),
-    fgYds: num2(kicking.fgYds),
+    passCmp: num3(passing.passCompletions),
+    passAtt: num3(passing.passAttempts),
+    passYds: num3(passing.passYds),
+    passTD: num3(passing.passTD),
+    passInt: num3(passing.int),
+    passRating: num3(passing.rtg),
+    rushAtt: num3(rushing.carries),
+    rushYds: num3(rushing.rushYds),
+    rushTD: num3(rushing.rushTD),
+    receptions: num3(receiving.receptions),
+    targets: num3(receiving.targets),
+    recYds: num3(receiving.recYds),
+    recTD: num3(receiving.recTD),
+    fgMade: num3(kicking.fgMade),
+    fgAtt: num3(kicking.fgAttempts),
+    fgYds: num3(kicking.fgYds),
     fgMade1To39: kickingField("fgMade1To39", "fgMade1_39", "fgMadeUnder40") ?? 0,
     fgMade40To49: kickingField("fgMade40To49", "fgMade40_49") ?? 0,
     fgMade50To59: kickingField("fgMade50To59", "fgMade50_59") ?? 0,
     fgMade60Plus: kickingField("fgMade60Plus", "fgMade60_99", "fgMade60OrMore") ?? 0,
-    xpMade: num2(kicking.xpMade),
-    xpAtt: num2(kicking.xpAttempts),
+    xpMade: num3(kicking.xpMade),
+    xpAtt: num3(kicking.xpAttempts),
     // Tank01 reports sacks as the combined "sacksAndYardsLost" string ("3-10"),
     // so read it the same way scoring does (sacksFrom) rather than a bare
     // defense.sacks, which is usually absent -- that left the stored D/ST sacks
@@ -82486,12 +82529,12 @@ function normalizeTankSeasonStats(stats, pos) {
     fumblesRecovered,
     takeaways: defInt + fumblesRecovered,
     defTD,
-    dstTD: num2(defense.defensiveOrSpecialTeamsTds) || defTD + returnTD,
+    dstTD: num3(defense.defensiveOrSpecialTeamsTds) || defTD + returnTD,
     returnTD,
-    safeties: num2(defense.safeties),
-    blockKicks: num2(defense.blockKick),
-    ptsAgainst: num2(defense.ptsAgainst),
-    fumblesLost: num2(defense.fumblesLost),
+    safeties: num3(defense.safeties),
+    blockKicks: num3(defense.blockKick),
+    ptsAgainst: num3(defense.ptsAgainst),
+    fumblesLost: num3(defense.fumblesLost),
     wrcPts,
     ptsPerGame: gp > 0 ? Math.round(wrcPts / gp * 10) / 10 : 0
   };
@@ -82607,12 +82650,13 @@ function weeklyRecordDelta2(h2hOutcome, beatMedian) {
   else lossesDelta += 1;
   return { winsDelta, lossesDelta };
 }
-async function fetchEspnKickerEventsForGame(game) {
+var NO_ESPN_EXTRAS = { kickerEvents: [], returnTouchdowns: /* @__PURE__ */ new Map() };
+async function fetchEspnGameExtras(game) {
   const date5 = game.gameID.split("_")[0];
-  if (!date5) return [];
+  if (!date5) return NO_ESPN_EXTRAS;
   try {
     const scoreboardResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${date5}`, { signal: AbortSignal.timeout(15e3) });
-    if (!scoreboardResponse.ok) return [];
+    if (!scoreboardResponse.ok) return NO_ESPN_EXTRAS;
     const scoreboard = await scoreboardResponse.json();
     const event = scoreboard.events?.find((candidate) => {
       const competitors = candidate.competitions?.[0]?.competitors ?? [];
@@ -82620,12 +82664,17 @@ async function fetchEspnKickerEventsForGame(game) {
       const away = competitors.find((item) => item.homeAway === "away")?.team?.abbreviation;
       return home && away && teamCode(home) === teamCode(game.home ?? "") && teamCode(away) === teamCode(game.away ?? "");
     });
-    if (!event?.id) return [];
+    if (!event?.id) return NO_ESPN_EXTRAS;
     const summaryResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${event.id}`, { signal: AbortSignal.timeout(15e3) });
-    if (!summaryResponse.ok) return [];
-    return parseEspnKickerEvents(await summaryResponse.json());
+    if (!summaryResponse.ok) return NO_ESPN_EXTRAS;
+    const summary = await summaryResponse.json();
+    const returnTouchdowns = /* @__PURE__ */ new Map();
+    parseEspnReturnTouchdowns(summary).forEach((count, espnTeam) => {
+      returnTouchdowns.set(teamCode(espnTeam), count);
+    });
+    return { kickerEvents: parseEspnKickerEvents(summary), returnTouchdowns };
   } catch {
-    return [];
+    return NO_ESPN_EXTRAS;
   }
 }
 function resolveTeamStatsKey(homeAway, game) {
@@ -82770,20 +82819,20 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
   const dstStatLines = {};
   const positionByName = new Map((players ?? []).map((p) => [normalizePlayerName(p.name), p.position]));
   const boxScores = await mapWithConcurrency(games, 5, async (game) => {
-    const [response, kickerEvents] = await Promise.all([
+    const [response, espnExtras] = await Promise.all([
       fetch(`https://${HOST}/getNFLBoxScore?gameID=${game.gameID}&fantasyPoints=true&twoPointConversions=2&passYards=.04&passTD=4&passInterceptions=-3&pointsPerReception=1&carries=0&rushYards=.1&rushTD=6&fumbles=-3&receivingYards=.1&receivingTD=6&targets=0&defTD=6&fgMade=0&fgYards=.1&xpMade=1`, { headers, signal: AbortSignal.timeout(3e4) }),
-      fetchEspnKickerEventsForGame(game)
+      fetchEspnGameExtras(game)
     ]);
     if (!response.ok) throw new Error("Unable to load an NFL box score.");
     const body = (await response.json()).body ?? {};
-    return { game, body, kickerEvents };
+    return { game, body, kickerEvents: espnExtras.kickerEvents, returnTouchdowns: espnExtras.returnTouchdowns };
   });
   const notYetFinal = boxScores.filter(({ body }) => !isGameFinal(body));
   if (notYetFinal.length > 0) {
     console.log(`[weeklyResultsFinalize] week=${week2} season=${season}: ${boxScores.length} games found, ${notYetFinal.length} not yet final:`, JSON.stringify(notYetFinal.map(({ game, body }) => ({ gameID: game.gameID, gameStatus: body?.gameStatus, gameStatusCode: body?.gameStatusCode }))));
     throw new Error("NFL games for this week are not all final yet.");
   }
-  for (const { game, body, kickerEvents } of boxScores) {
+  for (const { game, body, kickerEvents, returnTouchdowns } of boxScores) {
     Object.values(body.playerStats ?? {}).forEach((entry) => {
       if (entry.longName) {
         const normalizedName = normalizePlayerName(String(entry.longName));
@@ -82806,9 +82855,10 @@ async function finalizeWeeklyResultsFromTank(week2, season) {
       const teamAbv = resolveTeamStatsKey(homeAway, game);
       if (!teamAbv) return;
       const attributedStats = attributeOffenseFramedDefenseStats(homeAway, stats, teamStatsBody);
-      const points = defensePoints(attributedStats);
+      const withReturnTds = applyReturnTouchdownsToDefense(attributedStats, returnTouchdowns.get(teamAbv) ?? 0);
+      const points = defensePoints(withReturnTds);
       const ptsAgainst = pointsAllowedFor(homeAway, body);
-      const statLineStats = ptsAgainst === void 0 ? attributedStats : { ...attributedStats, ptsAgainst };
+      const statLineStats = ptsAgainst === void 0 ? withReturnTds : { ...withReturnTds, ptsAgainst };
       dstScores[teamAbv] = points;
       dstStatLines[teamAbv] = { ...normalizeTankSeasonStats({ Defense: statLineStats }, "DST"), wrcPts: points };
     });
@@ -85874,11 +85924,11 @@ var IpConverter = class {
       throw new Error("Invalid IPv4 address");
     }
     return parts.map((part) => {
-      const num3 = parseInt(part, 10);
-      if (isNaN(num3) || num3 < 0 || num3 > 255) {
+      const num4 = parseInt(part, 10);
+      if (isNaN(num4) || num4 < 0 || num4 > 255) {
         throw new Error("Invalid IPv4 address part");
       }
-      return num3;
+      return num4;
     });
   }
   static parseIPv6(ip) {
@@ -85888,12 +85938,12 @@ var IpConverter = class {
       throw new Error("Invalid IPv6 address");
     }
     return parts.reduce((bytes, part) => {
-      const num3 = parseInt(part, 16);
-      if (isNaN(num3) || num3 < 0 || num3 > 65535) {
+      const num4 = parseInt(part, 16);
+      if (isNaN(num4) || num4 < 0 || num4 > 65535) {
         throw new Error("Invalid IPv6 address part");
       }
-      bytes.push(num3 >> 8 & 255);
-      bytes.push(num3 & 255);
+      bytes.push(num4 >> 8 & 255);
+      bytes.push(num4 & 255);
       return bytes;
     }, []);
   }

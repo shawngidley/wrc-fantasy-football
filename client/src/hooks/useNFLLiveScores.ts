@@ -14,6 +14,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { type NFLMatchupMap } from "@/hooks/useNFLMatchups";
 import { calculateWrcKickerPoints, getKickerEventsForPlayer, mergeKickerEvents, parseEspnKickerEvents, type KickerPlayEvent } from "@/lib/espnKickerEvents";
+import { applyReturnTouchdownsToDefense, parseEspnReturnTouchdowns } from "@shared/espnReturnTouchdowns";
 import { calcFantasyPoints, type Tank01Stats } from "@/lib/scoringEngine";
 import { normalizePlayerName } from "@shared/playerNameMatch";
 import { parseEasternKickoffToUTC } from "@shared/nflKickoffTime";
@@ -246,8 +247,15 @@ export function useNFLLiveScores(
     return ids;
   }, [matchupMap]);
 
-  const fetchEspnKickerEvents = useCallback(async (activeGames: Array<{ gameDate: string; home: string; away: string }>) => {
+  /**
+   * Both things the live view needs from ESPN, from the one summary fetch per
+   * game that was already happening: exact field-goal distances, and
+   * special-teams return touchdowns, which Tank01's D/ST block never carries
+   * (see shared/espnReturnTouchdowns).
+   */
+  const fetchEspnGameExtras = useCallback(async (activeGames: Array<{ gameDate: string; home: string; away: string }>) => {
     const events: KickerPlayEvent[] = [];
+    const returnTouchdowns: Record<string, number> = {};
     const seen = new Set<string>();
     const dates = Array.from(new Set(activeGames.map(game => game.gameDate)));
     for (const date of dates) {
@@ -265,7 +273,11 @@ export function useNFLLiveScores(
           if (!event?.id) continue;
           const summary = await fetch(`/api/espn/summary?event=${event.id}`);
           if (!summary.ok) continue;
-          for (const play of parseEspnKickerEvents(await summary.json())) {
+          const summaryJson = await summary.json();
+          parseEspnReturnTouchdowns(summaryJson).forEach((count, espnTeam) => {
+            returnTouchdowns[normalizeAbv(espnTeam)] = count;
+          });
+          for (const play of parseEspnKickerEvents(summaryJson)) {
             // Scoped by game: a play from one game is never the same play as
             // one from another, and the parser's text-count fallback key is
             // only unique within a single payload. Stamped onto the event so
@@ -280,7 +292,7 @@ export function useNFLLiveScores(
         console.warn("Failed to retrieve ESPN kicker play-by-play", error);
       }
     }
-    return events;
+    return { events, returnTouchdowns };
   }, []);
 
   const fetchBoxScores = useCallback(async (gameIds: string[]): Promise<boolean> => {
@@ -319,7 +331,7 @@ export function useNFLLiveScores(
     // entry back to the real team code already known from the schedule.
     const gameTeams = new Map(activeGames.map(g => [g.gameId, { home: g.home, away: g.away }]));
 
-    const espnEvents = await fetchEspnKickerEvents(activeGames);
+    const { events: espnEvents, returnTouchdowns: espnReturnTds } = await fetchEspnGameExtras(activeGames);
     for (const gameId of activeGameIds) {
       try {
         const url = `${TANK01_BASE_URL}/getNFLBoxScore?gameID=${gameId}&fantasyPoints=true&twoPointConversions=2&passYards=.04&passTD=4&passInterceptions=-3&pointsPerReception=1&carries=0&rushYards=.1&rushTD=6&fumbles=-3&receivingYards=.1&receivingTD=6&targets=0&defTD=6&fgMade=0&fgYards=.1&xpMade=1`;
@@ -348,9 +360,18 @@ export function useNFLLiveScores(
           const teamAbv = homeAway === "home" ? teams?.home : homeAway === "away" ? teams?.away : undefined;
           if (!teamAbv) continue;
           const dWithCorrectSacks = attributeOffenseFramedDefenseStats(homeAway, d, teamStats as Record<string, Record<string, string>>);
-          const pts = calcDSTLive(dWithCorrectSacks);
+          // WRC awards a D/ST +6 for a "Defensive/ST Touchdown", but a kickoff
+          // or punt return, or a blocked kick returned for a score, is credited
+          // to the returner as a player and never reaches Tank01's D/ST block.
+          // applyReturnTouchdownsToDefense is idempotent, so re-running it on a
+          // later poll recomputes rather than accumulates.
+          const dWithReturnTds = applyReturnTouchdownsToDefense(
+            dWithCorrectSacks as Record<string, unknown>,
+            espnReturnTds[teamAbv] ?? 0,
+          );
+          const pts = calcDSTLive(dWithReturnTds as Record<string, string>);
           scoreUpdates[`dst:${teamAbv}`] = pts;
-          statUpdates[`dst:${teamAbv}`] = { Defense: dWithCorrectSacks };
+          statUpdates[`dst:${teamAbv}`] = { Defense: dWithReturnTds as Record<string, string> };
         }
       } catch (err) {
         console.warn(`Failed to fetch box score for game ${gameId}:`, err);
@@ -368,7 +389,7 @@ export function useNFLLiveScores(
       return true;
     }
     return false;
-  }, [fetchEspnKickerEvents, getActiveGames]);
+  }, [fetchEspnGameExtras, getActiveGames]);
 
   // Start/stop polling based on active games
   useEffect(() => {

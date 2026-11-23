@@ -7,6 +7,7 @@ import { resolveLineupsForWeek } from "./lineupResolution";
 import { normalizePlayerName } from "../shared/playerNameMatch";
 import { calcFantasyPoints, type Tank01Stats } from "../shared/scoringEngine";
 import { parseEspnKickerEvents, getKickerEventsForPlayer, calculateWrcKickerPoints, type KickerPlayEvent } from "../shared/espnKickerEvents";
+import { applyReturnTouchdownsToDefense, parseEspnReturnTouchdowns } from "../shared/espnReturnTouchdowns";
 import { type RosterPlayerRow } from "../shared/rosterPlayerResolution";
 import { normalizeTankSeasonStats, type PlayerSeasonStats } from "../shared/playerSeasonStats";
 import { getDraftUniversePlayerByName } from "../shared/draftPlayerUniverse";
@@ -82,12 +83,27 @@ export function weeklyRecordDelta(h2hOutcome: "W" | "L" | "T", beatMedian: boole
  * transient ESPN issue degrades to the old Tank01-based fallback for
  * kicker scoring rather than blocking the whole week's finalization.
  */
-async function fetchEspnKickerEventsForGame(game: { gameID: string; home?: string; away?: string }): Promise<KickerPlayEvent[]> {
+export type EspnGameExtras = {
+  kickerEvents: KickerPlayEvent[];
+  /** Special-teams return touchdowns, keyed by WRC team code. */
+  returnTouchdowns: Map<string, number>;
+};
+
+const NO_ESPN_EXTRAS: EspnGameExtras = { kickerEvents: [], returnTouchdowns: new Map() };
+
+/**
+ * Both things WRC needs from ESPN for one game, from a single summary fetch:
+ * per-kick field goal distances (Tank01 has no per-kick yardage) and
+ * special-teams return touchdowns (Tank01's D/ST block has only defensive
+ * scores). Deliberately one request serving both -- the summary was already
+ * being fetched here for kickers.
+ */
+async function fetchEspnGameExtras(game: { gameID: string; home?: string; away?: string }): Promise<EspnGameExtras> {
   const date = game.gameID.split("_")[0]; // gameID format: "20260914_DEN@KC" -- first segment is YYYYMMDD
-  if (!date) return [];
+  if (!date) return NO_ESPN_EXTRAS;
   try {
     const scoreboardResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?dates=${date}`, { signal: AbortSignal.timeout(15_000) });
-    if (!scoreboardResponse.ok) return [];
+    if (!scoreboardResponse.ok) return NO_ESPN_EXTRAS;
     const scoreboard = await scoreboardResponse.json() as { events?: Array<{ id?: string; competitions?: Array<{ competitors?: Array<{ homeAway?: string; team?: { abbreviation?: string } }> }> }> };
     const event = scoreboard.events?.find(candidate => {
       const competitors = candidate.competitions?.[0]?.competitors ?? [];
@@ -95,12 +111,19 @@ async function fetchEspnKickerEventsForGame(game: { gameID: string; home?: strin
       const away = competitors.find(item => item.homeAway === "away")?.team?.abbreviation;
       return home && away && teamCode(home) === teamCode(game.home ?? "") && teamCode(away) === teamCode(game.away ?? "");
     });
-    if (!event?.id) return [];
+    if (!event?.id) return NO_ESPN_EXTRAS;
     const summaryResponse = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event=${event.id}`, { signal: AbortSignal.timeout(15_000) });
-    if (!summaryResponse.ok) return [];
-    return parseEspnKickerEvents(await summaryResponse.json());
+    if (!summaryResponse.ok) return NO_ESPN_EXTRAS;
+    const summary = await summaryResponse.json();
+    // ESPN's abbreviations are mapped through teamCode so they match the keys
+    // dstScores is written under (resolveTeamStatsKey also goes through it).
+    const returnTouchdowns = new Map<string, number>();
+    parseEspnReturnTouchdowns(summary).forEach((count, espnTeam) => {
+      returnTouchdowns.set(teamCode(espnTeam), count);
+    });
+    return { kickerEvents: parseEspnKickerEvents(summary), returnTouchdowns };
   } catch {
-    return [];
+    return NO_ESPN_EXTRAS;
   }
 }
 
@@ -356,13 +379,13 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
   // vs "James Cook III").
   const positionByName = new Map((players ?? []).map(p => [normalizePlayerName(p.name), p.position]));
   const boxScores = await mapWithConcurrency(games, 5, async game => {
-    const [response, kickerEvents] = await Promise.all([
+    const [response, espnExtras] = await Promise.all([
       fetch(`https://${HOST}/getNFLBoxScore?gameID=${game.gameID}&fantasyPoints=true&twoPointConversions=2&passYards=.04&passTD=4&passInterceptions=-3&pointsPerReception=1&carries=0&rushYards=.1&rushTD=6&fumbles=-3&receivingYards=.1&receivingTD=6&targets=0&defTD=6&fgMade=0&fgYards=.1&xpMade=1`, { headers, signal: AbortSignal.timeout(30_000) }),
-      fetchEspnKickerEventsForGame(game),
+      fetchEspnGameExtras(game),
     ]);
     if (!response.ok) throw new Error("Unable to load an NFL box score.");
     const body = (await response.json()).body ?? {};
-    return { game, body, kickerEvents };
+    return { game, body, kickerEvents: espnExtras.kickerEvents, returnTouchdowns: espnExtras.returnTouchdowns };
   });
 
   const notYetFinal = boxScores.filter(({ body }) => !isGameFinal(body));
@@ -374,7 +397,7 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
     throw new Error("NFL games for this week are not all final yet.");
   }
 
-  for (const { game, body, kickerEvents } of boxScores) {
+  for (const { game, body, kickerEvents, returnTouchdowns } of boxScores) {
     Object.values(body.playerStats ?? {}).forEach((entry: any) => {
       if (entry.longName) {
         const normalizedName = normalizePlayerName(String(entry.longName));
@@ -399,12 +422,18 @@ export async function finalizeWeeklyResultsFromTank(week: number, season: number
       const teamAbv = resolveTeamStatsKey(homeAway, game);
       if (!teamAbv) return;
       const attributedStats = attributeOffenseFramedDefenseStats(homeAway, stats, teamStatsBody);
-      const points = defensePoints(attributedStats);
+      // WRC's rules award a D/ST +6 for a "Defensive/ST Touchdown", but Tank01's
+      // block only counts scores the defense itself made -- a kickoff or punt
+      // return, or a blocked kick returned for a score, goes to the returner as
+      // a player and never reaches this line. Fold ESPN's count in before
+      // scoring. A no-op for the vast majority of team-games.
+      const withReturnTds = applyReturnTouchdownsToDefense(attributedStats, returnTouchdowns.get(teamAbv) ?? 0);
+      const points = defensePoints(withReturnTds);
       // Points allowed is read off the box score's final score and attached only
       // to the stored stat line -- points are already computed above, from the
       // untouched stats, so this cannot move a defense's score.
       const ptsAgainst = pointsAllowedFor(homeAway, body);
-      const statLineStats = ptsAgainst === undefined ? attributedStats : { ...attributedStats, ptsAgainst };
+      const statLineStats = ptsAgainst === undefined ? withReturnTds : { ...withReturnTds, ptsAgainst };
       dstScores[teamAbv] = points;
       dstStatLines[teamAbv] = { ...normalizeTankSeasonStats({ Defense: statLineStats } as Tank01Stats, "DST"), wrcPts: points };
     });
