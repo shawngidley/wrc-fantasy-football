@@ -603,7 +603,7 @@ export default function Trades() {
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: "0.75rem", marginBottom: "1.25rem" }}>
           <div className="wrc-page-title" style={{ padding: 0 }}>
             <h1>Trades</h1>
-            <p>Trade deadline: Nov 26, 2026 · 12:00pm ET · Players, FAAB, and {TRADEABLE_PICK_YEARS_LABEL} draft picks are all tradeable</p>
+            <p>Trade deadline: Nov 26, 2026 · 12:30pm ET · A trade must be accepted before then · Players, FAAB, and {TRADEABLE_PICK_YEARS_LABEL} draft picks are all tradeable</p>
           </div>
           <button
             onClick={() => setShowForm(true)}

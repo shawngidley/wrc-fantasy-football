@@ -21,6 +21,7 @@ import { hasClearedWaiverHold } from "../shared/freeAgentCutRestriction";
 import { getFreeAgentMarketState } from "./faabMarketState";
 import { committedFaab, findSharedDropConflict, type BudgetBid } from "./faabBidValidation";
 import { sendSms } from "./twilioSms";
+import { isTradeDeadlinePassed, tradeDeadlineError } from "../shared/tradeDeadline";
 import { TRADE_ALERT_TEXT, isMissingAlertColumnError, leagueAlertSaveErrorMessage, tradeAlertRecipients, type AlertTeam } from "./tradeAlert";
 import { validateProtectionSubmission } from "./protectionRules";
 import { releaseUnprotectedPlayers } from "./protectionRelease";
@@ -1779,6 +1780,7 @@ export const appRouter = router({
       }))
       .mutation(async ({ input, ctx }) => {
         const fromTeamId = ctx.teamSession.teamId;
+        if (isTradeDeadlinePassed()) throw new Error(tradeDeadlineError());
         if (input.toTeamId === fromTeamId) throw new Error("You cannot propose a trade to your own team.");
         const unique = <T,>(items: T[], key: (item: T) => string) => new Set(items.map(key)).size === items.length;
         if (!unique(input.givePlayerNames, name => name.toLowerCase()) || !unique(input.receivePlayerNames, name => name.toLowerCase())
@@ -1854,6 +1856,9 @@ export const appRouter = router({
       .input(z.object({ proposalId: z.string().uuid(), action: z.enum(["accepted", "declined"]) }))
       .mutation(async ({ input, ctx }) => {
         const recipientTeamId = ctx.teamSession.teamId;
+        // Declining and cancelling stay open after the deadline so a stale
+        // proposal can still be cleared; only accepting is blocked.
+        if (input.action === "accepted" && isTradeDeadlinePassed()) throw new Error(tradeDeadlineError());
         const { data: proposal, error: proposalError } = await supabaseAdmin.from("trade_proposals")
           .select("id, from_team_id, to_team_id, give_player_ids, receive_player_ids, faab_amount, receive_faab_amount, give_picks, receive_picks, note, status")
           .eq("id", input.proposalId).eq("to_team_id", recipientTeamId).single();

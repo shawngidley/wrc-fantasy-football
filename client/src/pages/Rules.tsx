@@ -106,7 +106,7 @@ const sections = [
     title: "Trade Rules",
     items: [
       "Trades may include players, FAAB budget, and future draft picks (2026 and 2027)",
-      "Trade deadline: November 26, 2026 at 12:00pm ET",
+      "Trade deadline: November 26, 2026 at 12:30pm ET. A trade must be accepted before the deadline",
       "Owners may submit counter-offers on received trade proposals",
       "All accepted trades are logged in the Transactions page",
     ],

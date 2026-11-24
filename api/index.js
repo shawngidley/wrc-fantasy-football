@@ -81395,6 +81395,16 @@ function normalizeToE164(raw) {
   return null;
 }
 
+// shared/tradeDeadline.ts
+var TRADE_DEADLINE_MS = Date.parse("2026-11-26T12:30:00-05:00");
+var TRADE_DEADLINE_LABEL = "Thursday, Nov 26, 2026 at 12:30 PM ET";
+function isTradeDeadlinePassed(nowMs = Date.now()) {
+  return nowMs >= TRADE_DEADLINE_MS;
+}
+function tradeDeadlineError() {
+  return `The trade deadline passed on ${TRADE_DEADLINE_LABEL}. Trades can no longer be proposed or accepted.`;
+}
+
 // server/tradeAlert.ts
 var TRADE_ALERT_TEXT = "\u{1F6A8}\u{1F6A8} TRADE ALERT \u{1F6A8}\u{1F6A8} A trade has been completed in the WRC!";
 function tradeAlertRecipients(teams, excludeTeamIds = []) {
@@ -92483,6 +92493,7 @@ var appRouter = router({
       counterToId: external_exports.string().uuid().nullable()
     })).mutation(async ({ input, ctx }) => {
       const fromTeamId = ctx.teamSession.teamId;
+      if (isTradeDeadlinePassed()) throw new Error(tradeDeadlineError());
       if (input.toTeamId === fromTeamId) throw new Error("You cannot propose a trade to your own team.");
       const unique = (items, key) => new Set(items.map(key)).size === items.length;
       if (!unique(input.givePlayerNames, (name) => name.toLowerCase()) || !unique(input.receivePlayerNames, (name) => name.toLowerCase()) || !unique(input.givePicks, (pick2) => `${pick2.year}-${pick2.round}-${pick2.originalTeamId ?? "legacy"}`) || !unique(input.receivePicks, (pick2) => `${pick2.year}-${pick2.round}-${pick2.originalTeamId ?? "legacy"}`)) {
@@ -92544,6 +92555,7 @@ var appRouter = router({
     }),
     respondToTradeProposal: teamProcedure.input(external_exports.object({ proposalId: external_exports.string().uuid(), action: external_exports.enum(["accepted", "declined"]) })).mutation(async ({ input, ctx }) => {
       const recipientTeamId = ctx.teamSession.teamId;
+      if (input.action === "accepted" && isTradeDeadlinePassed()) throw new Error(tradeDeadlineError());
       const { data: proposal, error: proposalError } = await supabaseAdmin.from("trade_proposals").select("id, from_team_id, to_team_id, give_player_ids, receive_player_ids, faab_amount, receive_faab_amount, give_picks, receive_picks, note, status").eq("id", input.proposalId).eq("to_team_id", recipientTeamId).single();
       if (proposalError || !proposal || proposal.status !== "pending") throw new Error("This pending proposal is not available to your team.");
       if (input.action === "declined") {

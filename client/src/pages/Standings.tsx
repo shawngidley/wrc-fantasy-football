@@ -9,6 +9,7 @@
  */
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Navigation from "@/components/Navigation";
+import TradeDeadlineCountdown from "@/components/TradeDeadlineCountdown";
 import { useAuth } from "@/contexts/AuthContext";
 import { TrendingUp, TrendingDown, AlertTriangle, Newspaper, RefreshCw, ChevronDown } from "lucide-react";
 import { PlayerNewsRow, type PlayerNewsItem } from "@/components/PlayerNewsRow";
@@ -643,6 +644,8 @@ export default function Standings() {
         <div className="wrc-page-title" style={{ padding: "1rem 0 1.25rem" }}>
           <h1>WRC Fantasy Football 2026</h1>
         </div>
+
+        <TradeDeadlineCountdown />
 
         {/* Weekly Matchup Widget — only when logged in */}
         {!authLoading && ownerKey && (
