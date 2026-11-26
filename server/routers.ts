@@ -16,6 +16,7 @@ import { supabaseAdmin } from "./supabaseAdmin";
 import { loadPlayerRows, makePlayerId, rosterPlayerForTeam } from "./rosterPlayerForTeam";
 import { resolveLineupsForWeek } from "./lineupResolution";
 import { getLineupDefaultWeek, getFaabBiddingWeek, SCHEDULE_2026 } from "../client/src/lib/scheduleData2026";
+import { isOwnerCutWindowOpen, OWNER_CUT_WINDOW_CLOSED_MESSAGE } from "../shared/ownerCut";
 import { hasWeekKickedOff, hasPlayerTeamGameStarted } from "./nflWeekKickoffCheck";
 import { hasClearedWaiverHold } from "../shared/freeAgentCutRestriction";
 import { getFreeAgentMarketState } from "./faabMarketState";
@@ -1218,6 +1219,86 @@ export const appRouter = router({
           .eq("status", "pending");
         if (updateError) throw new Error(`Unable to update the group's win count: ${updateError.message}`);
         return { updated: true, groupId: input.groupId, maxWins: input.maxWins };
+      }),
+    cutPlayer: teamProcedure
+      .input(z.object({ playerId: z.string().min(1).max(128) }))
+      .mutation(async ({ input, ctx }) => {
+        const teamId = ctx.teamSession.teamId;
+        if (!isOwnerCutWindowOpen()) throw new Error(OWNER_CUT_WINDOW_CLOSED_MESSAGE);
+        // Scoped to the signed-in team, so this can only ever release a player
+        // the caller actually holds -- never another owner's.
+        const { data: player, error: playerError } = await supabaseAdmin
+          .from("players")
+          .select("id, name, position, nfl_team")
+          .eq("id", input.playerId)
+          .eq("team_id", teamId)
+          .maybeSingle();
+        if (playerError) throw new Error("Unable to load this player.");
+        if (!player) throw new Error("That player is not on your roster.");
+
+        const week = getLineupDefaultWeek();
+        let gameStarted: boolean;
+        try {
+          gameStarted = player.nfl_team ? await hasPlayerTeamGameStarted(player.nfl_team, week, 2026) : false;
+        } catch {
+          gameStarted = true; // fail safe, same as bids and instant adds
+        }
+        if (gameStarted) {
+          throw new Error(`${player.name}'s game has already started this week -- he can't be cut until next week.`);
+        }
+
+        // A pending FAAB bid that names him as the drop would be left pointing
+        // at a player the team no longer has.
+        const { data: bidsUsingPlayer, error: bidError } = await supabaseAdmin
+          .from("faab_bids")
+          .select("id, player_name")
+          .eq("team_id", teamId)
+          .eq("status", "pending")
+          .eq("drop_player_id", player.id);
+        if (bidError) throw new Error("Unable to check your pending bids.");
+        if (bidsUsingPlayer && bidsUsingPlayer.length > 0) {
+          throw new Error(`${player.name} is the drop on your pending bid for ${bidsUsingPlayer[0].player_name}. Cancel that bid first.`);
+        }
+
+        const { data: team, error: teamError } = await supabaseAdmin.from("teams").select("name").eq("id", teamId).single();
+        if (teamError || !team) throw new Error("Unable to validate this cut.");
+
+        const { data: released, error: dropError } = await supabaseAdmin.from("players")
+          .update({ team_id: null, acquisition: "FA", draft_round: null, draft_pick: null, dropped_at: new Date().toISOString() })
+          .eq("id", player.id)
+          .eq("team_id", teamId)
+          .select("id");
+        if (dropError) throw new Error("Unable to cut this player.");
+        if (!released || released.length === 0) throw new Error("That player is no longer on your roster.");
+
+        // Clear his saved lineup slot for this week and any later saved week.
+        // Never earlier: a past week's saved lineup is the record a finalized
+        // score was built from. Matched by id and by name, since saved lineups
+        // carry inconsistent ids. Logged rather than thrown because scoring is
+        // already safe without it -- buildEffectiveStarters does not score a
+        // saved starter who is no longer on the roster, and backfills the slot.
+        const { error: idClearError } = await supabaseAdmin.from("lineups").delete()
+          .eq("team_id", teamId).eq("season", 2026).gte("week", week).eq("player_id", player.id);
+        const { error: nameClearError } = await supabaseAdmin.from("lineups").delete()
+          .eq("team_id", teamId).eq("season", 2026).gte("week", week).eq("player_name", player.name);
+        if (idClearError || nameClearError) {
+          console.error("[cutPlayer] could not clear lineup slot", idClearError ?? nameClearError);
+        }
+
+        // Same row shape the FAAB award writes for its DROP: owner carries the
+        // team name and a dropped player's nfl team reads "FA".
+        const { error: moveError } = await supabaseAdmin.from("roster_moves").insert({
+          move_type: "DROP",
+          team_name: team.name,
+          owner: team.name,
+          player_name: player.name,
+          player_pos: player.position ?? "\u2014",
+          player_nfl_team: "FA",
+          faab_spent: null,
+          note: "Cut -- no pickup",
+        });
+        if (moveError) console.error("[cutPlayer] could not log roster move", moveError);
+        return { cut: true, playerName: player.name };
       }),
     instantAddFreeAgent: teamProcedure
       .input(z.object({
@@ -2551,7 +2632,7 @@ export const appRouter = router({
       .input(z.object({ playerName: z.string().min(1).max(128) }))
       .query(async ({ input }) => {
         const { data, error } = await supabaseAdmin.from("players")
-          .select("team_id, acquisition, draft_round, teams(name, owner)")
+          .select("id, team_id, acquisition, draft_round, teams(name, owner)")
           .ilike("name", input.playerName)
           .limit(1)
           .maybeSingle();
@@ -2566,13 +2647,14 @@ export const appRouter = router({
           // staleTime -- so the scan is a few hundred rostered rows, not a hot
           // path.
           const { data: rostered, error: rosteredError } = await supabaseAdmin.from("players")
-            .select("name, team_id, acquisition, draft_round, teams(name, owner)")
+            .select("id, name, team_id, acquisition, draft_round, teams(name, owner)")
             .not("team_id", "is", null);
           if (rosteredError) throw new Error("Unable to load player ownership.");
           const wanted = normalizePlayerName(input.playerName);
           row = (rostered ?? []).find(candidate => normalizePlayerName(String(candidate.name ?? "")) === wanted) ?? null;
         }
         return row ? {
+          playerId: row.id,
           teamId: row.team_id,
           acquisition: row.acquisition,
           draftRound: row.draft_round,

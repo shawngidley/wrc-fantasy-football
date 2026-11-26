@@ -149,6 +149,18 @@ describe("private league procedures", () => {
       .rejects.toMatchObject({ code: "FORBIDDEN" });
   });
 
+  // Cutting is destructive and irreversible: it releases a player to waivers
+  // with no pickup. It must reject a caller with no session before it reaches
+  // the database, and the procedure itself is scoped to the signed-in team, so
+  // one owner can never release another's player.
+  it("rejects unauthenticated player cuts", async () => {
+    readWrcTeamSession.mockResolvedValue(null);
+    const caller = appRouter.createCaller({ req: {} as never, res: {} as never, user: null });
+
+    await expect(caller.league.cutPlayer({ playerId: "shawn-some-player" }))
+      .rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  });
+
   it("rejects unauthenticated commissioner money-management edits", async () => {
     readWrcTeamSession.mockResolvedValue(null);
     const caller = appRouter.createCaller({ req: {} as never, res: {} as never, user: null });

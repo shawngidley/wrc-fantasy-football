@@ -40,6 +40,7 @@ import { InjuryTag } from "@/components/InjuryTag";
 import TeamLogo from "@/components/TeamLogo";
 import { PlayerNewsRow, type PlayerNewsItem } from "@/components/PlayerNewsRow";
 import { trpc } from "@/lib/trpc";
+import CutPlayerButton from "@/components/CutPlayerButton";
 import { getVisiblePlayerNews } from "@/lib/playerNewsDisplay";
 import { selectPlayerNews } from "@/lib/playerNewsSelect";
 import { getOverallEcrDisplay } from "@/lib/playerRankDisplay";
@@ -64,6 +65,8 @@ function Insight({ label, value }: { label: string; value: string }) {
 
 // ── Redacted server-side ownership lookup ────────────────────────────────────
 type OwnershipResult = {
+  playerId: string;
+  teamId: string;
   teamName: string;
   owner: string;
   acquisition: string;
@@ -77,7 +80,7 @@ type OwnershipResult = {
   useEffect(() => {
     const row = ownershipQuery.data;
     if (!row?.teamId) { setOwnership(null); return; }
-    setOwnership({ teamName: row.teamName ?? row.teamId, owner: row.owner ?? "", acquisition: row.acquisition ?? "Draft", round: row.draftRound ?? null });
+    setOwnership({ playerId: row.playerId, teamId: row.teamId, teamName: row.teamName ?? row.teamId, owner: row.owner ?? "", acquisition: row.acquisition ?? "Draft", round: row.draftRound ?? null });
   }, [ownershipQuery.data]);
 
   return { ownership, ownerLoading: Boolean(playerName) && (ownershipQuery.isLoading || ownershipQuery.isFetching) };
@@ -1390,6 +1393,11 @@ export default function PlayerPage() {
                   </p>
                 )}
               </div>
+            )}
+
+            {/* ── Cut (owners only, own players only) ── */}
+            {franchise && ownership && ownership.teamId === franchise.id && player && (
+              <CutPlayerButton playerId={ownership.playerId} playerName={player.longName} />
             )}
 
             {/* ── Pre-season notice ── */}
